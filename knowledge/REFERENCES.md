@@ -17,10 +17,17 @@ Related repo-specific guidance: [Foundations](FOUNDATIONS.md)
 - `flake-parts` option reference: full option index, including `perSystem`. `https://flake.parts/options/flake-parts.html`
 - `flake-file`: generates the root `flake.nix` from repo declarations. `https://flake-file.oeiuwq.com/overview/`
 - Dendritic pattern guide: the main reference for the modular flake structure used here, especially the basics, aspect patterns, and comprehensive example. `https://github.com/Doc-Steve/dendritic-design-with-flake-parts`
+- Dendritic basics: the reference for feature naming, `flake.modules.<class>.<aspect>`, and `flake-parts.nix` boilerplate placement. `https://github.com/Doc-Steve/dendritic-design-with-flake-parts/wiki/Basics#basics-for-usage-of-the-dendritic-pattern`
+- Dendritic comprehensive example: the closest reference for how this repo organizes hosts and users as feature directories rather than central registries. `https://github.com/Doc-Steve/dendritic-design-with-flake-parts/wiki/Comprehensive_Example#comprehensive-example`
 - `import-tree`: helper used to import the `modules/` tree into `mkFlake`. `https://github.com/vic/import-tree`
+- `import-tree` docs: reference for recursive import behavior, including the default convention that ignores paths containing `/_`. `https://import-tree.oeiuwq.com`
 
 ## Workflow Inputs
 
+- `home-manager`: NixOS and standalone Home Manager modules used for user-level configuration in this repo. `https://nix-community.github.io/home-manager/`
+- `disko`: declarative disk layout module used for host storage definitions. Start at the docs index, then use the quickstart, reference guide, and examples when shaping a host layout. `https://github.com/nix-community/disko/blob/master/docs/INDEX.md`
+- `disko` quickstart: simplest install flow and first configuration shape. `https://github.com/nix-community/disko/blob/master/docs/quickstart.md`
+- `disko` reference: detailed option and CLI reference. `https://github.com/nix-community/disko/blob/master/docs/reference.md`
 - `mcp-nixos`: upstream flake providing the packaged MCP server used by the wrapped `opencode` package. `https://github.com/utensils/mcp-nixos`
 - `treefmt-nix`: formatting integration used by the repo formatter and pre-commit gate. `https://github.com/numtide/treefmt-nix`
 - `git-hooks.nix`: pre-commit hook integration used to install and run the repo gate. `https://github.com/cachix/git-hooks.nix`

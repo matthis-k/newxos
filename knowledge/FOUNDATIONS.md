@@ -96,10 +96,13 @@ perSystem = { self', ... }: {
 
 - The repo uses the dendritic pattern to compose behavior from many small modules under `modules/`.
 - The root flake is intentionally thin; expect most repo behavior to be declared in imported modules.
+- The main structural references are the Dendritic Basics and comprehensive example, especially their use of `flake.modules.<class>.<aspect>` plus small `flake-parts.nix` boilerplate files per feature.
 - Organize by concern or feature first, not by one giant central file.
+- A feature directory may contain multiple files that all contribute to the same aspect; use filenames like `configuration.nix`, `filesystem.nix`, `home-manager.nix`, or `flake-parts.nix` to make each contribution obvious.
 - Keep modules small and composable so a change usually belongs in one nearby place.
 - When a behavior spans contexts, look for the smallest shared module or pattern instead of copying logic across hosts or outputs.
 - If you are unsure where something lives, start by locating the module that imports or exposes the behavior rather than debugging from the generated root flake.
+- Reusable configuration building blocks live under `flake.modules`, while concrete flake outputs are usually exposed from a nearby `flake-parts.nix` file through a small helper such as `inputs.self.lib.mkNixos`.
 - Workflow impact: when changing behavior, inspect the relevant module under `modules/` before assuming the root flake is the source of truth.
 - External docs: [Flake Composition](REFERENCES.md#flake-composition)
 
@@ -110,6 +113,18 @@ perSystem = { self', ... }: {
 - `dendritic-workflow-module` shows the next step up: keep extra `flake-file` input declarations in their own module, import upstream flake modules at the top level, and expose concrete workflow outputs from `perSystem`.
 - Both templates are meant to be read as module-structure examples first and starter flakes second; their READMEs call out the repo's common flake-file and flake-parts mistakes.
 - Workflow impact: when adding a new template, expose it from a dedicated module and verify it appears in `nix flake show "path:$PWD"`.
+
+## NixOS Host Layout
+
+- NixOS systems are exposed from host feature directories under `modules/hosts/<hostname>/`, following the guide's comprehensive-example style instead of using one central host registry file.
+- Flake inputs for system modules such as `home-manager` and `disko` live in feature modules under `modules/nix/tools/` so root input declarations stay separate from host behavior.
+- Each host feature exposes a `flake-parts.nix` file for the concrete `nixosConfigurations` output and sibling files that contribute to the shared `flake.modules.nixos.<hostname>` aspect.
+- Each host owns its imported NixOS modules, including host-local disk layout and user-linking files, instead of pushing those concerns back into a root registry.
+- Home Manager user definitions live under `modules/users/<name>/`, where separate files contribute to `flake.modules.nixos.<name>` and `flake.modules.homeManager.<name>`.
+- The shared helper `inputs.self.lib.mkNixos` constructs concrete systems from `inputs.self.modules.nixos.<hostname>`, and `inputs.self.lib.mkHomeManager` does the same for standalone Home Manager configs.
+- Use the upstream `disko` docs and examples as the reference for layout changes; other local host layouts are examples, not the source of truth.
+- Workflow impact: after adding or renaming a host, regenerate `flake.nix`, then verify the new entry shows up under `nixosConfigurations` in `nix flake show "path:$PWD"`.
+- External docs: [Flake Composition](REFERENCES.md#flake-composition), [Workflow Inputs](REFERENCES.md#workflow-inputs)
 
 ## Flake-File Generation Workflow
 
