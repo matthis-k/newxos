@@ -8,6 +8,7 @@ Repo-specific workflow for agents lives here. Durable concepts and repo memory l
 
 ## Primary Workflow
 - Trust the local files and `nix flake show/check "path:$PWD"` over stale docs if they disagree.
+- Treat local repo files as the source of truth for this flake's structure and behavior, and use MCP-NixOS / `nixos_nix` as the source of truth for upstream NixOS, Home Manager, darwin, and nixpkgs options or package metadata.
 - In a fresh clone, start with `nix develop "path:$PWD"` if you want hooks installed automatically before the first commit.
 - Use the `path:$PWD` form for local Nix commands during agent work; plain `.` can fail in an untracked checkout.
 - If you change flake-file declarations, regenerate first with `nix run "path:$PWD#write-flake"`.
