@@ -3,22 +3,25 @@
   perSystem =
     {
       pkgs,
+      system,
       ...
     }:
+    let
+      mcpNixosPackages = inputs.mcp-nixos.packages.${system} or null;
+    in
     {
-      packages.opencode = inputs.nix-wrapper-modules.wrappers.opencode.wrap {
-        inherit pkgs;
+      packages = lib.optionalAttrs (mcpNixosPackages != null) {
+        opencode = inputs.nix-wrapper-modules.wrappers.opencode.wrap {
+          inherit pkgs;
 
-        settings = {
-          "$schema" = "https://opencode.ai/config.json";
+          settings = {
+            "$schema" = "https://opencode.ai/config.json";
 
-          mcp.nixos = {
-            type = "local";
-            command = [
-              (lib.getExe' pkgs.uv "uvx")
-              "mcp-nixos"
-            ];
-            enabled = true;
+            mcp.nixos = {
+              type = "local";
+              command = [ (lib.getExe mcpNixosPackages.default) ];
+              enabled = true;
+            };
           };
         };
       };

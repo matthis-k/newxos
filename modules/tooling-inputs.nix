@@ -13,6 +13,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    inputs.mcp-nixos = {
+      url = "github:utensils/mcp-nixos";
+    };
+
     inputs.treefmt-nix = {
       url = "github:numtide/treefmt-nix";
       inputs.nixpkgs.follows = "nixpkgs";
