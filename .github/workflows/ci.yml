@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  flake-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Regenerate flake.nix
+        run: nix run "path:$PWD#write-flake"
+
+      - name: Confirm generated files are up to date
+        run: git diff --exit-code -- flake.nix
+
+      - name: Run flake checks
+        run: nix flake check "path:$PWD"
