@@ -21,6 +21,14 @@
   };
 
   flake.modules.homeManager.matthisk = {
+    imports = with inputs.self.modules.homeManager; [
+      git
+      hyprland
+      kitty
+      neovim
+      zen-browser
+    ];
+
     home.username = "matthisk";
     home.homeDirectory = "/home/matthisk";
     home.stateVersion = "25.11";

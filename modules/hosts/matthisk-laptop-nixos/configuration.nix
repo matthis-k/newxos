@@ -12,6 +12,7 @@
       audio
       disko
       homeManager
+      hyprland
       locales
       networking
       nix
@@ -19,6 +20,7 @@
     ];
 
     networking.hostName = "matthisk-laptop-nixos";
+    services.displayManager.autoLogin.user = "matthisk";
     system.stateVersion = "25.11";
   };
 }
