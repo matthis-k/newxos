@@ -103,6 +103,14 @@ perSystem = { self', ... }: {
 - Workflow impact: when changing behavior, inspect the relevant module under `modules/` before assuming the root flake is the source of truth.
 - External docs: [Flake Composition](REFERENCES.md#flake-composition)
 
+## Template Outputs
+
+- The flake exports two example templates under `flake.templates`: `dendritic-simple-module` and `dendritic-workflow-module`.
+- `dendritic-simple-module` is the smallest useful example for adding one focused `perSystem` module with a package and app.
+- `dendritic-workflow-module` shows the next step up: keep extra `flake-file` input declarations in their own module, import upstream flake modules at the top level, and expose concrete workflow outputs from `perSystem`.
+- Both templates are meant to be read as module-structure examples first and starter flakes second; their READMEs call out the repo's common flake-file and flake-parts mistakes.
+- Workflow impact: when adding a new template, expose it from a dedicated module and verify it appears in `nix flake show "path:$PWD"`.
+
 ## Flake-File Generation Workflow
 
 - `flake.nix` is generated from flake-file declarations, so edits to flake-file-managed inputs or structure should be made in the local module source and then regenerated.
