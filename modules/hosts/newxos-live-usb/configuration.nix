@@ -19,6 +19,7 @@
     ]);
 
     networking.hostName = "newxos-live-usb";
+    nix.channel.enable = false;
     system.stateVersion = "25.11";
 
     isoImage.configurationName = "newxos live usb";

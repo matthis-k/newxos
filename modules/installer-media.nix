@@ -7,7 +7,13 @@ let
   repoSource = builtins.path {
     path = self;
     name = "newxos-installer-source";
-    filter = path: _type: builtins.baseNameOf path != ".git";
+    filter =
+      path: _type:
+      !(builtins.elem (builtins.baseNameOf path) [
+        ".git"
+        ".direnv"
+        "result"
+      ]);
   };
 
   mkFirstTimeInstall =
