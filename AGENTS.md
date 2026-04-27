@@ -5,6 +5,8 @@
 - `flake.nix` is generated. Its header says `DO-NOT-EDIT`; regenerate it with `nix run "path:$PWD#write-flake"`.
 - The real local source of truth is `modules/`; local workflow/tooling also lives there.
 - `flake.nix` wires `inputs.flake-file.flakeModules.dendritic` into `flake-parts.lib.mkFlake` via `inputs.import-tree ./modules`, so most behavior comes from imported modules rather than handwritten root logic.
+- In `perSystem`, prefer flake-parts' `inputs'` and `self'` for system-specific outputs instead of manually indexing `inputs.<name>.packages.${system}`.
+- flake-parts module functions only receive explicitly named arguments; if a module needs `pkgs`, `inputs'`, or `self'`, include them in the function signature.
 
 ## Commands
 - Enter the default dev shell for normal local work: `nix develop "path:$PWD"`
@@ -14,6 +16,7 @@
 - Format repo files through treefmt: `nix run "path:$PWD#fmt"`
 - Run the local pre-commit gate manually: `nix run "path:$PWD#repo-gate"`
 - Install the managed pre-commit hook into `.git/hooks`: `nix run "path:$PWD#install-git-hooks"`
+- Run the wrapped OpenCode package with MCP-NixOS preconfigured: `nix run "path:$PWD#opencode"`
 - The flake also exposes helper packages `write-inputs` and `write-lock`; inspect them with `nix flake show "path:$PWD"` before using them.
 
 ## Workflow Gotchas
@@ -22,6 +25,7 @@
 - `nix fmt` on `.` is not reliable in an untracked checkout; use `nix run "path:$PWD#fmt"` during local agent work.
 - The installed pre-commit hook runs `write-flake -> fmt -> flake check`; if it rewrites files, re-stage them and re-run the commit.
 - CI lives in `.github/workflows/ci.yml` and enforces generated `flake.nix` freshness plus `nix flake check`.
+- The wrapped `opencode` package preconfigures MCP-NixOS via `uvx mcp-nixos`, so the MCP server is resolved at runtime rather than being built into this flake.
 - If docs disagree with local flake outputs or module files, trust the local files and `nix flake show/check`.
 
 ## Change Workflow
