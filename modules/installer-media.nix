@@ -32,8 +32,8 @@ let
         pkgs.util-linux
       ];
       text = ''
-        if [ "$#" -ne 2 ]; then
-          echo "usage: first-time-install <host> <target-disk>" >&2
+        if [ "$#" -ne 1 ]; then
+          echo "usage: first-time-install <host>" >&2
           exit 2
         fi
 
@@ -42,7 +42,6 @@ let
         fi
 
         host="$1"
-        target="$2"
         flake_root=/etc/newxos
         root_mountpoint=/mnt
 
@@ -51,16 +50,10 @@ let
           exit 1
         fi
 
-        if [ ! -b "$target" ]; then
-          echo "target must be a block device path, got: $target" >&2
-          exit 1
-        fi
-
         disko \
           --mode destroy,format,mount \
           --root-mountpoint "$root_mountpoint" \
-          --flake "$flake_root#$host" \
-          --argstr mainDisk "$target"
+          --flake "$flake_root#$host"
 
         nixos-install \
           --root "$root_mountpoint" \
