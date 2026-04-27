@@ -37,4 +37,6 @@ Related repo-specific guidance: [Foundations](FOUNDATIONS.md)
 ## Configured Programs
 
 - OpenCode upstream: terminal coding agent used by the wrapped `opencode` package. `https://github.com/anomalyco/opencode`
+- OpenCode config docs: config file locations, merge behavior, and the `instructions` setting used in this repo. `https://opencode.ai/docs/config/`
+- OpenCode rules docs: `AGENTS.md` behavior, precedence, and external instruction loading. `https://opencode.ai/docs/rules/`
 - OpenCode config schema: authoritative schema for the wrapped `opencode` settings. `https://opencode.ai/config.json`

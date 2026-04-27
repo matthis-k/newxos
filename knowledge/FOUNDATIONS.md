@@ -4,6 +4,14 @@ Repo-specific design and workflow notes for how this flake is structured and how
 
 Related external docs: [References](REFERENCES.md)
 
+## OpenCode Instruction Loading
+
+- `AGENTS.md` stays as the concise, human-readable entrypoint for repo guidance.
+- Additional durable rules live under `knowledge/` and are loaded for OpenCode through the root `opencode.json` `instructions` array.
+- Keep the Markdown links in `AGENTS.md` even though opencode loads the files separately; the links are for GitHub readability and manual navigation.
+- If you rename, move, add, or remove instruction files under `knowledge/`, update both `AGENTS.md` links and `opencode.json`.
+- External docs: [Configured Programs](REFERENCES.md#configured-programs)
+
 ## How To Keep This Current
 
 - Add or update a section when the repo's architecture, composition pattern, or workflow meaningfully changes.

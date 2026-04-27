@@ -1,6 +1,6 @@
 # AGENTS
 
-Repo-specific workflow for agents lives here. Durable concepts and repo memory live in the linked knowledge files so they stay readable on GitHub:
+Repo-specific workflow for agents lives here. Durable concepts and repo memory live in the linked knowledge files so they stay readable on GitHub and can be loaded through `opencode.json`:
 
 - [References](knowledge/REFERENCES.md)
 - [Foundations](knowledge/FOUNDATIONS.md)
