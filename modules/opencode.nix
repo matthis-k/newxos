@@ -1,17 +1,19 @@
-{ inputs, lib, ... }:
+{
+  inputs,
+  lib,
+  withSystem,
+  ...
+}:
 {
   perSystem =
     {
+      inputs',
       pkgs,
-      system,
       ...
     }:
     let
-      mcpNixosPackages = inputs.mcp-nixos.packages.${system} or null;
-    in
-    {
-      packages = lib.optionalAttrs (mcpNixosPackages != null) {
-        opencode = inputs.nix-wrapper-modules.wrappers.opencode.wrap {
+      wrappedOpencode = builtins.tryEval (
+        inputs.nix-wrapper-modules.wrappers.opencode.wrap {
           inherit pkgs;
 
           settings = {
@@ -19,11 +21,24 @@
 
             mcp.nixos = {
               type = "local";
-              command = [ (lib.getExe mcpNixosPackages.default) ];
+              command = [ (lib.getExe inputs'.mcp-nixos.packages.default) ];
               enabled = true;
             };
           };
-        };
+        }
+      );
+    in
+    {
+      packages = lib.optionalAttrs wrappedOpencode.success {
+        opencode = wrappedOpencode.value;
       };
+    };
+
+  flake.modules.nixos.opencode =
+    { pkgs, ... }:
+    {
+      environment.systemPackages = withSystem pkgs.stdenv.hostPlatform.system (
+        { self', ... }: lib.optional (self'.packages ? opencode) self'.packages.opencode
+      );
     };
 }

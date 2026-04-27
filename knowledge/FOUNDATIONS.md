@@ -34,10 +34,12 @@ Related external docs: [References](REFERENCES.md)
 - For any top-level key under `imports`, `perSystem`, or `flake`, check the upstream `flake-parts` option reference before inventing new structure; this repo follows that upstream option model.
 - If this repo exports reusable flake-parts modules through `flake.flakeModules`, do not import them back through `self`; bind the module value directly and, when it needs local flake scope, pass that scope explicitly with `importApply` or an equivalent `let`-bound module.
 - Inside `perSystem`, prefer flake-parts' `inputs'` and `self'` for system-specific packages and outputs instead of manually indexing `inputs.<name>.packages.${system}`.
+- When a top-level `flake.modules.*` module needs a per-system package or output, bridge into the system scope with `withSystem` and use `self'` or `config` there instead of reaching for `self.packages.${system}` manually.
 - Flake-parts module functions only receive explicitly named arguments; if a module needs `pkgs`, `inputs'`, or `self'`, include them in the function signature.
 - If a `flake.modules.nixos.<name>` value needs NixOS module arguments such as `modulesPath`, `config`, or `lib` from the NixOS module system, make the value itself a NixOS module function rather than requesting those arguments from the outer flake-parts module.
-- If a system-specific upstream package may not exist on every supported system, guard its presence with the global input plus the explicit `system` argument from `perSystem`, then use the resolved package inside the conditional branch.
+- If a system-specific upstream package may not exist or may refuse evaluation on some supported systems, probe or guard it in `perSystem` before exposing it, and make downstream NixOS modules check whether the corresponding `self'.packages` entry exists.
 - Workflow impact: many evaluation mistakes in this repo come from mixing global flake inputs with the per-system view.
+- Related problems: [2026-04-27: reaching for `self.packages.${system}` instead of `withSystem` and `self'`](ENCOUNTERED-PROBLEMS.md#2026-04-27-reaching-for-selfpackagessystem-instead-of-withsystem-and-self)
 - External docs: [Flake Composition](REFERENCES.md#flake-composition), especially the `flake-parts` option reference
 
 ### Core Patterns
@@ -102,6 +104,24 @@ treefmt.projectRoot = builtins.path {
 perSystem = { self', ... }: {
   apps.default.program = "${self'.packages.example}/bin/example";
 };
+```
+
+Use `withSystem` when a top-level flake module needs a per-system output:
+
+```nix
+{
+  withSystem,
+  ...
+}:
+{
+  flake.modules.nixos.example =
+    { pkgs, lib, ... }:
+    {
+      environment.systemPackages = withSystem pkgs.stdenv.hostPlatform.system (
+        { self', ... }: lib.optional (self'.packages ? example) self'.packages.example
+      );
+    };
+}
 ```
 
 ## Dendritic Module Pattern Here

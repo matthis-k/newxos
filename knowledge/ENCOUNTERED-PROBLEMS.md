@@ -27,3 +27,14 @@ Related knowledge: [Foundations](FOUNDATIONS.md), [References](REFERENCES.md)
 - Rule: keep flake-parts arguments and NixOS module arguments separate; request NixOS-only arguments inside the module value, not at the outer file boundary
 - Context: adding the generated laptop `hardware-configuration.nix` as a host module
 - Related knowledge: [Flake-Parts Usage Here](FOUNDATIONS.md#flake-parts-usage-here), [NixOS Host Layout](FOUNDATIONS.md#nixos-host-layout), [Flake Composition](REFERENCES.md#flake-composition)
+
+### 2026-04-27: reaching for `self.packages.${system}` instead of `withSystem` and `self'`
+
+- Date: `2026-04-27`
+- Problem: manually indexing `self.packages.${system}` from a top-level `flake.modules.nixos.*` module
+- Symptom: the code works but sidesteps the flake-parts per-system access pattern and makes it easy to mix top-level and per-system scopes incorrectly
+- Cause: forgetting that `self'` is only available inside the per-system scope entered through `withSystem`
+- Fix: use `withSystem pkgs.stdenv.hostPlatform.system ({ self', ... }: ...)` inside the NixOS module and read the package from `self'.packages`
+- Rule: in top-level flake modules, use `withSystem` to enter the system scope; inside `perSystem`, use `inputs'` and `self'` instead of manual `${system}` indexing when the per-system view exists
+- Context: exposing the wrapped `opencode` package through a reusable NixOS module while keeping unsupported systems non-fatal
+- Related knowledge: [Flake-Parts Usage Here](FOUNDATIONS.md#flake-parts-usage-here), [Flake Composition](REFERENCES.md#flake-composition)

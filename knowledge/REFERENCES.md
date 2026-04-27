@@ -15,6 +15,8 @@ Related repo-specific guidance: [Foundations](FOUNDATIONS.md)
 
 - `flake-parts`: core module system and `perSystem` model used by this flake. Start here for the high-level model, then use the option reference for concrete module keys and merge behavior. `https://flake.parts/`
 - `flake-parts` option reference: canonical option index for the schema this repo's flake modules implement, including `imports`, `perSystem`, `flake`, and nested option shapes. `https://flake.parts/options/flake-parts.html`
+- `flake-parts` module arguments: canonical reference for `inputs'`, `self'`, `withSystem`, and `moduleWithSystem`, plus the rule that module functions only receive explicitly named arguments. `https://flake.parts/module-arguments.html`
+- `flake-parts.modules` docs: reference for publishing typed modules under `flake.modules.<class>.*` and for using `withSystem` from those modules when they need per-system outputs. `https://flake.parts/options/flake-parts-modules.html`
 - `flake-parts` reusable-module guide: reference for exporting `flake.flakeModules`, why they cannot be imported back through `self`, and when to use `importApply` to pass local flake scope into a reusable module. `https://flake.parts/dogfood-a-reusable-module.html`
 - `flake-file`: generates the root `flake.nix` from repo declarations. `https://flake-file.oeiuwq.com/overview/`
 - Dendritic pattern guide: the main reference for the modular flake structure used here, especially the basics, aspect patterns, and comprehensive example. `https://github.com/Doc-Steve/dendritic-design-with-flake-parts`
