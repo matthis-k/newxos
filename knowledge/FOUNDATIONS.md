@@ -188,3 +188,13 @@ Use `withSystem` when a top-level flake module needs a per-system output:
 - The MCP server is wired to the packaged executable from the dedicated `mcp-nixos` flake input, so the server version is pinned by the flake lock instead of being resolved at runtime through `uvx`.
 - Workflow impact: when changing this package, verify both the package output and the packaged `mcp-nixos` executable path it resolves to on the current system.
 - External docs: [Workflow Inputs](REFERENCES.md#workflow-inputs), [Configured Programs](REFERENCES.md#configured-programs)
+
+## Wrapper Modules
+
+- This repo can expose configured end-user programs as wrapped `perSystem.packages` built with `nix-wrapper-modules`, then install those packages from NixOS or Home Manager modules with `withSystem` and `self'.packages`.
+- Use wrapper packages when a program should carry repo-owned configuration with it, such as the wrapped `opencode`, `kitty`, or `neovim` outputs.
+- Prefer the wrapper module path when this repo already exposes one for a program, instead of wiring the raw upstream package directly into host or Home Manager config.
+- For `kitty`, keep repo-owned raw config in `configs/kitty/kitty.conf` and feed it into the wrapper via `extraConfig`; use wrapper options such as `font` and `themeFile` when they match the desired shape.
+- For `neovim`, prefer `wlib.wrapperModules.neovim` through the exported wrapper and point `settings.config_directory` at the repo config directory under `configs/nvim`.
+- Workflow impact: after changing a wrapped package, confirm the relevant package still evaluates through `nix flake show "path:$PWD"` and the consuming host or home configuration still passes `nix flake check "path:$PWD"`.
+- External docs: [Workflow Inputs](REFERENCES.md#workflow-inputs)
