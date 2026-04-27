@@ -36,10 +36,12 @@ Related external docs: [References](REFERENCES.md)
 - Inside `perSystem`, prefer flake-parts' `inputs'` and `self'` for system-specific packages and outputs instead of manually indexing `inputs.<name>.packages.${system}`.
 - When a top-level `flake.modules.*` module needs a per-system package or output, bridge into the system scope with `withSystem` and use `self'` or `config` there instead of reaching for `self.packages.${system}` manually.
 - Flake-parts module functions only receive explicitly named arguments; if a module needs `pkgs`, `inputs'`, or `self'`, include them in the function signature.
+- Do not use outer file/module-function arguments to parameterize an exported `flake.modules.nixos.*` module unless you also provide them explicitly via `_module.args` or another external caller. Once that value is evaluated by the NixOS module system, names like `mainDisk` are treated as module arguments, and even a defaulted outer argument will still fail if nothing provides it.
 - If a `flake.modules.nixos.<name>` value needs NixOS module arguments such as `modulesPath`, `config`, or `lib` from the NixOS module system, make the value itself a NixOS module function rather than requesting those arguments from the outer flake-parts module.
 - If a system-specific upstream package may not exist or may refuse evaluation on some supported systems, probe or guard it in `perSystem` before exposing it, and make downstream NixOS modules check whether the corresponding `self'.packages` entry exists.
 - Workflow impact: many evaluation mistakes in this repo come from mixing global flake inputs with the per-system view.
 - Related problems: [2026-04-27: reaching for `self.packages.${system}` instead of `withSystem` and `self'`](ENCOUNTERED-PROBLEMS.md#2026-04-27-reaching-for-selfpackagessystem-instead-of-withsystem-and-self)
+- Related problems: [2026-04-28: defaulted outer module args still require `_module.args` when reused as NixOS modules](ENCOUNTERED-PROBLEMS.md#2026-04-28-defaulted-outer-module-args-still-require-_moduleargs-when-reused-as-nixos-modules)
 - External docs: [Flake Composition](REFERENCES.md#flake-composition), especially the `flake-parts` option reference
 
 ### Core Patterns

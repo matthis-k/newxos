@@ -38,3 +38,14 @@ Related knowledge: [Foundations](FOUNDATIONS.md), [References](REFERENCES.md)
 - Rule: in top-level flake modules, use `withSystem` to enter the system scope; inside `perSystem`, use `inputs'` and `self'` instead of manual `${system}` indexing when the per-system view exists
 - Context: exposing the wrapped `opencode` package through a reusable NixOS module while keeping unsupported systems non-fatal
 - Related knowledge: [Flake-Parts Usage Here](FOUNDATIONS.md#flake-parts-usage-here), [Flake Composition](REFERENCES.md#flake-composition)
+
+### 2026-04-28: defaulted outer module args still require `_module.args` when reused as NixOS modules
+
+- Date: `2026-04-28`
+- Problem: using a defaulted outer file/module-function argument like `mainDisk ? "/dev/..."` to parameterize a value exported under `flake.modules.nixos.*`
+- Symptom: evaluation succeeds for shallow flake output discovery, but forcing the NixOS module can fail with `attribute 'mainDisk' missing`
+- Cause: once the exported value is evaluated by the NixOS module system, `mainDisk` is treated as a module argument and resolved through `_module.args`; the outer default does not behave like a normal local binding there
+- Fix: replace the pseudo-parameter with a `let` binding for fixed values, or provide a real NixOS option / explicit `_module.args` when configurability is required
+- Rule: do not parameterize exported `flake.modules.nixos.*` modules with ad hoc outer arguments unless you also arrange to pass them explicitly during NixOS module evaluation
+- Context: `disko.devices.disk.main.device` in the laptop host filesystem module broke `first-time-install`
+- Related knowledge: [Flake-Parts Usage Here](FOUNDATIONS.md#flake-parts-usage-here), [NixOS Host Layout](FOUNDATIONS.md#nixos-host-layout), [Flake Composition](REFERENCES.md#flake-composition)
