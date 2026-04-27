@@ -1,10 +1,13 @@
-{ ... }:
+{
+  mainDisk ? "/dev/disk/by-id/ata-SAMSUNG_SSD_PM871b_M.2_2280_256GB_S3U0NE0JB62490",
+  ...
+}:
 {
   flake.modules.nixos.matthisk-laptop-nixos = {
     disko.devices = {
       disk.main = {
         type = "disk";
-        device = "/dev/disk/by-id/ata-SAMSUNG_SSD_PM871b_M.2_2280_256GB_S3U0NE0JB62490";
+        device = mainDisk;
         content = {
           type = "gpt";
           partitions = {

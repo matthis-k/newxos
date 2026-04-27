@@ -123,12 +123,15 @@ perSystem = { self', ... }: {
 - Flake inputs for system modules such as `home-manager` and `disko` live in small root-level feature modules under `modules/` so the input wiring stays close to the module that uses it.
 - Each host feature can expose its concrete `nixosConfigurations` output directly from the same file that defines the host module, while sibling files contribute additional host-local concerns when needed.
 - Prefer shared root-level `flake.modules.nixos.<aspect>` modules for host-independent system basics such as Nix settings, networking, locales, audio, or sudo policy; concrete hosts should import those shared modules and keep only host-local boot, hardware, storage, and user-linking concerns nearby.
+- Installation-media hosts can follow the same pattern: import the upstream NixOS installer module from `inputs.nixpkgs`, keep the concrete ISO host under `modules/hosts/<hostname>/`, and move reusable live-media behavior such as bundled repo content or helper binaries into a shared root-level module.
 - Each host owns its imported NixOS modules, including host-local disk layout and user-linking files, instead of pushing those concerns back into a root registry.
 - Keep generated hardware modules focused on detected hardware defaults. If storage is managed by `disko`, omit generated `fileSystems`, `swapDevices`, and other duplicate filesystem declarations so `disko` remains the source of truth.
+- If a live installer needs to install this flake offline, bundle a filtered copy of the repo into the ISO through `environment.etc` and point installer helpers at that bundled flake path instead of assuming network access or a separate checkout.
 - Home Manager user definitions live under `modules/users/<name>/`, and a single nearby file may define both `flake.modules.nixos.<name>` and `flake.modules.homeManager.<name>` when those settings are tightly related.
 - Concrete systems are exposed directly from feature files with `inputs.nixpkgs.lib.nixosSystem`, and standalone Home Manager configs are exposed with `inputs.home-manager.lib.homeManagerConfiguration`.
 - Use the upstream `disko` docs and examples as the reference for layout changes; other local host layouts are examples, not the source of truth.
 - Workflow impact: after adding or renaming a host, regenerate `flake.nix`, then verify the new entry shows up under `nixosConfigurations` in `nix flake show "path:$PWD"`.
+- Workflow impact: destructive installer helpers should be validated by building their package derivation and evaluating the ISO host, not by executing the install flow during normal repo verification.
 - Related problems: [2026-04-27: `modulesPath` missing from outer flake-parts module args](ENCOUNTERED-PROBLEMS.md#2026-04-27-modulespath-missing-from-outer-flake-parts-module-args)
 - External docs: [Flake Composition](REFERENCES.md#flake-composition), [Workflow Inputs](REFERENCES.md#workflow-inputs)
 
