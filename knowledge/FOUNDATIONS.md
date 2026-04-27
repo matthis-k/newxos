@@ -16,18 +16,21 @@ Related external docs: [References](REFERENCES.md)
 - This repo is a minimal `flake-file` + `flake-parts` wrapper, not a conventional app or library tree.
 - `flake.nix` is generated and marked `DO-NOT-EDIT`; local source of truth lives in `modules/`.
 - `flake.nix` wires `inputs.flake-file.flakeModules.dendritic` into `flake-parts.lib.mkFlake` via `inputs.import-tree ./modules`, so behavior mainly comes from imported modules rather than handwritten root logic.
+- Treat the `flake-parts` option reference as the canonical schema for top-level module declarations in this repo; local files under `modules/` are implementations of those documented options.
 - Verification entrypoints: `nix flake show "path:$PWD"` and `nix flake check "path:$PWD"`.
 - External docs: [Flake Composition](REFERENCES.md#flake-composition)
 
 ## Flake-Parts Usage Here
 
 - Use plain `inputs` for global flake wiring and metadata.
+- For any top-level key under `imports`, `perSystem`, or `flake`, check the upstream `flake-parts` option reference before inventing new structure; this repo follows that upstream option model.
+- If this repo exports reusable flake-parts modules through `flake.flakeModules`, do not import them back through `self`; bind the module value directly and, when it needs local flake scope, pass that scope explicitly with `importApply` or an equivalent `let`-bound module.
 - Inside `perSystem`, prefer flake-parts' `inputs'` and `self'` for system-specific packages and outputs instead of manually indexing `inputs.<name>.packages.${system}`.
 - Flake-parts module functions only receive explicitly named arguments; if a module needs `pkgs`, `inputs'`, or `self'`, include them in the function signature.
 - If a `flake.modules.nixos.<name>` value needs NixOS module arguments such as `modulesPath`, `config`, or `lib` from the NixOS module system, make the value itself a NixOS module function rather than requesting those arguments from the outer flake-parts module.
 - If a system-specific upstream package may not exist on every supported system, guard its presence with the global input plus the explicit `system` argument from `perSystem`, then use the resolved package inside the conditional branch.
 - Workflow impact: many evaluation mistakes in this repo come from mixing global flake inputs with the per-system view.
-- External docs: [Flake Composition](REFERENCES.md#flake-composition)
+- External docs: [Flake Composition](REFERENCES.md#flake-composition), especially the `flake-parts` option reference
 
 ### Core Patterns
 
