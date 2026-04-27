@@ -24,6 +24,7 @@ Related external docs: [References](REFERENCES.md)
 - Use plain `inputs` for global flake wiring and metadata.
 - Inside `perSystem`, prefer flake-parts' `inputs'` and `self'` for system-specific packages and outputs instead of manually indexing `inputs.<name>.packages.${system}`.
 - Flake-parts module functions only receive explicitly named arguments; if a module needs `pkgs`, `inputs'`, or `self'`, include them in the function signature.
+- If a `flake.modules.nixos.<name>` value needs NixOS module arguments such as `modulesPath`, `config`, or `lib` from the NixOS module system, make the value itself a NixOS module function rather than requesting those arguments from the outer flake-parts module.
 - If a system-specific upstream package may not exist on every supported system, guard its presence with the global input plus the explicit `system` argument from `perSystem`, then use the resolved package inside the conditional branch.
 - Workflow impact: many evaluation mistakes in this repo come from mixing global flake inputs with the per-system view.
 - External docs: [Flake Composition](REFERENCES.md#flake-composition)
@@ -121,11 +122,14 @@ perSystem = { self', ... }: {
 - NixOS systems are exposed from host feature directories under `modules/hosts/<hostname>/`, following the guide's comprehensive-example style instead of using one central host registry file.
 - Flake inputs for system modules such as `home-manager` and `disko` live in small root-level feature modules under `modules/` so the input wiring stays close to the module that uses it.
 - Each host feature can expose its concrete `nixosConfigurations` output directly from the same file that defines the host module, while sibling files contribute additional host-local concerns when needed.
+- Prefer shared root-level `flake.modules.nixos.<aspect>` modules for host-independent system basics such as Nix settings, networking, locales, audio, or sudo policy; concrete hosts should import those shared modules and keep only host-local boot, hardware, storage, and user-linking concerns nearby.
 - Each host owns its imported NixOS modules, including host-local disk layout and user-linking files, instead of pushing those concerns back into a root registry.
+- Keep generated hardware modules focused on detected hardware defaults. If storage is managed by `disko`, omit generated `fileSystems`, `swapDevices`, and other duplicate filesystem declarations so `disko` remains the source of truth.
 - Home Manager user definitions live under `modules/users/<name>/`, and a single nearby file may define both `flake.modules.nixos.<name>` and `flake.modules.homeManager.<name>` when those settings are tightly related.
 - Concrete systems are exposed directly from feature files with `inputs.nixpkgs.lib.nixosSystem`, and standalone Home Manager configs are exposed with `inputs.home-manager.lib.homeManagerConfiguration`.
 - Use the upstream `disko` docs and examples as the reference for layout changes; other local host layouts are examples, not the source of truth.
 - Workflow impact: after adding or renaming a host, regenerate `flake.nix`, then verify the new entry shows up under `nixosConfigurations` in `nix flake show "path:$PWD"`.
+- Related problems: [2026-04-27: `modulesPath` missing from outer flake-parts module args](ENCOUNTERED-PROBLEMS.md#2026-04-27-modulespath-missing-from-outer-flake-parts-module-args)
 - External docs: [Flake Composition](REFERENCES.md#flake-composition), [Workflow Inputs](REFERENCES.md#workflow-inputs)
 
 ## Flake-File Generation Workflow

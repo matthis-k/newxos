@@ -44,7 +44,6 @@
             size = "16GiB";
             content = {
               type = "swap";
-              resumeDevice = true;
             };
           };
 

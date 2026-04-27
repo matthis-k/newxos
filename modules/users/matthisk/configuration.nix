@@ -11,7 +11,12 @@
     users.users.matthisk = {
       isNormalUser = true;
       description = "matthisk";
-      extraGroups = [ "wheel" ];
+      extraGroups = [
+        "networkmanager"
+        "wheel"
+        "video"
+        "audio"
+      ];
     };
   };
 
