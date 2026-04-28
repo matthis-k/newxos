@@ -8,6 +8,8 @@
   };
 
   flake.modules.nixos.matthisk = {
+    imports = with inputs.self.modules.nixos; [ fish ];
+
     users.users.matthisk = {
       isNormalUser = true;
       description = "matthisk";
@@ -22,6 +24,7 @@
 
   flake.modules.homeManager.matthisk = {
     imports = with inputs.self.modules.homeManager; [
+      fish
       git
       hyprland
       kitty
