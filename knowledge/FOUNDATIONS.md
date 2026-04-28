@@ -184,6 +184,17 @@ Use `withSystem` when a top-level flake module needs a per-system output:
 - CI enforces generated `flake.nix` freshness plus `nix flake check`.
 - External docs: [Workflow Inputs](REFERENCES.md#workflow-inputs)
 
+## Sops-Nix Secret Workflow
+
+- `sops-nix` is the repo's secret-management path for encrypted files that must land on a system or in a user home at activation time.
+- Keep `sops` recipient rules in the repo root `.sops.yaml` and store encrypted secret payloads under `secrets/`.
+- For this repo's current personal-machine setup, `sops-nix` decrypts with the root-owned `age` key at `/var/lib/sops-nix/key.txt`; that private key stays outside the repo and must be backed up separately.
+- Interactive secret editing uses the wrapped `sops` command from this flake, which runs as the normal user but fetches the age identity through `SOPS_AGE_KEY_CMD='sudo cat /var/lib/sops-nix/key.txt'`.
+- Store SSH private keys and similar opaque payloads as one-file `binary` secrets and expose them with `sops.secrets.<name>.path` when a program expects a fixed on-disk location.
+- Keep non-secret companions such as SSH public keys as normal tracked files when the user needs to copy them into external systems like GitHub.
+- Workflow impact: after adding or rotating a secret, re-encrypt the `secrets/` file with `sops`, keep `.sops.yaml` recipients current, and verify with `nix flake check "path:$PWD"`.
+- External docs: [Workflow Inputs](REFERENCES.md#workflow-inputs)
+
 ## Wrapped OpenCode Package
 
 - The flake exposes `nix run "path:$PWD#opencode"` as a wrapped OpenCode package with MCP-NixOS preconfigured.

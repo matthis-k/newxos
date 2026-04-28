@@ -32,6 +32,10 @@ Related repo-specific guidance: [Foundations](FOUNDATIONS.md)
 - `disko` quickstart: simplest install flow and first configuration shape. `https://github.com/nix-community/disko/blob/master/docs/quickstart.md`
 - `disko` reference: detailed option and CLI reference. `https://github.com/nix-community/disko/blob/master/docs/reference.md`
 - `mcp-nixos`: upstream flake providing the packaged MCP server used by the wrapped `opencode` package. `https://github.com/utensils/mcp-nixos`
+- `sops-nix`: declarative secret provisioning used here to install encrypted secrets such as SSH private keys onto the target system at activation time. `https://github.com/Mic92/sops-nix`
+- `sops`: the editor and encryption CLI used to create and rotate the encrypted files consumed by `sops-nix`. `https://github.com/getsops/sops`
+- `age`: modern file encryption tool used here as the `sops-nix` recipient format. `https://age-encryption.org/`
+- `ssh-to-age`: helper for converting SSH keys into `age` recipients when this repo later needs machine or user SSH keys as `sops` recipients. `https://github.com/Mic92/ssh-to-age`
 - `treefmt-nix`: formatting integration used by the repo formatter and pre-commit gate. `https://github.com/numtide/treefmt-nix`
 - `git-hooks.nix`: pre-commit hook integration used to install and run the repo gate. `https://github.com/cachix/git-hooks.nix`
 - `nix-wrapper-modules`: wrapper helpers used to expose the configured `opencode` package. `https://github.com/BirdeeHub/nix-wrapper-modules`

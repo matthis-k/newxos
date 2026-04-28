@@ -1,0 +1,7 @@
+keys:
+  - &matthisk age1a6elxtyh5ujwns9tgk0vqw56wj4vl63ufcxhclprcngpf48gssxs2pgzu8
+creation_rules:
+  - path_regex: ^secrets/[^/]+$
+    key_groups:
+      - age:
+          - *matthisk

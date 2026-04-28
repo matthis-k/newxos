@@ -17,6 +17,7 @@
       networking
       nix
       security
+      sops
     ];
 
     networking.hostName = "matthisk-laptop-nixos";
