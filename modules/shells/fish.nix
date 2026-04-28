@@ -1,17 +1,37 @@
-{ ... }:
+{ inputs, ... }:
 {
+  flake-file.inputs.nix-index-database = {
+    url = "github:nix-community/nix-index-database";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+
   flake.modules.nixos.fish =
     { pkgs, ... }:
     {
+      imports = [ inputs.nix-index-database.nixosModules.nix-index ];
+
+      programs.command-not-found.enable = false;
       programs.fish.enable = true;
+      programs.nix-index.enable = true;
+      programs.nix-index.enableFishIntegration = false;
+      programs.nix-index-database.comma.enable = true;
       users.defaultUserShell = pkgs.fish;
     };
 
   flake.modules.homeManager.fish =
     { pkgs, ... }:
     {
+      imports = [ inputs.nix-index-database.homeModules.nix-index ];
+
+      home.packages = with pkgs; [
+        dust
+        hyperfine
+      ];
+
       programs = {
         bat.enable = true;
+        bottom.enable = true;
+        command-not-found.enable = false;
         direnv = {
           enable = true;
           enableFishIntegration = true;
@@ -51,11 +71,17 @@
             c = "z";
             cat = "bat";
             ci = "zi";
+            du = "dust";
             find = "fd";
             grep = "rg";
             ls = "eza";
             yy = "yazi";
           };
+        };
+        nix-index = {
+          enable = true;
+          enableFishIntegration = false;
+          symlinkToCacheHome = true;
         };
         fzf = {
           enable = true;

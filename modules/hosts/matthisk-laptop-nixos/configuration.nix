@@ -16,6 +16,7 @@
       locales
       networking
       nix
+      nordvpn
       security
       sops
     ];

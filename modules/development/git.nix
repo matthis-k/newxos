@@ -35,6 +35,11 @@
         };
       };
 
+      programs.delta = {
+        enable = true;
+        enableGitIntegration = true;
+      };
+
       programs.gh.enable = true;
       programs.lazygit.enable = true;
 
