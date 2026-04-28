@@ -8,7 +8,10 @@
   };
 
   flake.modules.nixos.matthisk = {
-    imports = with inputs.self.modules.nixos; [ fish ];
+    imports = with inputs.self.modules.nixos; [
+      fish
+      git
+    ];
 
     users.users.matthisk = {
       isNormalUser = true;
@@ -19,14 +22,6 @@
         "video"
         "audio"
       ];
-    };
-
-    sops.secrets.github_id = {
-      format = "binary";
-      mode = "0600";
-      owner = "matthisk";
-      path = "/home/matthisk/.ssh/github_id";
-      sopsFile = ../../../secrets/github_id;
     };
 
     security.sudo.extraRules = lib.mkAfter [
@@ -58,8 +53,6 @@
     home.homeDirectory = "/home/matthisk";
     home.stateVersion = "25.11";
 
-    home.file.".ssh/github_id.pub".source = ../../../secrets/github_id.pub;
-
     programs.home-manager.enable = true;
 
     programs.ssh = {
@@ -76,12 +69,6 @@
         controlMaster = "no";
         controlPath = "~/.ssh/master-%r@%n:%p";
         controlPersist = "no";
-      };
-      matchBlocks."github.com" = {
-        hostname = "github.com";
-        identitiesOnly = true;
-        identityFile = "~/.ssh/github_id";
-        user = "git";
       };
     };
   };
