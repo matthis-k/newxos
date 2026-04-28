@@ -34,10 +34,10 @@
       };
     };
 
-  flake.modules.nixos.opencode =
+  flake.modules.homeManager.opencode =
     { pkgs, ... }:
     {
-      environment.systemPackages = withSystem pkgs.stdenv.hostPlatform.system (
+      home.packages = withSystem pkgs.stdenv.hostPlatform.system (
         { self', ... }: lib.optional (self'.packages ? opencode) self'.packages.opencode
       );
     };

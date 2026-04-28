@@ -26,6 +26,7 @@
       hyprland
       kitty
       neovim
+      opencode
       zen-browser
     ];
 
