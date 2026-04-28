@@ -19,6 +19,8 @@
           settings = {
             "$schema" = "https://opencode.ai/config.json";
 
+            permission.external_directory."/nix/store/**" = "allow";
+
             mcp = {
               github = {
                 type = "local";
