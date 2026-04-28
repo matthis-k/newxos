@@ -191,15 +191,17 @@ Use `withSystem` when a top-level flake module needs a per-system output:
 - For this repo's current personal-machine setup, `sops-nix` decrypts with the root-owned `age` key at `/var/lib/sops-nix/key.txt`; that private key stays outside the repo and must be backed up separately.
 - Interactive secret editing uses the wrapped `sops` command from this flake, which runs as the normal user but fetches the age identity through `SOPS_AGE_KEY_CMD='sudo cat /var/lib/sops-nix/key.txt'`.
 - Store SSH private keys and similar opaque payloads as one-file `binary` secrets and expose them with `sops.secrets.<name>.path` when a program expects a fixed on-disk location.
+- Store GitHub PATs the same way when they need to bootstrap local CLI or MCP auth without an interactive login; the current setup uses a binary secret at `/run/secrets/github_token`.
 - Keep non-secret companions such as SSH public keys as normal tracked files when the user needs to copy them into external systems like GitHub.
 - Workflow impact: after adding or rotating a secret, re-encrypt the `secrets/` file with `sops`, keep `.sops.yaml` recipients current, and verify with `nix flake check "path:$PWD"`.
 - External docs: [Workflow Inputs](REFERENCES.md#workflow-inputs)
 
 ## Wrapped OpenCode Package
 
-- The flake exposes `nix run "path:$PWD#opencode"` as a wrapped OpenCode package with MCP-NixOS preconfigured.
-- The MCP server is wired to the packaged executable from the dedicated `mcp-nixos` flake input, so the server version is pinned by the flake lock instead of being resolved at runtime through `uvx`.
-- Workflow impact: when changing this package, verify both the package output and the packaged `mcp-nixos` executable path it resolves to on the current system.
+- The flake exposes `nix run "path:$PWD#opencode"` as a wrapped OpenCode package with MCP-NixOS and GitHub MCP preconfigured.
+- The NixOS MCP server is wired to the packaged executable from the dedicated `mcp-nixos` flake input, so that server version is pinned by the flake lock instead of being resolved at runtime through `uvx`.
+- The GitHub MCP server is wired to `pkgs.github-mcp-server` and runs in local `stdio` mode. It expects `GITHUB_PERSONAL_ACCESS_TOKEN` in its environment; this repo provisions that from the `sops`-managed `/run/secrets/github_token` file through the git module's shell setup rather than relying on `gh`'s own stored auth state.
+- Workflow impact: when changing this package, verify both MCP server executable paths still resolve on the current system and that `nix flake show "path:$PWD"` still exposes the wrapped `opencode` package.
 - External docs: [Workflow Inputs](REFERENCES.md#workflow-inputs), [Configured Programs](REFERENCES.md#configured-programs)
 
 ## Wrapper Modules

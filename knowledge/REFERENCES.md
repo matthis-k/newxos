@@ -32,6 +32,7 @@ Related repo-specific guidance: [Foundations](FOUNDATIONS.md)
 - `disko` quickstart: simplest install flow and first configuration shape. `https://github.com/nix-community/disko/blob/master/docs/quickstart.md`
 - `disko` reference: detailed option and CLI reference. `https://github.com/nix-community/disko/blob/master/docs/reference.md`
 - `mcp-nixos`: upstream flake providing the packaged MCP server used by the wrapped `opencode` package. `https://github.com/utensils/mcp-nixos`
+- `github-mcp-server`: GitHub's official MCP server; use its README for auth, toolsets, and local `stdio` configuration details. `https://github.com/github/github-mcp-server`
 - `sops-nix`: declarative secret provisioning used here to install encrypted secrets such as SSH private keys onto the target system at activation time. `https://github.com/Mic92/sops-nix`
 - `sops`: the editor and encryption CLI used to create and rotate the encrypted files consumed by `sops-nix`. `https://github.com/getsops/sops`
 - `age`: modern file encryption tool used here as the `sops-nix` recipient format. `https://age-encryption.org/`

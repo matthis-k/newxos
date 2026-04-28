@@ -19,10 +19,22 @@
           settings = {
             "$schema" = "https://opencode.ai/config.json";
 
-            mcp.nixos = {
-              type = "local";
-              command = [ (lib.getExe inputs'.mcp-nixos.packages.default) ];
-              enabled = true;
+            mcp = {
+              github = {
+                type = "local";
+                command = [
+                  (lib.getExe pkgs.github-mcp-server)
+                  "stdio"
+                ];
+                environment.GITHUB_PERSONAL_ACCESS_TOKEN = "{env:GITHUB_PERSONAL_ACCESS_TOKEN}";
+                enabled = true;
+              };
+
+              nixos = {
+                type = "local";
+                command = [ (lib.getExe inputs'.mcp-nixos.packages.default) ];
+                enabled = true;
+              };
             };
           };
         }

@@ -46,10 +46,6 @@
             if not set -q SSH_AUTH_SOCK
               eval (${pkgs.openssh}/bin/ssh-agent -c) > /dev/null
             end
-
-            for ssh_key in (${pkgs.fd}/bin/fd --base-directory ~/.ssh/ "id_*" -E "id_*.pub" -a)
-              ${pkgs.openssh}/bin/ssh-add $ssh_key &> /dev/null
-            end
           '';
           shellAliases = {
             c = "z";
