@@ -13,8 +13,11 @@
     in
     {
       environment.systemPackages = with pkgs; [
+        brightnessctl
         hyprpolkitagent
+        playerctl
         wl-clipboard
+        wireplumber
       ];
 
       environment.variables = {
@@ -63,10 +66,16 @@
       };
     };
 
-  flake.modules.homeManager.hyprland = {
-    xdg.configFile."hypr" = {
-      source = ../../configs/hypr;
-      recursive = true;
+  flake.modules.homeManager.hyprland =
+    { ... }:
+    {
+      xdg.configFile."hypr" = {
+        source = ../../configs/hypr;
+        recursive = true;
+      };
+
+      xdg.configFile."hypr/nix-import.lua".text = ''
+        return {}
+      '';
     };
-  };
 }

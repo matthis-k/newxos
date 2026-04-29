@@ -184,6 +184,22 @@ Use `withSystem` when a top-level flake module needs a per-system output:
 - CI enforces generated `flake.nix` freshness plus `nix flake check`.
 - External docs: [Workflow Inputs](REFERENCES.md#workflow-inputs)
 
+## Hyprland Lua Config Workflow
+
+- `configs/hypr/hyprland.lua` is the hand-written root Hyprland config and should stay focused on session behavior, layout, gestures, and binding registration logic.
+- `configs/hypr/keybinds.lua` is now the hand-written structured keybind source and should stay easy to copy into non-NixOS Hyprland setups.
+- Home Manager's `wayland.windowManager.hyprland.plugins` option currently generates `~/.config/hypr/hyprland.conf` entries, so it is not the right loading hook for this repo's Lua-native `hyprland.lua` setup.
+- `modules/desktops/hyprland.nix` copies the whole `configs/hypr/` directory into Home Manager and also generates `~/.config/hypr/nix-import.lua` for values that should come from Nix.
+- Structured keybind data lives directly in `configs/hypr/keybinds.lua` and mirrors the runtime Lua shape: a root local `{ keybinds, submaps }` table.
+- Root `keybinds` are the unnamed global binds that become active again after `hl.dsp.submap("reset")`.
+- Nested entries under `submaps.<name>` are emitted as named submaps and registered with `hl.define_submap(name, ...)`. Submaps can nest arbitrarily through their own `submaps` field.
+- A submap's optional `reset_to` field maps directly to the second `hl.define_submap` argument, so a submap can jump to `reset` or chain into another submap after dispatch.
+- `hyprland.lua` loads `keybinds.lua` with `pcall(require, ...)`, so a broken keybind module fails locally instead of aborting the rest of the compositor config.
+- Keybind values are raw Lua expressions written directly in `keybinds.lua`, so they can reference `hl` directly and benefit from Lua tooling and copy-paste reuse.
+- Because `keybinds` are modeled as attribute sets keyed by the bind string, bind registration order is deterministic but sorted by key name rather than preserved from source order. This is fine for unique keys, but catch-all or overlapping binds may eventually need an ordered list representation.
+- Workflow impact: when changing keybind behavior, prefer editing `configs/hypr/keybinds.lua` rather than hardcoding more binds back into `hyprland.lua`. Verify with `nix run "path:$PWD#repo-gate"` after changing either file.
+- External docs: [Workflow Inputs](REFERENCES.md#workflow-inputs)
+
 ## Sops-Nix Secret Workflow
 
 - `sops-nix` is the repo's secret-management path for encrypted files that must land on a system or in a user home at activation time.
