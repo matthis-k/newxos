@@ -1,8 +1,11 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "instructions": [
-    "knowledge/REFERENCES.md",
-    "knowledge/FOUNDATIONS.md",
-    "knowledge/ENCOUNTERED-PROBLEMS.md"
+    "knowledge/README.md",
+    "knowledge/workflow.md",
+    "knowledge/flake-structure.md",
+    "knowledge/libraries/index.md",
+    "knowledge/patterns/index.md",
+    "knowledge/encountered_issues.md"
   ]
 }
