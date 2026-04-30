@@ -28,6 +28,12 @@ Related repo-specific guidance: [Foundations](FOUNDATIONS.md)
 ## Workflow Inputs
 
 - `home-manager`: NixOS and standalone Home Manager modules used for user-level configuration in this repo. `https://nix-community.github.io/home-manager/`
+- `Stylix`: theming framework used here for shared NixOS and Home Manager color-scheme plumbing, with per-target opt-outs where wrapper-owned themes should stay authoritative. `https://nix-community.github.io/stylix/`
+- `Stylix` installation docs: authoritative import paths for `nixosModules.stylix` and `homeModules.stylix`, plus release-alignment guidance. `https://nix-community.github.io/stylix/installation.html`
+- `Stylix` configuration docs: reference for `stylix.base16Scheme`, `stylix.override`, target toggles, and inheritance behavior. `https://nix-community.github.io/stylix/configuration.html`
+- `Stylix` kitty target docs: reference for the kitty-specific target toggles and overrides, including `stylix.targets.kitty.enable`. `https://nix-community.github.io/stylix/options/modules/kitty.html`
+- `Stylix` fish target docs: reference for the built-in fish target and its Base16-driven shell integration. `https://nix-community.github.io/stylix/options/modules/fish.html`
+- `catppuccin/fish`: official Fish theme port whose color mapping this repo mirrors for the generated Stylix-backed fish theme. `https://github.com/catppuccin/fish`
 - `Hyprland` wiki home: versioned entrypoint to the full docs; by default this tracks the latest git documentation and links outward to setup, configuring, ecosystem, and Wayland background pages. `https://wiki.hypr.land/`
 - `Hyprland` wiki start page: canonical reference for the Lua config model, file location, and core API shape now used by this repo's Hyprland configuration. `https://wiki.hypr.land/Configuring/Start/`
 - `Hyprland` basics index: first-stop overview for the core config areas you will usually expand next, including variables, monitors, binds, dispatchers, rules, and autostart. `https://wiki.hypr.land/Configuring/Basics/`

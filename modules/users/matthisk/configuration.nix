@@ -46,12 +46,13 @@
       neovim
       opencode
       sops
+      stylix
       zen-browser
     ];
 
     home.username = "matthisk";
     home.homeDirectory = "/home/matthisk";
-    home.stateVersion = "25.11";
+    home.stateVersion = "26.05";
 
     programs.home-manager.enable = true;
 

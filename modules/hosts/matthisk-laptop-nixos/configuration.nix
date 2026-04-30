@@ -19,6 +19,7 @@
       nordvpn
       security
       sops
+      stylix
     ];
 
     networking.hostName = "matthisk-laptop-nixos";

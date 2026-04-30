@@ -15,8 +15,11 @@
           name = "Hack Nerd Font";
           size = 10;
         };
-        themeFile = "Catppuccin-Mocha";
-        extraConfig = builtins.readFile ../../configs/kitty/kitty.conf;
+        extraConfig = ''
+          include ~/.config/kitty/stylix-theme.auto.conf
+
+          ${builtins.readFile ../../configs/kitty/kitty.conf}
+        '';
       };
     };
 

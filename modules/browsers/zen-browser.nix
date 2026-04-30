@@ -21,6 +21,8 @@
         package = zenPackage;
       };
 
+      stylix.targets.zen-browser.profileNames = [ "default" ];
+
       home.sessionVariables.BROWSER = "zen-beta";
     };
 }

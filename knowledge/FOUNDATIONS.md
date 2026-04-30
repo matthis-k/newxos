@@ -184,6 +184,22 @@ Use `withSystem` when a top-level flake module needs a per-system output:
 - CI enforces generated `flake.nix` freshness plus `nix flake check`.
 - External docs: [Workflow Inputs](REFERENCES.md#workflow-inputs)
 
+## Stylix Workflow
+
+- Shared Stylix wiring lives under `modules/stylix/` rather than being folded into a host or user module, so both NixOS and standalone Home Manager outputs can import the same repo-owned theme defaults.
+- The repo keeps a full Catppuccin Mocha semantic palette in `modules/stylix/stylix.nix` and uses it as the default for the repo-owned `stylix.fullPalette` option.
+- The shared Stylix modules define `stylix.fullPalette` for both NixOS and Home Manager, and the NixOS module passes the selected palette into Home Manager through `home-manager.sharedModules` by default so user-level targets follow the system palette unless overridden.
+- Stylix derives its `base16Scheme` from `stylix.fullPalette` instead of reading the scheme from `pkgs.base16-schemes`, so the semantic and Base16 views stay in sync.
+- The NixOS Stylix module disables `stylix.homeManagerIntegration.autoImport` so the repo's explicit `flake.modules.homeManager.stylix` import remains the single Home Manager Stylix entrypoint for both standalone and NixOS-managed users.
+- When enabling Stylix for a user, import both the shared `stylix` module and any target-specific override modules that keep wrapper-owned themes authoritative.
+- The current `kitty` wrapper includes `~/.config/kitty/stylix-theme.auto.conf`, and `modules/stylix/kitty.nix` generates that file from `stylix.fullPalette` using the official Catppuccin Kitty layout.
+- `modules/stylix/kitty.nix` disables `stylix.targets.kitty.enable` so only the repo-generated Kitty theme file applies.
+- `modules/stylix/fish.nix` disables `stylix.targets.fish.enable` and generates `~/.config/fish/stylix-theme.auto.fish` from `stylix.fullPalette`, because the dedicated Catppuccin fish color mapping is a better fit here than Stylix's generic Base16 fish target.
+- `modules/stylix/fish.nix` also prepends a `source ~/.config/fish/stylix-theme.auto.fish` hook to Fish init, so Fish theming stays packaged with the other Stylix-owned target overrides.
+- The generated fish file mirrors the official `catppuccin/fish` static color layout, so Stylix remains the repo's palette source of truth while fish still gets Catppuccin-specific semantic colors.
+- Workflow impact: after changing Stylix inputs or module wiring, regenerate `flake.nix`, then verify both `nix flake show "path:$PWD"` and `nix flake check "path:$PWD"`.
+- External docs: [Workflow Inputs](REFERENCES.md#workflow-inputs)
+
 ## Hyprland Lua Config Workflow
 
 - `configs/hypr/hyprland.lua` is the hand-written root Hyprland config and should stay focused on session behavior, layout, gestures, and binding registration logic.
@@ -225,7 +241,9 @@ Use `withSystem` when a top-level flake module needs a per-system output:
 - This repo can expose configured end-user programs as wrapped `perSystem.packages` built with `nix-wrapper-modules`, then install those packages from NixOS or Home Manager modules with `withSystem` and `self'.packages`.
 - Use wrapper packages when a program should carry repo-owned configuration with it, such as the wrapped `opencode`, `kitty`, or `neovim` outputs.
 - Prefer the wrapper module path when this repo already exposes one for a program, instead of wiring the raw upstream package directly into host or Home Manager config.
-- For `kitty`, keep repo-owned raw config in `configs/kitty/kitty.conf` and feed it into the wrapper via `extraConfig`; use wrapper options such as `font` and `themeFile` when they match the desired shape.
+- For `kitty`, keep repo-owned raw config in `configs/kitty/kitty.conf` and feed it into the wrapper via `extraConfig`.
+- When Stylix is enabled globally, prefer the wrapper's generated Kitty theme file over Stylix's built-in Kitty target by disabling `stylix.targets.kitty.enable` in the nearby Stylix override module.
+- The generated Kitty theme file now comes from `stylix.fullPalette`, so changing that option updates both Stylix's derived Base16 scheme and Kitty's full semantic Catppuccin mapping together.
 - For `neovim`, prefer `wlib.wrapperModules.neovim` through the exported wrapper and point `settings.config_directory` at the repo config directory under `configs/nvim`.
 - Workflow impact: after changing a wrapped package, confirm the relevant package still evaluates through `nix flake show "path:$PWD"` and the consuming host or home configuration still passes `nix flake check "path:$PWD"`.
 - External docs: [Workflow Inputs](REFERENCES.md#workflow-inputs)
