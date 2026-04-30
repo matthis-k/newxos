@@ -21,7 +21,10 @@
   flake.modules.homeManager.fish =
     { pkgs, ... }:
     {
-      imports = [ inputs.nix-index-database.homeModules.nix-index ];
+      imports = with inputs.self.modules.homeManager; [
+        inputs.nix-index-database.homeModules.nix-index
+        starship
+      ];
 
       home.packages = with pkgs; [
         dust
