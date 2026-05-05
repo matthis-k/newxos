@@ -14,6 +14,7 @@ Hyprland provides the graphical desktop session used by this repo.
 - Keep `configs/hypr/hyprland.lua` as the hand-written root config.
 - Keep structured binds in `configs/hypr/keybinds.lua`.
 - Prefer editing the Lua config tree instead of generating the whole Hyprland config from Nix.
+- Keep repo-root `.luarc.json` pointed at `/usr/share/hypr/stubs` so Lua LSP can resolve `hl` and Hyprland stubs while editing `configs/hypr/*.lua`.
 - Related reading: [Flake Structure](../flake-structure.md#configs), [Wrapped Programs And Generated Config](../patterns/wrapped-programs.md).
 
 ## Short Example
