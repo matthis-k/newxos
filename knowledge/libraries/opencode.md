@@ -6,6 +6,8 @@ This repo exposes a wrapped `opencode` package with MCP servers preconfigured.
 
 - Exposes `nix run "path:$PWD#opencode"` as the repo-managed assistant package.
 - Preconfigures `mcp-nixos` and GitHub MCP in local `stdio` mode.
+- Allows the wrapped assistant to read trusted paths under `~/.config/` and `/nix/store/`.
+- Installs the `caveman` skill into `~/.config/opencode/skills/` through Home Manager.
 - Gives the assistant a stable repo-local setup instead of depending on ad hoc machine state.
 
 ## Basics

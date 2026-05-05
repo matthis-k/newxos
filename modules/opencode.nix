@@ -19,7 +19,14 @@
           settings = {
             "$schema" = "https://opencode.ai/config.json";
 
-            permission.external_directory."/nix/store/**" = "allow";
+            permission = {
+              external_directory = {
+                "/nix/store/**" = "allow";
+                "~/.config/**" = "allow";
+              };
+
+              skill.caveman = "allow";
+            };
 
             mcp = {
               github = {
@@ -54,5 +61,8 @@
       home.packages = withSystem pkgs.stdenv.hostPlatform.system (
         { self', ... }: lib.optional (self'.packages ? opencode) self'.packages.opencode
       );
+
+      xdg.configFile."opencode/skills/caveman/SKILL.md".source =
+        ../configs/opencode/skills/caveman/SKILL.md;
     };
 }
