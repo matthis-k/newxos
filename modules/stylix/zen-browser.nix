@@ -373,11 +373,132 @@
         @-moz-document url-prefix("about:") {
           :root {
             --in-content-page-color: ${c.text} !important;
+            --in-content-text-color: ${c.text} !important;
             --color-accent-primary: ${accentColor} !important;
             --color-accent-primary-hover: color-mix(in srgb, ${accentColor} 90%, white 10%) !important;
             --color-accent-primary-active: color-mix(in srgb, ${accentColor} 85%, ${c.mauve} 15%) !important;
+            --link-color: ${accentColor} !important;
+            --link-color-hover: color-mix(in srgb, ${accentColor} 90%, white 10%) !important;
+            --link-color-active: color-mix(in srgb, ${accentColor} 85%, ${c.mauve} 15%) !important;
+            --link-color-visited: ${c.mauve} !important;
             background-color: ${c.base} !important;
+            --background-color-canvas: ${c.base} !important;
+            --background-color-box: ${c.surface0} !important;
             --in-content-page-background: ${c.base} !important;
+            --in-content-box-background: ${c.surface0} !important;
+            --in-content-box-border-color: color-mix(in srgb, ${c.overlay1} 60%, transparent) !important;
+            --in-content-box-info-background: color-mix(in srgb, ${c.surface0} 78%, ${c.mantle} 22%) !important;
+            --in-content-border-color: color-mix(in srgb, ${c.overlay1} 60%, transparent) !important;
+            --in-content-item-hover: ${c.surface1} !important;
+            --in-content-item-hover-text: ${c.text} !important;
+            --in-content-item-selected: color-mix(in srgb, ${accentColor} 18%, ${c.surface1} 82%) !important;
+            --in-content-item-selected-text: ${c.text} !important;
+            --in-content-button-text-color: ${c.text} !important;
+            --in-content-button-text-color-hover: ${c.text} !important;
+            --in-content-button-text-color-active: ${c.text} !important;
+            --in-content-button-background: color-mix(in srgb, ${c.surface1} 55%, transparent) !important;
+            --in-content-button-background-hover: ${c.surface1} !important;
+            --in-content-button-background-active: ${c.surface2} !important;
+            --in-content-button-border-color: transparent !important;
+            --in-content-button-border-color-hover: transparent !important;
+            --in-content-button-border-color-active: transparent !important;
+            --in-content-primary-button-text-color: ${c.base} !important;
+            --in-content-primary-button-text-color-hover: ${c.base} !important;
+            --in-content-primary-button-text-color-active: ${c.base} !important;
+            --in-content-primary-button-background: ${accentColor} !important;
+            --in-content-primary-button-background-hover: color-mix(in srgb, ${accentColor} 90%, white 10%) !important;
+            --in-content-primary-button-background-active: color-mix(in srgb, ${accentColor} 85%, ${c.mauve} 15%) !important;
+            --in-content-focus-outline-color: ${accentColor} !important;
+            --in-content-table-background: ${c.surface0} !important;
+            --in-content-table-border-color: color-mix(in srgb, ${c.overlay1} 60%, transparent) !important;
+            --in-content-table-header-background: ${accentColor} !important;
+            --in-content-table-header-color: ${c.base} !important;
+            --table-row-background-color: ${c.surface0} !important;
+            --table-row-background-color-alternate: ${c.mantle} !important;
+            --text-color-deemphasized: ${c.subtext0} !important;
+            --dialog-warning-text-color: ${c.red} !important;
+          }
+
+          :root,
+          body,
+          .container {
+            background-color: ${c.base} !important;
+            color: ${c.text} !important;
+          }
+
+          .description-deemphasized,
+          .text-color-deemphasized,
+          .text-deemphasized,
+          .description {
+            color: ${c.subtext0} !important;
+          }
+
+          button,
+          .button,
+          .ghost-button,
+          input[type="text"],
+          input[type="search"],
+          input[type="number"],
+          input[type="email"],
+          input[type="tel"],
+          input[type="url"],
+          input[type="password"],
+          textarea,
+          select {
+            background-color: ${c.surface0} !important;
+            color: ${c.text} !important;
+            border-color: color-mix(in srgb, ${c.overlay1} 60%, transparent) !important;
+          }
+
+          .card,
+          .message-bar,
+          groupbox,
+          moz-card,
+          table,
+          xul|tree,
+          xul|richlistbox {
+            background-color: ${c.surface0} !important;
+            color: ${c.text} !important;
+            border-color: color-mix(in srgb, ${c.overlay1} 60%, transparent) !important;
+          }
+        }
+
+        @-moz-document url-prefix("about:config") {
+          body,
+          .container,
+          #toolbar {
+            color: ${c.text} !important;
+          }
+
+          .description,
+          .config-help-text,
+          .checkbox-container,
+          .checkbox-container > span,
+          .toggle-container-with-text,
+          .toggle-container-with-text > label {
+            color: ${c.subtext0} !important;
+          }
+
+          #about-config-search,
+          td.cell-value > form > input[type="text"],
+          td.cell-value > form > input[type="number"] {
+            background-color: ${c.surface0} !important;
+            color: ${c.text} !important;
+          }
+
+          #prefs {
+            background-color: ${c.surface0} !important;
+            color: ${c.text} !important;
+            border-color: color-mix(in srgb, ${c.overlay1} 60%, transparent) !important;
+          }
+
+          #prefs > tr.odd {
+            background-color: ${c.mantle} !important;
+          }
+
+          #prefs > tr:hover {
+            background-color: ${c.surface1} !important;
+            color: ${c.text} !important;
           }
         }
 
