@@ -47,3 +47,14 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Rule: do not parameterize exported `flake.modules.nixos.*` modules with ad hoc outer args unless you also arrange to pass them during NixOS module evaluation
 - Context: `disko.devices.disk.main.device` in a host filesystem module
 - Related knowledge: [flake-parts](libraries/flake-parts.md), [Scope Boundaries And Per-System Access](patterns/per-system-scopes.md), [Host And User Layout](patterns/host-and-user-layout.md), [disko](libraries/disko.md)
+
+### 2026-05-05: generic Base16 browser targets can lose semantic contrast intent
+
+- Date: `2026-05-05`
+- Problem: relying on generic Base16 slot mapping for Zen Browser theming
+- Symptom: contrast looked wrong in places like selected vertical tabs and urlbar suggestion rows even though palette itself was fine
+- Cause: full semantic palette got flattened into Base16 slots before browser-specific UI groups were chosen, so contrast-sensitive surfaces lost app-specific intent
+- Fix: generate repo-owned Zen Browser CSS directly from `config.stylix.fullPalette.colors` and keep browser UI groups mapped from semantic colors in one place
+- Rule: when app theme needs more nuance than Base16 slots provide, disable built-in target CSS and generate repo-owned full-palette target under `modules/stylix/`
+- Context: Zen Browser Catppuccin-style theme customization
+- Related knowledge: [stylix](libraries/stylix.md), [Wrapped Programs And Generated Config](patterns/wrapped-programs.md), [Workflow](workflow.md)

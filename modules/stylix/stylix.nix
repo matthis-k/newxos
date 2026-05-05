@@ -112,7 +112,7 @@ in
   };
 
   flake.modules.nixos.stylix =
-    { config, ... }:
+    { config, pkgs, ... }:
     let
       fullPalette = config.stylix.fullPalette;
     in
@@ -126,6 +126,12 @@ in
           enable = true;
           base16Scheme = mkBase16Scheme fullPalette;
           homeManagerIntegration.autoImport = false;
+          icons = {
+            enable = true;
+            package = pkgs.papirus-icon-theme;
+            dark = "Papirus-Dark";
+            light = "Papirus";
+          };
         };
 
         home-manager.sharedModules = [
@@ -137,7 +143,7 @@ in
     };
 
   flake.modules.homeManager.stylix =
-    { config, ... }:
+    { config, pkgs, ... }:
     let
       fullPalette = config.stylix.fullPalette;
     in
@@ -146,6 +152,7 @@ in
         inputs.stylix.homeModules.stylix
         stylix-fish
         stylix-kitty
+        stylix-zen-browser
       ];
 
       options.stylix.fullPalette = mkFullPaletteOption;
@@ -154,6 +161,12 @@ in
         stylix = {
           enable = true;
           base16Scheme = mkBase16Scheme fullPalette;
+          icons = {
+            enable = true;
+            package = pkgs.papirus-icon-theme;
+            dark = "Papirus-Dark";
+            light = "Papirus";
+          };
         };
       };
     };
