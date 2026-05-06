@@ -10,14 +10,114 @@
       hyprlandPackages = withSystem pkgs.stdenv.hostPlatform.system (
         { inputs', ... }: inputs'.hyprland.packages
       );
+
+      mkSattyScreenshot =
+        name: captureCommand:
+        pkgs.writeShellScriptBin name ''
+          set -euo pipefail
+
+          screenshots_dir="''${XDG_SCREENSHOTS_DIR:-$HOME/Pictures/Screenshots}"
+          output_file="$screenshots_dir/${name}-$(date +%Y%m%d-%H%M%S).png"
+
+          ${pkgs.coreutils}/bin/mkdir -p "$screenshots_dir"
+
+          ${captureCommand} | ${pkgs.satty}/bin/satty \
+            --filename - \
+            --fullscreen \
+            --output-filename "$output_file"
+        '';
+
+      screenshotRegion = mkSattyScreenshot "screen-shot-region" ''
+        ${pkgs.grimblast}/bin/grimblast --freeze --filetype ppm save area -
+      '';
+
+      screenshotRegionDirect = pkgs.writeShellScriptBin "screen-shot-region-direct" ''
+        set -euo pipefail
+
+        screenshots_dir="''${XDG_SCREENSHOTS_DIR:-$HOME/Pictures/Screenshots}"
+        output_file="$screenshots_dir/screen-shot-region-$(date +%Y%m%d-%H%M%S).png"
+
+        ${pkgs.coreutils}/bin/mkdir -p "$screenshots_dir"
+
+        ${pkgs.grimblast}/bin/grimblast --notify --freeze copysave area "$output_file"
+      '';
+
+      screenshotOutput = mkSattyScreenshot "screen-shot-output" ''
+        ${pkgs.grimblast}/bin/grimblast --filetype ppm save output -
+      '';
+
+      screenshotWindow = mkSattyScreenshot "screen-shot-window" ''
+        ${pkgs.grimblast}/bin/grimblast --filetype ppm save active -
+      '';
+
+      screenReadRegion = pkgs.writeShellScriptBin "screen-read-region" ''
+        set -euo pipefail
+
+        tmp_png="$(${pkgs.coreutils}/bin/mktemp --suffix .png)"
+        trap '${pkgs.coreutils}/bin/rm -f "$tmp_png"' EXIT
+
+        ${pkgs.grimblast}/bin/grimblast --freeze save area - > "$tmp_png"
+
+        text="$(${pkgs.tesseract}/bin/tesseract "$tmp_png" stdout -l ''${OCR_LANG:-eng} 2>/dev/null | ${pkgs.gnused}/bin/sed '/^[[:space:]]*$/d')"
+
+        if [ -z "$text" ]; then
+          ${pkgs.libnotify}/bin/notify-send "Screen OCR" "No text detected"
+          exit 1
+        fi
+
+        printf '%s' "$text" | ${pkgs.wl-clipboard}/bin/wl-copy
+        printf '%s\n' "$text"
+        ${pkgs.libnotify}/bin/notify-send "Screen OCR" "Copied text to clipboard"
+      '';
+
+      screenEditClipboard = pkgs.writeShellScriptBin "screen-edit-clipboard" ''
+        set -euo pipefail
+
+        screenshots_dir="''${XDG_SCREENSHOTS_DIR:-$HOME/Pictures/Screenshots}"
+        output_file="$screenshots_dir/screen-edit-$(date +%Y%m%d-%H%M%S).png"
+        image_type=""
+
+        ${pkgs.coreutils}/bin/mkdir -p "$screenshots_dir"
+
+        while IFS= read -r candidate; do
+          case "$candidate" in
+            image/*)
+              image_type="$candidate"
+              break
+              ;;
+          esac
+        done <<EOF
+        $(${pkgs.wl-clipboard}/bin/wl-paste --list-types 2>/dev/null || true)
+        EOF
+
+        if [ -z "$image_type" ]; then
+          ${pkgs.libnotify}/bin/notify-send "Satty" "Clipboard has no image"
+          exit 1
+        fi
+
+        ${pkgs.wl-clipboard}/bin/wl-paste --type "$image_type" | ${pkgs.satty}/bin/satty \
+          --filename - \
+          --fullscreen \
+          --output-filename "$output_file"
+      '';
     in
     {
       environment.systemPackages = with pkgs; [
         brightnessctl
+        grimblast
         hyprpolkitagent
+        libnotify
         playerctl
+        satty
+        tesseract
         wl-clipboard
         wireplumber
+        screenshotOutput
+        screenshotRegion
+        screenshotRegionDirect
+        screenshotWindow
+        screenReadRegion
+        screenEditClipboard
       ];
 
       environment.variables = {
@@ -76,6 +176,18 @@
 
       xdg.configFile."hypr/nix-import.lua".text = ''
         return {}
+      '';
+
+      xdg.configFile."satty/config.toml".text = ''
+        [general]
+        copy-command = "wl-copy"
+        corner-roundness = 10
+        early-exit = true
+        fullscreen = true
+        initial-tool = "arrow"
+        actions-on-enter = ["save-to-clipboard", "save-to-file", "exit"]
+        actions-on-escape = ["exit"]
+        actions-on-right-click = ["save-to-clipboard", "save-to-file", "exit"]
       '';
     };
 }

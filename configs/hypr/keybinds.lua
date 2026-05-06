@@ -20,6 +20,12 @@ local keybinds = {
     keybinds = {
         { "SUPER + Return", hl.dsp.exec_cmd("kitty") },
         { "CTRL + ALT + W", hl.dsp.exec_cmd("zen-beta") },
+        { "Print", hl.dsp.exec_cmd("screen-shot-region") },
+        { "SUPER + SHIFT + S", hl.dsp.exec_cmd("screen-shot-region-direct") },
+        { "SUPER + SHIFT + E", hl.dsp.exec_cmd("screen-edit-clipboard") },
+        { "SHIFT + Print", hl.dsp.exec_cmd("screen-shot-output") },
+        { "CTRL + Print", hl.dsp.exec_cmd("screen-shot-window") },
+        { "SUPER + Print", hl.dsp.exec_cmd("screen-read-region") },
         { "SUPER + Q", hl.dsp.window.close() },
         { "SUPER + M", hl.dsp.submap("window_manipulation") },
         { "SUPER + H", hl.dsp.focus({ direction = "left" }) },
