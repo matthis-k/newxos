@@ -16,6 +16,7 @@
       locales
       networking
       nix
+      newxos
     ]);
 
     networking.hostName = "newxos-live-usb";

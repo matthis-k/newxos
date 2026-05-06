@@ -1,6 +1,6 @@
 { inputs, ... }:
 {
-  flake.modules.nixos.matthisk-laptop-nixos = {
+  flake.modules.nixos.matthisk-laptop-newxos = {
     imports = with inputs.self.modules.nixos; [
       matthisk
     ];

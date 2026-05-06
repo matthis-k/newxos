@@ -1,6 +1,6 @@
 { ... }:
 {
-  flake.modules.nixos.matthisk-laptop-nixos = {
+  flake.modules.nixos.matthisk-laptop-newxos = {
     boot.resumeDevice = "/dev/system/swap";
   };
 }

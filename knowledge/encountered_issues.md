@@ -58,3 +58,14 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Rule: when app theme needs more nuance than Base16 slots provide, disable built-in target CSS and generate repo-owned full-palette target under `modules/stylix/`
 - Context: Zen Browser Catppuccin-style theme customization
 - Related knowledge: [stylix](libraries/stylix.md), [Wrapped Programs And Generated Config](patterns/wrapped-programs.md), [Workflow](workflow.md)
+
+### 2026-05-06: shell arity guards can bypass documented env fallbacks
+
+- Date: `2026-05-06`
+- Problem: requiring too many positional args before a command reaches its documented environment-based defaulting logic
+- Symptom: `newxos os switch` printed usage instead of using `NEWXOS_HOST` or reporting that the env var was unset or invalid
+- Cause: `os_cmd` required at least two args before parsing optional host position, so the default-host branch was unreachable
+- Fix: lower the upfront shell arity check so `switch|boot|build` can run without a positional host and fall through to `default_nixos_host`
+- Rule: when a command supports env-backed optional positionals, keep the initial argument-count guard aligned with the truly required args only
+- Context: `newxos` wrapper host resolution
+- Related knowledge: [nh and nom](libraries/nh-nom.md), [Workflow](workflow.md)

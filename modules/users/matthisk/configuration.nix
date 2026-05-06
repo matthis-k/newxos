@@ -43,6 +43,7 @@
       git
       hyprland
       kitty
+      newxos
       neovim
       opencode
       sops

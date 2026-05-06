@@ -15,6 +15,7 @@ Index of the important upstream libraries, tools, and configured programs used b
 - [flake-file](flake-file.md): generates the root `flake.nix` from repo declarations. Use when changing inputs or generated flake structure. Docs: `https://flake-file.oeiuwq.com/overview/`
 - `import-tree`: recursively imports the `modules/` tree. Use when tree shape matters or new modules are not being seen. Docs: `https://import-tree.oeiuwq.com`
 - [home-manager](home-manager.md): user-level config integration. Use when wiring users, home packages, or shared HM modules. Docs: `https://nix-community.github.io/home-manager/`
+- [nh and nom](nh-nom.md): repo-owned CLI wrapper flow for NixOS, Home Manager, and direct flake actions. Use when changing `newxos`, fancy build output, or local flake command UX. Docs: `https://github.com/nix-community/nh` and `https://github.com/maralorn/nix-output-monitor`
 - [stylix](stylix.md): theme plumbing and palette flow. Use when touching colors, generated themes, or Stylix targets. Docs: `https://nix-community.github.io/stylix/`
 - [hyprland](hyprland.md): Wayland compositor and Lua config layout. Use when changing desktop session behavior or config file layout. Docs: `https://wiki.hypr.land/`
 - `nix-index-database`: prebuilt `nix-index` database and modules for shell integration. Use when touching command-not-found, `comma`, or fish shell package lookup behavior. Docs: `https://github.com/nix-community/nix-index-database`
