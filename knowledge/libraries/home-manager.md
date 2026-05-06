@@ -22,7 +22,8 @@ flake.modules.homeManager.neovim =
   { pkgs, ... }:
   {
     home.packages = withSystem pkgs.stdenv.hostPlatform.system ({ self', ... }: [
-      self'.packages.neovim
+      self'.packages.nvim
+      self'.packages.nvimdev
     ]);
   };
 ```

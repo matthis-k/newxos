@@ -101,6 +101,22 @@
         "type": "github"
       }
     },
+    "blink-lib": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1777670812,
+        "narHash": "sha256-3XsqX4CGj8VI5tGLWJoUiyo+u7AyNp2IO9hEwQsF1I8=",
+        "owner": "saghen",
+        "repo": "blink.lib",
+        "rev": "f29d8bac6549bc1e7d699c83f680823d7def98bd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "saghen",
+        "repo": "blink.lib",
+        "type": "github"
+      }
+    },
     "catppuccin-breeze-cursors": {
       "inputs": {
         "nixpkgs": [
@@ -1000,6 +1016,22 @@
         "type": "github"
       }
     },
+    "pick-resession-nvim": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1755917906,
+        "narHash": "sha256-q6HHHn1PP/NXg9yk00IUJiThNcgvqlSq4xUbAfeojok=",
+        "owner": "scottmckendry",
+        "repo": "pick-resession.nvim",
+        "rev": "3bd9b6a7765be068d2bd88ba77c2602229c97442",
+        "type": "github"
+      },
+      "original": {
+        "owner": "scottmckendry",
+        "repo": "pick-resession.nvim",
+        "type": "github"
+      }
+    },
     "pre-commit-hooks": {
       "inputs": {
         "flake-compat": "flake-compat_2",
@@ -1025,6 +1057,7 @@
     },
     "root": {
       "inputs": {
+        "blink-lib": "blink-lib",
         "catppuccin-breeze-cursors": "catppuccin-breeze-cursors",
         "disko": "disko",
         "firefox-addons": "firefox-addons",
@@ -1039,6 +1072,7 @@
         "nix-wrapper-modules": "nix-wrapper-modules",
         "nixpkgs": "nixpkgs_3",
         "nordvpn-flake": "nordvpn-flake",
+        "pick-resession-nvim": "pick-resession-nvim",
         "sops-nix": "sops-nix",
         "stylix": "stylix",
         "treefmt-nix": "treefmt-nix",

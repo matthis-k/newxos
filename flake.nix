@@ -4,6 +4,10 @@
   outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./modules);
 
   inputs = {
+    blink-lib = {
+      url = "github:saghen/blink.lib";
+      flake = false;
+    };
     catppuccin-breeze-cursors = {
       url = "github:matthis-k/breeze-catppuccin";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -44,6 +48,10 @@
     nordvpn-flake = {
       url = "github:connerohnesorge/nordvpn-flake/f802a2efd8225116158371a8c85db28e7b0846dd";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+    pick-resession-nvim = {
+      url = "github:scottmckendry/pick-resession.nvim";
+      flake = false;
     };
     sops-nix = {
       url = "github:Mic92/sops-nix";

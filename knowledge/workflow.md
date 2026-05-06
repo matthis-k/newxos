@@ -27,12 +27,12 @@ Relevant facts and guidelines for working in this repo.
 - If you change `flake-file` declarations, run `nix run "path:$PWD#write-flake"` before `flake show`, `flake check`, or commit.
 - If you add or change a flake output, confirm it appears in `nix flake show "path:$PWD"`.
 - If a new output depends on newly added files, stage the relevant files before final `flake show/check` so Nix evaluates the same git-visible tree that would be committed.
-- Prefer `nix run "path:$PWD#repo-gate"` before handoff when you changed flake wiring or Nix code.
+- Prefer `nix run "path:$PWD#repo-gate"` before handoff when you changed flake wiring or Nix code. That gate also rewrites the repo-managed Neovim `vim.pack` lockfile from the Nix source of truth when the package is exposed.
 - Related reading: [workflow tooling](libraries/workflow-tooling.md), [Scope Boundaries And Per-System Access](patterns/per-system-scopes.md).
 
 ## Git And Hooks
 
-- The managed pre-commit hook runs `write-flake -> fmt -> flake check`.
+- The managed pre-commit hook runs `write-flake -> write nvim pack lockfile -> fmt -> flake check`.
 - In a fresh clone, `nix develop "path:$PWD"` gives you the pre-commit dev shell. If needed, install hooks with `nix run "path:$PWD#install-git-hooks"`.
 - If hooks rewrite files, review them, re-stage task-related files, and rerun the commit.
 - Stage only task-related files. Avoid broad `git add .` in a dirty worktree.

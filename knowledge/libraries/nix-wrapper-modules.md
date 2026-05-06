@@ -4,7 +4,9 @@
 
 ## What It Does Here
 
-- Wraps `opencode`, `kitty`, and `neovim` as packages exposed by this flake.
+- Wraps `opencode`, `kitty`, and Neovim as packages exposed by this flake.
+- The Neovim wrapper currently exposes a portable `nvim` package plus a repo-bound `nvimdev` variant for live editing against `configs/nvim`.
+- Native Neovim compatibility uses the static loader at `configs/nvim/lua/newxos/non_nix_compatibility.lua` plus the generated `configs/nvim/nvim-pack-lock.json` written from the Nix plugin source of truth.
 - Lets the repo install a configured program instead of only a raw upstream package.
 - Keeps wrapper logic in Nix and hand-written app config in `configs/`.
 

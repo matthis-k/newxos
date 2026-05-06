@@ -14,6 +14,7 @@
     {
       config,
       pkgs,
+      self',
       ...
     }:
     let
@@ -21,6 +22,9 @@
         set -euo pipefail
 
         ${pkgs.nix}/bin/nix run "path:$PWD#write-flake"
+        ${lib.optionalString (self'.packages ? write-nvim-pack-lock) ''
+          ${lib.getExe self'.packages.write-nvim-pack-lock}
+        ''}
         ${config.treefmt.build.wrapper}/bin/treefmt
         ${pkgs.nix}/bin/nix flake check "path:$PWD"
       '';
