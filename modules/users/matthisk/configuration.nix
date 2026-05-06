@@ -39,6 +39,7 @@
 
   flake.modules.homeManager.matthisk = {
     imports = with inputs.self.modules.homeManager; [
+      dev-tools
       fish
       git
       hyprland

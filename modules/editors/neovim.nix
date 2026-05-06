@@ -16,7 +16,11 @@
   };
 
   perSystem =
-    { pkgs, ... }:
+    {
+      pkgs,
+      self',
+      ...
+    }:
     let
       pluginSpecs = [
         {
@@ -200,31 +204,19 @@
             perl.nvim-host.enable = true;
           };
 
-          extraPackages = with pkgs; [
-            clang-tools
-            curl
-            fd
-            fzf
-            gh
-            git
-            imagemagick
-            kdePackages.qtdeclarative
-            lemminx
-            lsof
-            lua-language-server
-            lua5_1
-            luarocks
-            marksman
-            nil
-            nixfmt
-            opencode
-            ripgrep
-            rust-analyzer
-            stylua
-            taplo
-            typescript-language-server
-            vscode-langservers-extracted
-          ];
+          extraPackages =
+            with pkgs;
+            [
+              curl
+              self'.packages.dev-tools
+              fd
+              fzf
+              gh
+              git
+              imagemagick
+              lsof
+            ]
+            ++ lib.optional (self'.packages ? opencode) self'.packages.opencode;
 
           specs.plugins.data = map pluginPackage pluginManifest;
         };

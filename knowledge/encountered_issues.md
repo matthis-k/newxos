@@ -80,3 +80,14 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Rule: do not interpolate free-form multiline shell fragments into the middle of pipelines in generated shell scripts
 - Context: Hyprland screenshot helpers
 - Related knowledge: [hyprland](libraries/hyprland.md), [Workflow](workflow.md)
+
+### 2026-05-07: `buildEnv` tool bundles cannot safely mix wrapped compiler toolchains
+
+- Date: `2026-05-07`
+- Problem: putting both `gcc` and `clang` wrapper packages into one shared `pkgs.buildEnv` tool bundle
+- Symptom: the `dev-tools` package failed to build with `two given paths contain a conflicting subpath` for `bin/ld`
+- Cause: both wrapper toolchains exported the same linker path into the merged environment
+- Fix: keep one compiler toolchain per `buildEnv` bundle, and add only the extra tools that do not collide with that wrapper
+- Rule: when building shared tool bundles with `pkgs.buildEnv`, avoid mixing `gcc` and `clang` wrappers unless you split them into separate outputs
+- Context: `modules/development/dev-tools.nix`
+- Related knowledge: [Workflow](workflow.md)
