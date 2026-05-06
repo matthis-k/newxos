@@ -11,44 +11,59 @@
         { inputs', ... }: inputs'.hyprland.packages
       );
 
-      mkSattyScreenshot =
-        name: captureCommand:
-        pkgs.writeShellScriptBin name ''
-          set -euo pipefail
-
-          screenshots_dir="''${XDG_SCREENSHOTS_DIR:-$HOME/Pictures/Screenshots}"
-          output_file="$screenshots_dir/${name}-$(date +%Y%m%d-%H%M%S).png"
-
-          ${pkgs.coreutils}/bin/mkdir -p "$screenshots_dir"
-
-          ${captureCommand} | ${pkgs.satty}/bin/satty \
-            --filename - \
-            --fullscreen \
-            --output-filename "$output_file"
-        '';
-
-      screenshotRegion = mkSattyScreenshot "screen-shot-region" ''
-        ${pkgs.grimblast}/bin/grimblast --freeze --filetype ppm save area -
-      '';
-
-      screenshotRegionDirect = pkgs.writeShellScriptBin "screen-shot-region-direct" ''
+      screenShotBin = pkgs.writeShellScriptBin "screen-shot" ''
         set -euo pipefail
 
+        mode="''${1:-region}"
         screenshots_dir="''${XDG_SCREENSHOTS_DIR:-$HOME/Pictures/Screenshots}"
-        output_file="$screenshots_dir/screen-shot-region-$(date +%Y%m%d-%H%M%S).png"
 
         ${pkgs.coreutils}/bin/mkdir -p "$screenshots_dir"
 
-        ${pkgs.grimblast}/bin/grimblast --notify --freeze copysave area "$output_file"
+        case "$mode" in
+          region)
+            output_file="$screenshots_dir/screen-shot-region-$(date +%Y%m%d-%H%M%S).png"
+            ${pkgs.grimblast}/bin/grimblast --freeze --filetype ppm save area - | ${pkgs.satty}/bin/satty \
+              --filename - \
+              --fullscreen \
+              --output-filename "$output_file"
+            ;;
+          region-direct)
+            output_file="$screenshots_dir/screen-shot-region-$(date +%Y%m%d-%H%M%S).png"
+            ${pkgs.grimblast}/bin/grimblast --notify --freeze copysave area "$output_file"
+            ;;
+          output)
+            output_file="$screenshots_dir/screen-shot-output-$(date +%Y%m%d-%H%M%S).png"
+            ${pkgs.grimblast}/bin/grimblast --filetype ppm save output - | ${pkgs.satty}/bin/satty \
+              --filename - \
+              --fullscreen \
+              --output-filename "$output_file"
+            ;;
+          window)
+            output_file="$screenshots_dir/screen-shot-window-$(date +%Y%m%d-%H%M%S).png"
+            ${pkgs.grimblast}/bin/grimblast --filetype ppm save active - | ${pkgs.satty}/bin/satty \
+              --filename - \
+              --fullscreen \
+              --output-filename "$output_file"
+            ;;
+          *)
+            printf 'usage: screen-shot [region|region-direct|output|window]\n' >&2
+            exit 2
+            ;;
+        esac
       '';
 
-      screenshotOutput = mkSattyScreenshot "screen-shot-output" ''
-        ${pkgs.grimblast}/bin/grimblast --filetype ppm save output -
+      screenShotCompletion = pkgs.writeTextDir "share/fish/vendor_completions.d/screen-shot.fish" ''
+        complete -c screen-shot -f
+        complete -c screen-shot -n 'not __fish_seen_subcommand_from region region-direct output window' -a 'region region-direct output window'
       '';
 
-      screenshotWindow = mkSattyScreenshot "screen-shot-window" ''
-        ${pkgs.grimblast}/bin/grimblast --filetype ppm save active -
-      '';
+      screenShot = pkgs.symlinkJoin {
+        name = "screen-shot";
+        paths = [
+          screenShotBin
+          screenShotCompletion
+        ];
+      };
 
       screenReadRegion = pkgs.writeShellScriptBin "screen-read-region" ''
         set -euo pipefail
@@ -112,10 +127,7 @@
         tesseract
         wl-clipboard
         wireplumber
-        screenshotOutput
-        screenshotRegion
-        screenshotRegionDirect
-        screenshotWindow
+        screenShot
         screenReadRegion
         screenEditClipboard
       ];

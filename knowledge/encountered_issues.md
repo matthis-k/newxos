@@ -69,3 +69,14 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Rule: when a command supports env-backed optional positionals, keep the initial argument-count guard aligned with the truly required args only
 - Context: `newxos` wrapper host resolution
 - Related knowledge: [nh and nom](libraries/nh-nom.md), [Workflow](workflow.md)
+
+### 2026-05-06: multiline shell snippets can break pipelines inside generated wrappers
+
+- Date: `2026-05-06`
+- Problem: interpolating a multiline shell snippet immediately before a pipe in `writeShellScriptBin`
+- Symptom: build succeeded far enough to generate the script, but running or checking it failed with `syntax error near unexpected token '|'`
+- Cause: the interpolated snippet ended with a newline, so the generated script placed `| next-command` on its own shell line
+- Fix: keep the full pipeline structure in one script body, or dispatch by mode with `case` instead of splicing whole commands into pipeline positions
+- Rule: do not interpolate free-form multiline shell fragments into the middle of pipelines in generated shell scripts
+- Context: Hyprland screenshot helpers
+- Related knowledge: [hyprland](libraries/hyprland.md), [Workflow](workflow.md)
