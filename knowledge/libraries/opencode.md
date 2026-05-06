@@ -30,3 +30,4 @@ This repo exposes a wrapped `opencode` package with MCP servers preconfigured.
 
 - Do not print or inspect the GitHub token when debugging auth wiring.
 - Verify executable paths and package exposure through `nix flake show "path:$PWD"` when changing the wrapper.
+- Keep `configs/opencode/` for repo-owned config fragments only. Do not keep `node_modules/`, `package.json`, or lockfiles there unless repo starts managing plugins explicitly.
