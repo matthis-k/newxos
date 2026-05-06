@@ -101,6 +101,26 @@
         "type": "github"
       }
     },
+    "catppuccin-breeze-cursors": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1778037473,
+        "narHash": "sha256-89bgyABNqSfY8yCt1dAFHQZiI17mjnsH7jXE/qEa92c=",
+        "owner": "matthis-k",
+        "repo": "breeze-catppuccin",
+        "rev": "a8eb895abff89feef1a0aece1e5e3ef5d5c90bd8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "matthis-k",
+        "repo": "breeze-catppuccin",
+        "type": "github"
+      }
+    },
     "devshell": {
       "inputs": {
         "nixpkgs": [
@@ -1005,6 +1025,7 @@
     },
     "root": {
       "inputs": {
+        "catppuccin-breeze-cursors": "catppuccin-breeze-cursors",
         "disko": "disko",
         "firefox-addons": "firefox-addons",
         "flake-file": "flake-file",

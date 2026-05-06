@@ -8,6 +8,7 @@ Stylix is the repo's theme backbone.
 - Derives the Base16 scheme from that palette.
 - Feeds the same palette into custom Kitty and Fish theme generation.
 - Feeds the same palette into a repo-owned Zen Browser Catppuccin-style theme layer.
+- Uses the `catppuccin-breeze-cursors` flake input and selects its packaged blue cursor theme through Home Manager pointer cursor settings.
 - Uses Stylix icon wiring with `Papirus-Dark` so GTK and Qt share one icon theme.
 - Passes the selected palette from NixOS into Home Manager through shared modules.
 
@@ -46,5 +47,6 @@ include ~/.config/kitty/stylix-theme.auto.conf
 - `stylix.homeManagerIntegration.autoImport` stays off so the repo's explicit Home Manager entrypoint remains the one source of truth.
 - Built-in Kitty and Fish targets are disabled because the repo uses richer Catppuccin-shaped generated output there.
 - Built-in Zen Browser CSS is disabled because the generic Base16 target lost too much full-palette intent for contrast-sensitive UI like selected tabs and urlbar suggestions.
+- Cursor theme comes from the upstream cursor flake's packaged blue output instead of copying raw theme files inside this repo.
 - GTK and Qt stay on Stylix-managed theming; repo only overrides app theming when Stylix target is not enough.
 - If you want a custom theme tweak that should apply across multiple apps, start in `modules/stylix/`, not inside a single app config.

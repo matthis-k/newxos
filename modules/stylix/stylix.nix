@@ -1,6 +1,7 @@
 {
   inputs,
   lib,
+  withSystem,
   ...
 }:
 let
@@ -111,6 +112,11 @@ in
     inputs.nixpkgs.follows = "nixpkgs";
   };
 
+  flake-file.inputs.catppuccin-breeze-cursors = {
+    url = "github:matthis-k/breeze-catppuccin";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+
   flake.modules.nixos.stylix =
     { config, pkgs, ... }:
     let
@@ -146,6 +152,9 @@ in
     { config, pkgs, ... }:
     let
       fullPalette = config.stylix.fullPalette;
+      catppuccinBreezeBlueCursor = withSystem pkgs.stdenv.hostPlatform.system (
+        { inputs', ... }: inputs'.catppuccin-breeze-cursors.packages.catppuccin-breeze.blue
+      );
     in
     {
       imports = with inputs.self.modules.homeManager; [
@@ -167,6 +176,16 @@ in
             dark = "Papirus-Dark";
             light = "Papirus";
           };
+        };
+
+        home.pointerCursor = {
+          enable = true;
+          package = catppuccinBreezeBlueCursor;
+          name = "Breeze-Catppuccin-blue";
+          size = 24;
+          gtk.enable = true;
+          hyprcursor.enable = true;
+          x11.enable = true;
         };
       };
     };
