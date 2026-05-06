@@ -22,7 +22,7 @@
         text = ''
           usage() {
             cat <<'EOF' >&2
-          usage: newxos <os|home|flake> ...
+          usage: newxos <os|home|flake|clean> ...
 
             newxos os <switch|boot|build> [host] [--git-only]
             newxos home <switch|build> <config> [--git-only]
@@ -30,6 +30,7 @@
             newxos flake check [host] [--git-only]
             newxos flake show [host] [--git-only]
             newxos flake run <attr> [--git-only]
+            newxos clean [nh-clean args...]
 
           env:
             NEWXOS  repo path. default: $HOME/newxos
@@ -255,6 +256,14 @@
             esac
           }
 
+          clean_cmd() {
+            if [ "$#" -eq 0 ]; then
+              nh clean all --keep 1 --keep-since 0h
+            else
+              nh clean all "$@"
+            fi
+          }
+
           main() {
             local group
 
@@ -266,6 +275,7 @@
               os) os_cmd "$@" ;;
               home) home_cmd "$@" ;;
               flake) flake_cmd "$@" ;;
+              clean) clean_cmd "$@" ;;
               _complete) complete_cmd "$@" ;;
               -h|--help|help) usage ;;
               *) die "unknown command group: $group" ;;
@@ -321,8 +331,14 @@
           return 1
         end
 
+        function __fish_newxos_wants_clean_flag
+          set -l words (__fish_newxos_words)
+          test (count $words) -ge 2; or return 1
+          test "$words[2]" = clean
+        end
+
         complete -c newxos -f
-        complete -c newxos -n 'not __fish_seen_subcommand_from os home flake' -a 'os home flake'
+        complete -c newxos -n 'not __fish_seen_subcommand_from os home flake clean' -a 'os home flake clean'
         complete -c newxos -n '__fish_seen_subcommand_from os; and not __fish_seen_subcommand_from switch boot build' -a 'switch boot build'
         complete -c newxos -n '__fish_seen_subcommand_from home; and not __fish_seen_subcommand_from switch build' -a 'switch build'
         complete -c newxos -n '__fish_seen_subcommand_from flake; and not __fish_seen_subcommand_from build check show run' -a 'build check show run'
@@ -332,6 +348,18 @@
         complete -c newxos -n '__fish_newxos_wants_flake_host' -a '(newxos _complete nixos-hosts 2>/dev/null)'
         complete -c newxos -n '__fish_newxos_wants_run_target' -a '(newxos _complete run-targets 2>/dev/null)'
         complete -c newxos -n '__fish_newxos_supports_git_only; and not __fish_seen_argument -l git-only' -l git-only -d 'Use git flake ref'
+        complete -c newxos -n '__fish_newxos_wants_clean_flag; and not __fish_seen_argument -s k -l keep' -s k -l keep -r -d 'Keep at least this many generations'
+        complete -c newxos -n '__fish_newxos_wants_clean_flag; and not __fish_seen_argument -s K -l keep-since' -s K -l keep-since -r -d 'Keep generations and gcroots newer than a duration'
+        complete -c newxos -n '__fish_newxos_wants_clean_flag; and not __fish_seen_argument -s v -l verbose' -s v -l verbose -d 'Increase logging verbosity'
+        complete -c newxos -n '__fish_newxos_wants_clean_flag; and not __fish_seen_argument -s q -l quiet' -s q -l quiet -d 'Decrease logging verbosity'
+        complete -c newxos -n '__fish_newxos_wants_clean_flag; and not __fish_seen_argument -s e -l elevation-strategy' -s e -l elevation-strategy -r -d 'Set privilege elevation strategy'
+        complete -c newxos -n '__fish_newxos_wants_clean_flag; and not __fish_seen_argument -s n -l dry' -s n -l dry -d 'Print actions without removing anything'
+        complete -c newxos -n '__fish_newxos_wants_clean_flag; and not __fish_seen_argument -s a -l ask' -s a -l ask -d 'Ask for confirmation before cleaning'
+        complete -c newxos -n '__fish_newxos_wants_clean_flag; and not __fish_seen_argument -l no-gc' -l no-gc -d 'Skip nix store garbage collection'
+        complete -c newxos -n '__fish_newxos_wants_clean_flag; and not __fish_seen_argument -l no-gcroots' -l no-gcroots -d 'Keep gcroots such as result links'
+        complete -c newxos -n '__fish_newxos_wants_clean_flag; and not __fish_seen_argument -l optimise' -l optimise -d 'Run nix-store --optimise after gc'
+        complete -c newxos -n '__fish_newxos_wants_clean_flag; and not __fish_seen_argument -l max' -l max -r -d 'Limit bytes freed during nix store gc'
+        complete -c newxos -n '__fish_newxos_wants_clean_flag; and not __fish_seen_argument -s h -l help' -s h -l help -d 'Show nh clean help'
       '';
     in
     {

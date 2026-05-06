@@ -6,6 +6,7 @@ This repo uses `nh` and `nix-output-monitor` through repo-owned `newxos` wrapper
 
 - `newxos os ...` calls `nh os ...` for NixOS rebuild flows.
 - `newxos home ...` calls `nh home ...` for Home Manager build and switch flows.
+- `newxos clean` defaults to `nh clean all --keep 1 --keep-since 0h`, and forwards any extra flags to `nh clean all` when you want a different retention policy.
 - `newxos flake build/check/run ...` uses `nom` so direct `nix` operations still get rich build output.
 - `newxos` defaults to `path:$NEWXOS` so local unadded changes are visible during eval and builds.
 - `--git-only` switches back to git flake semantics when you want repo-visible tree only.
