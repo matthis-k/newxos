@@ -24,6 +24,14 @@
     ];
 
     networking.hostName = "matthisk-laptop-newxos";
+    newxos.hyprland.monitors = [
+      {
+        output = "eDP-1";
+        mode = "1920x1080";
+        position = "0x0";
+        scale = 1;
+      }
+    ];
     services.displayManager.autoLogin.user = "matthisk";
     system.stateVersion = "25.11";
   };

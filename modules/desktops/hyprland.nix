@@ -1,12 +1,90 @@
-{ inputs, withSystem, ... }:
+{
+  inputs,
+  lib,
+  withSystem,
+  ...
+}:
+let
+  luaValueType = lib.types.oneOf [
+    lib.types.bool
+    lib.types.int
+    lib.types.float
+    lib.types.str
+    (lib.types.listOf luaValueType)
+    (lib.types.attrsOf luaValueType)
+  ];
+
+  monitorType = lib.types.submodule {
+    freeformType = lib.types.attrsOf luaValueType;
+
+    options = {
+      output = lib.mkOption {
+        type = lib.types.str;
+        description = "Hyprland monitor output name or desc: prefix.";
+      };
+
+      mode = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Hyprland monitor mode string such as 1920x1080@144.";
+      };
+
+      position = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = "Hyprland monitor position string such as 0x0 or auto.";
+      };
+
+      scale = lib.mkOption {
+        type = lib.types.nullOr (
+          lib.types.oneOf [
+            lib.types.int
+            lib.types.float
+            lib.types.str
+          ]
+        );
+        default = null;
+        description = "Hyprland monitor scale value or auto.";
+      };
+    };
+  };
+
+  hyprlandMonitorOption = lib.mkOption {
+    type = lib.types.listOf monitorType;
+    default = [ ];
+    description = "Monitor records passed into Hyprland through hypr/nix-import.lua.";
+  };
+
+  normalizeMonitor = monitor: lib.filterAttrs (_: value: value != null) monitor;
+
+  toLua =
+    value:
+    if builtins.isAttrs value then
+      "{ "
+      + lib.concatStringsSep ", " (
+        lib.mapAttrsToList (name: attrValue: "[${builtins.toJSON name}] = ${toLua attrValue}") value
+      )
+      + " }"
+    else if builtins.isList value then
+      "{ " + lib.concatMapStringsSep ", " toLua value + " }"
+    else
+      builtins.toJSON value;
+in
 {
   flake-file.inputs.hyprland = {
     url = "github:hyprwm/Hyprland";
   };
 
   flake.modules.nixos.hyprland =
-    { pkgs, ... }:
+    {
+      config,
+      options,
+      pkgs,
+      ...
+    }:
     let
+      cfg = config.newxos.hyprland;
+
       hyprlandPackages = withSystem pkgs.stdenv.hostPlatform.system (
         { inputs', ... }: inputs'.hyprland.packages
       );
@@ -117,89 +195,110 @@
       '';
     in
     {
-      environment.systemPackages = with pkgs; [
-        brightnessctl
-        grimblast
-        hyprpolkitagent
-        libnotify
-        playerctl
-        satty
-        tesseract
-        wl-clipboard
-        wireplumber
-        screenShot
-        screenReadRegion
-        screenEditClipboard
-      ];
+      options.newxos.hyprland.monitors = hyprlandMonitorOption;
 
-      environment.variables = {
-        QT_QPA_PLATFORM = "wayland";
-        SDL_VIDEODRIVER = "wayland";
-        QT_AUTO_SCREEN_SCALE_FACTOR = "1";
-        QT_WAYLAND_DISABLE_WINDOWDECORATION = "1";
-      };
+      config = {
+        environment.systemPackages = with pkgs; [
+          brightnessctl
+          grimblast
+          hyprpolkitagent
+          libnotify
+          playerctl
+          satty
+          tesseract
+          wl-clipboard
+          wireplumber
+          screenShot
+          screenReadRegion
+          screenEditClipboard
+        ];
 
-      nix.settings.substituters = [
-        "https://hyprland.cachix.org"
-      ];
-      nix.settings.trusted-public-keys = [
-        "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
-      ];
+        environment.variables = {
+          QT_QPA_PLATFORM = "wayland";
+          SDL_VIDEODRIVER = "wayland";
+          QT_AUTO_SCREEN_SCALE_FACTOR = "1";
+          QT_WAYLAND_DISABLE_WINDOWDECORATION = "1";
+        };
 
-      programs.hyprland = {
-        enable = true;
-        package = hyprlandPackages.hyprland;
-        portalPackage = hyprlandPackages.xdg-desktop-portal-hyprland;
-        withUWSM = true;
-      };
+        nix.settings.substituters = [
+          "https://hyprland.cachix.org"
+        ];
+        nix.settings.trusted-public-keys = [
+          "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
+        ];
 
-      security.polkit.enable = true;
+        programs.hyprland = {
+          enable = true;
+          package = hyprlandPackages.hyprland;
+          portalPackage = hyprlandPackages.xdg-desktop-portal-hyprland;
+          withUWSM = true;
+        };
 
-      services.dbus.enable = true;
-      services.displayManager.defaultSession = "hyprland-uwsm";
-      services.displayManager.sddm = {
-        enable = true;
-        wayland.enable = true;
-      };
-      services.power-profiles-daemon.enable = true;
-      services.upower.enable = true;
-      services.xserver.enable = true;
+        security.polkit.enable = true;
 
-      xdg.portal.enable = true;
+        home-manager.sharedModules = lib.optionals (builtins.hasAttr "home-manager" options) [
+          {
+            newxos.hyprland.monitors = lib.mkDefault cfg.monitors;
+          }
+        ];
 
-      systemd.user.services.hyprpolkitagent = {
-        enable = true;
-        description = "HyprPolkitAgent Service";
-        wantedBy = [ "default.target" ];
-        serviceConfig = {
-          Type = "simple";
-          ExecStart = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";
+        services.dbus.enable = true;
+        services.displayManager.defaultSession = "hyprland-uwsm";
+        services.displayManager.sddm = {
+          enable = true;
+          wayland.enable = true;
+        };
+        services.power-profiles-daemon.enable = true;
+        services.upower.enable = true;
+        services.xserver.enable = true;
+
+        xdg.portal.enable = true;
+
+        systemd.user.services.hyprpolkitagent = {
+          enable = true;
+          description = "HyprPolkitAgent Service";
+          wantedBy = [ "default.target" ];
+          serviceConfig = {
+            Type = "simple";
+            ExecStart = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";
+          };
         };
       };
     };
 
   flake.modules.homeManager.hyprland =
-    { ... }:
+    { config, ... }:
+    let
+      cfg = config.newxos.hyprland;
+    in
     {
-      xdg.configFile."hypr" = {
-        source = ../../configs/hypr;
-        recursive = true;
+      options.newxos.hyprland.monitors = hyprlandMonitorOption;
+
+      config = {
+        xdg.configFile."hypr" = {
+          source = ../../configs/hypr;
+          recursive = true;
+        };
+
+        xdg.configFile."hypr/nix-import.lua".text = ''
+          return ${
+            toLua {
+              monitors = map normalizeMonitor cfg.monitors;
+            }
+          }
+        '';
+
+        xdg.configFile."satty/config.toml".text = ''
+          [general]
+          copy-command = "wl-copy"
+          corner-roundness = 10
+          early-exit = true
+          fullscreen = true
+          initial-tool = "arrow"
+          actions-on-enter = ["save-to-clipboard", "save-to-file", "exit"]
+          actions-on-escape = ["exit"]
+          actions-on-right-click = ["save-to-clipboard", "save-to-file", "exit"]
+        '';
       };
-
-      xdg.configFile."hypr/nix-import.lua".text = ''
-        return {}
-      '';
-
-      xdg.configFile."satty/config.toml".text = ''
-        [general]
-        copy-command = "wl-copy"
-        corner-roundness = 10
-        early-exit = true
-        fullscreen = true
-        initial-tool = "arrow"
-        actions-on-enter = ["save-to-clipboard", "save-to-file", "exit"]
-        actions-on-escape = ["exit"]
-        actions-on-right-click = ["save-to-clipboard", "save-to-file", "exit"]
-      '';
     };
 }

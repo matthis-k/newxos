@@ -9,10 +9,12 @@ Hyprland provides the graphical desktop session used by this repo.
 - Home Manager copies the hand-written `configs/hypr/` tree into `~/.config/hypr`.
 - Screenshot helpers use `grimblast` for capture. `screen-shot` selects `region`, `region-direct`, `output`, or `window`; `satty` is separate for annotation, and `screen-read-region` uses `tesseract` OCR.
 - Nix-generated values should go into `~/.config/hypr/nix-import.lua` instead of cluttering the hand-written root config.
+- Repo monitor definitions flow through `newxos.hyprland.monitors`, into `nix-import.lua`, and are applied by `configs/hypr/monitors.lua`.
 
 ## Basics
 
 - Keep `configs/hypr/hyprland.lua` as the hand-written root config.
+- Keep `configs/hypr/monitors.lua` as the logic layer for Nix-provided monitor imports.
 - Keep structured binds in `configs/hypr/keybinds.lua`.
 - Prefer `grimblast` when you want Hyprland-native capture with readable shell glue. Keep one `screen-shot` entrypoint with a mode argument instead of duplicating tiny wrapper binaries for each capture target.
 - Prefer editing the Lua config tree instead of generating the whole Hyprland config from Nix.
