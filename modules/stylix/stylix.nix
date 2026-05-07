@@ -128,9 +128,12 @@ in
       options.stylix.fullPalette = mkFullPaletteOption;
 
       config = {
+        programs.dconf.enable = true;
+
         stylix = {
           enable = true;
           base16Scheme = mkBase16Scheme fullPalette;
+          polarity = "dark";
           homeManagerIntegration.autoImport = false;
           icons = {
             enable = true;
@@ -167,9 +170,16 @@ in
       options.stylix.fullPalette = mkFullPaletteOption;
 
       config = {
+        gtk = {
+          enable = true;
+          gtk3.extraConfig.gtk-application-prefer-dark-theme = 1;
+          gtk4.extraConfig.gtk-application-prefer-dark-theme = 1;
+        };
+
         stylix = {
           enable = true;
           base16Scheme = mkBase16Scheme fullPalette;
+          polarity = "dark";
           icons = {
             enable = true;
             package = pkgs.papirus-icon-theme;

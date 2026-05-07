@@ -7,6 +7,7 @@ Relevant facts and guidelines for working in this repo.
 - Trust local repo files and `nix flake show/check "path:$PWD"` over stale notes if they disagree.
 - Treat local repo files as the source of truth for this flake.
 - Use `nixos_nix` as the source of truth for upstream NixOS, Home Manager, darwin, nixpkgs, and related option or package metadata.
+- `nixos_nix` does not index arbitrary flake-defined options, so if an upstream flake option lookup comes up empty, check the pinned input source and library docs directly.
 - `flake.nix` is generated. Do not edit it directly. The source of truth lives in `modules/`.
 - Related reading: [Flake Structure](flake-structure.md), [flake-file](libraries/flake-file.md), [flake-parts](libraries/flake-parts.md).
 
@@ -24,6 +25,7 @@ Relevant facts and guidelines for working in this repo.
 ## Normal Flow
 
 - Use the `path:$PWD` form for local Nix commands during agent work. Plain `.` can fail in an untracked checkout.
+- Before adding manual config around an upstream library, check the relevant knowledge page and upstream option docs first; prefer first-class library options over repo overrides when they already cover the behavior.
 - If you change `flake-file` declarations, run `nix run "path:$PWD#write-flake"` before `flake show`, `flake check`, or commit.
 - If you add or change a flake output, confirm it appears in `nix flake show "path:$PWD"`.
 - If a new output depends on newly added files, stage the relevant files before final `flake show/check` so Nix evaluates the same git-visible tree that would be committed.
