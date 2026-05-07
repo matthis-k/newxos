@@ -91,3 +91,14 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Rule: when building shared tool bundles with `pkgs.buildEnv`, avoid mixing `gcc` and `clang` wrappers unless you split them into separate outputs
 - Context: `modules/development/dev-tools.nix`
 - Related knowledge: [Workflow](workflow.md)
+
+### 2026-05-07: Lua multi-return inside table constructors can collapse runtime library lists
+
+- Date: `2026-05-07`
+- Problem: expanding a list with `unpack(...)` in the middle of a table constructor for LuaLS workspace libraries
+- Symptom: editing Neovim config Lua files had no `vim.` member completions even though `lua_ls` was attached
+- Cause: Lua only keeps all return values from a function call when it is the final expression; in a non-final table field, `unpack(vim.api.nvim_get_runtime_file("", true))` contributed only the first runtime path
+- Fix: build the runtime path list first, then extend it with extra libraries instead of unpacking in the middle of the table literal
+- Rule: when a Lua config needs a whole list from `unpack(...)`, do not place that call before additional table elements unless losing all but the first value is intended
+- Context: `configs/nvim/lsp/lua_ls.lua`
+- Related knowledge: [Workflow](workflow.md)

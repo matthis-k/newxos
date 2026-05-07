@@ -1,26 +1,21 @@
 {
   "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
-  "runtime": {
-    "version": "LuaJIT"
-  },
-  "workspace": {
-    "checkThirdParty": false,
-    "library": [
-      "./lua"
-    ]
-  },
-  "diagnostics": {
-    "globals": [
-      "vim",
-      "Ui",
-      "StatusColumn",
-      "StatusLine",
-      "TabLine",
-      "stc_click_handlers",
-      "tbl_click_handlers"
-    ]
-  },
-  "hint": {
-    "enable": false
-  }
+  "runtime.version": "LuaJIT",
+  "workspace.checkThirdParty": "Disable",
+  "workspace.library": [
+    "$VIMRUNTIME",
+    "${3rd}/luv/library",
+    "${3rd}/busted/library",
+    "./lua"
+  ],
+  "diagnostics.globals": [
+    "vim",
+    "Ui",
+    "StatusColumn",
+    "StatusLine",
+    "TabLine",
+    "stc_click_handlers",
+    "tbl_click_handlers"
+  ],
+  "hint.enable": false
 }

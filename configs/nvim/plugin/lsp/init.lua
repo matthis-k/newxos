@@ -68,6 +68,8 @@ require("lz.n").load({
     cmd = "LazyDev",
     ft = "lua",
     after = function ()
+        local config_dir = vim.fs.normalize(require("newxos.config").config_dir())
+
         require("lazydev").setup({
             debug = false,
             runtime = vim.env.VIMRUNTIME,
@@ -75,11 +77,16 @@ require("lz.n").load({
                 { path = "luvit-meta/library", words = { "vim%.uv" } },
             },
             integrations = {
-                lspconfig = false,
+                lspconfig = true,
                 cmp = false,
                 coc = false,
             },
             enabled = function (root_dir)
+                local root = vim.fs.normalize(root_dir)
+
+                if root == config_dir or config_dir:sub(1, #root + 1) == root .. "/" then
+                    return true
+                end
                 return not vim.uv.fs_stat(root_dir .. "/.luarc.json")
             end,
         })

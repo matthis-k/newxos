@@ -6,6 +6,14 @@
 ---@field runtime? table
 ---@field workspace? table
 
+local function workspace_library()
+    return {
+        vim.env.VIMRUNTIME,
+        "${3rd}/luv/library",
+        "${3rd}/busted/library",
+    }
+end
+
 return {
     settings = {
         ---@type LuaLsOptions
@@ -91,11 +99,7 @@ return {
             },
             workspace = {
                 checkThirdParty = "false",
-                library = {
-                    unpack(vim.api.nvim_get_runtime_file("", true)),
-                    "${3rd}/luv/library",
-                    "${3rd}/busted/library",
-                },
+                library = workspace_library(),
             },
             hint = {
                 enable = false,
