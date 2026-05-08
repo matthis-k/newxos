@@ -39,6 +39,17 @@ Day-to-day rules for working in this repo.
 - Stage only task-related files. Avoid broad `git add .` in a dirty worktree.
 - If unrelated local edits make isolation difficult, ask before using `git stash`.
 
+## Commit Messages
+
+- Use Conventional Commits 1.0.0 as the repo baseline: `https://www.conventionalcommits.org/en/v1.0.0/`.
+- Format commit subjects as `<type>[optional scope][!]: <description>`.
+- Use lowercase types. Prefer `feat` for new behavior, `fix` for bug fixes, and `docs`, `refactor`, `test`, `build`, `ci`, `chore`, or `revert` when those fit better.
+- Use an optional scope when it clarifies the subsystem, for example `feat(quickshell): ...` or `docs(workflow): ...`.
+- Keep the description short and specific. Describe the change outcome, not filler words.
+- Add a body only when extra context helps explain why the change exists or what tradeoff it makes. Leave one blank line between the subject and body.
+- Mark breaking changes with `!` in the subject, a `BREAKING CHANGE: ...` footer, or both. Use the footer when the migration impact needs explanation.
+- Prefer one logical change per commit. If a change wants multiple commit types, split it when practical.
+
 ## Secrets And Data Care
 
 - Default to the least invasive inspection that answers the question.

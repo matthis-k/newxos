@@ -30,7 +30,7 @@ Practical guidance for maintaining this NixOS flake. Durable repo docs live in `
 - Use `nix run "path:$PWD#repo-gate"` for the pre-commit flow: regenerate, format, then check.
 - Stage only task-related files; avoid broad `git add .` in a dirty worktree.
 - If unrelated local edits make isolation difficult, ask before using `git stash`.
-- If the user asks for commits, prefer small local commits per logical change after verification. Do not rewrite or squash history unless the user asks.
+- If the user asks for commits, prefer small local commits per logical change after verification, and write subjects in Conventional Commits form: `<type>[optional scope][!]: <description>`. See [Workflow](knowledge/workflow.md#commit-messages). Do not rewrite or squash history unless the user asks.
 
 ## Commands
 
