@@ -77,5 +77,5 @@ This repo keeps the root flake thin. Most real behavior lives under `modules/` a
 - Put concrete outputs close to the feature they expose.
 - Put repo-owned program wrapping in modules, and hand-written program config in `configs/`.
 - Put custom themes and theme generation in `modules/stylix/`, then import the generated files where feasible.
-- Put starter guidance in `knowledge/` pages instead of shipping example template flakes.
+- Put starter guidance in `knowledge/` pages like [Dendritic Feature Modules](patterns/dendritic-modules.md) and [Workflow Tooling](libraries/workflow-tooling.md) instead of shipping example template flakes.
 - Put reusable docs in `knowledge/`, not in `AGENTS.md`.

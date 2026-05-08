@@ -25,6 +25,8 @@ This repo follows the dendritic pattern: keep the root flake thin and spread beh
 
 ## Minimal Starter Shape
 
+This section is the doc replacement for the old `dendritic-simple-module` template.
+
 - `modules/dendritic.nix`: turn on the dendritic `flake-file` layout.
 - `modules/example-message.nix`: keep one small concern in one nearby `flake-parts` module.
 

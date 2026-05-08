@@ -17,6 +17,8 @@ This repo uses `treefmt-nix` and `git-hooks.nix` for formatting and pre-commit w
 
 ## Starter Workflow Module Shape
 
+This section is the doc replacement for the old `dendritic-workflow-module` template.
+
 - Keep extra flake inputs in one `flake-file` module.
 - Keep workflow behavior in a separate module that imports upstream flake modules and defines repo helper packages.
 
