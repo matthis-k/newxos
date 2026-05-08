@@ -49,7 +49,7 @@ Keep the root flake thin. Most behavior lives under `modules/` and `configs/`.
 ## `configs/`
 
 - Keep hand-written app config here when it should stay editable outside pure Nix logic.
-- Use this for files like `configs/hypr/hyprland.lua`, `configs/hypr/keybinds.lua`, `configs/kitty/kitty.conf`, and `configs/nvim/init.lua`.
+- Use this for files like `configs/hypr/hyprland.lua`, `configs/hypr/keybinds.lua`, `configs/kitty/kitty.conf`, `configs/nvim/init.lua`, and `configs/quickshell/shell.qml`.
 - Prefer importing generated pieces from Nix when some part should stay derived from repo state.
 - Keep generated files out of git when they can be created by modules.
 - Related reading: [hyprland](libraries/hyprland.md), [Wrapped Programs And Generated Config](patterns/wrapped-programs.md).

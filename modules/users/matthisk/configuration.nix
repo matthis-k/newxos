@@ -47,6 +47,7 @@
       newxos
       neovim
       opencode
+      quickshell
       sops
       stylix
       zen-browser

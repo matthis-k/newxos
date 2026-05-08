@@ -18,6 +18,7 @@ Important upstream libraries, tools, and configured programs used by this repo.
 - [nh and nom](nh-nom.md): repo-owned CLI wrapper flow for NixOS, Home Manager, and direct flake actions. Use when changing `newxos`, fancy build output, or local flake command UX. Docs: `https://github.com/nix-community/nh` and `https://github.com/maralorn/nix-output-monitor`
 - [stylix](stylix.md): theme plumbing and palette flow. Use when touching colors, generated themes, or Stylix targets. Docs: `https://nix-community.github.io/stylix/`
 - [hyprland](hyprland.md): Wayland compositor and Lua config layout. Use when changing desktop session behavior or config file layout. Docs: `https://wiki.hypr.land/`
+- [quickshell](quickshell.md): QtQuick shell toolkit plus the repo `newshell` template wrapper. Use when touching `configs/quickshell/` or the wrapper package. Docs: `https://quickshell.org/docs/v0.3.0/guide/install-setup/`
 - `nix-index-database`: prebuilt `nix-index` database and modules for shell integration. Use when touching command-not-found, `comma`, or fish shell package lookup behavior. Docs: `https://github.com/nix-community/nix-index-database`
 - `zen-flake`: Zen Browser package and Home Manager module. Use when touching the browser package source or its Home Manager integration. Docs: `https://github.com/0xc000022070/zen-browser-flake`
 - `nordvpn-flake`: NordVPN service packaging used by the repo's VPN module. Use when touching NordVPN service wiring or its upstream package source. Docs: `https://github.com/connerohnesorge/nordvpn-flake`
