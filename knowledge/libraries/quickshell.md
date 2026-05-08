@@ -7,6 +7,7 @@ Quickshell provides a QtQuick-based shell toolkit, and this repo exposes a tiny 
 - Keeps the hand-written template config in `configs/quickshell/`.
 - Exposes `newshell`, which forwards to `quickshell -p <repo-template-dir>`.
 - Installs both the raw `quickshell` binary and the repo wrapper through Home Manager so ad hoc runs stay available.
+- Sets `QS_ICON_THEME` from the active Stylix icon selection so `quickshell` and `newshell` stay aligned.
 - Keeps the wrapper minimal instead of copying Quickshell config into `~/.config/`.
 
 ## Basics

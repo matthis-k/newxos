@@ -16,7 +16,17 @@ in
     };
 
   flake.modules.homeManager.quickshell =
-    { pkgs, ... }:
+    {
+      config,
+      options,
+      pkgs,
+      ...
+    }:
+    let
+      stylixEnabled = builtins.hasAttr "stylix" options;
+      iconThemeName =
+        if config.stylix.polarity == "light" then config.stylix.icons.light else config.stylix.icons.dark;
+    in
     {
       home.packages = withSystem pkgs.stdenv.hostPlatform.system (
         { self', ... }:
@@ -25,5 +35,9 @@ in
           self'.packages.newshell
         ]
       );
+
+      home.sessionVariables = lib.mkIf stylixEnabled {
+        QS_ICON_THEME = iconThemeName;
+      };
     };
 }
