@@ -1,13 +1,13 @@
 # Flake Structure
 
-This repo keeps the root flake thin. Most real behavior lives under `modules/` and `configs/`.
+Keep the root flake thin. Most behavior lives under `modules/` and `configs/`.
 
 ## Top Level
 
 - `flake.nix`: generated file. Do not hand edit.
 - `flake.lock`: pinned inputs.
 - `modules/`: source of truth for flake behavior, reusable modules, inputs, packages, and concrete outputs.
-- `configs/`: hand-written program configs that get copied or wrapped into system or home-manager config.
+- `configs/`: hand-written program config copied or wrapped into system or Home Manager config.
 - `secrets/`: encrypted secret payloads only.
 - `knowledge/`: repo memory for workflow, libraries, patterns, structure, and issues.
 - `AGENTS.md`: short agent entrypoint that points at the knowledge pages.
@@ -16,7 +16,7 @@ This repo keeps the root flake thin. Most real behavior lives under `modules/` a
 
 ## `modules/`
 
-- Keep shared repo behavior near the top level of `modules/` when it applies across hosts or users.
+- Keep shared repo behavior near the top level of `modules/`.
 - Use small focused files like `nix.nix`, `networking.nix`, `workflow.nix`, `home-manager.nix`, `sops.nix`, and `disko.nix` for shared wiring.
 - Use feature directories when one concern needs multiple files.
 - Current feature directories include `stylix/`, `desktops/`, `editors/`, `shells/`, `terminals/`, `browsers/`, `development/`, `vpns/`, `hosts/`, and `users/`.
@@ -25,16 +25,16 @@ This repo keeps the root flake thin. Most real behavior lives under `modules/` a
 ## `modules/hosts/`
 
 - One directory per concrete NixOS system.
-- Keep host-local boot, hardware, storage, swap, and user-linking files close to that host.
+- Keep host-local boot, hardware, storage, swap, and user-linking files close to the host.
 - Good examples are files like `configuration.nix`, `boot.nix`, `filesystem.nix`, `swap.nix`, and `hardware-configuration.nix`.
-- If `disko` manages storage, keep it as the source of truth and avoid duplicated `fileSystems` declarations in generated hardware files.
+- If `disko` manages storage, keep it as the source of truth and avoid duplicated `fileSystems` declarations.
 - Installer hosts follow the same pattern.
 - Related reading: [Host And User Layout](patterns/host-and-user-layout.md), [disko](libraries/disko.md).
 
 ## `modules/users/`
 
 - One directory per real user.
-- Keep user-specific Home Manager and tightly-related NixOS user wiring here.
+- Keep user-specific Home Manager and closely related NixOS user wiring here.
 - Prefer co-locating small NixOS and Home Manager declarations when they describe the same user.
 - Related reading: [Host And User Layout](patterns/host-and-user-layout.md), [home-manager](libraries/home-manager.md).
 
@@ -48,7 +48,7 @@ This repo keeps the root flake thin. Most real behavior lives under `modules/` a
 
 ## `configs/`
 
-- Keep hand-written app config here when the program should feel editable outside pure Nix logic.
+- Keep hand-written app config here when it should stay editable outside pure Nix logic.
 - Use this for files like `configs/hypr/hyprland.lua`, `configs/hypr/keybinds.lua`, `configs/kitty/kitty.conf`, and `configs/nvim/init.lua`.
 - Prefer importing generated pieces from Nix when some part should stay derived from repo state.
 - Keep generated files out of git when they can be created by modules.
@@ -57,7 +57,7 @@ This repo keeps the root flake thin. Most real behavior lives under `modules/` a
 ## `secrets/`
 
 - Only store encrypted secret payloads here.
-- Keep public companions like `*.pub` as normal tracked files when that helps external setup.
+- Keep public companions like `*.pub` as normal tracked files when useful.
 - Do not store plaintext secrets here.
 - Do not inspect secret values unless the user explicitly asks.
 - Related reading: [sops-nix](libraries/sops-nix.md), [Workflow](workflow.md#secrets-and-data-care).
@@ -73,7 +73,7 @@ This repo keeps the root flake thin. Most real behavior lives under `modules/` a
 
 ## Placement Rules
 
-- Put shared infrastructure in shared modules, not in a single host, unless it is really host-local.
+- Put shared infrastructure in shared modules unless it is truly host-local.
 - Put concrete outputs close to the feature they expose.
 - Put repo-owned program wrapping in modules, and hand-written program config in `configs/`.
 - Put custom themes and theme generation in `modules/stylix/`, then import the generated files where feasible.

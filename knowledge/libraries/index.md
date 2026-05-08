@@ -1,12 +1,12 @@
 # Libraries
 
-Index of the important upstream libraries, tools, and configured programs used by this repo.
+Important upstream libraries, tools, and configured programs used by this repo.
 
 ## How To Use This
 
-- Start here when you need a rough idea of what something is for.
-- Jump into the linked local page when the repo usage is non-trivial.
-- Use the external docs links when you need exact option names or upstream behavior.
+- Start here for the rough map.
+- Open the linked page when repo usage is non-trivial.
+- Use upstream docs for exact options or behavior.
 
 ## Index
 

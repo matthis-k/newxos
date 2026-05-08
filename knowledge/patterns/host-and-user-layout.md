@@ -7,13 +7,13 @@ Concrete systems and real users live near their own files.
 - Concrete NixOS systems live under `modules/hosts/<hostname>/`.
 - Real users live under `modules/users/<name>/`.
 - Shared system behavior stays in shared top-level modules.
-- Hosts import shared aspects and keep only host-local details nearby.
+- Hosts import shared aspects and keep host-local details nearby.
 
 ## Practical Rules
 
 - Keep boot, hardware, storage, swap, and installer-only details near the host.
 - Keep user-specific Home Manager config near the user.
-- It is fine for a user directory to define both Home Manager and NixOS-side user wiring when that is the clearest setup.
+- A user directory can define both Home Manager and NixOS-side user wiring when that is clearest.
 - Installer media hosts should follow the same pattern instead of becoming special global snowflakes.
 - Related reading: [Flake Structure](../flake-structure.md#moduleshosts), [home-manager](../libraries/home-manager.md), [disko](../libraries/disko.md).
 

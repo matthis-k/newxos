@@ -12,5 +12,5 @@ Important repo composition patterns.
 ## Notes
 
 - Use these pages for repo conventions.
-- Use the library pages for upstream tool behavior.
-- Use [Encountered Issues](../encountered_issues.md) for mistakes the repo has already paid for.
+- Use library pages for upstream behavior.
+- Use [Encountered Issues](../encountered_issues.md) for repeated mistakes.

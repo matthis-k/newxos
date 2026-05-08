@@ -4,7 +4,7 @@ This repo uses `treefmt-nix` and `git-hooks.nix` for formatting and pre-commit w
 
 ## What It Does Here
 
-- `treefmt-nix` exposes the formatter wrapper used by `nix run "path:$PWD#fmt"`.
+- `treefmt-nix` exposes the formatter behind `nix run "path:$PWD#fmt"`.
 - `git-hooks.nix` installs and runs the managed pre-commit hook.
 - The repo also exposes `repo-gate`, which runs `write-flake -> fmt -> flake check`.
 
@@ -17,10 +17,10 @@ This repo uses `treefmt-nix` and `git-hooks.nix` for formatting and pre-commit w
 
 ## Starter Workflow Module Shape
 
-This section is the doc replacement for the old `dendritic-workflow-module` template.
+This replaces the old `dendritic-workflow-module` template.
 
 - Keep extra flake inputs in one `flake-file` module.
-- Keep workflow behavior in a separate module that imports upstream flake modules and defines repo helper packages.
+- Keep workflow behavior in a separate module that imports upstream flake modules and defines helper packages.
 
 ```nix
 # modules/workflow-inputs.nix
@@ -70,7 +70,7 @@ This section is the doc replacement for the old `dendritic-workflow-module` temp
 ## Known Quirks Here
 
 - The hook can rewrite files. Re-stage task-related files after it runs.
-- `repo-gate` is a good handoff check, but use judgment when the task only touched docs or other clearly isolated files.
+- `repo-gate` is a good handoff check, but use judgment for doc-only or clearly isolated changes.
 - Import upstream flake modules from top-level `inputs`. Use `inputs'` only inside `perSystem` for system-qualified packages.
 - Use top-level `self` for source-tree paths like `treefmt.projectRoot`. Use `self'` only inside `perSystem` when referring to built outputs.
 - Prefer module outputs like `config.treefmt.build.wrapper` over rebuilding tool paths by hand.

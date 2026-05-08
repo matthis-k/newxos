@@ -4,9 +4,9 @@ Most hard Nix mistakes in this repo are scope mistakes.
 
 ## The Main Scopes
 
-- Top-level flake module scope: use for `imports`, `flake`, global input wiring, and reusable module definitions.
-- `perSystem` scope: use for packages, apps, checks, dev shells, and system-specific access through `inputs'` and `self'`.
-- NixOS or Home Manager module scope: use for real module options like `pkgs`, `config`, `lib`, and NixOS-only args such as `modulesPath`.
+- Top-level flake module scope: `imports`, `flake`, global input wiring, and reusable module definitions.
+- `perSystem` scope: packages, apps, checks, dev shells, and system-specific access through `inputs'` and `self'`.
+- NixOS or Home Manager module scope: real module options like `pkgs`, `config`, `lib`, and NixOS-only args such as `modulesPath`.
 - Related reading: [flake-parts](../libraries/flake-parts.md).
 
 ## Short Examples

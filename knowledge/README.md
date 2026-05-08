@@ -1,6 +1,6 @@
 # Knowledge
 
-Short repo memory for configuring and maintaining this flake.
+Short repo memory for this flake.
 
 ## Map
 
@@ -12,6 +12,6 @@ Short repo memory for configuring and maintaining this flake.
 
 ## Notes
 
-- Keep this concise. The goal is fast understanding, not polished prose.
+- Keep this concise.
 - Cross-link related pages when a library, pattern, and issue interact.
 - Prefer updating the smallest relevant page instead of growing one giant document.
