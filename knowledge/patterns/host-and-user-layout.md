@@ -1,3 +1,9 @@
+---
+title: host-and-user-layout
+type: note
+permalink: newxos/patterns/host-and-user-layout
+---
+
 # Host And User Layout
 
 Concrete systems and real users live near their own files.

@@ -1,3 +1,9 @@
+---
+title: index
+type: note
+permalink: newxos/libraries/index
+---
+
 # Libraries
 
 Important upstream libraries, tools, and configured programs used by this repo.
@@ -26,7 +32,7 @@ Important upstream libraries, tools, and configured programs used by this repo.
 - [sops-nix](sops-nix.md): encrypted secret provisioning. Use when wiring secrets, keys, or secret-backed files. Docs: `https://github.com/Mic92/sops-nix`
 - [nix-wrapper-modules](nix-wrapper-modules.md): wrapped end-user program packages. Use when the repo owns config for a program like `opencode`, `kitty`, or `neovim`. Docs: `https://github.com/BirdeeHub/nix-wrapper-modules`
 - [workflow tooling](workflow-tooling.md): `treefmt-nix` and `git-hooks.nix`. Use when touching formatting, hooks, or local gate behavior. Docs: `https://github.com/numtide/treefmt-nix` and `https://github.com/cachix/git-hooks.nix`
-- [opencode and MCP](opencode.md): wrapped assistant package plus configured MCP servers. Use when changing the local assistant setup. Docs: `https://opencode.ai/docs/config/`
+- [opencode and MCP](../agents/opencode.md): wrapped assistant package plus configured MCP servers. Use when changing the local assistant setup. Docs: `https://opencode.ai/docs/config/`
 - `mcp-nixos`: packaged Nix metadata MCP server used by the wrapped assistant. Use when the assistant needs upstream package or option truth. Docs: `https://github.com/utensils/mcp-nixos`
 
 ## Related Pages

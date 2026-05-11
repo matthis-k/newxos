@@ -1,3 +1,9 @@
+---
+title: sops-nix
+type: note
+permalink: newxos/libraries/sops-nix
+---
+
 # sops-nix
 
 `sops-nix` is the repo's secret provisioning path.

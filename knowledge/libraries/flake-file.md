@@ -1,3 +1,9 @@
+---
+title: flake-file
+type: note
+permalink: newxos/libraries/flake-file
+---
+
 # flake-file
 
 `flake-file` generates the root `flake.nix` from declarations in repo modules.

@@ -1,3 +1,9 @@
+---
+title: flake-structure
+type: note
+permalink: newxos/flake-structure
+---
+
 # Flake Structure
 
 Keep the root flake thin. Most behavior lives under `modules/` and `configs/`.

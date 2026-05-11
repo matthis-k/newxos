@@ -1,8 +1,25 @@
+---
+title: dendritic-modules
+type: note
+permalink: newxos/patterns/dendritic-modules
+---
+
 # Dendritic Feature Modules
 
 Keep the root flake thin and spread behavior across small modules near the owning feature.
 
 ## What It Means Here
+
+The dendritic pattern organizes configuration by feature or concern rather than only by target system. A feature module may contribute:
+
+- NixOS configuration
+- Home Manager configuration
+- flake inputs
+- packages, apps, overlays
+- development shells
+- generated flake-file declarations
+
+Concrete rules:
 
 - `modules/` is the real source of truth.
 - Feature modules can expose inputs, reusable `flake.modules.*` modules, `perSystem` packages, and concrete outputs from one nearby place.

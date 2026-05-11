@@ -1,3 +1,9 @@
+---
+title: workflow
+type: note
+permalink: newxos/workflow
+---
+
 # Workflow
 
 Day-to-day rules for working in this repo.
@@ -20,6 +26,8 @@ Day-to-day rules for working in this repo.
 - Run the local gate: `nix run "path:$PWD#repo-gate"`
 - Install managed git hooks: `nix run "path:$PWD#install-git-hooks"`
 - Run the wrapped assistant package: `nix run "path:$PWD#opencode"`
+- Rebuild memory index (after doc edits): `newxos memory reindex`
+- Reset and rebuild memory (after doc refactor): `newxos memory reset`
 
 ## Normal Flow
 
@@ -35,6 +43,7 @@ Day-to-day rules for working in this repo.
 
 - The managed pre-commit hook runs `write-flake -> write nvim pack lockfile -> fmt -> flake check`.
 - In a fresh clone, `nix develop "path:$PWD"` gives you the pre-commit dev shell. Otherwise use `nix run "path:$PWD#install-git-hooks"`.
+- If Nix garbage collection removes the `pre-commit` binary, the hook will fail with `No such file or directory`. Run `nix run "path:$PWD#install-git-hooks"` to regenerate it.
 - If hooks rewrite files, review them, re-stage task-related files, and rerun the commit.
 - Stage only task-related files. Avoid broad `git add .` in a dirty worktree.
 - If unrelated local edits make isolation difficult, ask before using `git stash`.
@@ -70,6 +79,9 @@ Day-to-day rules for working in this repo.
 
 - Run the relevant verification commands for the changed area.
 - Prefer `nix run "path:$PWD#repo-gate"` after Nix or flake workflow changes, unless the task clearly does not need the full gate.
+- If you created or modified knowledge files, refresh the memory index:
+  - Small edits (a few files, targeted changes): `newxos memory reindex`
+  - Structural changes (new directories, major rewrites, type/schema changes): `newxos memory reset`
 - Confirm new or renamed outputs appear in `nix flake show "path:$PWD"` when applicable.
 - Call out anything you could not verify.
 - Mention any knowledge pages you updated if that matters for later work.

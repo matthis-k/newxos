@@ -1,3 +1,9 @@
+---
+title: disko
+type: note
+permalink: newxos/libraries/disko
+---
+
 # disko
 
 `disko` is the storage layout tool for concrete NixOS hosts.

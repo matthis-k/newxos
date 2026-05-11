@@ -1,3 +1,9 @@
+---
+title: stylix
+type: note
+permalink: newxos/libraries/stylix
+---
+
 # stylix
 
 Stylix is the repo's theme backbone.

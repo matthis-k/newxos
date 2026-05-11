@@ -1,3 +1,9 @@
+---
+title: home-manager
+type: note
+permalink: newxos/libraries/home-manager
+---
+
 # home-manager
 
 Home Manager handles user-level configuration.

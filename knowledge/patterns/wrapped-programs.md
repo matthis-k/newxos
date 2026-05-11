@@ -1,3 +1,9 @@
+---
+title: wrapped-programs
+type: note
+permalink: newxos/patterns/wrapped-programs
+---
+
 # Wrapped Programs And Generated Config
 
 This repo prefers wrapped programs when it owns opinionated config.

@@ -1,6 +1,12 @@
+---
+title: flake-parts
+type: note
+permalink: newxos/libraries/flake-parts
+---
+
 # flake-parts
 
-`flake-parts` is the core module system for this flake.
+`flake-parts` is the core module system for this flake. It provides a composable, option-driven way to define flake outputs using the Nix module system.
 
 ## What It Does Here
 
@@ -17,9 +23,79 @@
 - Use `withSystem` when a top-level reusable module needs a per-system package.
 - Related reading: [Scope Boundaries And Per-System Access](../patterns/per-system-scopes.md), [Dendritic Feature Modules](../patterns/dendritic-modules.md).
 
-## Short Examples
+## Upstream Overview
+
+### Architecture
+
+- `flake-parts` wraps the Nix module system for flakes.
+- A flake imports `flake-parts.lib.mkFlake { inherit inputs; } modules` as its output function.
+- Each module is a function `{ inputs, ... }: { ... }` that returns a flake-parts configuration.
+- Modules compose via `imports`, merging options and outputs.
+
+### Module arguments (top-level)
+
+- `inputs` — all flake inputs, merged from the flake's `inputs` attrset.
+- `self` — the flake's own outputs (partially constructed).
+- `system` — available inside `perSystem` context only.
+
+### Key configuration keys
+
+**imports** — list of modules to include. Can be flake modules (e.g., `inputs.treefmt-nix.flakeModule`), inline attrsets, or file paths.
+
+**systems** — list of system strings (e.g., `[ "x86_64-linux" "aarch64-linux" ]`). Usually set from `inputs.nixpkgs.systems` or hardcoded.
+
+**perSystem** — function `{ self', inputs', pkgs, system, ... }: { ... }` evaluated once per system. Returns system-scoped outputs.
+
+**flake** — function `{ self', inputs', ... }: { ... }` for non-system-specific flake outputs. Returns the raw flake output attrset.
+
+**debug** — boolean to enable debug output.
+
+### perSystem outputs
+
+Inside `perSystem`, the following output keys are recognized:
+
+- **packages** — derivations built by the flake. Accessed as `nix build .#<name>`.
+- **apps** — runnable applications with `nix run .#<name>`. Each is `{ type = "app"; program = "<path>"; }`.
+- **devShells** — development environments via `nix develop .#<name>`.
+- **checks** — test derivations run by `nix flake check`.
+- **legacyPackages** — full pkgs overlay, typically `pkgs` itself.
+- **formatter** — the default formatter package (e.g., `pkgs.nixfmt-rfc-style`).
+- **devShell** — default dev shell (shortcut when only one is needed).
+
+### Per-system module arguments
+
+Inside `perSystem = { ... }`:
+
+- **pkgs** — the nixpkgs package set for the current system.
+- **system** — the current system string.
+- **inputs'** — per-system view of inputs (e.g., `inputs'.nixpkgs.package`).
+- **self'** — per-system view of the flake's own outputs (e.g., `self'.packages.foo`).
+- **lib** — nixpkgs lib functions.
+- **config** — the merged perSystem config.
+
+### withSystem
+
+- `withSystem system ({ self', inputs', pkgs, ... }: ...)` — evaluates a function with per-system context from outside `perSystem`.
+- Used in reusable NixOS/Home Manager modules that need to reference the flake's own packages.
+- Avoids manual `self.packages.${system}` indexing.
+
+### Reusable modules
+
+- Export via `flake.modules.nixos.<name>` or `flake.modules.homeManager.<name>`.
+- Consumers import them in their own flake or NixOS config.
+- Use `withSystem` internally for per-system package access.
+- The `flake` key can also contribute to `nixosModules`, `homeManagerModules`, `darwinModules`, etc.
+
+### Flake extension pattern
+
+- Other projects (treefmt-nix, nix-wrapper-modules, etc.) expose a `flakeModule` that you import.
+- They add their own options to the flake-parts module system.
+- You configure them through the options they define, and they contribute to flake outputs.
+
+### Short Examples
 
 ```nix
+# Import a flake module
 { inputs, ... }:
 {
   imports = [ inputs.treefmt-nix.flakeModule ];
@@ -27,6 +103,7 @@
 ```
 
 ```nix
+# Define a per-system package
 perSystem = { inputs', pkgs, ... }: {
   packages.example = pkgs.writeShellScriptBin "example" ''
     exec ${inputs'.some-input.packages.default}/bin/example "$@"
@@ -35,6 +112,7 @@ perSystem = { inputs', pkgs, ... }: {
 ```
 
 ```nix
+# Use withSystem in a reusable Home Manager module
 flake.modules.homeManager.example =
   { pkgs, ... }:
   {
@@ -44,13 +122,23 @@ flake.modules.homeManager.example =
   };
 ```
 
-## Helpful Docs
+```nix
+# Contribute non-system flake outputs
+flake = { self', inputs', ... }: {
+  nixosModules.default = import ./modules/nixos-default.nix;
+  homeManagerModules.default = import ./modules/hm-default.nix;
+};
+```
+
+### Helpful Docs
 
 - Main docs: `https://flake.parts/`
 - Option reference: `https://flake.parts/options/flake-parts.html`
 - Module arguments: `https://flake.parts/module-arguments.html`
 - Exported module docs: `https://flake.parts/options/flake-parts-modules.html`
 - Reusable module guide: `https://flake.parts/dogfood-a-reusable-module.html`
+- Tutorial: `https://flake.parts/tutorial.html`
+- Upstream repo: `https://github.com/hercules-ci/flake-parts`
 
 ## Known Quirks Here
 

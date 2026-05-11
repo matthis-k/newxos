@@ -1,3 +1,9 @@
+---
+title: workflow-tooling
+type: note
+permalink: newxos/libraries/workflow-tooling
+---
+
 # Workflow Tooling
 
 This repo uses `treefmt-nix` and `git-hooks.nix` for formatting and pre-commit workflow.

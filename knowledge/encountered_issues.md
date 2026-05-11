@@ -1,3 +1,9 @@
+---
+title: encountered_issues
+type: note
+permalink: newxos/encountered-issues
+---
+
 # Encountered Issues
 
 Append-only repo memory for repeatable mistakes and gotchas.
@@ -91,6 +97,17 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Rule: when building shared tool bundles with `pkgs.buildEnv`, avoid mixing `gcc` and `clang` wrappers unless you split them into separate outputs
 - Context: `modules/development/dev-tools.nix`
 - Related knowledge: [Workflow](workflow.md)
+
+### 2026-05-11: `git-hooks.nix` pre-commit hook breaks after Nix GC
+
+- Date: `2026-05-11`
+- Problem: pre-commit hook fails with `No such file or directory` on the `pre-commit` binary
+- Symptom: `git commit` errors with `.git/hooks/pre-commit: line 13: /nix/store/...-pre-commit-4.5.1/bin/pre-commit: No such file or directory`
+- Cause: `git-hooks.nix` generates `.git/hooks/pre-commit` with an absolute store path to the Python `pre-commit` binary; Nix garbage collection removes that path
+- Fix: run `nix run "path:$PWD#install-git-hooks"` to regenerate the hook with a valid store path
+- Rule: after Nix GC, flake updates, or any rebuild that could change the `pre-commit` store path, run `install-git-hooks` before committing
+- Context: pre-commit hook wired through `git-hooks.nix` (`modules/workflow.nix`)
+- Related knowledge: [workflow tooling](libraries/workflow-tooling.md), [Workflow](workflow.md)
 
 ### 2026-05-07: Lua multi-return inside table constructors can collapse runtime library lists
 

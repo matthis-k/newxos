@@ -1,3 +1,9 @@
+---
+title: index
+type: note
+permalink: newxos/patterns/index
+---
+
 # Patterns
 
 Important repo composition patterns.

@@ -20,29 +20,32 @@ Practical guidance for maintaining this NixOS flake. Durable repo docs live in `
 
 ## Primary Workflow
 
+Full workflow guidance: [Workflow](knowledge/workflow.md).
+
+Key rules:
+
 - Trust local files and `nix flake show/check "path:$PWD"` over stale notes.
 - Use MCP-NixOS or `nixos_nix` as the source of truth for upstream NixOS, Home Manager, darwin, and nixpkgs options or package metadata.
-- In a fresh clone, start with `nix develop "path:$PWD"` if you want hooks installed automatically before the first commit.
 - Use the `path:$PWD` form for local Nix commands during agent work; plain `.` can fail in an untracked checkout.
 - If you change flake-file declarations, regenerate first with `nix run "path:$PWD#write-flake"`.
 - If you add or change a flake output, confirm it appears in `nix flake show "path:$PWD"` before handoff.
-- Stage new files before final `flake show/check` when outputs depend on the git-visible tree.
 - Use `nix run "path:$PWD#repo-gate"` for the pre-commit flow: regenerate, format, then check.
 - Stage only task-related files; avoid broad `git add .` in a dirty worktree.
-- If unrelated local edits make isolation difficult, ask before using `git stash`.
-- If the user asks for commits, prefer small local commits per logical change after verification, and write subjects in Conventional Commits form: `<type>[optional scope][!]: <description>`. See [Workflow](knowledge/workflow.md#commit-messages). Do not rewrite or squash history unless the user asks.
+- Write commit subjects in Conventional Commits form: `<type>[optional scope][!]: <description>`.
 
 ## Commands
 
-- Enter the default dev shell for normal local work: `nix develop "path:$PWD"`
-- Show actual flake outputs: `nix flake show "path:$PWD"`
-- Run the flake verification checks: `nix flake check "path:$PWD"`
-- Regenerate generated flake file after changing flake-file module declarations: `nix run "path:$PWD#write-flake"`
-- Format repo files through treefmt: `nix run "path:$PWD#fmt"`
-- Run the local pre-commit gate manually: `nix run "path:$PWD#repo-gate"`
-- Install the managed pre-commit hook into `.git/hooks`: `nix run "path:$PWD#install-git-hooks"`
-- Run the wrapped OpenCode package with MCP-NixOS preconfigured: `nix run "path:$PWD#opencode"`
-- The flake also exposes helper packages `write-inputs` and `write-lock`; inspect them with `nix flake show "path:$PWD"` before using them.
+- Enter the default dev shell: `nix develop "path:$PWD"`
+- Show flake outputs: `nix flake show "path:$PWD"`
+- Run flake checks: `nix flake check "path:$PWD"`
+- Regenerate flake: `nix run "path:$PWD#write-flake"`
+- Format files: `nix run "path:$PWD#fmt"`
+- Run pre-commit gate: `nix run "path:$PWD#repo-gate"`
+- Install git hooks: `nix run "path:$PWD#install-git-hooks"`
+- Run wrapped OpenCode: `nix run "path:$PWD#opencode"`
+- Rebuild Basic Memory: `newxos memory reindex`
+- Reset Basic Memory: `newxos memory reset`
+- Helper packages: `write-inputs`, `write-lock` (inspect with `nix flake show "path:$PWD"`)
 
 ## Knowledge Maintenance
 

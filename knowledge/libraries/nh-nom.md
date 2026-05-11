@@ -1,3 +1,9 @@
+---
+title: nh-nom
+type: note
+permalink: newxos/libraries/nh-nom
+---
+
 # nh And nom
 
 This repo uses `nh` and `nix-output-monitor` through repo-owned `newxos` wrapper package.
