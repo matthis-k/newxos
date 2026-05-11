@@ -1,2 +1,5 @@
 /.pre-commit-config.yaml
 /result
+
+# Local generated state
+/.cache/

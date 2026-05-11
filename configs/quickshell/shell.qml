@@ -1,5 +1,8 @@
 //@ pragma UseQApplication
 import Quickshell
 import QtQuick
+import "./services"
 
-ShellRoot {}
+ShellRoot {
+    property ShellState shellState: ShellState
+}
