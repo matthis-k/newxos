@@ -42,6 +42,12 @@
         programs.nixfmt.enable = true;
       };
 
+      pre-commit.settings.hooks.statix = {
+        enable = true;
+        entry = "${pkgs.statix}/bin/statix check";
+        types = [ "nix" ];
+      };
+
       pre-commit.settings.hooks.repo-gate = {
         enable = true;
         name = "write-flake, fmt, and flake check";

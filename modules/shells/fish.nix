@@ -10,10 +10,8 @@
     {
       imports = [ inputs.nix-index-database.nixosModules.nix-index ];
 
-      programs.command-not-found.enable = false;
       programs.fish.enable = true;
       programs.nix-index.enable = true;
-      programs.nix-index.enableFishIntegration = false;
       programs.nix-index-database.comma.enable = true;
       users.defaultUserShell = pkgs.fish;
     };

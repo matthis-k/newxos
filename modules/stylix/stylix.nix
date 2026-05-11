@@ -105,6 +105,20 @@ let
       as Kitty can use the full semantic colors directly.
     '';
   };
+
+  mkStylixConfig =
+    { pkgs, fullPalette }:
+    {
+      enable = true;
+      base16Scheme = mkBase16Scheme fullPalette;
+      polarity = "dark";
+      icons = {
+        enable = true;
+        package = pkgs.papirus-icon-theme;
+        dark = "Papirus-Dark";
+        light = "Papirus";
+      };
+    };
 in
 {
   flake-file.inputs.stylix = {
@@ -130,17 +144,8 @@ in
       config = {
         programs.dconf.enable = true;
 
-        stylix = {
-          enable = true;
-          base16Scheme = mkBase16Scheme fullPalette;
-          polarity = "dark";
+        stylix = mkStylixConfig { inherit pkgs fullPalette; } // {
           homeManagerIntegration.autoImport = false;
-          icons = {
-            enable = true;
-            package = pkgs.papirus-icon-theme;
-            dark = "Papirus-Dark";
-            light = "Papirus";
-          };
         };
 
         home-manager.sharedModules = [
@@ -176,17 +181,7 @@ in
           gtk4.extraConfig.gtk-application-prefer-dark-theme = 1;
         };
 
-        stylix = {
-          enable = true;
-          base16Scheme = mkBase16Scheme fullPalette;
-          polarity = "dark";
-          icons = {
-            enable = true;
-            package = pkgs.papirus-icon-theme;
-            dark = "Papirus-Dark";
-            light = "Papirus";
-          };
-        };
+        stylix = mkStylixConfig { inherit pkgs fullPalette; };
 
         home.pointerCursor = {
           enable = true;

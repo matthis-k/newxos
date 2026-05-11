@@ -20,7 +20,6 @@
     }:
     let
       cfg = config.services.nordvpn;
-      boolToCli = enabled: if enabled then "true" else "false";
       cliUser =
         if cfg.cliUser != null then
           cfg.cliUser
@@ -196,20 +195,6 @@
           users = [ "matthisk" ];
         };
 
-        system.activationScripts.nordvpnBootstrap = {
-          supportsDryActivation = true;
-          text = ''
-            case "''${NIXOS_ACTION:-}" in
-              switch|test)
-                echo nordvpn-bootstrap.service >> /run/nixos/activation-restart-list
-                ;;
-              dry-activate)
-                echo nordvpn-bootstrap.service >> /run/nixos/dry-activation-restart-list
-                ;;
-            esac
-          '';
-        };
-
         systemd.services.nordvpn-bootstrap = {
           description = "Bootstrap NordVPN login and settings";
           after = [
@@ -221,6 +206,26 @@
             "nordvpn.service"
           ];
           wantedBy = [ "multi-user.target" ];
+          restartTriggers = [
+            "${cfg.settings.technology}"
+            "${builtins.toString cfg.settings.firewall}"
+            "${builtins.toString cfg.settings.routing}"
+            "${builtins.toString cfg.settings.analytics}"
+            "${builtins.toString cfg.settings.killSwitch}"
+            "${builtins.toString cfg.settings.threatProtectionLite}"
+            "${builtins.toString cfg.settings.notify}"
+            "${builtins.toString cfg.settings.tray}"
+            "${builtins.toString cfg.settings.ipv6}"
+            "${builtins.toString cfg.settings.meshnet}"
+            "${builtins.toString cfg.settings.lanDiscovery}"
+            "${builtins.toString cfg.settings.virtualLocation}"
+            "${builtins.toString cfg.settings.postQuantum}"
+            "${builtins.toString cfg.settings.autoConnect.enable}"
+            "${lib.concatStrings cfg.settings.autoConnect.target}"
+            "${lib.concatStrings cfg.settings.dnsServers}"
+            cliUser
+            config.sops.secrets.nordvpn_token.path
+          ];
           serviceConfig = {
             RemainAfterExit = true;
             Type = "oneshot";
@@ -277,18 +282,18 @@
             fi
 
             try_nordvpn_set technology ${cfg.settings.technology}
-            try_nordvpn_set firewall ${boolToCli cfg.settings.firewall}
-            try_nordvpn_set routing ${boolToCli cfg.settings.routing}
-            try_nordvpn_set analytics ${boolToCli cfg.settings.analytics}
-            try_nordvpn_set killswitch ${boolToCli cfg.settings.killSwitch}
-            try_nordvpn_set threatprotectionlite ${boolToCli cfg.settings.threatProtectionLite}
-            try_nordvpn_set notify ${boolToCli cfg.settings.notify}
-            try_nordvpn_set tray ${boolToCli cfg.settings.tray}
-            try_nordvpn_set ipv6 ${boolToCli cfg.settings.ipv6}
-            try_nordvpn_set meshnet ${boolToCli cfg.settings.meshnet}
-            try_nordvpn_set lan-discovery ${boolToCli cfg.settings.lanDiscovery}
-            try_nordvpn_set virtual-location ${boolToCli cfg.settings.virtualLocation}
-            try_nordvpn_set post-quantum ${boolToCli cfg.settings.postQuantum}
+            try_nordvpn_set firewall ${builtins.toString cfg.settings.firewall}
+            try_nordvpn_set routing ${builtins.toString cfg.settings.routing}
+            try_nordvpn_set analytics ${builtins.toString cfg.settings.analytics}
+            try_nordvpn_set killswitch ${builtins.toString cfg.settings.killSwitch}
+            try_nordvpn_set threatprotectionlite ${builtins.toString cfg.settings.threatProtectionLite}
+            try_nordvpn_set notify ${builtins.toString cfg.settings.notify}
+            try_nordvpn_set tray ${builtins.toString cfg.settings.tray}
+            try_nordvpn_set ipv6 ${builtins.toString cfg.settings.ipv6}
+            try_nordvpn_set meshnet ${builtins.toString cfg.settings.meshnet}
+            try_nordvpn_set lan-discovery ${builtins.toString cfg.settings.lanDiscovery}
+            try_nordvpn_set virtual-location ${builtins.toString cfg.settings.virtualLocation}
+            try_nordvpn_set post-quantum ${builtins.toString cfg.settings.postQuantum}
 
             ${
               if cfg.settings.dnsServers == [ ] then
@@ -297,7 +302,7 @@
                 "try_nordvpn set dns ${dnsArgs}"
             }
 
-            if ${boolToCli cfg.settings.autoConnect.enable}; then
+            if ${builtins.toString cfg.settings.autoConnect.enable}; then
               try_nordvpn set autoconnect true ${lib.escapeShellArgs cfg.settings.autoConnect.target}
 
               if ! nordvpn_connected; then

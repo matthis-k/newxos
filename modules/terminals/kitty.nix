@@ -25,17 +25,15 @@
 
   flake.modules.homeManager.kitty =
     { pkgs, ... }:
+    let
+      kittyPkg = withSystem pkgs.stdenv.hostPlatform.system ({ self', ... }: self'.packages.kitty);
+    in
     {
-      home.packages = withSystem pkgs.stdenv.hostPlatform.system (
-        { self', ... }:
-        [
-          self'.packages.kitty
-          pkgs.nerd-fonts.hack
-        ]
-      );
+      home.packages = [
+        kittyPkg
+        pkgs.nerd-fonts.hack
+      ];
 
-      home.sessionVariables.TERMINAL = lib.getExe (
-        withSystem pkgs.stdenv.hostPlatform.system ({ self', ... }: self'.packages.kitty)
-      );
+      home.sessionVariables.TERMINAL = lib.getExe kittyPkg;
     };
 }
