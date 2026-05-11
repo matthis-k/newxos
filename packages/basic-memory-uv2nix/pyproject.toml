@@ -1,0 +1,12 @@
+[project]
+name = "basic-memory-wrapper"
+version = "0.1.0"
+description = "Basic Memory MCP wrapper"
+requires-python = ">=3.12"
+dependencies = [
+  "basic-memory>=0.18",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
