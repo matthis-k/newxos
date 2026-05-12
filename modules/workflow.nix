@@ -45,7 +45,7 @@
 
       pre-commit.settings.hooks.statix = {
         enable = true;
-        entry = "${pkgs.statix}/bin/statix check";
+        entry = "${pkgs.statix}/bin/statix fix";
         types = [ "nix" ];
       };
 
