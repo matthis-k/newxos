@@ -169,6 +169,7 @@ in
         inputs.stylix.homeModules.stylix
         stylix-fish
         stylix-kitty
+        stylix-quickshell
         stylix-zen-browser
       ];
 

@@ -14,6 +14,7 @@ Stylix is the repo's theme backbone.
 - Derives the Base16 scheme from that palette.
 - Feeds the same palette into custom Kitty and Fish theme generation.
 - Feeds the same palette into a repo-owned Zen Browser Catppuccin-style theme layer.
+- Generates a JSON palette file for QuickShell to read at runtime.
 - Uses the `catppuccin-breeze-cursors` flake input and selects its packaged blue cursor theme through Home Manager pointer cursor settings.
 - Uses Stylix icon wiring with `Papirus-Dark` so GTK and Qt share one icon theme.
 - Passes the selected palette from NixOS into Home Manager through shared modules.
@@ -23,6 +24,7 @@ Stylix is the repo's theme backbone.
 - Keep custom theme logic in `modules/stylix/`.
 - Prefer generating small theme fragments from Nix and importing them from program config.
 - This repo disables some built-in Stylix targets when a repo-owned generated theme is the better fit.
+- QuickShell reads the generated JSON palette at runtime; see [QuickShell design](../patterns/quickshell-design.md).
 - Related reading: [Flake Structure](../flake-structure.md#modulesstylix), [Wrapped Programs And Generated Config](../patterns/wrapped-programs.md).
 
 ## Short Example

@@ -1,7 +1,9 @@
 pragma Singleton
 import QtQml
 import QtQuick
+import QtCore
 import Quickshell
+import Quickshell.Io
 
 Singleton {
     id: cfg
@@ -31,42 +33,122 @@ Singleton {
         return Qt.rgba(r, g, b, alpha);
     }
 
+    FileView {
+        id: paletteFile
+        path: StandardPaths.writableLocation(StandardPaths.ConfigLocation) + "/quickshell/catppuccin-palette.json"
+        watchChanges: true
+        onFileChanged: reload()
+
+        JsonAdapter {
+            property string rosewater: "#f5e0dc"
+            property string flamingo: "#f2cdcd"
+            property string pink: "#f5c2e7"
+            property string mauve: "#cba6f7"
+            property string red: "#f38ba8"
+            property string maroon: "#eba0ac"
+            property string peach: "#fab387"
+            property string yellow: "#f9e2af"
+            property string green: "#a6e3a1"
+            property string teal: "#94e2d5"
+            property string sky: "#89dceb"
+            property string sapphire: "#74c7ec"
+            property string blue: "#89b4fa"
+            property string lavender: "#b4befe"
+            property string text: "#cdd6f4"
+            property string subtext1: "#bac2de"
+            property string subtext0: "#a6adc8"
+            property string overlay2: "#9399b2"
+            property string overlay1: "#7f849c"
+            property string overlay0: "#6c7086"
+            property string surface2: "#585b70"
+            property string surface1: "#45475a"
+            property string surface0: "#313244"
+            property string base: "#1e1e2e"
+            property string mantle: "#181825"
+            property string crust: "#11111b"
+        }
+    }
+
+    readonly property var paletteColors: {
+        const adapter = paletteFile.adapter;
+        if (!adapter) return {};
+        return {
+            "rosewater": adapter.rosewater,
+            "flamingo": adapter.flamingo,
+            "pink": adapter.pink,
+            "mauve": adapter.mauve,
+            "red": adapter.red,
+            "maroon": adapter.maroon,
+            "peach": adapter.peach,
+            "yellow": adapter.yellow,
+            "green": adapter.green,
+            "teal": adapter.teal,
+            "sky": adapter.sky,
+            "sapphire": adapter.sapphire,
+            "blue": adapter.blue,
+            "lavender": adapter.lavender,
+            "text": adapter.text,
+            "subtext1": adapter.subtext1,
+            "subtext0": adapter.subtext0,
+            "overlay2": adapter.overlay2,
+            "overlay1": adapter.overlay1,
+            "overlay0": adapter.overlay0,
+            "surface2": adapter.surface2,
+            "surface1": adapter.surface1,
+            "surface0": adapter.surface0,
+            "base": adapter.base,
+            "mantle": adapter.mantle,
+            "crust": adapter.crust,
+        };
+    }
+
+    readonly property QtObject spacing: QtObject {
+        readonly property int xxs: 4
+        readonly property int xs: 8
+        readonly property int sm: 12
+        readonly property int md: 16
+        readonly property int lg: 24
+        readonly property int xl: 32
+        readonly property int xxl: 48
+        readonly property int xxxl: 64
+    }
+
     PersistentProperties {
         id: colorsObj
-        reloadableId: "persitentColors"
+        reloadableId: "persistentColors"
 
-        property color rosewater: "#f5e0dc"
-        property color flamingo: "#f2cdcd"
-        property color pink: "#f5c2e7"
-        property color mauve: "#cba6f7"
-        property color red: "#f38ba8"
-        property color maroon: "#eba0ac"
-        property color peach: "#fab387"
-        property color yellow: "#f9e2af"
-        property color green: "#a6e3a1"
-        property color teal: "#94e2d5"
-        property color sky: "#89dceb"
-        property color sapphire: "#74c7ec"
-        property color blue: "#89b4fa"
-        property color lavender: "#b4befe"
+        property color rosewater: cfg.paletteColors.rosewater || "#f5e0dc"
+        property color flamingo: cfg.paletteColors.flamingo || "#f2cdcd"
+        property color pink: cfg.paletteColors.pink || "#f5c2e7"
+        property color mauve: cfg.paletteColors.mauve || "#cba6f7"
+        property color red: cfg.paletteColors.red || "#f38ba8"
+        property color maroon: cfg.paletteColors.maroon || "#eba0ac"
+        property color peach: cfg.paletteColors.peach || "#fab387"
+        property color yellow: cfg.paletteColors.yellow || "#f9e2af"
+        property color green: cfg.paletteColors.green || "#a6e3a1"
+        property color teal: cfg.paletteColors.teal || "#94e2d5"
+        property color sky: cfg.paletteColors.sky || "#89dceb"
+        property color sapphire: cfg.paletteColors.sapphire || "#74c7ec"
+        property color blue: cfg.paletteColors.blue || "#89b4fa"
+        property color lavender: cfg.paletteColors.lavender || "#b4befe"
 
-        property color text: "#cdd6f4"
-        property color subtext1: "#bac2de"
-        property color subtext0: "#a6adc8"
-        property color overlay2: "#9399b2"
-        property color overlay1: "#7f849c"
-        property color overlay0: "#6c7086"
-        property color surface2: "#585b70"
-        property color surface1: "#45475a"
-        property color surface0: "#313244"
-        property color base: "#1e1e2e"
-        property color mantle: "#181825"
-        property color crust: "#11111b"
+        property color text: cfg.paletteColors.text || "#cdd6f4"
+        property color subtext1: cfg.paletteColors.subtext1 || "#bac2de"
+        property color subtext0: cfg.paletteColors.subtext0 || "#a6adc8"
+        property color overlay2: cfg.paletteColors.overlay2 || "#9399b2"
+        property color overlay1: cfg.paletteColors.overlay1 || "#7f849c"
+        property color overlay0: cfg.paletteColors.overlay0 || "#6c7086"
+        property color surface2: cfg.paletteColors.surface2 || "#585b70"
+        property color surface1: cfg.paletteColors.surface1 || "#45475a"
+        property color surface0: cfg.paletteColors.surface0 || "#313244"
+        property color base: cfg.paletteColors.base || "#1e1e2e"
+        property color mantle: cfg.paletteColors.mantle || "#181825"
+        property color crust: cfg.paletteColors.crust || "#11111b"
     }
 
     PersistentProperties {
         id: styleState
-        reloadableId: "persitentStyling"
+        reloadableId: "persistentStyling"
 
         property color bg0: colorsObj.crust
         property color bg1: colorsObj.mantle
@@ -116,12 +198,12 @@ Singleton {
 
         property url wallpaper: Qt.resolvedUrl("../assets/wallpaper.jpg")
 
-        property double statusIconScaler: 0.75
+        property double statusIconScaler: 0.55
     }
 
     PersistentProperties {
         id: barObj
-        reloadableId: "persitentBar"
+        reloadableId: "persistentBar"
     }
 
     PersistentProperties {

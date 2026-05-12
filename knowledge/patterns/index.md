@@ -14,6 +14,7 @@ Important repo composition patterns.
 - [Scope Boundaries And Per-System Access](per-system-scopes.md): how to move between top-level flake scope, `perSystem`, and NixOS or Home Manager modules.
 - [Host And User Layout](host-and-user-layout.md): how concrete hosts, shared system modules, and user modules are arranged.
 - [Wrapped Programs And Generated Config](wrapped-programs.md): when config belongs in wrappers, in `configs/`, or in generated imports.
+- [QuickShell Design](quickshell-design.md): flat design, animations, and Catppuccin palette usage for QuickShell UI.
 
 ## Notes
 
