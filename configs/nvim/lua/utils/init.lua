@@ -37,7 +37,7 @@ function M.dirs(dir)
 end
 
 M.highlights = setmetatable({}, {
-    __index = function (_, key)
+    __index = function(_, key)
         return setmetatable(vim.api.nvim_get_hl(0, { name = key, link = false }), nil)
     end,
 })
@@ -70,7 +70,7 @@ function M.validate(subject, schema, opts)
     local valid, _ = pcall(
         vim.validate,
         vim.iter(schema)
-            :map(function (key, val)
+            :map(function(key, val)
                 return { subject[key], val }
             end)
             :totable()
@@ -80,7 +80,7 @@ end
 
 local ffi = require("ffi")
 
-ffi.cdef [[
+ffi.cdef([[
 typedef struct {
   int start;
   int end;
@@ -90,7 +90,7 @@ typedef struct {
 
 FoldInfo fold_info(void *win, int lnum);
 void* find_window_by_handle(int handle, int *error);
-]]
+]])
 
 local function get_fold_info(winid, lnum)
     if type(winid) ~= "number" or type(lnum) ~= "number" then
@@ -118,9 +118,17 @@ end
 local reverse_lookup = {}
 
 local highlight_fields = {
-    "fg", "bg", "sp",
-    "bold", "italic", "underline", "undercurl", "strikethrough", "reverse",
-    "nocombine", "standout",
+    "fg",
+    "bg",
+    "sp",
+    "bold",
+    "italic",
+    "underline",
+    "undercurl",
+    "strikethrough",
+    "reverse",
+    "nocombine",
+    "standout",
 }
 
 local function serialize_highlight(tbl)
@@ -153,7 +161,9 @@ function M.auto_hl(hl_def)
 end
 
 function M.to_hex(color)
-    if not color or type(color) ~= "number" then return nil end
+    if not color or type(color) ~= "number" then
+        return nil
+    end
     return string.format("#%06x", color)
 end
 

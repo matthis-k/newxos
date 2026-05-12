@@ -8,7 +8,7 @@ require("lz.n").load({
         { "<leader>l", "<nop>", mode = "n", silent = true, desc = "Lsp" },
         {
             "<leader>lf",
-            function ()
+            function()
                 require("conform").format({ async = true })
             end,
             mode = "n",
@@ -17,7 +17,7 @@ require("lz.n").load({
         },
         {
             "<space>lf",
-            function ()
+            function()
                 require("conform").format({
                     async = true,
                     range = {
@@ -31,12 +31,12 @@ require("lz.n").load({
             desc = "Format range",
         },
     },
-    after = function ()
+    after = function()
         require("conform").setup({
             default_format_opts = {
                 lsp_format = "prefer",
             },
-            format_on_save = function (bufnr)
+            format_on_save = function(bufnr)
                 if vim.g.disable_autoformat or vim.b[bufnr].disable_autoformat then
                     return
                 end
@@ -44,7 +44,7 @@ require("lz.n").load({
             end,
         })
 
-        vim.api.nvim_create_user_command("FormatOff", function (args)
+        vim.api.nvim_create_user_command("FormatOff", function(args)
             if args.bang then
                 vim.b.disable_autoformat = true
             else
@@ -54,7 +54,7 @@ require("lz.n").load({
             desc = "Disable autoformat-on-save",
             bang = true,
         })
-        vim.api.nvim_create_user_command("FormatOn", function ()
+        vim.api.nvim_create_user_command("FormatOn", function()
             vim.b.disable_autoformat = false
             vim.g.disable_autoformat = false
         end, {
@@ -67,7 +67,7 @@ require("lz.n").load({
     "lazydev.nvim",
     cmd = "LazyDev",
     ft = "lua",
-    after = function ()
+    after = function()
         local config_dir = vim.fs.normalize(require("newxos.config").config_dir())
 
         require("lazydev").setup({
@@ -81,7 +81,7 @@ require("lz.n").load({
                 cmp = false,
                 coc = false,
             },
-            enabled = function (root_dir)
+            enabled = function(root_dir)
                 local root = vim.fs.normalize(root_dir)
 
                 if root == config_dir or config_dir:sub(1, #root + 1) == root .. "/" then
@@ -105,7 +105,9 @@ vim.diagnostic.config({
     underline = { severity = { vim.diagnostic.severity.ERROR } },
     severity_sort = true,
     signs = {
-        text = vim.tbl_map(function (sign) return sign.text end, require("constants").signs.diagnostics),
+        text = vim.tbl_map(function(sign)
+            return sign.text
+        end, require("constants").signs.diagnostics),
         linehl = {},
         numhl = {},
     },

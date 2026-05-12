@@ -122,9 +122,9 @@ let
         selectedLanguages != defaultLanguages
       ) "-${lib.concatStringsSep "-" selectedLanguages}";
     in
-    assert lib.assertMsg (invalidLanguages == [ ]) (
-      "Unknown dev-tools languages: ${lib.concatStringsSep ", " invalidLanguages}"
-    );
+    assert lib.assertMsg (
+      invalidLanguages == [ ]
+    ) "Unknown dev-tools languages: ${lib.concatStringsSep ", " invalidLanguages}";
     pkgs.buildEnv {
       name = "dev-tools${nameSuffix}";
       paths = lib.unique (
@@ -178,7 +178,7 @@ in
 
       config = lib.mkIf cfg.enable {
         home.packages = [
-          (mkDevToolsForSystem pkgs.stdenv.hostPlatform.system { languages = cfg.languages; })
+          (mkDevToolsForSystem pkgs.stdenv.hostPlatform.system { inherit (cfg) languages; })
         ];
       };
     };

@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   flake-file = {
     formatter = pkgs: pkgs.nixfmt;
 

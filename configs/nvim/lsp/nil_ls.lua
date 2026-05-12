@@ -19,7 +19,7 @@ return {
             },
         },
     },
-    on_attach = function (client, _bufnr)
+    on_attach = function(client, _bufnr)
         client.server_capabilities.semanticTokensProvider = nil
     end,
 }

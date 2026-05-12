@@ -48,7 +48,9 @@ function M.init_cache()
     for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
         if vim.api.nvim_buf_is_loaded(bufnr) then
             local file = vim.api.nvim_buf_get_name(bufnr)
-            if file == "" then file = "[No Name]" end
+            if file == "" then
+                file = "[No Name]"
+            end
             local short = file
             if #file > 70 and file ~= "[No Name]" then
                 local fname = vim.fn.fnamemodify(file, ":t")
@@ -58,7 +60,9 @@ function M.init_cache()
                     parts = { parts[1], "...", parts[#parts - 1], parts[#parts] }
                 end
                 for i, p in ipairs(parts) do
-                    if #p > 5 then parts[i] = p:sub(1, 5) .. "…" end
+                    if #p > 5 then
+                        parts[i] = p:sub(1, 5) .. "…"
+                    end
                 end
                 short = table.concat(parts, "/") .. "/" .. fname
             end
@@ -89,16 +93,23 @@ M.mode = {
     name = "mode",
     before = " ",
     after = " ",
-    hl = function () return M.mode_info().hl end,
-    text = function () return M.mode_info().text end,
+    hl = function()
+        return M.mode_info().hl
+    end,
+    text = function()
+        return M.mode_info().text
+    end,
 }
 
 Git.cache = Git.cache or {}
 
 local fetched = {}
 local function get_ahead_behind(git)
-    local ok, res = pcall(function ()
-        local line = vim.fn.system({ "git", "rev-list", "--left-right", "--count", git.head .. "..origin/" .. git.head }, git.root)
+    local ok, res = pcall(function()
+        local line = vim.fn.system(
+            { "git", "rev-list", "--left-right", "--count", git.head .. "..origin/" .. git.head },
+            git.root
+        )
         local ahead, behind = line:match("(%d+)%s+(%d+)")
         return { ahead = tonumber(ahead) or 0, behind = tonumber(behind) or 0 }
     end)
@@ -121,14 +132,14 @@ if timer then
 end
 
 Git.icon = {
-    text = function ()
+    text = function()
         return vim.b[vim.api.nvim_get_current_buf()].gitsigns_status_dict and "" or ""
     end,
     hl = "StlGitBranch",
 }
 
 Git.branch = {
-    text = function ()
+    text = function()
         local gs = vim.b[vim.api.nvim_get_current_buf()].gitsigns_status_dict
         return (gs and gs.head) or ""
     end,
@@ -138,10 +149,12 @@ Git.branch = {
 local function diff_counter(key, hl)
     return {
         hl = hl,
-        text = function ()
+        text = function()
             local gs = vim.b[vim.api.nvim_get_current_buf()].gitsigns_status_dict
             local n = gs and gs[key]
-            return (n and n > 0) and string.format("%s%d", key == "added" and "+" or (key == "removed" and "-" or "~"), n) or ""
+            return (n and n > 0)
+                    and string.format("%s%d", key == "added" and "+" or (key == "removed" and "-" or "~"), n)
+                or ""
         end,
     }
 end
@@ -158,12 +171,18 @@ Git.status.all = {
 local function remote_counter(dir, symbol, hl)
     return {
         hl = hl,
-        text = function ()
+        text = function()
             local gs = vim.b[vim.api.nvim_get_current_buf()].gitsigns_status_dict
-            if not gs then return "" end
-            if not Git.cache[gs.root] then Git.update() end
+            if not gs then
+                return ""
+            end
+            if not Git.cache[gs.root] then
+                Git.update()
+            end
             local remote = Git.cache[gs.root]
-            if remote.error or not remote[dir] or remote[dir] == 0 then return "" end
+            if remote.error or not remote[dir] or remote[dir] == 0 then
+                return ""
+            end
             return string.format("%s%d", symbol, remote[dir])
         end,
     }
@@ -174,12 +193,18 @@ Git.remote = {
     behind = remote_counter("behind", "↓", "StlGitRemoteBehind"),
     sync = {
         hl = "StlGitBranch",
-        text = function ()
+        text = function()
             local gs = vim.b[vim.api.nvim_get_current_buf()].gitsigns_status_dict
-            if not gs then return "" end
-            if not Git.cache[gs.root] then Git.update() end
+            if not gs then
+                return ""
+            end
+            if not Git.cache[gs.root] then
+                Git.update()
+            end
             local r = Git.cache[gs.root]
-            if r.error then return "" end
+            if r.error then
+                return ""
+            end
             return (r.ahead == 0 and r.behind == 0) and "✓" or ""
         end,
     },
@@ -195,7 +220,7 @@ Git.all = {
 M.filename = {
     name = "filename",
     child_sep = " ",
-    children = function ()
+    children = function()
         local b = buf_cache[vim.api.nvim_get_current_buf()] or {}
         return {
             { hl = b.icon_hl, text = b.icon },
@@ -206,13 +231,17 @@ M.filename = {
 
 M.modified = {
     name = "modified",
-    text = function () return vim.bo.modified and "modified" or "" end,
+    text = function()
+        return vim.bo.modified and "modified" or ""
+    end,
 }
 
 M.readonly = {
     name = "readonly",
     hl = "@error",
-    text = function () return vim.bo.readonly and "readonly" or "" end,
+    text = function()
+        return vim.bo.readonly and "readonly" or ""
+    end,
 }
 
 local diag_names = {
@@ -226,7 +255,7 @@ local function diag_part(sev)
     local sign = get_sign(diag_names[sev], "?")
     return {
         hl = sign.texthl,
-        text = function ()
+        text = function()
             local n = #vim.diagnostic.get(0, { severity = sev })
             return (n > 0) and string.format("%d %s", n, utils.utf8sub(sign.text, 1, 1)) or ""
         end,
@@ -252,18 +281,22 @@ M.diagnostics.all = {
 
 M.pos = {
     name = "pos",
-    text = function ()
+    text = function()
         return string.format("%03d:%02d", vim.fn.line("."), vim.fn.col("."))
     end,
 }
 
 M.encoding = {
     name = "encoding",
-    text = function () return vim.bo.fileencoding ~= "" and vim.bo.fileencoding or "utf-8" end,
+    text = function()
+        return vim.bo.fileencoding ~= "" and vim.bo.fileencoding or "utf-8"
+    end,
 }
 M.filetype = {
     name = "filetype",
-    text = function () return vim.bo.filetype ~= "" and vim.bo.filetype or "none" end,
+    text = function()
+        return vim.bo.filetype ~= "" and vim.bo.filetype or "none"
+    end,
 }
 
 M.left = {
@@ -303,7 +336,9 @@ M.whole = {
         {
             before = " ",
             after = " ",
-            hl = function () return M.mode_info().hl end,
+            hl = function()
+                return M.mode_info().hl
+            end,
             children = { M.pos },
         },
     },

@@ -1,4 +1,4 @@
-{ ... }:
+_:
 let
   mainDisk = "/dev/disk/by-id/ata-SAMSUNG_SSD_PM871b_M.2_2280_256GB_S3U0NE0JB62490";
 in

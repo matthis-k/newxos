@@ -44,8 +44,7 @@ function Part.build_string(part)
     end
 
     local child_strs = {}
-    local children = type(part.children) == "function" and part.children()
-        or (part.children or {})
+    local children = type(part.children) == "function" and part.children() or (part.children or {})
     for _, child in ipairs(children) do
         local child_str = eval(child)
         if #child_str > 0 then

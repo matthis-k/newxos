@@ -1,9 +1,9 @@
 local ffi = require("ffi")
 
-ffi.cdef [[
+ffi.cdef([[
   typedef unsigned long long disptick_T;
   extern disptick_T display_tick;
-]]
+]])
 
 local stl = require("ui.statusline")
 local part = require("part")

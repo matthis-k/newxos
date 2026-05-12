@@ -10,22 +10,29 @@ local maps = {
     {
         mode = "n",
         lhs = "<C-w>o",
-        rhs = function ()
+        rhs = function()
             local bufnr = vim.api.nvim_get_current_buf()
             vim.api.nvim_feedkeys(vim.keycode("<C-w>o"), "n", false)
             for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-                if buf ~= bufnr then vim.api.nvim_buf_delete(buf, {}) end
+                if buf ~= bufnr then
+                    vim.api.nvim_buf_delete(buf, {})
+                end
             end
         end,
         opts = { desc = "Zoom window & wipe other buffers" },
     },
-    { mode = "n", lhs = "<esc>",   rhs = "<cmd>noh<CR>", opts = { desc = "Clear search highlight" } },
-    { mode = "t", lhs = "<c-esc>", rhs = "<C-\\><C-n>",  opts = { desc = "Leave terminal normal mode", silent = true } },
+    { mode = "n", lhs = "<esc>", rhs = "<cmd>noh<CR>", opts = { desc = "Clear search highlight" } },
+    {
+        mode = "t",
+        lhs = "<c-esc>",
+        rhs = "<C-\\><C-n>",
+        opts = { desc = "Leave terminal normal mode", silent = true },
+    },
     {
         mode = "v",
         lhs = "/",
-        rhs = function ()
-            vim.cmd('normal! "*y')
+        rhs = function()
+            vim.cmd("normal! \"*y")
             local sel = vim.fn.getreg("*")
             vim.cmd("/" .. vim.fn.escape(sel, "\\/.*$^~[]"))
             vim.api.nvim_feedkeys(vim.keycode("N"), "n", false)
@@ -48,8 +55,18 @@ local maps = {
     { mode = "i", lhs = "<A-J>", rhs = "<Esc><cmd>m .+1<CR>==gi", opts = { desc = "Move ↓ (insert)" } },
     { mode = "i", lhs = "<A-K>", rhs = "<Esc><cmd>m .-2<CR>==gi", opts = { desc = "Move ↑ (insert)" } },
 
-    { mode = { "n", "x", "o" }, lhs = "n", rhs = "'Nn'[v:searchforward]", opts = { expr = true, desc = "Next search result" } },
-    { mode = { "n", "x", "o" }, lhs = "N", rhs = "'nN'[v:searchforward]", opts = { expr = true, desc = "Prev search result" } },
+    {
+        mode = { "n", "x", "o" },
+        lhs = "n",
+        rhs = "'Nn'[v:searchforward]",
+        opts = { expr = true, desc = "Next search result" },
+    },
+    {
+        mode = { "n", "x", "o" },
+        lhs = "N",
+        rhs = "'nN'[v:searchforward]",
+        opts = { expr = true, desc = "Prev search result" },
+    },
 
     { mode = "n", lhs = "H", rhs = "<cmd>bprevious<CR>", opts = { desc = "Prev buffer" } },
     { mode = "n", lhs = "L", rhs = "<cmd>bnext<CR>", opts = { desc = "Next buffer" } },
@@ -65,71 +82,390 @@ local maps = {
     { mode = "v", lhs = "<", rhs = "<gv", opts = { desc = "Indent left & keep selection" } },
     { mode = "v", lhs = ">", rhs = ">gv", opts = { desc = "Indent right & keep selection" } },
 
-    { mode = "n", lhs = "<leader>t", rhs = function () Snacks.terminal() end, opts = { desc = "Toggle terminal" } },
+    {
+        mode = "n",
+        lhs = "<leader>t",
+        rhs = function()
+            Snacks.terminal()
+        end,
+        opts = { desc = "Toggle terminal" },
+    },
 
-    { mode = "n", lhs = "<leader><leader>", rhs = function () Snacks.picker.smart() end, opts = { desc = "Smart find files" } },
+    {
+        mode = "n",
+        lhs = "<leader><leader>",
+        rhs = function()
+            Snacks.picker.smart()
+        end,
+        opts = { desc = "Smart find files" },
+    },
 
     { mode = "n", lhs = "<leader>bd", rhs = "<cmd>bdelete<cr>", opts = { desc = "Delete" } },
-    { mode = "n", lhs = "<leader>bb", rhs = function () Snacks.picker.buffers() end, opts = { desc = "List" } },
-    { mode = "n", lhs = "<leader>bl", rhs = function () Snacks.picker.buffers() end, opts = { desc = "List" } },
+    {
+        mode = "n",
+        lhs = "<leader>bb",
+        rhs = function()
+            Snacks.picker.buffers()
+        end,
+        opts = { desc = "List" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>bl",
+        rhs = function()
+            Snacks.picker.buffers()
+        end,
+        opts = { desc = "List" },
+    },
     { mode = "n", lhs = "<leader>b", rhs = "<nop>", opts = { desc = "Buffers" } },
-    { mode = "n", lhs = "<leader>/", rhs = function () Snacks.picker.grep() end, opts = { desc = "Live grep" } },
-    { mode = "n", lhs = "<leader>:", rhs = function () Snacks.picker.command_history() end, opts = { desc = "Command history" } },
-    { mode = "n", lhs = "<leader>n", rhs = function () Snacks.notifier.show_history() end, opts = { desc = "Notification history" } },
-    { mode = "n", lhs = "<leader><esc>", rhs = function () Snacks.notifier.hide() end, opts = { desc = "Dismiss notifications" } },
-    { mode = "n", lhs = "<leader>e", rhs = function () Snacks.explorer() end, opts = { desc = "File explorer" } },
+    {
+        mode = "n",
+        lhs = "<leader>/",
+        rhs = function()
+            Snacks.picker.grep()
+        end,
+        opts = { desc = "Live grep" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>:",
+        rhs = function()
+            Snacks.picker.command_history()
+        end,
+        opts = { desc = "Command history" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>n",
+        rhs = function()
+            Snacks.notifier.show_history()
+        end,
+        opts = { desc = "Notification history" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader><esc>",
+        rhs = function()
+            Snacks.notifier.hide()
+        end,
+        opts = { desc = "Dismiss notifications" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>e",
+        rhs = function()
+            Snacks.explorer()
+        end,
+        opts = { desc = "File explorer" },
+    },
 
     { mode = { "n", "x" }, lhs = "<leader>o", rhs = "<nop>", opts = { desc = "OpenCode" } },
 
     { mode = { "n", "x" }, lhs = "<leader>f", rhs = "<nop>", opts = { desc = "Find" } },
-    { mode = "n", lhs = "<leader>fD", rhs = function () Snacks.picker.diagnostics_buffer() end, opts = { desc = "Buffer diagnostics" } },
-    { mode = "n", lhs = "<leader>fd", rhs = function () Snacks.picker.diagnostics() end, opts = { desc = "Diagnostics" } },
-    { mode = "n", lhs = "<leader>fb", rhs = function () Snacks.picker.buffers() end, opts = { desc = "Buffers" } },
-    { mode = "n", lhs = "<leader>ff", rhs = function () Snacks.picker.files() end, opts = { desc = "Find files" } },
-    { mode = "n", lhs = "<leader>fg", rhs = function () Snacks.picker.git_files() end, opts = { desc = "Git files" } },
-    { mode = "n", lhs = "<leader>fl", rhs = function () Snacks.picker.lines() end, opts = { desc = "Buffer lines" } },
-    { mode = "n", lhs = "<leader>fm", rhs = function () Snacks.picker.marks() end, opts = { desc = "Marks" } },
-    { mode = "n", lhs = "<leader>fp", rhs = function () Snacks.picker.projects() end, opts = { desc = "Projects" } },
-    { mode = "n", lhs = "<leader>fR", rhs = function () Snacks.rename.rename_file() end, opts = { desc = "Rename file" } },
-    { mode = "n", lhs = "<leader>fr", rhs = function () Snacks.picker.recent() end, opts = { desc = "Recent files" } },
-    { mode = { "n", "x" }, lhs = "<leader>fW", rhs = function () Snacks.picker.grep_word() end, opts = { desc = "Search selection" } },
-    { mode = "n", lhs = "<leader>fw", rhs = function () Snacks.picker.grep() end, opts = { desc = "Word" } },
+    {
+        mode = "n",
+        lhs = "<leader>fD",
+        rhs = function()
+            Snacks.picker.diagnostics_buffer()
+        end,
+        opts = { desc = "Buffer diagnostics" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>fd",
+        rhs = function()
+            Snacks.picker.diagnostics()
+        end,
+        opts = { desc = "Diagnostics" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>fb",
+        rhs = function()
+            Snacks.picker.buffers()
+        end,
+        opts = { desc = "Buffers" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>ff",
+        rhs = function()
+            Snacks.picker.files()
+        end,
+        opts = { desc = "Find files" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>fg",
+        rhs = function()
+            Snacks.picker.git_files()
+        end,
+        opts = { desc = "Git files" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>fl",
+        rhs = function()
+            Snacks.picker.lines()
+        end,
+        opts = { desc = "Buffer lines" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>fm",
+        rhs = function()
+            Snacks.picker.marks()
+        end,
+        opts = { desc = "Marks" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>fp",
+        rhs = function()
+            Snacks.picker.projects()
+        end,
+        opts = { desc = "Projects" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>fR",
+        rhs = function()
+            Snacks.rename.rename_file()
+        end,
+        opts = { desc = "Rename file" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>fr",
+        rhs = function()
+            Snacks.picker.recent()
+        end,
+        opts = { desc = "Recent files" },
+    },
+    {
+        mode = { "n", "x" },
+        lhs = "<leader>fW",
+        rhs = function()
+            Snacks.picker.grep_word()
+        end,
+        opts = { desc = "Search selection" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>fw",
+        rhs = function()
+            Snacks.picker.grep()
+        end,
+        opts = { desc = "Word" },
+    },
 
     { mode = "n", lhs = "<leader>s", rhs = "<nop>", opts = { desc = "Search" } },
-    { mode = "n", lhs = "<leader>sa", rhs = function () Snacks.picker.autocmds() end, opts = { desc = "Autocommands" } },
-    { mode = "n", lhs = "<leader>sc", rhs = function () Snacks.picker.commands() end, opts = { desc = "Commands" } },
-    { mode = "n", lhs = "<leader>sH", rhs = function () Snacks.picker.highlights() end, opts = { desc = "Highlights" } },
-    { mode = "n", lhs = "<leader>sh", rhs = function () Snacks.picker.help() end, opts = { desc = "Help" } },
-    { mode = "n", lhs = "<leader>si", rhs = function () Snacks.picker.icons() end, opts = { desc = "Icons" } },
-    { mode = "n", lhs = "<leader>sk", rhs = function () Snacks.picker.keymaps() end, opts = { desc = "Keymaps" } },
-    { mode = "n", lhs = "<leader>sm", rhs = function () Snacks.picker.man() end, opts = { desc = "Manpages" } },
+    {
+        mode = "n",
+        lhs = "<leader>sa",
+        rhs = function()
+            Snacks.picker.autocmds()
+        end,
+        opts = { desc = "Autocommands" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>sc",
+        rhs = function()
+            Snacks.picker.commands()
+        end,
+        opts = { desc = "Commands" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>sH",
+        rhs = function()
+            Snacks.picker.highlights()
+        end,
+        opts = { desc = "Highlights" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>sh",
+        rhs = function()
+            Snacks.picker.help()
+        end,
+        opts = { desc = "Help" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>si",
+        rhs = function()
+            Snacks.picker.icons()
+        end,
+        opts = { desc = "Icons" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>sk",
+        rhs = function()
+            Snacks.picker.keymaps()
+        end,
+        opts = { desc = "Keymaps" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>sm",
+        rhs = function()
+            Snacks.picker.man()
+        end,
+        opts = { desc = "Manpages" },
+    },
 
     { mode = "n", lhs = "<leader>g", rhs = "<nop>", opts = { desc = "Git" } },
-    { mode = "n", lhs = "<leader>gs", rhs = function () Snacks.picker.git_status() end, opts = { desc = "Git status" } },
-    { mode = "n", lhs = "<leader>gb", rhs = function () Snacks.picker.git_branches() end, opts = { desc = "Git branches" } },
-    { mode = "n", lhs = "<leader>gl", rhs = function () Snacks.picker.git_log() end, opts = { desc = "Git log" } },
-    { mode = "n", lhs = "<leader>gL", rhs = function () Snacks.picker.git_log_line() end, opts = { desc = "Git log line" } },
-    { mode = "n", lhs = "<leader>gd", rhs = function () Snacks.picker.git_diff() end, opts = { desc = "Git diff" } },
-    { mode = "n", lhs = "<leader>gS", rhs = function () Snacks.picker.git_stash() end, opts = { desc = "Git stash" } },
-    { mode = "n", lhs = "<leader>gi", rhs = function () Snacks.picker.gh_issue() end, opts = { desc = "GitHub issues" } },
-    { mode = "n", lhs = "<leader>gI", rhs = function () Snacks.picker.gh_issue({ state = "all" }) end, opts = { desc = "All GitHub issues" } },
-    { mode = "n", lhs = "<leader>gp", rhs = function () Snacks.picker.gh_pr() end, opts = { desc = "GitHub PRs" } },
-    { mode = "n", lhs = "<leader>gP", rhs = function () Snacks.picker.gh_pr({ state = "all" }) end, opts = { desc = "All GitHub PRs" } },
+    {
+        mode = "n",
+        lhs = "<leader>gs",
+        rhs = function()
+            Snacks.picker.git_status()
+        end,
+        opts = { desc = "Git status" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>gb",
+        rhs = function()
+            Snacks.picker.git_branches()
+        end,
+        opts = { desc = "Git branches" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>gl",
+        rhs = function()
+            Snacks.picker.git_log()
+        end,
+        opts = { desc = "Git log" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>gL",
+        rhs = function()
+            Snacks.picker.git_log_line()
+        end,
+        opts = { desc = "Git log line" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>gd",
+        rhs = function()
+            Snacks.picker.git_diff()
+        end,
+        opts = { desc = "Git diff" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>gS",
+        rhs = function()
+            Snacks.picker.git_stash()
+        end,
+        opts = { desc = "Git stash" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>gi",
+        rhs = function()
+            Snacks.picker.gh_issue()
+        end,
+        opts = { desc = "GitHub issues" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>gI",
+        rhs = function()
+            Snacks.picker.gh_issue({ state = "all" })
+        end,
+        opts = { desc = "All GitHub issues" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>gp",
+        rhs = function()
+            Snacks.picker.gh_pr()
+        end,
+        opts = { desc = "GitHub PRs" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>gP",
+        rhs = function()
+            Snacks.picker.gh_pr({ state = "all" })
+        end,
+        opts = { desc = "All GitHub PRs" },
+    },
 
     { mode = "n", lhs = "<leader>v", rhs = "<nop>", opts = { desc = "Vim" } },
-    { mode = "n", lhs = "<leader>vd", rhs = function () Snacks.dashboard.open() end, opts = { desc = "Dashboard" } },
-    { mode = "n", lhs = "<leader>vv", rhs = "<cmd>cd " .. config.config_dir() .. " | e init.lua <CR>", opts = { desc = "Edit config" } },
-    { mode = "n", lhs = "<leader>vc", rhs = require("theme.color_preview").toggle, opts = { desc = "Toggle color preview" } },
-    { mode = "n", lhs = "<leader>vs", rhs = function () require("pick-resession").pick() end, opts = { desc = "Sessions" } },
+    {
+        mode = "n",
+        lhs = "<leader>vd",
+        rhs = function()
+            Snacks.dashboard.open()
+        end,
+        opts = { desc = "Dashboard" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>vv",
+        rhs = "<cmd>cd " .. config.config_dir() .. " | e init.lua <CR>",
+        opts = { desc = "Edit config" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>vc",
+        rhs = require("theme.color_preview").toggle,
+        opts = { desc = "Toggle color preview" },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>vs",
+        rhs = function()
+            require("pick-resession").pick()
+        end,
+        opts = { desc = "Sessions" },
+    },
 
     { mode = "n", lhs = "<leader>q", rhs = "<nop>", opts = { desc = "Quickfix" } },
-    { mode = "n", lhs = "<leader>qj", rhs = "<cmd>cnext<CR>", opts = { desc = "Next quickfix", silent = true } },
-    { mode = "n", lhs = "<leader>qk", rhs = "<cmd>cprev<CR>", opts = { desc = "Prev quickfix", silent = true } },
+    {
+        mode = "n",
+        lhs = "<leader>qj",
+        rhs = "<cmd>cnext<CR>",
+        opts = { desc = "Next quickfix", silent = true },
+    },
+    {
+        mode = "n",
+        lhs = "<leader>qk",
+        rhs = "<cmd>cprev<CR>",
+        opts = { desc = "Prev quickfix", silent = true },
+    },
     { mode = "n", lhs = "<leader>l", rhs = "<nop>", opts = { desc = "Lsp" } },
 
-    { mode = "n", lhs = "gl", rhs = vim.diagnostic.open_float, opts = { silent = true, desc = "Open diagnostics" } },
-    { mode = "n", lhs = "<space>lk", rhs = function () vim.diagnostic.jump({ count = -1 }) end, opts = { silent = true, desc = "Go to prev diagnostic" } },
-    { mode = "n", lhs = "<space>lj", rhs = function () vim.diagnostic.jump({ count = 1 }) end, opts = { silent = true, desc = "Go to next diagnostic" } },
+    {
+        mode = "n",
+        lhs = "gl",
+        rhs = vim.diagnostic.open_float,
+        opts = { silent = true, desc = "Open diagnostics" },
+    },
+    {
+        mode = "n",
+        lhs = "<space>lk",
+        rhs = function()
+            vim.diagnostic.jump({ count = -1 })
+        end,
+        opts = { silent = true, desc = "Go to prev diagnostic" },
+    },
+    {
+        mode = "n",
+        lhs = "<space>lj",
+        rhs = function()
+            vim.diagnostic.jump({ count = 1 })
+        end,
+        opts = { silent = true, desc = "Go to next diagnostic" },
+    },
     {
         mode = "n",
         lhs = "gra",
@@ -153,7 +489,9 @@ local maps = {
     {
         mode = "n",
         lhs = "gd",
-        rhs = function () Snacks.picker.lsp_definitions() end,
+        rhs = function()
+            Snacks.picker.lsp_definitions()
+        end,
         opts = {
             silent = true,
             desc = "Go to definition",
@@ -173,7 +511,9 @@ local maps = {
     {
         mode = "n",
         lhs = "gri",
-        rhs = function () Snacks.picker.lsp_implementations() end,
+        rhs = function()
+            Snacks.picker.lsp_implementations()
+        end,
         opts = {
             silent = true,
             desc = "Go to implementation",
@@ -183,7 +523,7 @@ local maps = {
     {
         mode = "n",
         lhs = "<space>li",
-        rhs = function ()
+        rhs = function()
             vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
         end,
         opts = {
@@ -195,7 +535,9 @@ local maps = {
     {
         mode = "n",
         lhs = "grr",
-        rhs = function () Snacks.picker.lsp_references() end,
+        rhs = function()
+            Snacks.picker.lsp_references()
+        end,
         opts = {
             silent = true,
             desc = "Find references",
@@ -215,7 +557,9 @@ local maps = {
     {
         mode = "n",
         lhs = "grd",
-        rhs = function () Snacks.picker.lsp_type_definitions() end,
+        rhs = function()
+            Snacks.picker.lsp_type_definitions()
+        end,
         opts = {
             silent = true,
             desc = "Go to type definition",

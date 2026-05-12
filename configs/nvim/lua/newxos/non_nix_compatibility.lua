@@ -17,7 +17,7 @@ local function plugin_specs()
     table.sort(names)
 
     return vim.iter(names)
-        :map(function (name)
+        :map(function(name)
             local plugin = plugins[name]
             return {
                 name = name,

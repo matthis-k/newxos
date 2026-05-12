@@ -73,8 +73,8 @@ let
     in
     {
       system = "base16";
-      name = palette.name;
-      author = palette.author;
+      inherit (palette) name;
+      inherit (palette) author;
       variant = "dark";
       palette = {
         base00 = c.base;
@@ -134,7 +134,7 @@ in
   flake.modules.nixos.stylix =
     { config, pkgs, ... }:
     let
-      fullPalette = config.stylix.fullPalette;
+      inherit (config.stylix) fullPalette;
     in
     {
       imports = [ inputs.stylix.nixosModules.stylix ];
@@ -159,7 +159,7 @@ in
   flake.modules.homeManager.stylix =
     { config, pkgs, ... }:
     let
-      fullPalette = config.stylix.fullPalette;
+      inherit (config.stylix) fullPalette;
       catppuccinBreezeBlueCursor = withSystem pkgs.stdenv.hostPlatform.system (
         { inputs', ... }: inputs'.catppuccin-breeze-cursors.packages.catppuccin-breeze.blue
       );

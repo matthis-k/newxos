@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   flake.modules.nixos.matthisk-laptop-newxos = {
     boot.initrd.systemd.enable = true;
     boot.plymouth.enable = true;

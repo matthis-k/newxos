@@ -68,27 +68,27 @@ local keybinds = {
         { "XF86KbdBrightnessDown", hl.dsp.exec_cmd("brightnessctl -e4 -n2 -c leds set 50%-") },
         { "XF86KbdBrightnessUp", hl.dsp.exec_cmd("brightnessctl -e4 -n2 -c leds set 50%+") },
         { "XF86MonBrightnessDown", hl.dsp.exec_cmd("brightnessctl -e4 -n2 -c backlight set 5%-") },
-        { "XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl -e4 -n2 -c backlight set 5%+") }
+        { "XF86MonBrightnessUp", hl.dsp.exec_cmd("brightnessctl -e4 -n2 -c backlight set 5%+") },
     },
     submaps = {
         window_manipulation = {
             keybinds = {
                 { "H", hl.dsp.layout("swapcol l") },
-                { "J", hl.dsp.window.move({workspace = "+1", follow = true}) },
-                { "K", hl.dsp.window.move({workspace = "-1", follow = true}) },
+                { "J", hl.dsp.window.move({ workspace = "+1", follow = true }) },
+                { "K", hl.dsp.window.move({ workspace = "-1", follow = true }) },
                 { "L", hl.dsp.layout("swapcol r") },
                 { "P", hl.dsp.layout("promote") },
-                { "SHIFT + H", hl.dsp.window.move({direction = "left"}) },
-                { "SHIFT + J", hl.dsp.window.move({direction = "down"}) },
-                { "SHIFT + K", hl.dsp.window.move({direction = "up"}) },
-                { "SHIFT + L", hl.dsp.window.move({direction = "right"}) },
+                { "SHIFT + H", hl.dsp.window.move({ direction = "left" }) },
+                { "SHIFT + J", hl.dsp.window.move({ direction = "down" }) },
+                { "SHIFT + K", hl.dsp.window.move({ direction = "up" }) },
+                { "SHIFT + L", hl.dsp.window.move({ direction = "right" }) },
                 { "minus", hl.dsp.layout("colresize -conf") },
                 { "plus", hl.dsp.layout("colresize +conf") },
                 { "Escape", hl.dsp.submap("reset") },
                 { "Return", hl.dsp.submap("reset") },
             },
         },
-    }
+    },
 }
 
 local function register(scope, name)

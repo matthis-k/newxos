@@ -1,10 +1,10 @@
 local ffi = require("ffi")
 local Part = require("part")
 
-ffi.cdef [[
+ffi.cdef([[
   typedef unsigned long long disptick_T;
   extern disptick_T display_tick;
-]]
+]])
 
 local last_tick = -1
 
@@ -24,7 +24,7 @@ end
 vim.api.nvim_create_augroup("RedrawTabline", { clear = true })
 vim.api.nvim_create_autocmd({ "ModeChanged", "DiagnosticChanged" }, {
     group = "RedrawTabline",
-    callback = function ()
+    callback = function()
         vim.cmd.redrawtabline()
     end,
 })

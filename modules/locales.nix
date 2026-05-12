@@ -1,5 +1,4 @@
-{ ... }:
-{
+_: {
   flake.modules.nixos.locales = {
     time.timeZone = "Europe/Berlin";
 

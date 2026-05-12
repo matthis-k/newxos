@@ -5,7 +5,7 @@ local fallback_info = setmetatable({
     info = {},
     isNix = false,
 }, {
-    __call = function (_, default)
+    __call = function(_, default)
         return default
     end,
 })

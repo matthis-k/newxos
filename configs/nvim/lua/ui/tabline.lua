@@ -10,7 +10,9 @@ function M.init_cache()
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
         if vim.fn.buflisted(buf) ~= 0 and vim.bo[buf].filetype ~= "qf" then
             local fname = vim.fn.fnamemodify(vim.fn.bufname(buf), ":t")
-            if fname == "" then fname = "[No Name]" end
+            if fname == "" then
+                fname = "[No Name]"
+            end
 
             local icon, icon_hl = devicons.get_icon(fname, vim.fn.fnamemodify(fname, ":e"), { default = true })
 
@@ -54,13 +56,33 @@ function M.buffer(buf)
             {
                 before = " ",
                 child_sep = " ",
-                children = (function ()
+                children = (function()
                     local out = {}
                     local sev_cfg = {
-                        { sev = vim.diagnostic.severity.ERROR, name = "DiagnosticSignError", sym = "E", hl = "DiagnosticError" },
-                        { sev = vim.diagnostic.severity.WARN, name = "DiagnosticSignWarn", sym = "W", hl = "DiagnosticWarn" },
-                        { sev = vim.diagnostic.severity.INFO, name = "DiagnosticSignInfo", sym = "I", hl = "DiagnosticInfo" },
-                        { sev = vim.diagnostic.severity.HINT, name = "DiagnosticSignHint", sym = "H", hl = "DiagnosticHint" },
+                        {
+                            sev = vim.diagnostic.severity.ERROR,
+                            name = "DiagnosticSignError",
+                            sym = "E",
+                            hl = "DiagnosticError",
+                        },
+                        {
+                            sev = vim.diagnostic.severity.WARN,
+                            name = "DiagnosticSignWarn",
+                            sym = "W",
+                            hl = "DiagnosticWarn",
+                        },
+                        {
+                            sev = vim.diagnostic.severity.INFO,
+                            name = "DiagnosticSignInfo",
+                            sym = "I",
+                            hl = "DiagnosticInfo",
+                        },
+                        {
+                            sev = vim.diagnostic.severity.HINT,
+                            name = "DiagnosticSignHint",
+                            sym = "H",
+                            hl = "DiagnosticHint",
+                        },
                     }
                     for _, s in ipairs(sev_cfg) do
                         local n = #vim.diagnostic.get(buf, { severity = s.sev })
@@ -94,13 +116,15 @@ M.buffers = {
     children = {
         {
             text = "Buffers",
-            hl = function () return require("ui.statusline").mode_info().hl end,
+            hl = function()
+                return require("ui.statusline").mode_info().hl
+            end,
             before = " ",
             after = " ",
         },
         {
             hl = "TblSectionC",
-            children = function ()
+            children = function()
                 local kids = {}
                 for _, b in ipairs(vim.api.nvim_list_bufs()) do
                     if cache[b] then
@@ -147,7 +171,7 @@ M.tabs = {
     child_sep = " ",
     children = {
         {
-            children = function ()
+            children = function()
                 local kids = {}
                 for _, tp in ipairs(vim.api.nvim_list_tabpages()) do
                     table.insert(kids, M.tab(tp))
@@ -158,7 +182,9 @@ M.tabs = {
         },
         {
             text = "Tabs",
-            hl = function () return require("ui.statusline").mode_info().hl end,
+            hl = function()
+                return require("ui.statusline").mode_info().hl
+            end,
             before = " ",
             after = " ",
         },
@@ -178,8 +204,9 @@ M.click_handlers = _G.tbl_click_handlers
 
 function M.click_handlers.buffer(minwid, _num_clicks, _btn, _mods)
     local buf = tonumber(minwid) or 0
-    local win = vim.iter(vim.api.nvim_tabpage_list_wins(0))
-        :find(function (w) return vim.api.nvim_win_get_buf(w) == buf end)
+    local win = vim.iter(vim.api.nvim_tabpage_list_wins(0)):find(function(w)
+        return vim.api.nvim_win_get_buf(w) == buf
+    end)
     if win then
         vim.api.nvim_set_current_win(win)
     else

@@ -155,21 +155,21 @@
             else
               (pluginPackage plugin).src;
         in
-        if src ? rev then
-          src.rev
-        else if src ? url then
-          sourceRevisionFromUrl src.url
-        else
-          throw "Could not determine plugin revision for ${plugin.name}";
+        src.rev or (
+          if src ? url then
+            sourceRevisionFromUrl src.url
+          else
+            throw "Could not determine plugin revision for ${plugin.name}"
+        );
       pluginManifest = map (plugin: plugin // { rev = pluginRevision plugin; }) pluginSpecs;
       pluginLockFile = pkgs.writeText "nvim-pack-lock.json" (
         builtins.toJSON {
           plugins = builtins.listToAttrs (
             map (plugin: {
-              name = plugin.name;
+              inherit (plugin) name;
               value = {
-                rev = plugin.rev;
-                src = plugin.src;
+                inherit (plugin) rev;
+                inherit (plugin) src;
               };
             }) pluginManifest
           );

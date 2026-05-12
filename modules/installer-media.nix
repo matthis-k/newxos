@@ -19,7 +19,7 @@ let
   mkFirstTimeInstall =
     pkgs:
     let
-      system = pkgs.stdenv.hostPlatform.system;
+      inherit (pkgs.stdenv.hostPlatform) system;
       diskoPackage = inputs.disko.packages.${system}.disko or inputs.disko.packages.${system}.default;
     in
     pkgs.writeShellApplication {
@@ -73,7 +73,7 @@ in
     { pkgs, ... }:
     let
       firstTimeInstall = mkFirstTimeInstall pkgs;
-      system = pkgs.stdenv.hostPlatform.system;
+      inherit (pkgs.stdenv.hostPlatform) system;
       diskoPackage = inputs.disko.packages.${system}.disko or inputs.disko.packages.${system}.default;
     in
     {

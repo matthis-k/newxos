@@ -1,7 +1,7 @@
 vim.api.nvim_create_autocmd("UIEnter", {
     once = true,
-    callback = function ()
-        pcall(function ()
+    callback = function()
+        pcall(function()
             require("gitsigns").setup({
                 signs = {
                     add = { text = "▐" },

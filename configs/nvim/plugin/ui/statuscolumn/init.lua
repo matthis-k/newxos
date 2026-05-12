@@ -1,10 +1,10 @@
 local ffi = require("ffi")
 local Part = require("part")
 
-ffi.cdef [[
+ffi.cdef([[
   typedef unsigned long long disptick_T;
   extern disptick_T display_tick;
-]]
+]])
 
 local last_tick = -1
 
@@ -32,14 +32,14 @@ local augroup = vim.api.nvim_create_augroup("stc_cache", { clear = true })
 
 vim.api.nvim_create_autocmd("WinClosed", {
     group = augroup,
-    callback = function (event)
+    callback = function(event)
         stc.clear(event.match)
     end,
 })
 
 vim.api.nvim_create_autocmd("WinResized", {
     group = augroup,
-    callback = function ()
+    callback = function()
         stc.init_cache()
     end,
 })
@@ -47,7 +47,7 @@ vim.api.nvim_create_autocmd("WinResized", {
 vim.api.nvim_create_autocmd("OptionSet", {
     group = augroup,
     pattern = { "number", "relativenumber", "numberwidth", "foldcolumn", "signcolumn" },
-    callback = function (event)
+    callback = function(event)
         if event.scope == "global" then
             stc.init_cache()
         else

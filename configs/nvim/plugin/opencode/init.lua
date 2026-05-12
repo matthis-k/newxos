@@ -45,7 +45,7 @@ require("lz.n").load({
     keys = {
         {
             "<leader>oa",
-            function ()
+            function()
                 require("opencode").ask("@this: ", { submit = true })
             end,
             mode = { "n", "x" },
@@ -53,7 +53,7 @@ require("lz.n").load({
         },
         {
             "<leader>os",
-            function ()
+            function()
                 require("opencode").select()
             end,
             mode = { "n", "x" },
@@ -61,7 +61,7 @@ require("lz.n").load({
         },
         {
             "<leader>op",
-            function ()
+            function()
                 require("opencode").prompt("@this")
             end,
             mode = { "n", "x" },
@@ -69,7 +69,7 @@ require("lz.n").load({
         },
         {
             "<leader>oo",
-            function ()
+            function()
                 require("opencode").toggle()
             end,
             mode = { "n" },
@@ -77,7 +77,7 @@ require("lz.n").load({
         },
         {
             "<leader>ok",
-            function ()
+            function()
                 require("opencode").command("session.half.page.up")
             end,
             mode = "n",
@@ -85,7 +85,7 @@ require("lz.n").load({
         },
         {
             "<leader>oj",
-            function ()
+            function()
                 require("opencode").command("session.half.page.down")
             end,
             mode = "n",

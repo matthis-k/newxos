@@ -1,7 +1,7 @@
 local constants = require("constants")
 
 require("blink.cmp").setup({
-    enabled = function ()
+    enabled = function()
         return (not vim.list_contains({ "prompt", "TelescopePrompt" }, vim.bo.buftype)) and vim.b.completion ~= false
     end,
     keymap = {

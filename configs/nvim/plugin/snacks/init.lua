@@ -12,7 +12,7 @@ local dashboard_header = [[
 
 local function configure_snacks(Snacks)
     local function dashboard_pick(cmd, opts)
-        return function ()
+        return function()
             Snacks.dashboard.pick(cmd, opts)
         end
     end
@@ -27,7 +27,14 @@ local function configure_snacks(Snacks)
         { icon = " ", key = "n", desc = "New file", action = ":ene | startinsert" },
         { icon = " ", key = "g", desc = "Live grep", action = dashboard_pick("live_grep") },
         { icon = " ", key = "r", desc = "Recent files", action = dashboard_pick("oldfiles") },
-        { icon = " ", key = "e", desc = "File explorer", action = function () Snacks.explorer() end },
+        {
+            icon = " ",
+            key = "e",
+            desc = "File explorer",
+            action = function()
+                Snacks.explorer()
+            end,
+        },
         {
             icon = " ",
             key = "c",
@@ -124,7 +131,7 @@ local function configure_snacks(Snacks)
             ui_select = true,
             layout = {
                 cycle = true,
-                preset = function ()
+                preset = function()
                     return vim.o.columns >= 120 and "default" or "vertical"
                 end,
             },
@@ -148,7 +155,7 @@ local function configure_snacks(Snacks)
         terminal = {
             enabled = true,
             shell = vim.o.shell,
-            win = function ()
+            win = function()
                 local config = {
                     border = border,
                     title = " Terminal ",
@@ -188,7 +195,7 @@ require("lz.n").load({
     "folke/snacks.nvim",
     priority = 1000,
     lazy = false,
-    after = function ()
+    after = function()
         configure_snacks(require("snacks"))
     end,
 })

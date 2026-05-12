@@ -7,7 +7,7 @@
       ...
     }:
     let
-      fullPalette = config.stylix.fullPalette;
+      inherit (config.stylix) fullPalette;
       c = fullPalette.colors;
       capitalize =
         value:
@@ -22,7 +22,7 @@
       accentColor = c.blue;
       flavorName = capitalize fullPalette.flavor;
       logoUrl = "https://raw.githubusercontent.com/catppuccin/zen-browser/main/themes/${flavorName}/${accentName}/zen-logo-${fullPalette.flavor}.svg";
-      profileNames = config.stylix.targets.zen-browser.profileNames;
+      inherit (config.stylix.targets.zen-browser) profileNames;
       newTabButtonSelector = ":is(#tabs-newtab-button, #vertical-tabs-newtab-button)";
       tabForegroundSelectors = ''
         .tab-label,
