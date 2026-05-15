@@ -99,6 +99,8 @@
           settings = {
             "$schema" = "https://opencode.ai/config.json";
 
+            autoupdate = false;
+
             permission = {
               external_directory = {
                 "/nix/store/**" = "allow";
