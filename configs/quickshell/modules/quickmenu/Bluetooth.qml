@@ -10,11 +10,18 @@ DashboardPage {
     id: root
 
     title: "Bluetooth"
-    subtitle: !root.adapter
-        ? "No Bluetooth adapter available"
-        : root.adapter.enabled
-            ? `${root.adapter.adapterId}${root.connectedDevices.length > 0 ? ` • ${root.connectedDevices.length} connected` : ""}`
-            : "Bluetooth disabled"
+    headerAccessory: Component {
+        DashboardToggleSwitch {
+            implicitWidth: 58
+            implicitHeight: 28
+            enabled: !!root.adapter
+            checked: !!root.adapter && root.adapter.enabled
+            onToggled: {
+                if (root.adapter)
+                    root.adapter.enabled = checked;
+            }
+        }
+    }
 
     readonly property int contentWidth: width > 0 ? width : 320
     readonly property int itemSpacing: 3
@@ -261,9 +268,10 @@ DashboardPage {
 
                 contentItem: Item {
                     implicitWidth: root.contentWidth
-                    implicitHeight: root.rowHeight
+                    implicitHeight: Math.max(root.rowHeight, rowContent.implicitHeight + root.verticalPadding * 2)
 
                     RowLayout {
+                        id: rowContent
                         anchors.fill: parent
                         anchors.leftMargin: root.horizontalPadding
                         anchors.rightMargin: root.horizontalPadding
@@ -374,6 +382,8 @@ DashboardPage {
 
                     RowLayout {
                         Layout.fillWidth: true
+                        Layout.preferredHeight: 28
+                        implicitHeight: 28
                         spacing: root.itemSpacing
 
                         SmallButton {
@@ -442,48 +452,6 @@ DashboardPage {
 
     DashboardSection {
         Layout.fillWidth: true
-        title: "Adapter controls"
-
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: root.itemSpacing
-
-            DashboardSwitchRow {
-                Layout.fillWidth: true
-                label: "Bluetooth"
-                subtitle: root.adapter ? root.adapter.adapterId : "No adapter available"
-                iconName: root.adapter && root.adapter.enabled ? "bluetooth-symbolic" : "bluetooth-disabled-symbolic"
-                iconColor: root.adapter && root.adapter.enabled ? Config.styling.bluetooth : Config.styling.text1
-                enabled: !!root.adapter
-                checked: !!root.adapter && root.adapter.enabled
-                onToggled: function(checked) {
-                    if (root.adapter)
-                        root.adapter.enabled = checked;
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: root.itemSpacing
-
-                SmallButton {
-                    visible: !!root.adapter && root.adapter.enabled
-                    text: root.adapter && root.adapter.discovering ? "Stop Scan" : "Scan"
-                    onClicked: {
-                        if (root.adapter)
-                            root.adapter.discovering = !root.adapter.discovering;
-                    }
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
-            }
-        }
-    }
-
-    DashboardSection {
-        Layout.fillWidth: true
         title: "Connected devices"
 
         Repeater {
@@ -508,6 +476,17 @@ DashboardPage {
         Layout.fillWidth: true
         Layout.fillHeight: true
         title: "Other devices"
+        headerAccessory: Component {
+            DashboardIconButton {
+                enabled: !!root.adapter && root.adapter.enabled
+                iconName: "view-refresh-symbolic"
+                fallbackIconName: "view-refresh-symbolic"
+                onClicked: {
+                    if (root.adapter)
+                        root.adapter.discovering = !root.adapter.discovering;
+                }
+            }
+        }
 
         DashboardScrollArea {
             Layout.fillWidth: true

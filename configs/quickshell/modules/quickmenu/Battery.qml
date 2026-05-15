@@ -9,6 +9,7 @@ ColumnLayout {
     id: root
 
     property UPowerDevice bat: UPower.displayDevice
+    property bool powerModesFirst: false
 
     readonly property int contentWidth: width > 0 ? width : 320
     readonly property int sectionSpacing: Config.spacing.xs
@@ -167,7 +168,7 @@ ColumnLayout {
     width: parent ? parent.width : implicitWidth
     spacing: root.sectionSpacing
 
-    ColumnLayout {
+    component SummaryBlock: ColumnLayout {
         Layout.fillWidth: true
         spacing: Config.spacing.xxs
 
@@ -218,13 +219,7 @@ ColumnLayout {
         }
     }
 
-    Rectangle {
-        Layout.fillWidth: true
-        implicitHeight: 1
-        color: Config.styling.bg3
-    }
-
-    ColumnLayout {
+    component PowerModesBlock: ColumnLayout {
         Layout.fillWidth: true
         spacing: root.buttonSpacing
 
@@ -259,5 +254,41 @@ ColumnLayout {
             iconName: "power-profile-performance-symbolic"
             optionColor: Config.styling.critical
         }
+    }
+
+    Component {
+        id: powerModesBlockComponent
+
+        PowerModesBlock {}
+    }
+
+    Loader {
+        active: root.powerModesFirst
+        Layout.fillWidth: true
+        sourceComponent: powerModesBlockComponent
+    }
+
+    Rectangle {
+        Layout.fillWidth: true
+        visible: root.powerModesFirst
+        implicitHeight: 1
+        color: Config.styling.bg3
+    }
+
+    SummaryBlock {
+        Layout.fillWidth: true
+    }
+
+    Rectangle {
+        Layout.fillWidth: true
+        visible: !root.powerModesFirst
+        implicitHeight: 1
+        color: Config.styling.bg3
+    }
+
+    Loader {
+        active: !root.powerModesFirst
+        Layout.fillWidth: true
+        sourceComponent: powerModesBlockComponent
     }
 }

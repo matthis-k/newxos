@@ -32,6 +32,9 @@ Item {
 
     readonly property alias hovered: hoverHandler.hovered
 
+    implicitWidth: (contentItem ? contentItem.implicitWidth : 0) + leftPadding + rightPadding
+    implicitHeight: (contentItem ? contentItem.implicitHeight : 0) + topPadding + bottomPadding
+
     function attachItem(item, container) {
         if (!item)
             return;

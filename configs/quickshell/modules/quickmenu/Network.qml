@@ -10,12 +10,19 @@ import qs.components
 DashboardPage {
     id: root
 
-    title: "Network"
-    subtitle: !NetworkService.wifiHardwareEnabled
-        ? "Wireless is blocked by hardware rfkill"
-        : NetworkService.wifiEnabled
-            ? `${root.connectivityLabel()}${NetworkService.connectedSsid ? ` • ${NetworkService.connectedSsid}` : ""}`
-            : "Wi-Fi disabled"
+    title: "Networking"
+    headerAccessory: Component {
+        DashboardToggleSwitch {
+            implicitWidth: 58
+            implicitHeight: 28
+            checked: NetworkService.networkingEnabled
+            onToggled: nmcliSetNetworkingProcess.exec({
+                command: checked
+                    ? ["nmcli", "networking", "on"]
+                    : ["nmcli", "networking", "off"]
+            })
+        }
+    }
 
     readonly property int contentWidth: width > 0 ? width : 320
     readonly property int itemSpacing: 3
@@ -253,9 +260,10 @@ DashboardPage {
 
                 contentItem: Item {
                     implicitWidth: root.contentWidth
-                    implicitHeight: root.rowHeight
+                    implicitHeight: Math.max(root.rowHeight, rowContent.implicitHeight + root.verticalPadding * 2)
 
                     RowLayout {
+                        id: rowContent
                         anchors.fill: parent
                         anchors.leftMargin: root.horizontalPadding
                         anchors.rightMargin: root.horizontalPadding
@@ -392,6 +400,8 @@ DashboardPage {
 
                     RowLayout {
                         Layout.fillWidth: true
+                        Layout.preferredHeight: 28
+                        implicitHeight: 28
                         spacing: root.itemSpacing
 
                         SmallButton {
@@ -436,47 +446,6 @@ DashboardPage {
     onInteractiveNetworkKeyChanged: {
         if (interactiveNetworkKey && !NetworkService.networks.some(network => networkKey(network) === interactiveNetworkKey))
             unlockInteraction();
-    }
-
-    DashboardSection {
-        Layout.fillWidth: true
-        title: "Wireless controls"
-
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: root.itemSpacing
-
-            DashboardSwitchRow {
-                Layout.fillWidth: true
-                label: "Wi-Fi"
-                subtitle: root.connectivityLabel()
-                iconName: NetworkService.wifiEnabled ? "network-wireless-symbolic" : "network-wireless-offline-symbolic"
-                iconColor: NetworkService.wifiEnabled ? Config.styling.primaryAccent : Config.styling.text1
-                enabled: NetworkService.wifiHardwareEnabled
-                checked: NetworkService.wifiEnabled
-                onToggled: function(checked) {
-                    nmcliSetWifiProcess.exec({
-                        command: checked
-                            ? ["nmcli", "radio", "wifi", "on"]
-                            : ["nmcli", "radio", "wifi", "off"]
-                    });
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: root.itemSpacing
-
-                SmallButton {
-                    text: "Scan"
-                    onClicked: NetworkService.rescan()
-                }
-
-                Item {
-                    Layout.fillWidth: true
-                }
-            }
-        }
     }
 
     DashboardSection {
@@ -561,6 +530,14 @@ DashboardPage {
         Layout.fillWidth: true
         Layout.fillHeight: true
         title: "Available networks"
+        headerAccessory: Component {
+            DashboardIconButton {
+                enabled: NetworkService.wifiEnabled
+                iconName: "view-refresh-symbolic"
+                fallbackIconName: "view-refresh-symbolic"
+                onClicked: NetworkService.rescan()
+            }
+        }
 
         DashboardScrollArea {
             Layout.fillWidth: true
@@ -583,6 +560,15 @@ DashboardPage {
                 color: Config.styling.text2
                 font.pixelSize: 12
             }
+        }
+    }
+
+    Process {
+        id: nmcliSetNetworkingProcess
+
+        function onExited(exitCode) {
+            if (exitCode === 0)
+                NetworkService.refresh();
         }
     }
 

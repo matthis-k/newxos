@@ -160,7 +160,7 @@ Behavior on opacity {
 
 ### Dashboard Motion
 
-- Put tab-switch animation in a shared container such as `SelectView` so every dashboard-like surface gets the same slide/fade behavior.
+- Put tab-switch animation in a shared container such as `SwipeView` so every dashboard-like surface gets the same slide/fade behavior.
 - Put resize animation in shared shells such as `DashboardSection` so split panes and expanding sections animate without each tab re-implementing height transitions.
 - Keep the top bar and dashboard on the same timing/easing when the right-side indicator strip expands into tab selectors.
 - For expandable rows inside tabs, animate the row height and details opacity together instead of only toggling `visible`.
@@ -171,6 +171,9 @@ Behavior on opacity {
 - No rounded corners by default (`styleState.rounded` controls this; keep `false` unless explicitly needed).
 - Maintain consistent margins across panels and widgets.
 - Prefer `Column`/`Row` with `spacing` over nested anchors for simple layouts.
+- Keep `Dashboard*` components responsible for spacing, text presets, backgrounds, and accessory slots; page files should mostly compose content into those shells.
+- Prefer small generic primitives such as `DashboardHeader`, `DashboardToggleSwitch`, and controls-based sliders over content-specific one-off components.
+- Put page-global actions or toggles in page header accessory slots, and section-local actions in section header accessory slots, instead of adding extra control rows beneath the header.
 
 ## Related
 

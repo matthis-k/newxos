@@ -8,8 +8,20 @@ import qs.services
 
 PanelWindow {
     id: win
-    property alias view: selectView.currentView
-    property alias views: selectView
+    property Component previewComponent: null
+
+    function showPreview(component) {
+        if (!component)
+            return;
+
+        previewComponent = component;
+        if (selection.currentIndex !== 0)
+            selection.setCurrentIndex(0);
+    }
+
+    function clearPreview() {
+        previewComponent = null;
+    }
 
     anchors {
         top: true
@@ -20,16 +32,29 @@ PanelWindow {
             WlrLayershell.layer = WlrLayer.Overlay;
     }
 
-    implicitWidth: selectView.currentItem?.implicitWidth + Config.spacing.md || 0
-    implicitHeight: selectView.currentItem?.implicitHeight + Config.spacing.md || 0
+    implicitWidth: previewLoader.item ? previewLoader.item.implicitWidth + Config.spacing.md : 0
+    implicitHeight: previewLoader.item ? previewLoader.item.implicitHeight + Config.spacing.md : 0
 
-    visible: !!selectView.currentItem
+    visible: !!previewLoader.item
     color: Config.styling.bg0
 
-    SelectView {
-        id: selectView
+    SwipeView {
+        id: selection
         anchors.centerIn: parent
-        currentView: "hyprlandPreview"
+        interactive: false
+        clip: true
+
+        Item {
+            id: previewPage
+            implicitWidth: previewLoader.item ? previewLoader.item.implicitWidth : 0
+            implicitHeight: previewLoader.item ? previewLoader.item.implicitHeight : 0
+
+            Loader {
+                id: previewLoader
+                anchors.centerIn: parent
+                sourceComponent: win.previewComponent
+            }
+        }
     }
 
     property int externalHovers: 0
@@ -38,14 +63,12 @@ PanelWindow {
 
     HoverHandler {
         id: hoverHandler
-        target: selectView
+        target: previewPage
     }
 
     Timer {
         id: closeTimer
         interval: 300
-        onTriggered: {
-            selectView.remove("hyprlandPreview");
-        }
+        onTriggered: win.clearPreview()
     }
 }

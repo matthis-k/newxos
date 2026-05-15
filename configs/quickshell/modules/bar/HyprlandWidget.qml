@@ -87,8 +87,13 @@ Item {
         id: tl
         required property HyprlandToplevel modelData
         property HyprlandToplevel toplevel: modelData
-        property HyprlandToplevelView preview: HyprlandToplevelView {
-            toplevel: tl.toplevel
+        property Component previewComponent: previewFactory
+        Component {
+            id: previewFactory
+
+            HyprlandToplevelView {
+                toplevel: tl.toplevel
+            }
         }
         property DesktopEntry entry: {
             DesktopEntries.applications?.values;
@@ -111,9 +116,8 @@ Item {
 
         onHoveredChanged: {
             const previewWindow = ShellState.getScreenByName(screen.name).hyprlandPreview;
-            if (hovered) {
-                previewWindow.views.insert("hyprlandPreview", tl.preview);
-            }
+            if (hovered)
+                previewWindow.showPreview(tl.previewComponent);
             previewWindow.externalHovers += hovered ? 1 : -1;
         }
 

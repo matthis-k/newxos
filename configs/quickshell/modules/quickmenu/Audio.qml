@@ -12,9 +12,6 @@ DashboardPage {
     id: root
 
     title: "Audio"
-    subtitle: root.defaultSink
-        ? `${root.humanName(root.defaultSink)} • ${root.volumePercent(root.defaultSink)}% default output`
-        : "No default output device"
 
     readonly property int contentWidth: width > 0 ? width : 360
     readonly property int itemSpacing: 3

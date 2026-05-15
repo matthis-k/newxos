@@ -10,6 +10,7 @@ Item {
     property string iconName: ""
     property color iconColor: Config.styling.text0
     property bool checked: false
+    property int switchSlotWidth: 46
 
     signal toggled(bool checked)
 
@@ -64,44 +65,19 @@ Item {
         }
 
         Item {
-            Layout.preferredWidth: 38
-            Layout.minimumWidth: 38
-            Layout.maximumWidth: 38
-            Layout.preferredHeight: 22
+            Layout.preferredWidth: root.switchSlotWidth
+            Layout.minimumWidth: root.switchSlotWidth
+            Layout.maximumWidth: root.switchSlotWidth
+            Layout.preferredHeight: 28
             Layout.alignment: Qt.AlignVCenter
 
-            Rectangle {
-                anchors.fill: parent
-                radius: height / 2
-                color: !root.enabled
-                    ? Config.styling.bg4
-                    : root.checked
-                        ? Config.styling.primaryAccent
-                        : Config.styling.bg5
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 2
-                    spacing: 0
-
-                    Item {
-                        Layout.fillWidth: !root.checked
-                    }
-
-                    Rectangle {
-                        Layout.preferredWidth: 18
-                        Layout.minimumWidth: 18
-                        Layout.maximumWidth: 18
-                        Layout.preferredHeight: 18
-                        Layout.alignment: Qt.AlignVCenter
-                        radius: 9
-                        color: Config.styling.textOnAccent
-                    }
-
-                    Item {
-                        Layout.fillWidth: root.checked
-                    }
-                }
+            DashboardToggleSwitch {
+                anchors.right: parent.right
+                anchors.rightMargin: 2
+                anchors.verticalCenter: parent.verticalCenter
+                checked: root.checked
+                enabled: root.enabled
+                onToggled: root.toggled(checked)
             }
         }
     }

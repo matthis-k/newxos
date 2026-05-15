@@ -7,7 +7,8 @@ Rectangle {
 
     property string title: ""
     property string subtitle: ""
-    property bool showHeader: title !== "" || subtitle !== ""
+    property Component headerAccessory: null
+    property bool showHeader: title !== "" || subtitle !== "" || headerAccessory !== null
     property int sectionPadding: Config.spacing.xs
     property int contentSpacing: Config.spacing.xs
     default property alias content: body.data
@@ -39,6 +40,7 @@ Rectangle {
             visible: root.showHeader
             title: root.title
             subtitle: root.subtitle
+            accessory: root.headerAccessory
         }
 
         Rectangle {

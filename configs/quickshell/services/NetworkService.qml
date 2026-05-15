@@ -8,6 +8,7 @@ Singleton {
 
     property bool wifiEnabled: false
     property bool wifiHardwareEnabled: true
+    property bool networkingEnabled: true
     property string connectivity: "none"
     property string connectedSsid: ""
     property string connectedAddress: ""
@@ -144,6 +145,11 @@ Singleton {
         root.wifiEnabled = values.length > 1 ? values[1].trim() === "enabled" : false;
     }
 
+    function _updateNetworkingState(output) {
+        const value = output.trim().toLowerCase();
+        root.networkingEnabled = value === "enabled";
+    }
+
     function _updateGeneral(output) {
         root.connectivity = output.trim() || "none";
     }
@@ -155,6 +161,7 @@ Singleton {
     }
 
     function _refreshAll() {
+        networkingStateProcess.exec({ command: ["nmcli", "networking"] });
         statusProcess.exec({ command: ["nmcli", "-g", "WIFI-HW,WIFI", "radio"] });
         generalProcess.exec({ command: ["nmcli", "-g", "CONNECTIVITY", "general"] });
         getNetworksProcess.exec({ command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "wifi"] });
@@ -162,6 +169,14 @@ Singleton {
     }
 
     property var rNetworks: []
+
+    Process {
+        id: networkingStateProcess
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: root._updateNetworkingState(text)
+        }
+    }
 
     Process {
         id: statusProcess

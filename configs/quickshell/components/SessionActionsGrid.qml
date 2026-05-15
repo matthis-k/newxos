@@ -14,7 +14,7 @@ ColumnLayout {
 
         required property list<string> command
         required property color optionColor
-        property string confirmLabel: `Confirm ${text}`
+        property string confirmLabel: "Confirm"
         property string iconName: "dialog-warning"
 
         Layout.fillWidth: true

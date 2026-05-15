@@ -19,14 +19,18 @@ StackView {
         id: views
     }
 
-    property var _selectedValue: currentView ? views.get(currentView) : undefined
+    onCurrentViewChanged: syncCurrentView()
 
-    on_SelectedValueChanged: {
-        syncCurrentView();
+    Connections {
+        target: views
+
+        function on_ReactivityTriggerChanged() {
+            root.syncCurrentView();
+        }
     }
 
     function syncCurrentView() {
-        const value = _selectedValue;
+        const value = currentView ? views.get(currentView) : undefined;
         const props = initProps;
         initProps = undefined;
 
@@ -73,8 +77,10 @@ StackView {
             currentView = "";
         return removed;
     }
-    function clear() {
+    function clearEntries() {
         currentView = "";
         return views.clear();
     }
+
+    Component.onCompleted: syncCurrentView()
 }

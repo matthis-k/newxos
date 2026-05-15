@@ -7,6 +7,7 @@ Item {
 
     property string title: ""
     property string subtitle: ""
+    property Component accessory: null
 
     implicitWidth: row.implicitWidth
     implicitHeight: row.implicitHeight
@@ -16,24 +17,20 @@ Item {
         anchors.fill: parent
         spacing: Config.spacing.xs
 
-        ColumnLayout {
+        DashboardHeader {
             Layout.fillWidth: true
-            spacing: 2
+            level: 2
+            title: root.title
+            subtitle: root.subtitle
+        }
 
-            Text {
-                text: root.title
-                color: Config.styling.text0
-                font.pixelSize: 16
-                font.bold: true
-            }
-
-            Text {
-                visible: text !== ""
-                text: root.subtitle
-                color: Config.styling.text2
-                font.pixelSize: 12
-                wrapMode: Text.WordWrap
-            }
+        Loader {
+            id: accessoryLoader
+            active: root.accessory !== null
+            sourceComponent: root.accessory
+            Layout.preferredWidth: item ? item.implicitWidth : 0
+            Layout.preferredHeight: item ? item.implicitHeight : 0
+            Layout.alignment: Qt.AlignVCenter
         }
     }
 }

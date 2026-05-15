@@ -28,6 +28,7 @@ InteractiveButton {
     Rectangle {
         anchors.fill: parent
         z: -1
+        clip: true
         color: control.backgroundColor
         border.width: control.borderWidth
         border.color: control.borderColor

@@ -30,18 +30,24 @@ ActionButton {
     hoveredScale: 1.0
     unhoveredScale: expanded || active ? 1.0 : 0.8
 
-    contentItem: Icon {
-        id: statusIcon
-        iconName: root.iconName
-        fallbackIconName: root.fallbackIconName
-        color: root.iconColor
-        implicitSize: (parent ? parent.height : root.implicitHeight) * 0.7
+    contentItem: Item {
+        implicitWidth: root.implicitWidth
+        implicitHeight: root.implicitHeight
+
+        Icon {
+            id: statusIcon
+            anchors.centerIn: parent
+            iconName: root.iconName
+            fallbackIconName: root.fallbackIconName
+            color: root.iconColor
+            implicitSize: (parent ? parent.height : root.implicitHeight) * 0.7
+        }
 
         Badge {
-            anchors.top: parent.top
-            anchors.right: parent.right
-            anchors.topMargin: -2
-            anchors.rightMargin: -2
+            anchors.top: statusIcon.top
+            anchors.right: statusIcon.right
+            anchors.topMargin: -4
+            anchors.rightMargin: -4
             text: root.badgeText
             badgeColor: root.badgeColor
         }

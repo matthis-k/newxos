@@ -7,6 +7,7 @@ Item {
 
     property string title: ""
     property string subtitle: ""
+    property Component headerAccessory: null
     property bool scrollable: false
     property bool fillHeight: true
     property int pagePadding: Config.spacing.md
@@ -40,9 +41,10 @@ Item {
                 id: header
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
-                visible: root.title !== "" || root.subtitle !== ""
+                visible: root.title !== "" || root.subtitle !== "" || root.headerAccessory !== null
                 title: root.title
                 subtitle: root.subtitle
+                accessory: root.headerAccessory
             }
 
             ColumnLayout {

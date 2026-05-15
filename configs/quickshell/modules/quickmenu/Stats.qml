@@ -8,7 +8,6 @@ DashboardPage {
     id: root
 
     title: "System stats"
-    subtitle: "Compact live system monitor"
 
     DashboardSection {
         Layout.fillWidth: true

@@ -1,7 +1,8 @@
 import qs.services
 
 StatusIcon {
-    iconName: NotificationCenter.doNotDisturbEnabled ? "notifications-disabled-symbolic" : "preferences-system-notifications-symbolic"
+    iconName: NotificationCenter.doNotDisturbEnabled ? "bell-disabled-symbolic" : "bell-symbolic"
+    fallbackIconName: NotificationCenter.doNotDisturbEnabled ? "notifications-disabled-symbolic" : "preferences-system-notifications-symbolic"
     iconColor: {
         if (NotificationCenter.hasCritical)
             return Config.styling.critical;

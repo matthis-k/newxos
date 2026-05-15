@@ -28,47 +28,20 @@ Item {
         RowLayout {
             id: controls
             Layout.fillWidth: true
+            Layout.preferredHeight: visible ? clearAllButton.implicitHeight : 0
             visible: root.showControls
             spacing: Config.spacing.xs
 
-            ActionButton {
+            Item {
                 Layout.fillWidth: true
-                active: !NotificationCenter.doNotDisturbEnabled
-                backgroundColor: Config.styling.bg3
-                accentColor: Config.styling.primaryAccent
-                indicatorOnHover: true
-                scaleTarget: null
-                flat: true
-                onClicked: NotificationCenter.toastsEnabled = !NotificationCenter.toastsEnabled
-
-                contentItem: Text {
-                    text: NotificationCenter.doNotDisturbEnabled ? "Enable Toasts" : "Disable Toasts"
-                    color: Config.styling.text0
-                    font.pixelSize: 14
-                    font.bold: true
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
             }
 
-            ActionButton {
-                Layout.fillWidth: true
+            SmallButton {
+                id: clearAllButton
                 enabled: NotificationCenter.count > 0
-                backgroundColor: Config.styling.bg3
-                accentColor: Config.styling.close
-                indicatorOnHover: true
-                scaleTarget: null
-                flat: true
+                accentColor: Config.styling.good
                 onClicked: NotificationCenter.clearAll()
-
-                contentItem: Text {
-                    text: "Clear all"
-                    color: Config.styling.text0
-                    font.pixelSize: 14
-                    font.bold: true
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
+                text: "Clear all"
             }
         }
 

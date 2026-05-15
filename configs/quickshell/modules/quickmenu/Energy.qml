@@ -7,8 +7,18 @@ import qs.components
 DashboardPage {
     id: root
 
-    title: "Energy"
-    subtitle: "Battery, brightness, and power profile management"
+    title: "Battery"
+
+    DashboardSection {
+        Layout.fillWidth: true
+        title: "Battery and power"
+
+        Battery {
+            id: batteryContent
+            Layout.fillWidth: true
+            powerModesFirst: true
+        }
+    }
 
     DashboardSection {
         Layout.fillWidth: true
@@ -24,16 +34,6 @@ DashboardPage {
             valueText: Brightness.available ? `${Brightness.percent}%` : "Unavailable"
             enabled: Brightness.available
             onValueCommitted: Brightness.setPercent(value)
-        }
-    }
-
-    DashboardSection {
-        Layout.fillWidth: true
-        title: "Battery and power"
-
-        Battery {
-            id: batteryContent
-            Layout.fillWidth: true
         }
     }
 }

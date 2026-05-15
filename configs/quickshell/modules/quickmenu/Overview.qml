@@ -10,6 +10,8 @@ import qs.components
 DashboardPage {
     id: root
 
+    title: "Overview"
+
     property var screenState: null
 
     readonly property var sink: Pipewire.defaultAudioSink
@@ -203,16 +205,7 @@ DashboardPage {
 
     DashboardSection {
         Layout.fillWidth: true
-        Layout.fillHeight: true
         title: "Notifications"
-
-        NotificationFeed {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            compact: true
-            maxEntries: 6
-            emptyTitle: "No recent notifications"
-        }
     }
 
     Process {

@@ -71,7 +71,7 @@ Item {
 
             onClicked: {
                 root.toplevel?.wayland?.close();
-                ShellState.getScreenByName(screen.name).hyprlandPreview.views.remove("hyprlandPreview");
+                ShellState.getScreenByName(screen.name).hyprlandPreview.clearPreview();
             }
 
             contentItem: Icon {
@@ -97,7 +97,7 @@ Item {
         TapHandler {
             onSingleTapped: {
                 root.toplevel?.wayland?.activate();
-                ShellState.getScreenByName(screen.name).hyprlandPreview.views.remove("hyprlandPreview");
+                ShellState.getScreenByName(screen.name).hyprlandPreview.clearPreview();
             }
         }
     }
