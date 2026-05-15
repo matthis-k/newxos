@@ -45,12 +45,45 @@
       repoGate = pkgs.writeShellScriptBin "repo-gate" ''
         set -euo pipefail
 
-        ${lib.getExe writeFlake}
-        ${lib.optionalString (self'.packages ? write-nvim-pack-lock) ''
-          ${lib.getExe self'.packages.write-nvim-pack-lock}
-        ''}
-        ${config.treefmt.build.wrapper}/bin/treefmt
-        ${lib.getExe flakeCheck}
+        real_index="$(${pkgs.git}/bin/git rev-parse --git-path index)"
+        temp_index="$(${pkgs.coreutils}/bin/mktemp)"
+
+        cleanup() {
+          ${pkgs.coreutils}/bin/rm -f "$temp_index"
+        }
+        trap cleanup EXIT
+
+        prepare_temp_index() {
+          if [ -f "$real_index" ]; then
+            ${pkgs.coreutils}/bin/cp "$real_index" "$temp_index"
+          else
+            : > "$temp_index"
+          fi
+
+          GIT_INDEX_FILE="$temp_index" ${pkgs.git}/bin/git add -A -- .
+        }
+
+        run_hooks() {
+          GIT_INDEX_FILE="$temp_index" \
+            ${pkgs.nix}/bin/nix develop "path:$PWD" -c pre-commit run --hook-stage pre-commit
+        }
+
+        attempt=1
+        max_attempts=2
+
+        while [ "$attempt" -le "$max_attempts" ]; do
+          prepare_temp_index
+
+          if run_hooks; then
+            exit 0
+          fi
+
+          if [ "$attempt" -eq "$max_attempts" ]; then
+            exit 1
+          fi
+
+          attempt=$((attempt + 1))
+        done
       '';
     in
     {

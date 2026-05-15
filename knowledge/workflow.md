@@ -36,7 +36,7 @@ Day-to-day rules for working in this repo.
 - If you change `flake-file` declarations, run `nix run "path:$PWD#write-flake"` before `flake show`, `flake check`, or commit.
 - If you add or change a flake output, confirm it appears in `nix flake show "path:$PWD"`.
 - Stage new files before final `flake show/check` when outputs depend on the git-visible tree.
-- Prefer `nix run "path:$PWD#repo-gate"` before handoff when you changed flake wiring or Nix code. It also rewrites the repo-managed Neovim `vim.pack` lockfile when exposed.
+- Prefer `nix run "path:$PWD#repo-gate"` before handoff when you changed flake wiring or Nix code. It stages all current worktree changes into a temporary index and runs the managed pre-commit graph against that snapshot, so hook order and conditionals stay in one place.
 - Related reading: [workflow tooling](libraries/workflow-tooling.md), [Scope Boundaries And Per-System Access](patterns/per-system-scopes.md).
 
 ## Git And Hooks
@@ -46,6 +46,7 @@ Day-to-day rules for working in this repo.
 - The managed `flake check` hook only runs when the commit includes staged `*.nix` files.
 - The managed knowledge index hook only runs when the commit includes staged `knowledge/` changes.
 - The managed hook reinstall step only runs when the commit includes staged `modules/workflow.nix` changes.
+- `repo-gate` stages all tracked and untracked worktree changes into a temporary index and runs the real managed pre-commit hooks against that index, leaving your actual staging area untouched.
 - In a fresh clone, `nix develop "path:$PWD"` gives you the pre-commit dev shell. Otherwise use `nix run "path:$PWD#install-git-hooks"`.
 - If Nix garbage collection removes the `pre-commit` binary, the hook will fail with `No such file or directory`. Run `nix run "path:$PWD#install-git-hooks"` to regenerate it.
 - If hooks rewrite files, review them, re-stage task-related files, and rerun the commit.
@@ -82,7 +83,7 @@ Day-to-day rules for working in this repo.
 ## Before Handoff
 
 - Run the relevant verification commands for the changed area.
-- Prefer `nix run "path:$PWD#repo-gate"` after Nix or flake workflow changes, unless the task clearly does not need the full gate.
+- Prefer `nix run "path:$PWD#repo-gate"` after Nix or flake workflow changes, unless the task clearly does not need the hook-equivalent gate.
 - If you created or modified knowledge files, refresh the memory index:
 - If you are committing those changes, the managed hook refreshes the memory index automatically.
   - Small edits (a few files, targeted changes): `newxos memory reindex`
