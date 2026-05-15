@@ -18,6 +18,7 @@ ColumnLayout {
         property string iconName: "dialog-warning"
 
         Layout.fillWidth: true
+        Layout.preferredWidth: 1
         implicitHeight: 40
         backgroundColor: Config.styling.bg3
         accentColor: optionColor
