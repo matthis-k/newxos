@@ -7,7 +7,7 @@
     };
 
   perSystem =
-    { self', pkgs, ... }:
+    { self', pkgs, lib, ... }:
     let
       newxos-bin = pkgs.writeShellApplication {
         name = "newxos";
@@ -19,7 +19,7 @@
           nix-output-monitor
           ripgrep
           self'.packages.basic-memory-uv2nix
-        ];
+        ] ++ (lib.optionals (self'.packages ? opencode) [ self'.packages.opencode ]);
         text = ''
                     usage() {
                       cat <<'EOF' >&2
@@ -31,6 +31,7 @@
             newxos flake check [host] [--git-only]
             newxos flake show [host] [--git-only]
             newxos flake run <attr> [--git-only]
+            newxos ai
             newxos memory <reindex|reset>
             newxos clean [nh-clean args...]
 
@@ -266,6 +267,13 @@
                       fi
                     }
 
+                    ai_cmd() {
+                      command -v opencode >/dev/null 2>&1 \
+                        || die "opencode not available (build this system with the opencode module)"
+
+                      (cd "$(repo_root)" && exec opencode)
+                    }
+
                     memory_cmd() {
                       local action
 
@@ -325,6 +333,7 @@
                         home) home_cmd "$@" ;;
                         flake) flake_cmd "$@" ;;
                         memory) memory_cmd "$@" ;;
+                        ai) ai_cmd "$@" ;;
                         clean) clean_cmd "$@" ;;
                         _complete) complete_cmd "$@" ;;
                         -h|--help|help) usage ;;
