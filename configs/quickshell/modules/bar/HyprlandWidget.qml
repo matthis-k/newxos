@@ -16,6 +16,15 @@ Item {
     implicitHeight: parent.height
     implicitWidth: row.implicitWidth
 
+    function workspaceNumber(workspace) {
+        const id = Number(workspace?.id);
+        if (Number.isFinite(id) && id > 0)
+            return id;
+
+        const name = Number.parseInt(workspace?.name || "", 10);
+        return Number.isFinite(name) ? name : Number.MAX_SAFE_INTEGER;
+    }
+
     RowLayout {
         id: row
         anchors.fill: parent
@@ -24,7 +33,15 @@ Item {
         Repeater {
             id: workspaceRepeater
 
-            model: Hyprland.workspaces
+            model: ScriptModel {
+                values: [...Hyprland.workspaces.values].sort((a, b) => {
+                    const numberDiff = root.workspaceNumber(a) - root.workspaceNumber(b);
+                    if (numberDiff !== 0)
+                        return numberDiff;
+
+                    return (a?.name || "").localeCompare(b?.name || "");
+                })
+            }
             delegate: WorkspaceOverview {}
         }
     }
