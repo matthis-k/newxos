@@ -49,8 +49,7 @@ Item {
             Quickshell.execDetached({
                 command: ["kitty", "-e", entry.command.join(" ")]
             });
-        }
-        {
+        } else {
             entry.execute();
         }
         if (closeHandler)
@@ -156,7 +155,8 @@ Item {
                         }
                         if (event.key === Qt.Key_Question) {
                             event.accepted = true;
-                            view.openDetails(grid.currentItem.desktopEntry);
+                            if (grid.currentItem)
+                                view.openDetails(grid.currentItem.desktopEntry);
                         }
                     }
 

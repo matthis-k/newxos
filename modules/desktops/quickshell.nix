@@ -3,43 +3,7 @@
   withSystem,
   ...
 }:
-let
-  configDir = builtins.path {
-    name = "quickshell-config";
-    path = ../../configs/quickshell;
-    filter = path: type: !(type == "regular" && builtins.baseNameOf path == ".qmlls.ini");
-  };
-in
 {
-  perSystem =
-    { pkgs, self', ... }:
-    {
-      packages.quickshell = pkgs.quickshell;
-
-      packages.newshell = pkgs.writeShellScriptBin "newshell" ''
-        config_dir=${configDir}
-        local_config_root="''${NEWXOS_FLAKE_PATH:-$HOME/newxos}"
-        args=()
-
-        for arg in "$@"; do
-          if [[ "$arg" == "--local" ]]; then
-            config_dir="$local_config_root/configs/quickshell"
-
-            if [[ ! -f "$local_config_root/flake.nix" || ! -d "$config_dir" ]]; then
-              printf 'newshell: invalid NEWXOS_FLAKE_PATH: %s\n' "$local_config_root" >&2
-              exit 1
-            fi
-
-            continue
-          fi
-
-          args+=("$arg")
-        done
-
-        exec ${lib.getExe self'.packages.quickshell} -p "$config_dir" "''${args[@]}"
-      '';
-    };
-
   flake.modules.homeManager.quickshell =
     {
       config,
@@ -58,6 +22,7 @@ in
         [
           self'.packages.quickshell
           self'.packages.newshell
+          self'.packages.newshelldev
           pkgs.kdePackages.qtdeclarative
           pkgs.kdePackages.qt3d
           pkgs.kdePackages.qt6ct

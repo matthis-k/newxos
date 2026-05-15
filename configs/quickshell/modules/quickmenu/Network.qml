@@ -103,22 +103,8 @@ DashboardPage {
         return network && (network.security === "Open" || network.security === "--" || !network.security);
     }
 
-    function signalBucket(strength) {
-        const normalized = Math.max(0, Math.min(1, strength || 0));
-        const percent = Math.round(normalized * 100);
-        if (percent === 0)
-            return "none";
-        if (percent < 25)
-            return "weak";
-        if (percent < 50)
-            return "ok";
-        if (percent < 75)
-            return "good";
-        return "excellent";
-    }
-
     function wifiIconName(network) {
-        return `network-wireless-signal-${signalBucket(network ? network.signalStrength : 0)}-symbolic`;
+        return NetworkService.wifiIconName(network);
     }
 
     function securityLabel(network) {
@@ -413,10 +399,11 @@ DashboardPage {
                                     return;
                                 }
 
-                                if (rowRoot.network.connected)
-                                    NetworkService.disconnectNetwork();
-                                else
+                                if (rowRoot.network.connected) {
+                                    NetworkService.disconnectWifi();
+                                } else {
                                     rowRoot.attemptConnect();
+                                }
                             }
                         }
 
@@ -439,9 +426,9 @@ DashboardPage {
         }
     }
 
-    readonly property var connectedNetworks: NetworkService.networks.filter(n => n.connected)
-    readonly property var disconnectedNetworks: NetworkService.networks.filter(n => !n.connected)
     readonly property var displayedNetworks: interactionLocked ? applyFrozenOrder(NetworkService.networks) : NetworkService.networks
+    readonly property var connectedNetworks: displayedNetworks.filter(n => n.connected)
+    readonly property var disconnectedNetworks: displayedNetworks.filter(n => !n.connected)
 
     onInteractiveNetworkKeyChanged: {
         if (interactiveNetworkKey && !NetworkService.networks.some(network => networkKey(network) === interactiveNetworkKey))
@@ -491,7 +478,7 @@ DashboardPage {
 
                 SmallButton {
                     text: "Disconnect"
-                    onClicked: NetworkService.disconnectNetwork()
+                    onClicked: NetworkService.disconnectWired()
                 }
             }
         }

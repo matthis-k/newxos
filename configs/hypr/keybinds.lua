@@ -1,21 +1,3 @@
-local function dispatch_all(...)
-    local dispatchers = { ... }
-
-    return function()
-        for _, dispatcher in ipairs(dispatchers) do
-            hl.dispatch(dispatcher)
-        end
-    end
-end
-
-local function repeat_dispatch(dispatcher, times)
-    return function()
-        for _ = 1, times do
-            hl.dispatch(dispatcher)
-        end
-    end
-end
-
 local keybinds = {
     keybinds = {
         { "SUPER + Return", hl.dsp.exec_cmd("kitty") },

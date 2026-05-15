@@ -29,8 +29,9 @@ xdg.configFile."hypr/nix-import.lua".text = ''
 
 ## Practical Rules
 
-- Put wrapper logic in `modules/`.
+- Put custom nix-wrapper-modules wrapper definitions in `modules/wrappers/`.
 - Put hand-written app config in `configs/`.
+- Put feature-specific install/service wiring in the relevant feature module, consuming wrapper packages via `withSystem` and `self'.packages`.
 - Put shared theme generation in `modules/stylix/`, then import the generated result.
 - If a program already has a repo wrapper, prefer using it over wiring the raw package directly.
 - Avoid checking in generated config when the module can create it for you.

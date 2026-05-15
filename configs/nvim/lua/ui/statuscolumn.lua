@@ -341,17 +341,19 @@ function M.click_handlers.fold(_minwid, _num_clicks, _btn, _mods)
     if not vim.api.nvim_win_is_valid(win) then
         return
     end
-    if lnum < 1 or lnum > vim.api.nvim_buf_line_count(0) then
+    if lnum < 1 or lnum > vim.api.nvim_buf_line_count(vim.api.nvim_win_get_buf(win)) then
         return
     end
 
     local fold_info = foldexpr(lnum, win)
     if fold_info and fold_info.start == lnum then
-        if vim.fn.foldclosed(lnum) == -1 then
-            vim.cmd(lnum .. "foldclose")
-        else
-            vim.cmd(lnum .. "foldopen")
-        end
+        vim.api.nvim_win_call(win, function()
+            if vim.fn.foldclosed(lnum) == -1 then
+                vim.cmd(lnum .. "foldclose")
+            else
+                vim.cmd(lnum .. "foldopen")
+            end
+        end)
     end
 end
 

@@ -103,13 +103,13 @@ M.mode = {
 
 Git.cache = Git.cache or {}
 
-local fetched = {}
 local function get_ahead_behind(git)
     local ok, res = pcall(function()
-        local line = vim.fn.system(
+        local result = vim.system(
             { "git", "rev-list", "--left-right", "--count", git.head .. "..origin/" .. git.head },
-            git.root
-        )
+            { cwd = git.root, text = true }
+        ):wait()
+        local line = result.stdout or ""
         local ahead, behind = line:match("(%d+)%s+(%d+)")
         return { ahead = tonumber(ahead) or 0, behind = tonumber(behind) or 0 }
     end)
@@ -117,6 +117,7 @@ local function get_ahead_behind(git)
 end
 
 function Git.update()
+    local fetched = {}
     for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
         local git = vim.b[bufnr].gitsigns_status_dict
         if git and not vim.list_contains(fetched, git.root) then

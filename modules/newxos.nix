@@ -35,7 +35,7 @@
             newxos clean [nh-clean args...]
 
           env:
-            NEWXOS  repo path. default: $HOME/newxos
+            NEWXOS_FLAKE  repo path. default: $HOME/newxos
             NEWXOS_HOST  default nixos host for host-based commands
           EOF
                       exit 2
@@ -49,7 +49,7 @@
                     repo_root() {
                       local root
 
-                      root="''${NEWXOS_FLAKE:-''${NEWXOS:-$HOME/newxos}}"
+                      root="''${NEWXOS_FLAKE:-$HOME/newxos}"
                       [ -d "$root" ] || die "missing repo at $root"
                       [ -e "$root/flake.nix" ] || die "missing flake at $root"
 

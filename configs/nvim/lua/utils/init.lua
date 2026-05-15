@@ -10,10 +10,9 @@ function M.lua_files(dir)
                 break
             end
             local basename = name:match("^(.+)%.lua$")
-            if not basename then
-                break
+            if basename then
+                table.insert(result, { basename = basename, path = dir .. "/" .. name })
             end
-            table.insert(result, { basename = basename, path = dir .. "/" .. name })
         end
     end
     return result
@@ -59,7 +58,7 @@ function M.utf8sub(str, start, stop)
 end
 
 function M.validate(subject, schema, opts)
-    local strict = opts and opts.strict or true
+    local strict = opts == nil or opts.strict ~= false
     if strict then
         for key, _ in pairs(subject) do
             if not schema[key] then

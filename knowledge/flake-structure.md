@@ -25,7 +25,7 @@ Keep the root flake thin. Most behavior lives under `modules/` and `configs/`.
 - Keep shared repo behavior near the top level of `modules/`.
 - Use small focused files like `nix.nix`, `networking.nix`, `workflow.nix`, `home-manager.nix`, `sops.nix`, and `disko.nix` for shared wiring.
 - Use feature directories when one concern needs multiple files.
-- Current feature directories include `stylix/`, `desktops/`, `editors/`, `shells/`, `terminals/`, `browsers/`, `development/`, `vpns/`, `hosts/`, and `users/`.
+- Current feature directories include `stylix/`, `wrappers/`, `desktops/`, `editors/`, `shells/`, `terminals/`, `browsers/`, `development/`, `vpns/`, `hosts/`, and `users/`.
 - Related reading: [Dendritic Feature Modules](patterns/dendritic-modules.md).
 
 ## `modules/hosts/`
@@ -51,6 +51,14 @@ Keep the root flake thin. Most behavior lives under `modules/` and `configs/`.
 - Generated theme fragments should usually be imported from program configs instead of being hand-written inside `configs/`.
 - Current examples are generated `kitty/stylix-theme.auto.conf` and `fish/stylix-theme.auto.fish`.
 - Related reading: [stylix](libraries/stylix.md), [Wrapped Programs And Generated Config](patterns/wrapped-programs.md).
+
+## `modules/wrappers/`
+
+- Put custom nix-wrapper-modules wrapper definitions here.
+- Use this for repo-owned wrappers that expose configured packages such as `newshell` and `newshelldev`.
+- Keep package wrapping here even when a feature-specific Home Manager or NixOS module installs the resulting package elsewhere.
+- Feature modules such as `modules/desktops/` should consume wrapper outputs through `withSystem` and `self'.packages`, not define custom wrapper logic inline.
+- Related reading: [nix-wrapper-modules](libraries/nix-wrapper-modules.md), [Wrapped Programs And Generated Config](patterns/wrapped-programs.md).
 
 ## `configs/`
 
@@ -81,7 +89,7 @@ Keep the root flake thin. Most behavior lives under `modules/` and `configs/`.
 
 - Put shared infrastructure in shared modules unless it is truly host-local.
 - Put concrete outputs close to the feature they expose.
-- Put repo-owned program wrapping in modules, and hand-written program config in `configs/`.
+- Put custom nix-wrapper-modules wrapper definitions in `modules/wrappers/`, and hand-written program config in `configs/`.
 - Put custom themes and theme generation in `modules/stylix/`, then import the generated files where feasible.
 - Put starter guidance in `knowledge/` pages like [Dendritic Feature Modules](patterns/dendritic-modules.md) and [Workflow Tooling](libraries/workflow-tooling.md) instead of shipping example template flakes.
 - Put reusable docs in `knowledge/`, not in `AGENTS.md`.

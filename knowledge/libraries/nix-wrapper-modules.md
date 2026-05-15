@@ -10,15 +10,16 @@ permalink: newxos/libraries/nix-wrapper-modules
 
 ## What It Does Here
 
-- Wraps `opencode`, `kitty`, and Neovim as packages exposed by this flake.
+- Wraps `opencode`, `kitty`, Neovim, and custom QuickShell launchers as packages exposed by this flake.
 - The Neovim wrapper currently exposes a portable `nvim` package plus a repo-bound `nvimdev` variant for live editing against `configs/nvim`.
 - Native Neovim compatibility uses the static loader at `configs/nvim/lua/newxos/non_nix_compatibility.lua` plus the generated `configs/nvim/nvim-pack-lock.json` written from the Nix plugin source of truth.
 - Lets the repo install a configured program instead of only a raw upstream package.
-- Keeps wrapper logic in Nix and hand-written app config in `configs/`.
+- Keeps custom wrapper definitions in `modules/wrappers/` and hand-written app config in `configs/`.
 
 ## Basics
 
 - Use a wrapper when the repo should ship the program with opinionated config.
+- Put custom wrapper module definitions in `modules/wrappers/`.
 - Install wrapped packages from reusable Home Manager or NixOS modules via `withSystem` and `self'.packages`.
 - Keep hand-written config in `configs/` and generated fragments in nearby modules when that split is cleaner.
 - Related reading: [Wrapped Programs And Generated Config](../patterns/wrapped-programs.md), [Flake Structure](../flake-structure.md#configs).

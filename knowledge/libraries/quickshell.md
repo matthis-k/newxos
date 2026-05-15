@@ -11,7 +11,8 @@ Quickshell (v0.3) provides a QtQuick/QML-based compositor-agnostic shell toolkit
 ## What It Does Here
 
 - Keeps the hand-written template config in `configs/quickshell/`.
-- Exposes `newshell`, which forwards to `quickshell -p <repo-template-dir>`.
+- Exposes `newshell`, a nix-wrapper-modules wrapper around `quickshell -p <store-template-dir>`.
+- Exposes `newshelldev`, the same wrapper pointed at `${NEWXOS_FLAKE:-$HOME/newxos}/configs/quickshell` for live local config iteration.
 - Installs both the raw `quickshell` binary and the repo wrapper through Home Manager so ad hoc runs stay available.
 - Sets `QS_ICON_THEME` from the active Stylix icon selection so `quickshell` and `newshell` stay aligned.
 - Keeps the wrapper minimal instead of copying Quickshell config into `~/.config/`.
@@ -19,7 +20,7 @@ Quickshell (v0.3) provides a QtQuick/QML-based compositor-agnostic shell toolkit
 ## Basics
 
 - Edit `configs/quickshell/shell.qml` when changing the repo template.
-- Use `newshell` for the repo template and `quickshell` directly for other config paths.
+- Use `newshell` for the Nix-store template, `newshelldev` for live edits under `${NEWXOS_FLAKE:-$HOME/newxos}/configs/quickshell`, and `quickshell` directly for other config paths.
 - If the pinned `nixpkgs` QuickShell is too old for a new module such as `Quickshell.Networking`, update the repo lock before changing imports.
 - Leave `.qmlls.ini` untracked next to `shell.qml`; Quickshell manages it per machine for `qmlls` support.
 - Related reading: [Wrapped Programs And Generated Config](../patterns/wrapped-programs.md), [Flake Structure](../flake-structure.md#configs).
@@ -237,7 +238,8 @@ Docs: `https://doc.qt.io/qt-6/qtcore-qmlmodule.html`
 
 ## Known Quirks Here
 
-- The wrapper's config path is fixed at build time, so config edits take effect after the package is rebuilt through the normal Home Manager or flake flow.
+- The wrapper's `newshell` config path is fixed at build time, so config edits there take effect after the package is rebuilt through the normal Home Manager or flake flow.
+- Use `newshelldev` when you want the wrapper to load the working-tree config at `${NEWXOS_FLAKE:-$HOME/newxos}/configs/quickshell` without rebuilding.
 - Keep the template lightweight unless the repo starts managing a fuller shell layout.
 - Breaking changes expected before 1.0; upstream will provide migration guides.
 - `PanelWindow` in particular may not resolve in qmlls.

@@ -205,6 +205,7 @@ Singleton {
     }
 
     function getScreenByRegex(screenRegex: string): list<ScreenState> {
-        return root.instances.filter(screen => screen.name.matches(screenRegex));
+        const regex = new RegExp(screenRegex);
+        return root.instances.filter(screenState => regex.test(screenState.screen.name));
     }
 }

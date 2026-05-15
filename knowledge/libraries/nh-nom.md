@@ -14,12 +14,12 @@ This repo uses `nh` and `nix-output-monitor` through repo-owned `newxos` wrapper
 - `newxos home ...` calls `nh home ...` for Home Manager build and switch flows.
 - `newxos clean` defaults to `nh clean all --keep 1 --keep-since 0h`, and forwards any extra flags to `nh clean all` when you want a different retention policy.
 - `newxos flake build/check/run ...` uses `nom` so direct `nix` operations still get rich build output.
-- `newxos` defaults to `path:$NEWXOS` so local unadded changes are visible during eval and builds.
+- `newxos` defaults to `path:$NEWXOS_FLAKE` so local unadded changes are visible during eval and builds.
 - `--git-only` switches back to git flake semantics when you want repo-visible tree only.
 
 ## Basics
 
-- Home Manager exports `NEWXOS=$HOME/newxos` and installs `newxos` into user profile.
+- Home Manager exports `NEWXOS_FLAKE=$HOME/newxos` and installs `newxos` into user profile.
 - NixOS host module exports `NEWXOS_HOST=$HOSTNAME` through `environment.sessionVariables`.
 - Fish completion comes from package payload under `share/fish/vendor_completions.d/`.
 - Host completion is repo-driven by reading `flake.nixosConfigurations.*` declarations from `modules/`.

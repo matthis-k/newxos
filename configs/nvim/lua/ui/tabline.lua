@@ -139,7 +139,8 @@ M.buffers = {
 }
 
 function M.tab(tp)
-    local cur = (vim.fn.tabpagenr() == tp)
+    local tabnr = vim.api.nvim_tabpage_get_number(tp)
+    local cur = (vim.api.nvim_get_current_tabpage() == tp)
     local tab_hl = cur and "TblCurrentTab" or "TblTab"
 
     return {
@@ -148,10 +149,10 @@ function M.tab(tp)
         hl = tab_hl,
         children = {
             {
-                text = tostring(tp),
+                text = tostring(tabnr),
                 hl = tab_hl,
                 on_click = "v:lua.tbl_click_handlers.tab",
-                on_click_param = tostring(tp),
+                on_click_param = tostring(tabnr),
             },
             {
                 text = "󰖭",
@@ -159,7 +160,7 @@ function M.tab(tp)
                 after = " ",
                 hl = cur and "TblCurrentTabCloseButton" or "TblTabCloseButton",
                 on_click = "v:lua.tbl_click_handlers.close_tab",
-                on_click_param = tostring(tp),
+                on_click_param = tostring(tabnr),
             },
         },
     }
@@ -223,16 +224,16 @@ function M.click_handlers.close_buffer(minwid, _num_clicks, _btn, _mods)
 end
 
 function M.click_handlers.tab(minwid, _num_clicks, _btn, _mods)
-    local tp = tonumber(minwid)
-    if tp and vim.api.nvim_tabpage_is_valid(tp) then
-        vim.api.nvim_set_current_tabpage(tp)
+    local tabnr = tonumber(minwid)
+    if tabnr then
+        vim.cmd("tabnext " .. tabnr)
     end
 end
 
 function M.click_handlers.close_tab(minwid, _num_clicks, _btn, _mods)
-    local tp = tonumber(minwid)
-    if tp and vim.api.nvim_tabpage_is_valid(tp) then
-        vim.cmd("tabclose " .. vim.api.nvim_tabpage_get_number(tp))
+    local tabnr = tonumber(minwid)
+    if tabnr then
+        vim.cmd("tabclose " .. tabnr)
         vim.cmd.redrawtabline()
     end
 end

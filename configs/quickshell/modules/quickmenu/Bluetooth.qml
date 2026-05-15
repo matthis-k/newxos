@@ -41,7 +41,7 @@ DashboardPage {
 
     readonly property var adapter: Bluetooth.defaultAdapter
     readonly property var allDevices: collectDevices()
-    readonly property int connectedCount: adapter ? adapter.devices.values.length : 0
+    readonly property int connectedCount: adapter ? (adapter.devices.values || []).filter(device => device.connected).length : 0
     readonly property bool interactionLocked: interactiveDeviceKey !== ""
     readonly property var displayedDevices: interactionLocked ? applyFrozenOrder(allDevices) : allDevices
     readonly property var connectedDevices: displayedDevices.filter(device => !!device && device.connected)

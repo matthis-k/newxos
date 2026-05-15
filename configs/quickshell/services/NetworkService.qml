@@ -12,6 +12,7 @@ Singleton {
     property string connectivity: "none"
     property string connectedSsid: ""
     property string connectedAddress: ""
+    property string wifiDeviceName: ""
     property bool hasWiredConnection: false
     property string wiredDeviceName: ""
     property string wiredAddress: ""
@@ -40,6 +41,24 @@ Singleton {
         if (!secStr || secStr === "--")
             return "Open";
         return secStr;
+    }
+
+    function signalBucket(strength) {
+        const normalized = Math.max(0, Math.min(1, strength || 0));
+        const percent = Math.round(normalized * 100);
+        if (percent === 0)
+            return "none";
+        if (percent < 25)
+            return "weak";
+        if (percent < 50)
+            return "ok";
+        if (percent < 75)
+            return "good";
+        return "excellent";
+    }
+
+    function wifiIconName(network) {
+        return `network-wireless-signal-${signalBucket(network ? network.signalStrength : 0)}-symbolic`;
     }
 
     function _splitEscaped(text, separator) {
@@ -227,6 +246,7 @@ Singleton {
             onStreamFinished: {
                 const lines = text.trim().split("\n");
                 let foundWired = false;
+                let wifiName = "";
                 let wiredName = "";
                 let wiredAddr = "";
 
@@ -239,16 +259,18 @@ Singleton {
                         const state = parts[2];
                         const address = parts[3] || "";
 
-                        if (type === "ethernet" && state === "connected") {
+                        if (type === "wifi" && state === "connected") {
+                            wifiName = device;
+                        } else if (type === "ethernet" && state === "connected" && !foundWired) {
                             foundWired = true;
                             wiredName = device;
                             wiredAddr = address;
-                            break;
                         }
                     }
                 }
 
                 root.hasWiredConnection = foundWired;
+                root.wifiDeviceName = wifiName;
                 root.wiredDeviceName = wiredName;
                 root.wiredAddress = wiredAddr;
             }
@@ -312,12 +334,17 @@ Singleton {
         connectProcess.exec({ command: args });
     }
 
-    function disconnectNetwork() {
-        if (root.connectedSsid) {
-            disconnectProcess.exec({ command: ["nmcli", "con", "down", "id", root.connectedSsid] });
-        } else if (root.hasWiredConnection) {
-            disconnectProcess.exec({ command: ["nmcli", "con", "down", "id", root.wiredDeviceName] });
-        }
+    function disconnectDevice(deviceName) {
+        if (deviceName)
+            disconnectProcess.exec({ command: ["nmcli", "dev", "disconnect", deviceName] });
+    }
+
+    function disconnectWifi() {
+        disconnectDevice(root.wifiDeviceName);
+    }
+
+    function disconnectWired() {
+        disconnectDevice(root.wiredDeviceName);
     }
 
     function forgetNetwork(uuid) {
