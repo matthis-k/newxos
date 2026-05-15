@@ -18,6 +18,18 @@ permalink: newxos/architecture/flake-file
 
 `flake-file` generates the root `flake.nix` from repo declarations.
 
+## Observations
+
+- [fact] `flake.nix` is generated; never hand-edit it
+- [technique] Edit `modules/` declarations and run `nix run "path:$PWD#write-flake"` to regenerate
+- [requirement] Verify changes with `nix flake show "path:$PWD"` and `nix flake check "path:$PWD"`
+- [fact] Generator reads flake-file module declarations from the module tree
+
+## Relations
+
+- part_of [[architecture-index]]
+- relates_to [[architecture-import-tree]]
+
 ## Rules
 
 - Never hand-edit `flake.nix`.

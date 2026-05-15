@@ -7,19 +7,27 @@
     };
 
   perSystem =
-    { self', pkgs, lib, ... }:
+    {
+      self',
+      pkgs,
+      lib,
+      ...
+    }:
     let
       newxos-bin = pkgs.writeShellApplication {
         name = "newxos";
-        runtimeInputs = with pkgs; [
-          coreutils
-          jq
-          nh
-          nix
-          nix-output-monitor
-          ripgrep
-          self'.packages.basic-memory-uv2nix
-        ] ++ (lib.optionals (self'.packages ? opencode) [ self'.packages.opencode ]);
+        runtimeInputs =
+          with pkgs;
+          [
+            coreutils
+            jq
+            nh
+            nix
+            nix-output-monitor
+            ripgrep
+            self'.packages.basic-memory-uv2nix
+          ]
+          ++ (lib.optionals (self'.packages ? opencode) [ self'.packages.opencode ]);
         text = ''
                     usage() {
                       cat <<'EOF' >&2

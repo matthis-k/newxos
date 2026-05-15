@@ -18,6 +18,19 @@ permalink: newxos/tasks/quickshell-desktop-shell
 
 # QuickShell desktop shell requirements
 
+## Observations
+
+- [fact] Desktop shell in `configs/quickshell/` covering common day-to-day actions
+- [decision] Shell should feel compact, flat, dark, square, and information-dense
+- [technique] Reuse small set of shared QML primitives instead of implementing each dashboard tab independently
+- [requirement] Missing hardware must degrade gracefully; no backend must break the shell
+
+## Relations
+
+- relates_to [[quickshell-design]]
+- relates_to [[architecture-index]]
+- relates_to [[tasks-index]]
+
 ## Goal
 
 Build a desktop shell in `configs/quickshell/` that covers the most common day-to-day actions out of the box while staying visually close to the current shell.
@@ -420,5 +433,5 @@ Keep row sizes, icon sizes, text sizes, and internal gaps tokenized instead of r
 ## Related
 
 - [[quickshell-design]]
-- [QuickShell library notes](../libraries/quickshell.md)
-- [Stylix library notes](../libraries/stylix.md)
+- [[quickshell]]
+- [[stylix]]

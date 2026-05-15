@@ -8,6 +8,18 @@ permalink: newxos/libraries/flake-parts
 
 `flake-parts` is the core module system for this flake. It provides a composable, option-driven way to define flake outputs using the Nix module system.
 
+## Observations
+
+- [fact] Defines the top-level schema for `imports`, `perSystem`, and `flake`
+- [technique] Use `inputs'` and `self'` inside `perSystem`; use `withSystem` to re-enter per-system scope from top-level reusable modules
+- [decision] Lets the repo export reusable modules under `flake.modules.*`
+- [fact] Most hard Nix mistakes in this repo are scope mistakes
+
+## Relations
+
+- relates_to [[Scope Boundaries And Per-System Access]]
+- relates_to [[Dendritic Feature Modules]]
+
 ## What It Does Here
 
 - Defines the top-level schema for `imports`, `perSystem`, and `flake`.
@@ -21,7 +33,7 @@ permalink: newxos/libraries/flake-parts
 - Use `perSystem` for system-specific packages, apps, checks, and dev shells.
 - Use `inputs'` and `self'` inside `perSystem` instead of manually indexing `.${system}` when a proper per-system view exists.
 - Use `withSystem` when a top-level reusable module needs a per-system package.
-- Related reading: [Scope Boundaries And Per-System Access](../patterns/per-system-scopes.md), [Dendritic Feature Modules](../patterns/dendritic-modules.md).
+- Related reading: [[Scope Boundaries And Per-System Access]], [[Dendritic Feature Modules]].
 
 ## Upstream Overview
 
@@ -140,10 +152,10 @@ flake = { self', inputs', ... }: {
 - Tutorial: `https://flake.parts/tutorial.html`
 - Upstream repo: `https://github.com/hercules-ci/flake-parts`
 
-## Known Quirks Here
+## Known Quirks
 
 - Do not reach for `self.packages.${system}` from a top-level reusable module when `withSystem` and `self'` are the right fit.
 - Do not request NixOS-only module args like `modulesPath` from the outer flake-parts file function.
 - Do not fake reusable NixOS module parameters with outer default args unless you also pass them through real module args.
 - If something feels like a scope problem, it usually is.
-- Related issues: [2026-04-27: `modulesPath` missing from outer flake-parts module args](../encountered_issues.md#2026-04-27-modulespath-missing-from-outer-flake-parts-module-args), [2026-04-27: reaching for `self.packages.${system}` instead of `withSystem` and `self'`](../encountered_issues.md#2026-04-27-reaching-for-selfpackagessystem-instead-of-withsystem-and-self), [2026-04-28: defaulted outer module args still require `_module.args` when reused as NixOS modules](../encountered_issues.md#2026-04-28-defaulted-outer-module-args-still-require-_moduleargs-when-reused-as-nixos-modules)
+- Related issues: [[2026-04-27: `modulesPath` missing from outer flake-parts module args]], [[2026-04-27: reaching for `self.packages.${system}` instead of `withSystem` and `self'`]], [[2026-04-28: defaulted outer module args still require `_module.args` when reused as NixOS modules]]

@@ -15,7 +15,18 @@ permalink: newxos/secrets/readme
 
 This folder covers secret management, encryption, and provisioning.
 
-Content not yet written. See [sops-nix](../libraries/sops-nix.md) for current secret wiring guidance.
+## Observations
+
+- [fact] Content not yet written
+- [requirement] Never store plaintext secrets in git; never print secret values in commits, logs, or agent output
+- [technique] Check secret wiring through module declarations, not by reading decrypted values
+
+## Relations
+
+- part_of [[Knowledge]]
+- relates_to [[sops-nix]]
+
+Content not yet written. See [[sops-nix]] for current secret wiring guidance.
 
 ## Rules
 

@@ -18,6 +18,19 @@ permalink: newxos/agents/opencode
 
 This repo exposes a wrapped `opencode` package with MCP servers preconfigured.
 
+## Observations
+
+- [fact] Wrapped package exposed via `nix run "path:$PWD#opencode"`
+- [fact] MCP servers preconfigured: `mcp-nixos`, GitHub, and Basic Memory in local `stdio` mode
+- [technique] Assistant can read trusted paths under `~/.config/` and `/nix/store/`
+- [requirement] GitHub token provisioned from `sops`-managed secret, not `gh` auth state
+- [decision] Keep `configs/opencode/` for repo-owned config fragments only
+
+## Relations
+
+- relates_to [[agents-basic-memory]]
+- relates_to [[agents-mcp]]
+
 ## What It Does Here
 
 - Exposes `nix run "path:$PWD#opencode"` as the repo-managed assistant package.
@@ -42,7 +55,7 @@ This repo exposes a wrapped `opencode` package with MCP servers preconfigured.
 - Use `nixos_nix` or the packaged MCP server for upstream Nix package and option facts.
 - GitHub MCP expects `GITHUB_PERSONAL_ACCESS_TOKEN` in the environment.
 - The repo provisions that token from a `sops`-managed secret rather than relying on `gh` auth state.
-- Related reading: [sops-nix](../libraries/sops-nix.md), [Workflow](../workflow.md#secrets-and-data-care).
+- Related reading: [[sops-nix]], [[Workflow]].
 
 ## Helpful Docs
 

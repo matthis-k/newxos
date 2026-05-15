@@ -8,6 +8,16 @@ permalink: newxos/patterns/per-system-scopes
 
 Most hard Nix mistakes in this repo are scope mistakes.
 
+## Observations
+
+- [fact] Three main scopes: top-level flake module scope, `perSystem` scope, and NixOS/Home Manager module scope
+- [technique] Use plain `inputs` for global wiring; `inputs'` and `self'` inside `perSystem`; `withSystem` to re-enter per-system scope from top-level reusable modules
+- [fact] Repo has repeatedly hit `modulesPath`, `self'`, and outer default-arg traps
+
+## Relations
+
+- relates_to [[flake-parts]]
+
 ## The Main Scopes
 
 - Top-level flake module scope: `imports`, `flake`, global input wiring, and reusable module definitions.
@@ -25,8 +35,8 @@ Most hard Nix mistakes in this repo are scope mistakes.
 ## Known Quirks
 
 - The repo has repeatedly hit `modulesPath`, `self'`, and outer default-arg traps.
-- Related issues: [2026-04-27: `modulesPath` missing from outer flake-parts module args](../encountered_issues.md#2026-04-27-modulespath-missing-from-outer-flake-parts-module-args), [2026-04-27: reaching for `self.packages.${system}` instead of `withSystem` and `self'`](../encountered_issues.md#2026-04-27-reaching-for-selfpackagessystem-instead-of-withsystem-and-self), [2026-04-28: defaulted outer module args still require `_module.args` when reused as NixOS modules](../encountered_issues.md#2026-04-28-defaulted-outer-module-args-still-require-_moduleargs-when-reused-as-nixos-modules)
+- Related issues: [[2026-04-27: `modulesPath` missing from outer flake-parts module args]], [[2026-04-27: reaching for `self.packages.${system}` instead of `withSystem` and `self'`]], [[2026-04-28: defaulted outer module args still require `_module.args` when reused as NixOS modules]]
 
 ## Related
 
-- [flake-parts](../libraries/flake-parts.md) for detailed examples and module argument reference.
+- [[flake-parts]] for detailed examples and module argument reference.

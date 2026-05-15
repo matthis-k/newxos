@@ -14,6 +14,16 @@ permalink: newxos/installation/readme
 
 This folder covers NixOS installation procedures and recovery.
 
+## Observations
+
+- [fact] Content not yet written
+- [fact] Related to [[issue-nixos-install-oom]] for low-memory installation considerations
+
+## Relations
+
+- part_of [[Knowledge]]
+- relates_to [[issue-nixos-install-oom]]
+
 Content not yet written.
 
 ## Related

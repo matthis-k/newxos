@@ -8,6 +8,19 @@ permalink: newxos/patterns/host-and-user-layout
 
 Concrete systems and real users live near their own files.
 
+## Observations
+
+- [fact] Concrete NixOS systems under `modules/hosts/<hostname>/`; real users under `modules/users/<name>/`
+- [decision] Shared system behavior stays in shared top-level modules
+- [technique] A user directory can define both Home Manager and NixOS-side user wiring when that is clearest
+- [fact] Generated hardware config should stay focused on detected hardware defaults, not duplicate storage truth handled by `disko`
+
+## Relations
+
+- relates_to [[Flake Structure]]
+- relates_to [[home-manager]]
+- relates_to [[disko]]
+
 ## What It Means Here
 
 - Concrete NixOS systems live under `modules/hosts/<hostname>/`.
@@ -21,7 +34,7 @@ Concrete systems and real users live near their own files.
 - Keep user-specific Home Manager config near the user.
 - A user directory can define both Home Manager and NixOS-side user wiring when that is clearest.
 - Installer media hosts should follow the same pattern instead of becoming special global snowflakes.
-- Related reading: [Flake Structure](../flake-structure.md#moduleshosts), [home-manager](../libraries/home-manager.md), [disko](../libraries/disko.md).
+- Related reading: [[Flake Structure]], [[home-manager]], [[disko]].
 
 ## Known Quirks
 

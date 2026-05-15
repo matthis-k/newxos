@@ -8,6 +8,19 @@ permalink: newxos/libraries/index
 
 Important upstream libraries, tools, and configured programs used by this repo.
 
+## Observations
+
+- [fact] This index maps upstream tools to their repo-specific usage notes
+- [technique] Start here for rough map, open linked page when usage is non-trivial, use upstream docs for exact options
+- [decision] Wrap end-user programs through nix-wrapper-modules when repo owns config
+- [fact] MCP-NixOS provides Nix metadata to the assistant for upstream package/option truth
+
+## Relations
+
+- part_of [[Knowledge]]
+- relates_to [[Flake Structure]]
+- relates_to [[Patterns]]
+
 ## How To Use This
 
 - Start here for the rough map.
@@ -37,6 +50,6 @@ Important upstream libraries, tools, and configured programs used by this repo.
 
 ## Related Pages
 
-- Repo layout: [Flake Structure](../flake-structure.md)
-- Composition conventions: [Patterns](../patterns/index.md)
-- Repeat mistakes: [Encountered Issues](../encountered_issues.md)
+- Repo layout: [[Flake Structure]]
+- Composition conventions: [[Patterns]]
+- Repeat mistakes: [[Encountered Issues]]

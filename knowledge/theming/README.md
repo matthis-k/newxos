@@ -17,7 +17,19 @@ permalink: newxos/theming/readme
 
 This folder covers theme configuration, palette generation, and application styling.
 
-Content not yet written. See [stylix](../libraries/stylix.md) for current theming guidance.
+## Observations
+
+- [fact] Content not yet written
+- [decision] QuickShell UI follows flat design with full Catppuccin palette passed via JSON file in the store
+- [fact] See [[stylix]] for current theming guidance
+
+## Relations
+
+- part_of [[Knowledge]]
+- relates_to [[quickshell-design]]
+- relates_to [[issue-zen-browser-chrome-not-themed]]
+
+Content not yet written. See [[stylix]] for current theming guidance.
 
 ## QuickShell
 

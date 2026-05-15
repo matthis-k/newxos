@@ -17,6 +17,18 @@ permalink: newxos/sources/upstream-projects/opencode
 
 Interactive CLI assistant for software engineering tasks.
 
+## Observations
+
+- [fact] Upstream docs: <https://opencode.ai>; config schema: <https://opencode.ai/docs/config/>
+- [technique] Wrapped via `nix-wrapper-modules` in `modules/opencode.nix`
+- [fact] MCP servers configured for GitHub, NixOS metadata, and Basic Memory
+- [fact] Skills loaded from `configs/opencode/skills/`
+
+## Relations
+
+- relates_to [[sources-index]]
+- relates_to [[agents-opencode]]
+
 ## Upstream
 
 - Docs: <https://opencode.ai>

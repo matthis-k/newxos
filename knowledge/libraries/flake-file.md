@@ -8,6 +8,18 @@ permalink: newxos/libraries/flake-file
 
 `flake-file` generates the root `flake.nix` from declarations in repo modules.
 
+## Observations
+
+- [fact] Keeps the root `flake.nix` thin and generated
+- [decision] Treat `modules/` as the source of truth; do not hand-edit generated `flake.nix`
+- [technique] After changing `flake-file` declarations, run `nix run "path:$PWD#write-flake"`
+- [fact] Works with the dendritic layout so wiring stays close to the feature that needs it
+
+## Relations
+
+- relates_to [[Workflow]]
+- relates_to [[Dendritic Feature Modules]]
+
 ## What It Does Here
 
 - Keeps the root `flake.nix` thin and generated.
@@ -19,7 +31,7 @@ permalink: newxos/libraries/flake-file
 - Treat `modules/` as the source of truth.
 - After changing `flake-file` declarations, run `nix run "path:$PWD#write-flake"`.
 - Do not hand-edit generated `flake.nix`.
-- Related reading: [Workflow](../workflow.md), [Dendritic Feature Modules](../patterns/dendritic-modules.md).
+- Related reading: [[Workflow]], [[Dendritic Feature Modules]].
 
 ## Short Example
 
@@ -34,7 +46,7 @@ flake-file.inputs.home-manager = {
 
 - Overview: `https://flake-file.oeiuwq.com/overview/`
 
-## Known Quirks Here
+## Known Quirks
 
 - If `flake.nix` looks wrong, the usual fix is to update the module source and rerun `write-flake`.
 - `nix flake show/check` can mislead you if the generated file is stale.

@@ -15,6 +15,16 @@ permalink: newxos/tasks/readme
 
 This folder tracks durable TODOs and planned work.
 
+## Observations
+
+- [fact] One active task: QuickShell desktop shell requirements
+- [decision] Track durable TODOs and planned work in structured markdown files
+
+## Relations
+
+- part_of [[Knowledge]]
+- relates_to [[task-quickshell-desktop-shell]]
+
 ## Active tasks
 
-- [QuickShell desktop shell requirements](quickshell-desktop-shell.md): requirements and implementation TODOs for the desktop shell rewrite.
+- [[task-quickshell-desktop-shell]]: requirements and implementation TODOs for the desktop shell rewrite.

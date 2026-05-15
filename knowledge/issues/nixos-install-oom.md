@@ -17,6 +17,17 @@ permalink: newxos/issues/nixos-install-oom
 
 # nixos-install OOM on low-memory live USB
 
+## Observations
+
+- [fact] `nixos-install` runs out of memory on low-memory live USB environments (e.g. 4 GB)
+- [technique] Workarounds: use more RAM, enable swap, or use binary cache
+- [fact] Nix builds require significant RAM, especially for large derivations
+
+## Relations
+
+- relates_to [[issues-index]]
+- relates_to [[installation-low-memory-live-usb]]
+
 ## Problem
 
 `nixos-install` runs out of memory when installing from a low-memory live USB environment.

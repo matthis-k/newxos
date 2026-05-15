@@ -15,7 +15,18 @@ permalink: newxos/nix/readme
 
 This folder covers Nix language, flake composition, and package management in this repo.
 
-Content not yet written. See [flake-parts](../libraries/flake-parts.md) and [Scope Boundaries](../patterns/per-system-scopes.md) for current Nix guidance.
+## Observations
+
+- [fact] Content not yet written
+- [decision] See [[flake-parts]] and [[Scope Boundaries And Per-System Access]] for current Nix guidance
+
+## Relations
+
+- part_of [[Knowledge]]
+- relates_to [[architecture-index]]
+- relates_to [[sources-index]]
+
+Content not yet written. See [[flake-parts]] and [[Scope Boundaries And Per-System Access]] for current Nix guidance.
 
 ## Related
 

@@ -8,13 +8,27 @@ permalink: newxos/workflow
 
 Day-to-day rules for working in this repo.
 
+## Observations
+
+- [fact] `flake.nix` is generated; edit `modules/` not the generated file
+- [technique] Use `path:$PWD` form for local Nix commands; plain `.` can fail in untracked checkout
+- [fact] Managed pre-commit hooks run `write-flake -> statix -> write nvim pack lockfile -> fmt -> flake check -> install git hooks`
+- [decision] Trust local files and `nix flake show/check "path:$PWD"` over stale notes
+- [requirement] Use Conventional Commits 1.0.0 format for commit subjects
+
+## Relations
+
+- implements [[Agent Rules]]
+- relates_to [[Flake Structure]]
+- relates_to [[Knowledge]]
+
 ## Source Of Truth
 
 - Trust local repo files and `nix flake show/check "path:$PWD"` over stale notes.
 - Use `nixos_nix` as the source of truth for upstream NixOS, Home Manager, darwin, nixpkgs, and related option or package metadata.
 - `nixos_nix` does not index arbitrary flake-defined options, so if an upstream flake option lookup comes up empty, check the pinned input source and library docs directly.
 - `flake.nix` is generated. Edit `modules/`, not the generated file.
-- Related reading: [Flake Structure](flake-structure.md), [flake-file](libraries/flake-file.md), [flake-parts](libraries/flake-parts.md).
+- Related reading: [[Flake Structure]], [[flake-file]], [[flake-parts]].
 
 ## Core Commands
 
@@ -37,7 +51,7 @@ Day-to-day rules for working in this repo.
 - If you add or change a flake output, confirm it appears in `nix flake show "path:$PWD"`.
 - Stage new files before final `flake show/check` when outputs depend on the git-visible tree.
 - Prefer `nix run "path:$PWD#repo-gate"` before handoff when you changed flake wiring or Nix code. It stages all current worktree changes into a temporary index and runs the managed pre-commit graph against that snapshot, so hook order and conditionals stay in one place.
-- Related reading: [workflow tooling](libraries/workflow-tooling.md), [Scope Boundaries And Per-System Access](patterns/per-system-scopes.md).
+- Related reading: [[workflow tooling]], [[Scope Boundaries And Per-System Access]].
 
 ## Git And Hooks
 
@@ -71,13 +85,13 @@ Day-to-day rules for working in this repo.
 - Prefer checking secret wiring through module declarations, file paths, references, permissions, or public companion files instead of reading the secret value.
 - Do not paste secret contents into summaries, commits, comments, or logs.
 - Encrypted files under `secrets/` may be moved or wired up as files, but do not decrypt them unless explicitly asked.
-- Related reading: [sops-nix](libraries/sops-nix.md).
+- Related reading: [[sops-nix]].
 
 ## Keeping Knowledge Current
 
 - Keep `AGENTS.md` and `opencode.json` aligned with this knowledge layout.
-- Update [Flake Structure](flake-structure.md), [Libraries](libraries/index.md), and [Patterns](patterns/index.md) when their guidance changes.
-- Update [Encountered Issues](encountered_issues.md) when a mistake is repeatable and worth remembering.
+- Update [[Flake Structure]], [[Libraries]], and [[Patterns]] when their guidance changes.
+- Update [[Encountered Issues]] when a mistake is repeatable and worth remembering.
 - If a library quirk caused an issue, cross-link the library page, the pattern page, and the issue entry.
 
 ## Before Handoff

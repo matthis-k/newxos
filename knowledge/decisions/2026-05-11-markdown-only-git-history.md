@@ -15,6 +15,17 @@ permalink: newxos/decisions/2026-05-11-markdown-only-git-history
 
 # Keep memory Git history Markdown-only
 
+## Observations
+
+- [fact] Basic Memory needs generated local state for search and semantic retrieval
+- [decision] Commit only Markdown memory files under `knowledge/`
+- [technique] Store generated Basic Memory state under `.cache/basic-memory/`
+- [fact] Git history remains reviewable; local index state can be deleted and rebuilt
+
+## Relations
+
+- relates_to [[agents-basic-memory]]
+
 ## Context
 
 Basic Memory needs generated local state for search and semantic retrieval.

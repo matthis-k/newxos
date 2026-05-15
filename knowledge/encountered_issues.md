@@ -8,6 +8,19 @@ permalink: newxos/encountered-issues
 
 Append-only repo memory for repeatable mistakes and gotchas.
 
+## Observations
+
+- [fact] This file tracks repeatable mistakes and gotchas for future reference
+- [technique] Each entry includes date, problem, symptom, cause, fix, rule, and related knowledge links
+- [decision] Keep this append-only; do not remove old entries even if resolved
+- [fact] Most issues relate to scope boundaries between flake-parts, NixOS modules, and shell wrappers
+
+## Relations
+
+- part_of [[Knowledge]]
+- relates_to [[Workflow]]
+- relates_to [[Libraries]]
+
 ## Entry Format
 
 - Date: `YYYY-MM-DD`
@@ -30,7 +43,7 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Fix: define `flake.modules.nixos.<name>` as a NixOS module function when it needs `modulesPath`, `config`, or similar NixOS-only args
 - Rule: keep flake-parts args and NixOS module args separate; request NixOS-only args inside the module value, not at the outer file boundary
 - Context: adding generated hardware config as a host module
-- Related knowledge: [flake-parts](libraries/flake-parts.md), [Scope Boundaries And Per-System Access](patterns/per-system-scopes.md), [Host And User Layout](patterns/host-and-user-layout.md)
+- Related knowledge: [[flake-parts]], [[Scope Boundaries And Per-System Access]], [[Host And User Layout]]
 
 ### 2026-04-27: reaching for `self.packages.${system}` instead of `withSystem` and `self'`
 
@@ -41,7 +54,7 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Fix: use `withSystem pkgs.stdenv.hostPlatform.system ({ self', ... }: ...)` inside the reusable module and read packages from `self'.packages`
 - Rule: in top-level reusable modules, use `withSystem` to enter system scope; inside `perSystem`, use `inputs'` and `self'`
 - Context: exposing the wrapped `opencode` package through a reusable Home Manager module while keeping unsupported systems non-fatal
-- Related knowledge: [flake-parts](libraries/flake-parts.md), [Scope Boundaries And Per-System Access](patterns/per-system-scopes.md)
+- Related knowledge: [[flake-parts]], [[Scope Boundaries And Per-System Access]]
 
 ### 2026-04-28: defaulted outer module args still require `_module.args` when reused as NixOS modules
 
@@ -52,7 +65,7 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Fix: replace the pseudo-parameter with a local `let` binding for fixed values, or provide a real module option or `_module.args` when configurability is truly needed
 - Rule: do not parameterize exported `flake.modules.nixos.*` modules with ad hoc outer args unless you also arrange to pass them during NixOS module evaluation
 - Context: `disko.devices.disk.main.device` in a host filesystem module
-- Related knowledge: [flake-parts](libraries/flake-parts.md), [Scope Boundaries And Per-System Access](patterns/per-system-scopes.md), [Host And User Layout](patterns/host-and-user-layout.md), [disko](libraries/disko.md)
+- Related knowledge: [[flake-parts]], [[Scope Boundaries And Per-System Access]], [[Host And User Layout]], [[disko]]
 
 ### 2026-05-05: generic Base16 browser targets can lose semantic contrast intent
 
@@ -63,7 +76,7 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Fix: generate repo-owned Zen Browser CSS directly from `config.stylix.fullPalette.colors` and keep browser UI groups mapped from semantic colors in one place
 - Rule: when app theme needs more nuance than Base16 slots provide, disable built-in target CSS and generate repo-owned full-palette target under `modules/stylix/`
 - Context: Zen Browser Catppuccin-style theme customization
-- Related knowledge: [stylix](libraries/stylix.md), [Wrapped Programs And Generated Config](patterns/wrapped-programs.md), [Workflow](workflow.md)
+- Related knowledge: [[stylix]], [[Wrapped Programs And Generated Config]], [[Workflow]]
 
 ### 2026-05-06: shell arity guards can bypass documented env fallbacks
 
@@ -74,7 +87,7 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Fix: lower the upfront shell arity check so `switch|boot|build` can run without a positional host and fall through to `default_nixos_host`
 - Rule: when a command supports env-backed optional positionals, keep the initial argument-count guard aligned with the truly required args only
 - Context: `newxos` wrapper host resolution
-- Related knowledge: [nh and nom](libraries/nh-nom.md), [Workflow](workflow.md)
+- Related knowledge: [[nh and nom]], [[Workflow]]
 
 ### 2026-05-06: multiline shell snippets can break pipelines inside generated wrappers
 
@@ -85,7 +98,7 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Fix: keep the full pipeline structure in one script body, or dispatch by mode with `case` instead of splicing whole commands into pipeline positions
 - Rule: do not interpolate free-form multiline shell fragments into the middle of pipelines in generated shell scripts
 - Context: Hyprland screenshot helpers
-- Related knowledge: [hyprland](libraries/hyprland.md), [Workflow](workflow.md)
+- Related knowledge: [[hyprland]], [[Workflow]]
 
 ### 2026-05-07: `buildEnv` tool bundles cannot safely mix wrapped compiler toolchains
 
@@ -96,7 +109,7 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Fix: keep one compiler toolchain per `buildEnv` bundle, and add only the extra tools that do not collide with that wrapper
 - Rule: when building shared tool bundles with `pkgs.buildEnv`, avoid mixing `gcc` and `clang` wrappers unless you split them into separate outputs
 - Context: `modules/development/dev-tools.nix`
-- Related knowledge: [Workflow](workflow.md)
+- Related knowledge: [[Workflow]]
 
 ### 2026-05-11: `git-hooks.nix` pre-commit hook breaks after Nix GC
 
@@ -107,7 +120,7 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Fix: run `nix run "path:$PWD#install-git-hooks"` to regenerate the hook with a valid store path
 - Rule: after Nix GC, flake updates, or any rebuild that could change the `pre-commit` store path, run `install-git-hooks` before committing
 - Context: pre-commit hook wired through `git-hooks.nix` (`modules/workflow.nix`)
-- Related knowledge: [workflow tooling](libraries/workflow-tooling.md), [Workflow](workflow.md)
+- Related knowledge: [[workflow tooling]], [[Workflow]]
 
 ### 2026-05-07: Lua multi-return inside table constructors can collapse runtime library lists
 
@@ -118,7 +131,7 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Fix: build the runtime path list first, then extend it with extra libraries instead of unpacking in the middle of the table literal
 - Rule: when a Lua config needs a whole list from `unpack(...)`, do not place that call before additional table elements unless losing all but the first value is intended
 - Context: `configs/nvim/lsp/lua_ls.lua`
-- Related knowledge: [Workflow](workflow.md)
+- Related knowledge: [[Workflow]]
 
 ### 2026-05-12: repo QuickShell modules can outrun the version in pinned nixpkgs or the user profile
 
@@ -129,4 +142,4 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Fix: update the repo `nixpkgs` lock to a revision that ships the required QuickShell version, then rebuild or run the repo-managed package
 - Rule: when adding newer QuickShell APIs, verify the QuickShell version provided by the pinned `nixpkgs` lock, not just the docs or the binary currently found in the user profile
 - Context: QuickShell network quickmenu migration from local `nmcli` wrapper to `Quickshell.Networking`
-- Related knowledge: [quickshell](libraries/quickshell.md), [Workflow](workflow.md)
+- Related knowledge: [[quickshell]], [[Workflow]]

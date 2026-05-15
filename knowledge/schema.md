@@ -16,6 +16,17 @@ permalink: newxos/schema
 
 Every Markdown memory file should use YAML frontmatter.
 
+## Observations
+
+- [fact] Required fields: id, type, title, status, tags, links, updated
+- [decision] Use folders for topic/domain; use `type` for record kind
+- [technique] Use stable IDs in `links`; use wiki links in prose when useful: `[[architecture-flake-file]]`
+- [requirement] Do not delete obsolete decisions; mark them `superseded` or `deprecated` and link to replacement
+
+## Relations
+
+- relates_to [[agent-rules]]
+
 ## Required fields
 
 ```yaml

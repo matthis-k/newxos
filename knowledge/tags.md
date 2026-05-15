@@ -16,6 +16,15 @@ permalink: newxos/tags
 
 Prefer existing tags before inventing new ones.
 
+## Observations
+
+- [fact] 22 core tags registered covering architecture, agents, nix, theming, installation, hardware, secrets, issues, tasks, decisions, and quickshell
+- [requirement] Prefer existing tags before inventing new ones
+
+## Relations
+
+- relates_to [[memory-schema]]
+
 ## Core tags
 
 - `architecture`

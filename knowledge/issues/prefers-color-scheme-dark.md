@@ -17,6 +17,18 @@ permalink: newxos/issues/prefers-color-scheme-dark
 
 # prefers-color-scheme-dark not respected
 
+## Observations
+
+- [fact] Some applications do not respect the `prefers-color-scheme: dark` media query
+- [fact] Theme propagation depends on portal config, GTK settings, and Stylix target support
+- [technique] GTK apps may use light theme when dark theme is expected; web apps may not switch automatically
+
+## Relations
+
+- relates_to [[issues-index]]
+- relates_to [[theming-gtk]]
+- relates_to [[theming-stylix]]
+
 ## Problem
 
 Some applications do not respect the `prefers-color-scheme: dark` media query.

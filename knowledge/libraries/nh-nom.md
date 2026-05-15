@@ -8,6 +8,19 @@ permalink: newxos/libraries/nh-nom
 
 This repo uses `nh` and `nix-output-monitor` through repo-owned `newxos` wrapper package.
 
+## Observations
+
+- [fact] `newxos os ...` calls `nh os ...`; `newxos home ...` calls `nh home ...`
+- [fact] `newxos clean` defaults to `nh clean all --keep 1 --keep-since 0h`
+- [technique] `newxos flake build/check/run ...` uses `nom` for rich build output
+- [fact] `newxos` defaults to `path:$NEWXOS_FLAKE` so local unadded changes are visible during eval and builds
+- [fact] `--git-only` switches back to git flake semantics when you want repo-visible tree only
+
+## Relations
+
+- relates_to [[home-manager]]
+- relates_to [[Workflow]]
+
 ## What It Does Here
 
 - `newxos os ...` calls `nh os ...` for NixOS rebuild flows.
@@ -24,14 +37,14 @@ This repo uses `nh` and `nix-output-monitor` through repo-owned `newxos` wrapper
 - Fish completion comes from package payload under `share/fish/vendor_completions.d/`.
 - Host completion is repo-driven by reading `flake.nixosConfigurations.*` declarations from `modules/`.
 - Home config completion is repo-driven by reading `flake.homeConfigurations.*` declarations from `modules/`.
-- Related reading: [home-manager](home-manager.md), [Workflow](../workflow.md).
+- Related reading: [[home-manager]], [[Workflow]].
 
 ## Helpful Docs
 
 - `nh`: `https://github.com/nix-community/nh`
 - `nix-output-monitor`: `https://github.com/maralorn/nix-output-monitor`
 
-## Known Quirks Here
+## Known Quirks
 
 - `newxos flake show` stays plain `nix flake show`; there is no useful `nom` wrapper for that output.
 - `newxos os ...` and `newxos flake build ...` can omit host only when `NEWXOS_HOST` is present in shell environment.

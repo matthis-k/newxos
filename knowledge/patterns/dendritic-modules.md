@@ -8,6 +8,19 @@ permalink: newxos/patterns/dendritic-modules
 
 Keep the root flake thin and spread behavior across small modules near the owning feature.
 
+## Observations
+
+- [fact] `modules/` is the real source of truth
+- [decision] Organize by concern or feature, not one central registry file
+- [technique] Feature modules can expose inputs, reusable `flake.modules.*` modules, `perSystem` packages, and concrete outputs from one nearby place
+- [fact] Inside `perSystem`, use `self'` for system-qualified outputs; top-level `self` is the source tree and top-level flake outputs
+
+## Relations
+
+- relates_to [[Flake Structure]]
+- relates_to [[flake-file]]
+- relates_to [[flake-parts]]
+
 ## What It Means Here
 
 The dendritic pattern organizes configuration by feature or concern rather than only by target system. A feature module may contribute:
@@ -24,7 +37,7 @@ Concrete rules:
 - `modules/` is the real source of truth.
 - Feature modules can expose inputs, reusable `flake.modules.*` modules, `perSystem` packages, and concrete outputs from one nearby place.
 - Organize by concern or feature, not one central registry file.
-- Related reading: [Flake Structure](../flake-structure.md), [flake-file](../libraries/flake-file.md), [flake-parts](../libraries/flake-parts.md).
+- Related reading: [[Flake Structure]], [[flake-file]], [[flake-parts]].
 
 ## Short Example
 

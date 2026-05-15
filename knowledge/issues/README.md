@@ -18,6 +18,19 @@ permalink: newxos/issues/readme
 
 This folder tracks known issues and their workarounds.
 
+## Observations
+
+- [fact] Issues are tracked with active and resolved status
+- [technique] Each issue records problem, symptoms, root cause, fix, and prevention rule
+- [decision] Active issues use wiki-links for cross-referencing; resolved issues remain for historical context
+- [fact] Legacy encountered_issues.md provides append-only gotcha tracking separate from structured issues
+
+## Relations
+
+- part_of [[Knowledge]]
+- relates_to [[Encountered Issues]]
+- relates_to [[Workflow]]
+
 ## Active issues
 
 - [[issue-zen-browser-chrome-not-themed]]

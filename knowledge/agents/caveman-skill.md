@@ -17,6 +17,16 @@ permalink: newxos/agents/caveman-skill
 
 Ultra-compressed communication mode that cuts token usage ~75% while keeping full technical accuracy.
 
+## Observations
+
+- [fact] Skill loaded from `configs/opencode/skills/caveman/SKILL.md`
+- [technique] Activate by saying "caveman mode", "talk like caveman", "use caveman", "less tokens", "be brief", or invoking `/caveman`
+- [fact] Auto-triggers when token efficiency is requested
+
+## Relations
+
+- part_of [[agents-index]]
+
 ## Usage
 
 Activate by saying "caveman mode", "talk like caveman", "use caveman", "less tokens", "be brief", or invoking `/caveman`. Also auto-triggers when token efficiency is requested.

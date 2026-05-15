@@ -18,6 +18,18 @@ permalink: newxos/agents/mcp
 
 Model Context Protocol servers provide tool access to agents.
 
+## Observations
+
+- [fact] Three MCP servers configured: GitHub, NixOS, and Basic Memory
+- [technique] Add servers to `settings.mcp` in `modules/opencode.nix`
+- [fact] Servers run in local `stdio` mode
+
+## Relations
+
+- relates_to [[agents-index]]
+- relates_to [[agents-opencode]]
+- relates_to [[agents-basic-memory]]
+
 ## Configured servers
 
 | Server | Purpose |

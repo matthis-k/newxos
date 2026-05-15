@@ -8,6 +8,20 @@ permalink: newxos/libraries/stylix
 
 Stylix is the repo's theme backbone.
 
+## Observations
+
+- [fact] Holds repo-owned semantic palette in `modules/stylix/stylix.nix`; derives Base16 scheme from that palette
+- [technique] Feed same palette into custom Kitty, Fish, Zen Browser, and QuickShell JSON theme generation
+- [decision] Disable some built-in Stylix targets when repo-owned generated theme is better fit
+- [fact] `stylix.homeManagerIntegration.autoImport` stays off so repo's explicit Home Manager entrypoint remains one source of truth
+- [fact] Cursor theme from upstream cursor flake's packaged blue output; GTK and Qt on Stylix-managed theming
+
+## Relations
+
+- relates_to [[Flake Structure]]
+- relates_to [[Wrapped Programs And Generated Config]]
+- relates_to [[quickshell-design]]
+
 ## What It Does Here
 
 - Holds the repo-owned semantic palette in `modules/stylix/stylix.nix`.
@@ -24,8 +38,8 @@ Stylix is the repo's theme backbone.
 - Keep custom theme logic in `modules/stylix/`.
 - Prefer generating small theme fragments from Nix and importing them from program config.
 - This repo disables some built-in Stylix targets when a repo-owned generated theme is the better fit.
-- QuickShell reads the generated JSON palette at runtime; see [QuickShell design](../patterns/quickshell-design.md).
-- Related reading: [Flake Structure](../flake-structure.md#modulesstylix), [Wrapped Programs And Generated Config](../patterns/wrapped-programs.md).
+- QuickShell reads the generated JSON palette at runtime; see [[quickshell-design]].
+- Related reading: [[Flake Structure]], [[Wrapped Programs And Generated Config]].
 
 ## Short Example
 
@@ -50,7 +64,7 @@ include ~/.config/kitty/stylix-theme.auto.conf
 - Fish target: `https://nix-community.github.io/stylix/options/modules/fish.html`
 - Catppuccin fish reference: `https://github.com/catppuccin/fish`
 
-## Known Quirks Here
+## Known Quirks
 
 - `stylix.homeManagerIntegration.autoImport` stays off so the repo's explicit Home Manager entrypoint remains the one source of truth.
 - Built-in Kitty and Fish targets are disabled because the repo uses richer Catppuccin-shaped generated output there.

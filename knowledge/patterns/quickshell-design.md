@@ -17,6 +17,18 @@ permalink: newxos/quickshell-design
 
 # QuickShell design guidelines
 
+## Observations
+
+- [decision] QuickShell UI must follow flat design principles: no gradients, drop shadows, or 3D effects
+- [fact] 4px base grid for all spacing, padding, and margins; values scale in multiples of 4
+- [fact] All colors from Catppuccin palette passed through JSON file in Nix store, read at runtime via `FileView` + `JsonAdapter`
+- [decision] Animations should be responsive and subtle, not decorative: 100-250ms for micro-interactions, up to 400ms for panel open/close
+
+## Relations
+
+- relates_to [[libraries-stylix]]
+- relates_to [[libraries-quickshell]]
+
 ## Visual style
 
 QuickShell UI must follow **flat design** principles:

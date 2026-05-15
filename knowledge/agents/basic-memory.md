@@ -21,6 +21,20 @@ permalink: newxos/agents/basic-memory
 
 Basic Memory provides searchable local project memory for agents.
 
+## Observations
+
+- [fact] Canonical memory is committed as Markdown under `knowledge/**/*.md`
+- [fact] Generated state is local and ignored under `.cache/basic-memory/`
+- [technique] Basic Memory is built with `uv2nix` instead of running via `uvx` at runtime
+- [fact] Semantic embeddings use FastEmbed (local, no cloud API)
+- [requirement] Commit Markdown only; do not commit SQLite, index, cache, or embedding files
+
+## Relations
+
+- relates_to [[agents-opencode]]
+- relates_to [[decision-2026-05-11-markdown-only-git-history]]
+- relates_to [[decision-2026-05-11-local-memory-index]]
+
 ## Upstream
 
 - Docs: <https://docs.basicmemory.com>

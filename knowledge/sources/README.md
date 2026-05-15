@@ -18,6 +18,17 @@ permalink: newxos/sources/readme
 
 This folder documents upstream projects and their relevance to this repo.
 
+## Observations
+
+- [fact] Three upstream projects tracked: OpenCode, Catppuccin Zen Browser theme, and flake-file
+- [decision] Document upstream relevance to this repo's usage patterns
+
+## Relations
+
+- part_of [[Knowledge]]
+- relates_to [[nix-index]]
+- relates_to [[architecture-index]]
+
 ## Upstream projects
 
 - [[source-opencode]]

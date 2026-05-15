@@ -8,6 +8,18 @@ permalink: newxos/libraries/nix-wrapper-modules
 
 `nix-wrapper-modules` builds wrapped end-user program packages with repo-owned configuration. It provides a Nix function per supported program that takes the upstream package and overlays config files, environment variables, and wrapper scripts.
 
+## Observations
+
+- [fact] Wraps `opencode`, `kitty`, Neovim, and custom QuickShell launchers as packages exposed by this flake
+- [technique] Put custom wrapper module definitions in `modules/wrappers/`; install via `withSystem` and `self'.packages`
+- [decision] Keep hand-written config in `configs/` and generated fragments in nearby modules when that split is cleaner
+- [fact] Native Neovim compatibility uses static loader at `configs/nvim/lua/newxos/non_nix_compatibility.lua` plus generated `configs/nvim/nvim-pack-lock.json`
+
+## Relations
+
+- relates_to [[Wrapped Programs And Generated Config]]
+- relates_to [[Flake Structure]]
+
 ## What It Does Here
 
 - Wraps `opencode`, `kitty`, Neovim, and custom QuickShell launchers as packages exposed by this flake.
@@ -22,7 +34,7 @@ permalink: newxos/libraries/nix-wrapper-modules
 - Put custom wrapper module definitions in `modules/wrappers/`.
 - Install wrapped packages from reusable Home Manager or NixOS modules via `withSystem` and `self'.packages`.
 - Keep hand-written config in `configs/` and generated fragments in nearby modules when that split is cleaner.
-- Related reading: [Wrapped Programs And Generated Config](../patterns/wrapped-programs.md), [Flake Structure](../flake-structure.md#configs).
+- Related reading: [[Wrapped Programs And Generated Config]], [[Flake Structure]].
 
 ## Upstream Overview
 
@@ -101,9 +113,9 @@ packages.neovim = inputs.nix-wrapper-modules.wrappers.neovim.wrap {
 
 - Upstream repo: `https://github.com/BirdeeHub/nix-wrapper-modules`
 - This repo's wrapper configs: `configs/` directory
-- Related pattern: [Wrapped Programs And Generated Config](../patterns/wrapped-programs.md)
+- Related pattern: [[Wrapped Programs And Generated Config]]
 
-## Known Quirks Here
+## Known Quirks
 
 - Prefer the wrapper if this repo already exposes one for the program.
 - Wrapper-owned generated config should usually be imported into hand-written config, not copied and duplicated by hand.

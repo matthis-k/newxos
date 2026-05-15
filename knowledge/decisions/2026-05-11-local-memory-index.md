@@ -16,6 +16,16 @@ permalink: newxos/decisions/2026-05-11-local-memory-index
 
 # Use a local disposable memory index
 
+## Observations
+
+- [fact] Project needs semantic search without committing generated databases
+- [decision] Use Basic Memory with local FastEmbed semantic search
+- [fact] Generated DB and indexes remain machine-local; index can be rebuilt from Markdown
+
+## Relations
+
+- relates_to [[agents-basic-memory]]
+
 ## Context
 
 The project needs semantic search without committing generated databases.

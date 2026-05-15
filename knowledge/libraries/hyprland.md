@@ -8,6 +8,19 @@ permalink: newxos/libraries/hyprland
 
 Hyprland (0.55+) provides the graphical desktop session used by this repo. Since 0.55, configuration uses Lua instead of the legacy hyprlang syntax.
 
+## Observations
+
+- [fact] Upstream flake input provides compositor packages; NixOS module enables session and supporting packages
+- [technique] Keep `configs/hypr/hyprland.lua` as hand-written root config; `configs/hypr/monitors.lua` as logic layer for Nix-provided monitor imports
+- [decision] Prefer editing Lua config tree instead of generating whole Hyprland config from Nix
+- [fact] Nix-generated values go into `~/.config/hypr/nix-import.lua` instead of cluttering hand-written root config
+- [fact] Home Manager's Hyprland plugin option generates `hyprland.conf` entries, not suitable for Lua-native root config
+
+## Relations
+
+- relates_to [[Flake Structure]]
+- relates_to [[Wrapped Programs And Generated Config]]
+
 ## What It Does Here
 
 - The upstream flake input provides the compositor packages.
@@ -25,7 +38,7 @@ Hyprland (0.55+) provides the graphical desktop session used by this repo. Since
 - Prefer `grimblast` when you want Hyprland-native capture with readable shell glue. Keep one `screen-shot` entrypoint with a mode argument instead of duplicating tiny wrapper binaries for each capture target.
 - Prefer editing the Lua config tree instead of generating the whole Hyprland config from Nix.
 - Keep repo-root `.luarc.json` pointed at `/usr/share/hypr/stubs` so Lua LSP can resolve `hl` and Hyprland stubs while editing `configs/hypr/*.lua`.
-- Related reading: [Flake Structure](../flake-structure.md#configs), [Wrapped Programs And Generated Config](../patterns/wrapped-programs.md).
+- Related reading: [[Flake Structure]], [[Wrapped Programs And Generated Config]].
 
 ## Upstream Overview (0.55+ Lua config)
 
@@ -134,7 +147,7 @@ hl.env("MOZ_ENABLE_WAYLAND", "1")
 - Troubleshooting: `https://wiki.hypr.land/Troubleshooting/`
 - Upstream repo: `https://github.com/hyprwm/Hyprland`
 
-## Known Quirks Here
+## Known Quirks
 
 - Home Manager's Hyprland plugin option generates `hyprland.conf` entries, so it is not the right place for this repo's Lua-native root config.
 - If a value really needs to come from Nix, generate a small imported Lua file instead of rewriting the hand-written config style.

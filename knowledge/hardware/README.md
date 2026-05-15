@@ -13,4 +13,13 @@ permalink: newxos/hardware/readme
 
 This folder documents hardware-specific configuration and known compatibility notes.
 
+## Observations
+
+- [fact] Content not yet written
+- [decision] Placeholder index created for future hardware documentation
+
+## Relations
+
+- part_of [[Knowledge]]
+
 Content not yet written.

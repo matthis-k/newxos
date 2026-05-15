@@ -8,6 +8,19 @@ permalink: newxos/readme
 
 Short repo memory for this flake.
 
+## Observations
+
+- [fact] Basic Memory indexes the whole `knowledge/` tree for semantic search
+- [technique] Structured folders with README.md indexes replace flat files for better navigation
+- [decision] Knowledge pages use frontmatter with id, type, status, tags, links, and permalink fields
+- [requirement] Keep pages concise; prefer updating smallest relevant page over growing one giant document
+
+## Relations
+
+- part_of [[Flake Structure]]
+- relates_to [[Agent Rules]]
+- relates_to [[Workflow]]
+
 ## Map
 
 - [Agent Rules](AGENT_RULES.md): rules for agents working in this repo.

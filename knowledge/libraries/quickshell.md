@@ -8,6 +8,20 @@ permalink: newxos/libraries/quickshell
 
 Quickshell (v0.3) provides a QtQuick/QML-based compositor-agnostic shell toolkit for building bars, panels, widgets, and overlays on Wayland.
 
+## Observations
+
+- [fact] Hand-written template config in `configs/quickshell/`; exposed as `newshell` and `newshelldev` wrapper packages
+- [technique] Use `newshell` for Nix-store template, `newshelldev` for live edits under `${NEWXOS_FLAKE:-$HOME/newxos}/configs/quickshell`
+- [fact] If pinned `nixpkgs` QuickShell is too old for new module like `Quickshell.Networking`, update repo lock before changing imports
+- [decision] Leave `.qmlls.ini` untracked next to `shell.qml`; Quickshell manages it per machine for `qmlls` support
+- [fact] Breaking changes expected before 1.0; upstream will provide migration guides
+
+## Relations
+
+- relates_to [[Wrapped Programs And Generated Config]]
+- relates_to [[Flake Structure]]
+- relates_to [[quickshell-design]]
+
 ## What It Does Here
 
 - Keeps the hand-written template config in `configs/quickshell/`.
@@ -23,7 +37,7 @@ Quickshell (v0.3) provides a QtQuick/QML-based compositor-agnostic shell toolkit
 - Use `newshell` for the Nix-store template, `newshelldev` for live edits under `${NEWXOS_FLAKE:-$HOME/newxos}/configs/quickshell`, and `quickshell` directly for other config paths.
 - If the pinned `nixpkgs` QuickShell is too old for a new module such as `Quickshell.Networking`, update the repo lock before changing imports.
 - Leave `.qmlls.ini` untracked next to `shell.qml`; Quickshell manages it per machine for `qmlls` support.
-- Related reading: [Wrapped Programs And Generated Config](../patterns/wrapped-programs.md), [Flake Structure](../flake-structure.md#configs).
+- Related reading: [[Wrapped Programs And Generated Config]], [[Flake Structure]].
 
 ## Upstream Overview (v0.3)
 
@@ -236,7 +250,7 @@ Docs: `https://doc.qt.io/qt-6/qtcore-qmlmodule.html`
 - Upstream mirror: `https://github.com/quickshell-mirror/quickshell`
 - Examples: `https://git.outfoxxed.me/outfoxxed/quickshell-examples`
 
-## Known Quirks Here
+## Known Quirks
 
 - The wrapper's `newshell` config path is fixed at build time, so config edits there take effect after the package is rebuilt through the normal Home Manager or flake flow.
 - Use `newshelldev` when you want the wrapper to load the working-tree config at `${NEWXOS_FLAKE:-$HOME/newxos}/configs/quickshell` without rebuilding.
