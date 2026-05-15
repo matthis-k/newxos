@@ -45,6 +45,8 @@ Day-to-day rules for working in this repo.
 
 ## Normal Flow
 
+- **Always search Basic Memory first** for any repo knowledge query before reading files, running commands, or making changes.
+- Use the search order: Basic Memory search → `rg` over `knowledge/` → source inspection.
 - Use the `path:$PWD` form for local Nix commands during agent work. Plain `.` can fail in an untracked checkout.
 - Check the relevant knowledge page and upstream option docs before adding repo-local overrides; prefer first-class library options when they already cover the behavior.
 - If you change `flake-file` declarations, run `nix run "path:$PWD#write-flake"` before `flake show`, `flake check`, or commit.

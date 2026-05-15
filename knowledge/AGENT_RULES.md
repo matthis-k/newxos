@@ -34,7 +34,7 @@ This repository uses Markdown project memory under `knowledge/`.
 
 ## Before work
 
-Search project memory before making non-trivial changes.
+**Always search Basic Memory first** for any repo knowledge query — before reading files, running commands, or making changes.
 
 Use, in order:
 
