@@ -8,6 +8,25 @@
 
   flake.modules.nixos.networking = {
     hardware.bluetooth.enable = true;
+    hardware.bluetooth.powerOnBoot = true;
+    hardware.bluetooth.settings = {
+      General = {
+        JustWorksRepairing = "always";
+        FastConnectable = true;
+        Experimental = true;
+        KernelExperimental = true;
+        Privacy = "device";
+        SecureConnections = "on";
+        ControllerMode = "dual";
+        NameResolving = true;
+        RefreshDiscovery = true;
+      };
+      Policy = {
+        AutoEnable = true;
+        ReconnectAttempts = 7;
+        ReconnectIntervals = "1,2,4,8,16,32,64";
+      };
+    };
     networking.networkmanager.enable = true;
   };
 
@@ -28,6 +47,7 @@
         else
           "";
       dnsArgs = lib.escapeShellArgs cfg.settings.dnsServers;
+      boolToEnabled = v: if v then "enabled" else "disabled";
     in
     {
       imports = [ inputs.nordvpn-flake.nixosModules.default ];
@@ -208,19 +228,19 @@
           wantedBy = [ "multi-user.target" ];
           restartTriggers = [
             "${cfg.settings.technology}"
-            "${builtins.toString cfg.settings.firewall}"
-            "${builtins.toString cfg.settings.routing}"
-            "${builtins.toString cfg.settings.analytics}"
-            "${builtins.toString cfg.settings.killSwitch}"
-            "${builtins.toString cfg.settings.threatProtectionLite}"
-            "${builtins.toString cfg.settings.notify}"
-            "${builtins.toString cfg.settings.tray}"
-            "${builtins.toString cfg.settings.ipv6}"
-            "${builtins.toString cfg.settings.meshnet}"
-            "${builtins.toString cfg.settings.lanDiscovery}"
-            "${builtins.toString cfg.settings.virtualLocation}"
-            "${builtins.toString cfg.settings.postQuantum}"
-            "${builtins.toString cfg.settings.autoConnect.enable}"
+            "${boolToEnabled cfg.settings.firewall}"
+            "${boolToEnabled cfg.settings.routing}"
+            "${boolToEnabled cfg.settings.analytics}"
+            "${boolToEnabled cfg.settings.killSwitch}"
+            "${boolToEnabled cfg.settings.threatProtectionLite}"
+            "${boolToEnabled cfg.settings.notify}"
+            "${boolToEnabled cfg.settings.tray}"
+            "${boolToEnabled cfg.settings.ipv6}"
+            "${boolToEnabled cfg.settings.meshnet}"
+            "${boolToEnabled cfg.settings.lanDiscovery}"
+            "${boolToEnabled cfg.settings.virtualLocation}"
+            "${boolToEnabled cfg.settings.postQuantum}"
+            "${boolToEnabled cfg.settings.autoConnect.enable}"
             "${lib.concatStrings cfg.settings.autoConnect.target}"
             "${lib.concatStrings cfg.settings.dnsServers}"
             cliUser
@@ -282,18 +302,18 @@
             fi
 
             try_nordvpn_set technology ${cfg.settings.technology}
-            try_nordvpn_set firewall ${builtins.toString cfg.settings.firewall}
-            try_nordvpn_set routing ${builtins.toString cfg.settings.routing}
-            try_nordvpn_set analytics ${builtins.toString cfg.settings.analytics}
-            try_nordvpn_set killswitch ${builtins.toString cfg.settings.killSwitch}
-            try_nordvpn_set threatprotectionlite ${builtins.toString cfg.settings.threatProtectionLite}
-            try_nordvpn_set notify ${builtins.toString cfg.settings.notify}
-            try_nordvpn_set tray ${builtins.toString cfg.settings.tray}
-            try_nordvpn_set ipv6 ${builtins.toString cfg.settings.ipv6}
-            try_nordvpn_set meshnet ${builtins.toString cfg.settings.meshnet}
-            try_nordvpn_set lan-discovery ${builtins.toString cfg.settings.lanDiscovery}
-            try_nordvpn_set virtual-location ${builtins.toString cfg.settings.virtualLocation}
-            try_nordvpn_set post-quantum ${builtins.toString cfg.settings.postQuantum}
+            try_nordvpn_set firewall ${boolToEnabled cfg.settings.firewall}
+            try_nordvpn_set routing ${boolToEnabled cfg.settings.routing}
+            try_nordvpn_set analytics ${boolToEnabled cfg.settings.analytics}
+            try_nordvpn_set killswitch ${boolToEnabled cfg.settings.killSwitch}
+            try_nordvpn_set threatprotectionlite ${boolToEnabled cfg.settings.threatProtectionLite}
+            try_nordvpn_set notify ${boolToEnabled cfg.settings.notify}
+            try_nordvpn_set tray ${boolToEnabled cfg.settings.tray}
+            try_nordvpn_set ipv6 ${boolToEnabled cfg.settings.ipv6}
+            try_nordvpn_set meshnet ${boolToEnabled cfg.settings.meshnet}
+            try_nordvpn_set lan-discovery ${boolToEnabled cfg.settings.lanDiscovery}
+            try_nordvpn_set virtual-location ${boolToEnabled cfg.settings.virtualLocation}
+            try_nordvpn_set post-quantum ${boolToEnabled cfg.settings.postQuantum}
 
             ${
               if cfg.settings.dnsServers == [ ] then
@@ -302,7 +322,7 @@
                 "try_nordvpn set dns ${dnsArgs}"
             }
 
-            if ${builtins.toString cfg.settings.autoConnect.enable}; then
+            if ${if cfg.settings.autoConnect.enable then "true" else "false"}; then
               try_nordvpn set autoconnect true ${lib.escapeShellArgs cfg.settings.autoConnect.target}
 
               if ! nordvpn_connected; then
