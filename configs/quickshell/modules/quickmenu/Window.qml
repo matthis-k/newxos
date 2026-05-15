@@ -8,7 +8,26 @@ PanelWindow {
     id: win
     property var shellScreenState
     readonly property bool dashboardVisible: !!shellScreenState && shellScreenState.dashboardPhase !== "closed"
+    property real tabSwipeAccumulator: 0
+    readonly property real tabSwipeThreshold: Config.spacing.xxl
     focusable: true
+
+    function resetTabSwipe() {
+        tabSwipeAccumulator = 0;
+    }
+
+    function queueTabSwipe(delta) {
+        if (!shellScreenState || shellScreenState.dashboardPhase !== "open")
+            return;
+
+        tabSwipeAccumulator += delta;
+
+        if (Math.abs(tabSwipeAccumulator) < tabSwipeThreshold)
+            return;
+
+        shellScreenState.stepDashboardTab(tabSwipeAccumulator < 0 ? 1 : -1);
+        resetTabSwipe();
+    }
 
     function syncCurrentTab() {
         if (!shellScreenState)
@@ -122,6 +141,24 @@ PanelWindow {
             clip: true
             Component.onCompleted: win.syncCurrentTab()
 
+            WheelHandler {
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                orientation: Qt.Horizontal
+                blocking: false
+
+                onActiveChanged: {
+                    if (!active)
+                        win.resetTabSwipe();
+                }
+
+                onWheel: event => {
+                    const delta = event.pixelDelta.x !== 0 ? event.pixelDelta.x : event.angleDelta.x / 4;
+
+                    if (delta !== 0)
+                        win.queueTabSwipe(delta);
+                }
+            }
+
             Overview {
                 screenState: win.shellScreenState
             }
@@ -137,7 +174,13 @@ PanelWindow {
             target: win.shellScreenState
 
             function onActiveTabChanged() {
+                win.resetTabSwipe();
                 win.syncCurrentTab();
+            }
+
+            function onDashboardPhaseChanged() {
+                if (win.shellScreenState?.dashboardPhase !== "open")
+                    win.resetTabSwipe();
             }
         }
     }

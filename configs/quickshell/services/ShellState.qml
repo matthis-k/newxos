@@ -81,6 +81,18 @@ Singleton {
             queueTransition();
         }
 
+        function stepDashboardTab(offset) {
+            if (!dashboardOpen)
+                return false;
+
+            const nextTab = dashboardTabs[tabIndex(activeTab) + offset];
+            if (!nextTab)
+                return false;
+
+            openDashboard(nextTab);
+            return true;
+        }
+
         function closeDashboard() {
             if (!dashboardOpen)
                 return;

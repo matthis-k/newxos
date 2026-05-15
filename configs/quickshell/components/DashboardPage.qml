@@ -21,6 +21,7 @@ Item {
         id: flick
         anchors.fill: parent
         interactive: root.scrollable
+        flickableDirection: Flickable.VerticalFlick
         contentWidth: width
         contentHeight: root.scrollable
             ? Math.max(column.implicitHeight + root.pagePadding * 2, height)

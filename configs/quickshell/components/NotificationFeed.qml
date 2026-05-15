@@ -53,6 +53,7 @@ Item {
 
             Flickable {
                 anchors.fill: parent
+                flickableDirection: Flickable.VerticalFlick
                 contentWidth: width
                 contentHeight: feedColumn.implicitHeight
                 clip: true

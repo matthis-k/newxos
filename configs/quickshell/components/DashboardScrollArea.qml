@@ -10,6 +10,7 @@ ScrollView {
     default property alias content: contentColumn.data
 
     clip: true
+    contentWidth: availableWidth
     ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
     background: Rectangle {
