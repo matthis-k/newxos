@@ -45,7 +45,7 @@ Key rules:
 - Run wrapped OpenCode: `nix run "path:$PWD#opencode"`
 - Rebuild Basic Memory: `newxos memory reindex`
 - Reset Basic Memory: `newxos memory reset`
-- Helper packages: `write-inputs`, `write-lock` (inspect with `nix flake show "path:$PWD"`)
+- Helper packages: `write-inputs`, `write-lock`, `write-nvim-pack-lock` (inspect with `nix flake show "path:$PWD"`)
 
 ## Knowledge Maintenance
 

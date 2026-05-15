@@ -9,7 +9,8 @@ links:
 - issue-zen-browser-chrome-not-themed
 - issue-nixos-install-oom
 - issue-prefers-color-scheme-dark
-updated: 2026-05-11
+- fix-quickshell-networking-crash
+updated: 2026-05-15
 permalink: newxos/issues/readme
 ---
 
@@ -22,6 +23,10 @@ This folder tracks known issues and their workarounds.
 - [[issue-zen-browser-chrome-not-themed]]
 - [[issue-nixos-install-oom]]
 - [[issue-prefers-color-scheme-dark]]
+
+## Resolved issues
+
+- [[fix-quickshell-networking-crash]]
 
 ## Format
 

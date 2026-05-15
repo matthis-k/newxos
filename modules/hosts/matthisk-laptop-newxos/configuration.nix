@@ -17,7 +17,6 @@
       networking
       nix
       newxos
-      nordvpn
       security
       sops
       stylix
@@ -34,5 +33,17 @@
     ];
     services.displayManager.autoLogin.user = "matthisk";
     system.stateVersion = "25.11";
+
+    sops.secrets.nordvpn_token = {
+      format = "binary";
+      mode = "0400";
+      path = "/run/secrets/nordvpn_token";
+      sopsFile = ../../../secrets/nordvpn_token;
+    };
+
+    services.nordvpn = {
+      enable = true;
+      users = [ "matthisk" ];
+    };
   };
 }
