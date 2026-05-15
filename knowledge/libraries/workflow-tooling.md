@@ -13,6 +13,7 @@ This repo uses `treefmt-nix` and `git-hooks.nix` for formatting and pre-commit w
 - `treefmt-nix` exposes the formatter behind `nix run "path:$PWD#fmt"`.
 - `git-hooks.nix` installs and runs the managed pre-commit hook.
 - The repo also exposes `repo-gate`, which runs `write-flake -> fmt -> flake check`.
+- The managed pre-commit flow is split into ordered hooks for flake generation, early statix fixes, conditional Neovim lock generation, formatting, flake checks, knowledge reindex, and hook reinstall.
 
 ## Basics
 
@@ -55,14 +56,93 @@ This replaces the old `dendritic-workflow-module` template.
 
   perSystem = { config, pkgs, ... }:
     let
-      repoGate = pkgs.writeShellScriptBin "repo-gate" ''
+      writeFlake = pkgs.writeShellScriptBin "repo-write-flake" ''
         set -euo pipefail
         ${pkgs.nix}/bin/nix run "path:$PWD#write-flake"
-        ${config.treefmt.build.wrapper}/bin/treefmt
+      '';
+
+      flakeCheck = pkgs.writeShellScriptBin "repo-flake-check" ''
+        set -euo pipefail
         ${pkgs.nix}/bin/nix flake check "path:$PWD"
       '';
+
+      updateKnowledgeIndex = pkgs.writeShellScriptBin "repo-update-knowledge-index" ''
+        set -euo pipefail
+        ${pkgs.nix}/bin/nix run "path:$PWD#newxos" -- memory reindex
+      '';
+
+      reinstallGitHooks = pkgs.writeShellScriptBin "repo-install-git-hooks" ''
+        set -euo pipefail
+        ${pkgs.nix}/bin/nix run "path:$PWD#install-git-hooks"
+      '';
+
+      repoGate = pkgs.writeShellScriptBin "repo-gate" ''
+        set -euo pipefail
+        ${lib.getExe writeFlake}
+        ${lib.getExe self'.packages.write-nvim-pack-lock}
+        ${config.treefmt.build.wrapper}/bin/treefmt
+        ${lib.getExe flakeCheck}
+      '';
     in {
+      pre-commit.settings.hooks.repo-write-flake = {
+        enable = true;
+        entry = lib.getExe writeFlake;
+        pass_filenames = false;
+        always_run = true;
+      };
+
+      pre-commit.settings.hooks.statix = {
+        enable = true;
+        after = [ "repo-write-flake" ];
+        entry = "${pkgs.statix}/bin/statix fix";
+        types = [ "nix" ];
+      };
+
+      pre-commit.settings.hooks.repo-write-nvim-pack-lock = {
+        enable = true;
+        entry = lib.getExe self'.packages.write-nvim-pack-lock;
+        after = [ "statix" ];
+        files = "^flake\\.lock$";
+        pass_filenames = false;
+      };
+
+      pre-commit.settings.hooks.repo-fmt = {
+        enable = true;
+        entry = "${config.treefmt.build.wrapper}/bin/treefmt";
+        after = [ "statix" "repo-write-nvim-pack-lock" ];
+        pass_filenames = false;
+        always_run = true;
+      };
+
+      pre-commit.settings.hooks.repo-flake-check = {
+        enable = true;
+        entry = lib.getExe flakeCheck;
+        after = [ "repo-fmt" ];
+        pass_filenames = false;
+        types = [ "nix" ];
+      };
+
+      pre-commit.settings.hooks.repo-update-knowledge-index = {
+        enable = true;
+        entry = lib.getExe updateKnowledgeIndex;
+        after = [ "repo-fmt" ];
+        files = "^knowledge/";
+        pass_filenames = false;
+      };
+
+      pre-commit.settings.hooks.repo-install-git-hooks = {
+        enable = true;
+        entry = lib.getExe reinstallGitHooks;
+        after = [ "repo-flake-check" "repo-update-knowledge-index" ];
+        files = "^modules/workflow\\.nix$";
+        pass_filenames = false;
+      };
+
       packages.fmt = config.treefmt.build.wrapper;
+      packages.install-git-hooks = pkgs.writeShellScriptBin "install-git-hooks" ''
+        set -euo pipefail
+        ${config.pre-commit.installationScript}
+      '';
       packages.repo-gate = repoGate;
     };
 }
@@ -76,6 +156,12 @@ This replaces the old `dendritic-workflow-module` template.
 ## Known Quirks Here
 
 - The hook can rewrite files. Re-stage task-related files after it runs.
+- The hook order is controlled with `after`/`before`; do not rely on attrset order.
+- `statix` runs near the front of the hook graph so Nix rewrites land before `treefmt` and `flake check`.
+- The managed `repo-write-nvim-pack-lock` hook only runs when staged `flake.lock` matches.
+- The managed `repo-flake-check` hook only runs when staged `*.nix` files match.
+- The managed `repo-update-knowledge-index` hook only runs when staged `knowledge/` files match.
+- The managed `repo-install-git-hooks` hook only runs when staged `modules/workflow.nix` matches.
 - `repo-gate` is a good handoff check, but use judgment for doc-only or clearly isolated changes.
 - Import upstream flake modules from top-level `inputs`. Use `inputs'` only inside `perSystem` for system-qualified packages.
 - Use top-level `self` for source-tree paths like `treefmt.projectRoot`. Use `self'` only inside `perSystem` when referring to built outputs.

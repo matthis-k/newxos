@@ -41,7 +41,11 @@ Day-to-day rules for working in this repo.
 
 ## Git And Hooks
 
-- The managed pre-commit hook runs `write-flake -> write nvim pack lockfile -> fmt -> flake check`.
+- The managed pre-commit hooks run `write-flake -> statix -> write nvim pack lockfile -> fmt -> flake check -> install git hooks`.
+- The managed Neovim pack lock hook only runs when the commit includes staged `flake.lock` changes.
+- The managed `flake check` hook only runs when the commit includes staged `*.nix` files.
+- The managed knowledge index hook only runs when the commit includes staged `knowledge/` changes.
+- The managed hook reinstall step only runs when the commit includes staged `modules/workflow.nix` changes.
 - In a fresh clone, `nix develop "path:$PWD"` gives you the pre-commit dev shell. Otherwise use `nix run "path:$PWD#install-git-hooks"`.
 - If Nix garbage collection removes the `pre-commit` binary, the hook will fail with `No such file or directory`. Run `nix run "path:$PWD#install-git-hooks"` to regenerate it.
 - If hooks rewrite files, review them, re-stage task-related files, and rerun the commit.
@@ -80,6 +84,7 @@ Day-to-day rules for working in this repo.
 - Run the relevant verification commands for the changed area.
 - Prefer `nix run "path:$PWD#repo-gate"` after Nix or flake workflow changes, unless the task clearly does not need the full gate.
 - If you created or modified knowledge files, refresh the memory index:
+- If you are committing those changes, the managed hook refreshes the memory index automatically.
   - Small edits (a few files, targeted changes): `newxos memory reindex`
   - Structural changes (new directories, major rewrites, type/schema changes): `newxos memory reset`
 - Confirm new or renamed outputs appear in `nix flake show "path:$PWD"` when applicable.

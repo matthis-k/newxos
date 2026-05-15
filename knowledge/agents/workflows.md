@@ -37,6 +37,8 @@ After work:
 newxos memory reindex
 ```
 
+The managed pre-commit hook also runs `newxos memory reindex` automatically when staged files under `knowledge/` change.
+
 Then ensure no generated state is staged:
 
 ```bash
