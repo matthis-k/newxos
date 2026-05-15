@@ -158,6 +158,13 @@ Behavior on opacity {
 }
 ```
 
+### Dashboard Motion
+
+- Put tab-switch animation in a shared container such as `SelectView` so every dashboard-like surface gets the same slide/fade behavior.
+- Put resize animation in shared shells such as `DashboardSection` so split panes and expanding sections animate without each tab re-implementing height transitions.
+- Keep the top bar and dashboard on the same timing/easing when the right-side indicator strip expands into tab selectors.
+- For expandable rows inside tabs, animate the row height and details opacity together instead of only toggling `visible`.
+
 ## Layout
 
 - Use flat panels with consistent padding and spacing (see Spacing section above).

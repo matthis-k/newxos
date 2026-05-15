@@ -4,24 +4,25 @@ import qs.services
 StatusIcon {
     readonly property var adapter: Bluetooth.defaultAdapter
     readonly property bool btOn: !!adapter && adapter.enabled
-    readonly property int connectedCount: adapter ? adapter.devices.values.length : 0
+    readonly property int connectedCount: adapter ? (adapter.devices.values || []).filter(device => device.connected).length : 0
 
     function btIconName() {
         if (!adapter)
-            return "bluetooth-disabled-symbolic";
+            return "bluetooth-disabled";
         if (adapter.state === BluetoothAdapterState.Blocked)
-            return "bluetooth-disabled-symbolic";
+            return "bluetooth-disabled";
         if (!adapter.enabled || adapter.state === BluetoothAdapterState.Disabled)
-            return "bluetooth-disabled-symbolic";
+            return "bluetooth-disabled";
         if (connectedCount > 0)
-            return "bluetooth-connected-symbolic";
+            return "bluetooth-active";
         if (adapter.discovering)
-            return "bluetooth-searching-symbolic";
-        return "bluetooth-symbolic";
+            return "bluetooth-active";
+        return "bluetooth-paired";
     }
 
     iconName: btIconName()
-    color: btOn ? Config.colors.blue : Config.styling.critical
+    fallbackIconName: "bluetooth-symbolic"
+    iconColor: btOn ? Config.styling.bluetooth : Config.styling.critical
 
-    quickmenuName: "bluetooth"
+    tabName: "bluetooth"
 }

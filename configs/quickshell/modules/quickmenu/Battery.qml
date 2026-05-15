@@ -1,23 +1,30 @@
 import QtQuick
 import QtQuick.Layouts
-import Qt5Compat.GraphicalEffects
-import Quickshell
-import Quickshell.Widgets
 import Quickshell.Services.UPower
 
 import qs.services
 import qs.components
 
-Item {
+ColumnLayout {
     id: root
-    width: implicitWidth
-    height: implicitHeight
-    implicitWidth: columnLayout.implicitWidth
-    implicitHeight: columnLayout.implicitHeight
+
     property UPowerDevice bat: UPower.displayDevice
 
-    property color stateColor: {
-        let percentage = Math.floor(bat.percentage * 100);
+    readonly property int contentWidth: width > 0 ? width : 320
+    readonly property int sectionSpacing: Config.spacing.xs
+    readonly property int buttonSpacing: 3
+    readonly property int rowHeight: 36
+    readonly property int iconSize: 20
+    readonly property int iconSlotWidth: 24
+    readonly property int iconTextGap: 10
+    readonly property int horizontalPadding: 8
+    readonly property int verticalPadding: 4
+    readonly property int buttonIconSize: 28
+    readonly property int buttonTextPixelSize: 18
+    readonly property int buttonIconSlotWidth: 28
+
+    readonly property color stateColor: {
+        let percentage = Math.floor((bat?.percentage || 0) * 100);
         return [
             {
                 max: 10,
@@ -35,137 +42,222 @@ Item {
                 max: 100,
                 col: Config.styling.good
             }
-        ].find(({
-                max,
-                col
-            }) => percentage <= max).col;
+        ].find(({ max }) => percentage <= max).col;
     }
 
+    function formatDuration(seconds, prefix) {
+        if (!seconds || seconds <= 0)
+            return "";
+
+        let h = Math.floor(seconds / 3600);
+        let m = Math.floor(seconds / 60) % 60;
+        return `${prefix}${h}h${m}m`;
+    }
+
+    readonly property string batteryDetail: {
+        if (!bat)
+            return "";
+
+        if (bat.state === UPowerDeviceState.Charging)
+            return formatDuration(bat.timeToFull, "Full in ");
+
+        return formatDuration(bat.timeToEmpty, "Empty in ");
+    }
+
+    readonly property string summaryText: {
+        if (!bat)
+            return "No battery detected";
+
+        const percentage = `${Math.floor((bat.percentage || 0) * 100)}%`;
+        return batteryDetail !== "" ? `${percentage} • ${batteryDetail}` : percentage;
+    }
+
+    component ProfileButton: ActionButton {
+        id: option
+
+        required property int mode
+        required property color optionColor
+
+        readonly property bool isActive: PowerProfiles.profile === mode
+
+        implicitWidth: root.contentWidth
+        implicitHeight: root.rowHeight
+        active: isActive
+        accentColor: optionColor
+        backgroundColor: Config.styling.bg3
+        fillOpacity: isActive ? 0.28 : Config.behaviour.hoverBgOpacity
+        highlightSide: ActiveIndicator.Side.Left
+        highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAlong
+        highlightThickness: 4
+        indicatorOnHover: true
+        scaleTarget: null
+        scaleText: true
+        textScaleTarget: profileLabel
+        hoveredScale: 1.0
+        unhoveredScale: 0.8
+        flat: true
+
+        onClicked: PowerProfiles.profile = mode
+
+        contentItem: Item {
+            implicitWidth: row.implicitWidth + 2 * root.horizontalPadding
+            implicitHeight: row.implicitHeight + 2 * root.verticalPadding
+
+            RowLayout {
+                id: row
+                anchors.left: parent.left
+                anchors.leftMargin: root.horizontalPadding
+                anchors.right: parent.right
+                anchors.rightMargin: root.horizontalPadding
+                anchors.top: parent.top
+                anchors.topMargin: root.verticalPadding
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: root.verticalPadding
+                spacing: root.iconTextGap
+
+                Item {
+                    Layout.preferredWidth: root.buttonIconSlotWidth
+                    Layout.minimumWidth: root.buttonIconSlotWidth
+                    Layout.maximumWidth: root.buttonIconSlotWidth
+                    Layout.preferredHeight: root.buttonIconSize
+                    Layout.alignment: Qt.AlignVCenter
+
+                    Icon {
+                        id: profileIcon
+                        anchors.fill: parent
+                        iconName: option.iconName
+                        color: option.optionColor
+                        implicitSize: root.buttonIconSize
+                        smooth: true
+                        scale: option.hovered ? 1.15 : 1.0
+
+                        Behavior on scale {
+                            NumberAnimation {
+                                duration: option.scaleAnimationDuration
+                                easing.type: Easing.OutCubic
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    id: profileLabel
+                    Layout.fillWidth: true
+                    Layout.alignment: Qt.AlignVCenter
+                    text: option.text
+                    color: option.isActive ? option.optionColor : Config.styling.text0
+                    font.bold: true
+                    font.pixelSize: root.buttonTextPixelSize
+                    transformOrigin: Item.Left
+
+                    Behavior on scale {
+                        enabled: Config.behaviour.animation.enabled
+                        NumberAnimation {
+                            duration: Config.behaviour.animation.calc(0.1)
+                            easing.type: Easing.Bezier
+                            easing.bezierCurve: [0.4, 0.0, 0.2, 1.0]
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    implicitWidth: 320
+    width: parent ? parent.width : implicitWidth
+    spacing: root.sectionSpacing
+
     ColumnLayout {
-        id: columnLayout
-        spacing: 0
+        Layout.fillWidth: true
+        spacing: Config.spacing.xxs
 
         RowLayout {
             Layout.fillWidth: true
-            Text {
-                text: `Battery status:`
-                color: Config.styling.text0
-                font.pixelSize: 24
+            spacing: root.iconTextGap
+
+            Item {
+                Layout.preferredWidth: root.iconSlotWidth
+                Layout.minimumWidth: root.iconSlotWidth
+                Layout.maximumWidth: root.iconSlotWidth
+                Layout.preferredHeight: root.iconSlotWidth
+
+                Icon {
+                    anchors.centerIn: parent
+                    iconName: bat?.iconName || "battery-missing-symbolic"
+                    color: root.stateColor
+                    implicitSize: root.iconSize
+                }
             }
+
             Text {
-                text: `${Math.floor(bat.percentage * 100)}%`
-                color: stateColor
-                font.pixelSize: 24
+                text: bat ? "Charge level" : "Battery unavailable"
+                color: Config.styling.text0
+                font.pixelSize: 16
+                font.bold: true
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            Text {
+                visible: !!bat
+                text: `${Math.floor((bat?.percentage || 0) * 100)}%`
+                color: root.stateColor
+                font.pixelSize: 18
                 font.bold: true
             }
         }
 
         Text {
-            visible: bat.state == UPowerDeviceState.Charging
-            color: Config.styling.text0
-            text: {
-                let time = bat.timeToFull;
-                let h = Math.floor(time / 60 / 60);
-                let m = Math.floor(time / 60) % 60;
-                return `Full in: ${h}h${m}m`;
-            }
+            Layout.fillWidth: true
+            visible: text !== ""
+            text: root.batteryDetail
+            color: Config.styling.text2
+            font.pixelSize: 12
         }
+    }
+
+    Rectangle {
+        Layout.fillWidth: true
+        implicitHeight: 1
+        color: Config.styling.bg3
+    }
+
+    ColumnLayout {
+        Layout.fillWidth: true
+        spacing: root.buttonSpacing
 
         Text {
-            visible: bat.state != UPowerDeviceState.Charging
-            color: Config.styling.text0
-            text: {
-                let time = bat.timeToEmpty;
-                let h = Math.floor(time / 60 / 60);
-                let m = Math.floor(time / 60) % 60;
-                return `Empty in ${h}h${m}m`;
-            }
+            Layout.fillWidth: true
+            text: "Power mode"
+            color: Config.styling.text1
+            font.pixelSize: 14
+            font.bold: true
         }
 
-        Item {
-            id: powerProfileArea
+        ProfileButton {
             Layout.fillWidth: true
-            Layout.preferredHeight: 40
-            implicitWidth: powerProfileRow.implicitWidth + 8
-            implicitHeight: Math.max(40, powerProfileRow.implicitHeight + 8)
+            mode: PowerProfile.PowerSaver
+            text: "Power Saver"
+            iconName: "power-profile-power-saver-symbolic"
+            optionColor: Config.styling.good
+        }
 
-            property int accumulatedScroll: 0
-            property int scrollThreshold: 120
+        ProfileButton {
+            Layout.fillWidth: true
+            mode: PowerProfile.Balanced
+            text: "Balanced"
+            iconName: "power-profile-balanced-symbolic"
+            optionColor: Config.colors.yellow
+        }
 
-            function rotateProfile(direction) {
-                const order = [PowerProfile.PowerSaver, PowerProfile.Balanced, PowerProfile.Performance];
-                let current = PowerProfiles.profile;
-                let index = order.indexOf(current);
-                let nextIndex = (index + direction + order.length) % order.length;
-                PowerProfiles.profile = order[nextIndex];
-            }
-
-            TapHandler {
-                acceptedButtons: Qt.LeftButton
-                cursorShape: Qt.PointingHandCursor
-                gesturePolicy: TapHandler.ReleaseWithinBounds
-                onTapped: powerProfileArea.rotateProfile(+1)
-            }
-
-            WheelHandler {
-                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                onWheel: {
-                    powerProfileArea.accumulatedScroll += wheel.angleDelta.y;
-                    if (powerProfileArea.accumulatedScroll >= powerProfileArea.scrollThreshold) {
-                        powerProfileArea.rotateProfile(+1);
-                        powerProfileArea.accumulatedScroll = 0;
-                    } else if (powerProfileArea.accumulatedScroll <= -powerProfileArea.scrollThreshold) {
-                        powerProfileArea.rotateProfile(-1);
-                        powerProfileArea.accumulatedScroll = 0;
-                    }
-                }
-            }
-
-            RowLayout {
-                id: powerProfileRow
-                spacing: 8
-                anchors.fill: parent
-                anchors.margins: 4
-
-                ColorOverlay {
-                    id: powerProfileIcon2
-                    property string iconName: ({
-                            [PowerProfile.Performance]: "power-profile-performance-symbolic",
-                            [PowerProfile.Balanced]: "power-profile-balanced-symbolic",
-                            [PowerProfile.PowerSaver]: "power-profile-power-saver-symbolic"
-                        })[PowerProfiles.profile]
-                    color: ({
-                            [PowerProfile.Performance]: Config.styling.critical,
-                            [PowerProfile.Balanced]: Config.colors.yellow,
-                            [PowerProfile.PowerSaver]: Config.styling.good
-                        })[PowerProfiles.profile]
-                    implicitWidth: 32
-                    implicitHeight: 32
-                    source: Icon {
-                        source: Quickshell.iconPath(powerProfileIcon2.iconName)
-                        implicitSize: 32
-                    }
-                }
-
-                ColumnLayout {
-                    spacing: 0
-                    Layout.alignment: Qt.AlignVCenter
-
-                    Text {
-                        text: "Power profile"
-                        font.pixelSize: 16
-                        color: Config.styling.text0
-                        font.bold: true
-                    }
-
-                    Text {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: PowerProfile.toString(PowerProfiles.profile)
-                        color: Config.styling.text2
-                        font.pixelSize: 12
-                    }
-                }
-            }
+        ProfileButton {
+            Layout.fillWidth: true
+            mode: PowerProfile.Performance
+            text: "Performance"
+            iconName: "power-profile-performance-symbolic"
+            optionColor: Config.styling.critical
         }
     }
 }

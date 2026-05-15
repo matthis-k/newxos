@@ -18,8 +18,8 @@ Item {
     property bool suppressSearchInputSync: false
     property var filteredApps: []
 
-    implicitHeight: wrapper.implicitHeight + 16
-    implicitWidth: wrapper.implicitWidth + 32
+    implicitHeight: wrapper.implicitHeight + Config.spacing.md
+    implicitWidth: wrapper.implicitWidth + Config.spacing.xl
 
     function refreshFilter() {
         const apps = (DesktopEntries.applications?.values || []).filter(entry => !entry.noDisplay).filter(entry => {
@@ -81,8 +81,6 @@ Item {
 
     Rectangle {
         color: Config.styling.bg0
-        border.width: 1
-        border.color: Config.styling.primaryAccent
         anchors.fill: parent
     }
 
@@ -116,8 +114,8 @@ Item {
                 TextInput {
                     id: searchInput
                     anchors.fill: parent
-                    anchors.leftMargin: 4
-                    anchors.rightMargin: 4
+                    anchors.leftMargin: Config.spacing.xxs
+                    anchors.rightMargin: Config.spacing.xxs
                     color: Config.styling.text0
                     focus: true
                     selectionColor: Config.styling.selectionBackground
@@ -174,8 +172,8 @@ Item {
 
                 Text {
                     anchors.fill: parent
-                    anchors.leftMargin: 4
-                    anchors.rightMargin: 4
+                    anchors.leftMargin: Config.spacing.xxs
+                    anchors.rightMargin: Config.spacing.xxs
                     text: "Search apps"
                     color: Config.styling.placeholderText
                     font.pixelSize: searchInput.font.pixelSize

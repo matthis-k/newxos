@@ -103,14 +103,15 @@ Singleton {
     }
 
     readonly property QtObject spacing: QtObject {
-        readonly property int xxs: 4
-        readonly property int xs: 8
-        readonly property int sm: 12
-        readonly property int md: 16
-        readonly property int lg: 24
-        readonly property int xl: 32
-        readonly property int xxl: 48
-        readonly property int xxxl: 64
+        readonly property int unit: 4
+        readonly property int xxs: unit        // 4px - tight inline
+        readonly property int xs: unit * 2     // 8px - default padding
+        readonly property int sm: unit * 3     // 12px - medium component gap
+        readonly property int md: unit * 4     // 16px - standard section
+        readonly property int lg: unit * 6     // 24px - large section break
+        readonly property int xl: unit * 8     // 32px - panel margin
+        readonly property int xxl: unit * 12   // 48px - page-level gap
+        readonly property int xxxl: unit * 16  // 64px - layout boundary
     }
 
     PersistentProperties {

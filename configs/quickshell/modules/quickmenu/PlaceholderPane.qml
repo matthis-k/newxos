@@ -12,8 +12,6 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: Config.styling.bg1
-        border.width: 1
-        border.color: Config.styling.bg4
     }
 
     Text {

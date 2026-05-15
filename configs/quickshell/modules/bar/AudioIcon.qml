@@ -21,7 +21,7 @@ StatusIcon {
         return "audio-volume-high-symbolic";
     }
 
-    color: {
+    iconColor: {
         if (muted)
             return Config.styling.critical;
         if ((vol ?? 0) === 0.0)
@@ -32,5 +32,5 @@ StatusIcon {
     PwObjectTracker {
         objects: root.sink ? [root.sink] : []
     }
-    quickmenuName: "audio"
+    tabName: "audio"
 }

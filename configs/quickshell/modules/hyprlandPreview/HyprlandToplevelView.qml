@@ -52,7 +52,7 @@ Item {
             elide: Text.ElideRight
             maximumLineCount: 1
             anchors.left: appIcon.right
-            anchors.leftMargin: 4
+            anchors.leftMargin: Config.spacing.xxs
             anchors.right: closeBtn.left
             anchors.verticalCenter: parent.verticalCenter
         }

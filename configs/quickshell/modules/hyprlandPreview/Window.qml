@@ -20,8 +20,8 @@ PanelWindow {
             WlrLayershell.layer = WlrLayer.Overlay;
     }
 
-    implicitWidth: selectView.currentItem?.implicitWidth + 16 || 0
-    implicitHeight: selectView.currentItem?.implicitHeight + 16 || 0
+    implicitWidth: selectView.currentItem?.implicitWidth + Config.spacing.md || 0
+    implicitHeight: selectView.currentItem?.implicitHeight + Config.spacing.md || 0
 
     visible: !!selectView.currentItem
     color: Config.styling.bg0

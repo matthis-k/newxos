@@ -3,14 +3,14 @@ import QtQuick.Controls
 import QtQml
 import qs.utils.types
 
-Item {
+StackView {
     id: root
 
     property string currentView: ""
-    readonly property Item currentItem: stack.currentItem
 
     implicitWidth: currentItem ? currentItem.implicitWidth : 0
     implicitHeight: currentItem ? currentItem.implicitHeight : 0
+    clip: true
 
     default property alias entries: views.entries
     property var initProps
@@ -25,33 +25,26 @@ Item {
         syncCurrentView();
     }
 
-    StackView {
-        id: stack
-        anchors.fill: parent
-        implicitWidth: currentItem ? currentItem.implicitWidth : 0
-        implicitHeight: currentItem ? currentItem.implicitHeight : 0
-    }
-
     function syncCurrentView() {
         const value = _selectedValue;
         const props = initProps;
         initProps = undefined;
 
         if (!value) {
-            stack.clear(StackView.Immediate);
+            root.clear(StackView.Immediate);
             return;
         }
 
-        if (stack.depth > 0) {
+        if (root.depth > 0) {
             if (value instanceof Component && props !== undefined) {
-                stack.replace(value, props, StackView.Immediate);
+                root.replace(value, props);
             } else {
-                stack.replace(value, StackView.Immediate);
+                root.replace(value);
             }
         } else if (value instanceof Component && props !== undefined) {
-            stack.push(value, props, StackView.Immediate);
+            root.push(value, props, StackView.Immediate);
         } else {
-            stack.push(value, StackView.Immediate);
+            root.push(value, StackView.Immediate);
         }
     }
 

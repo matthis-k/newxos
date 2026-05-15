@@ -119,3 +119,14 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Rule: when a Lua config needs a whole list from `unpack(...)`, do not place that call before additional table elements unless losing all but the first value is intended
 - Context: `configs/nvim/lsp/lua_ls.lua`
 - Related knowledge: [Workflow](workflow.md)
+
+### 2026-05-12: repo QuickShell modules can outrun the version in pinned nixpkgs or the user profile
+
+- Date: `2026-05-12`
+- Problem: importing a newer QuickShell module like `Quickshell.Networking` while the active `quickshell` binary is still an older profile or nixpkgs build
+- Symptom: config load fails with `module "Quickshell.Networking" is not installed` even though upstream v0.3 docs list that module
+- Cause: the runtime binary was `quickshell 0.2.1`, which predates `Quickshell.Networking`; the import path was correct, but the package version was too old
+- Fix: update the repo `nixpkgs` lock to a revision that ships the required QuickShell version, then rebuild or run the repo-managed package
+- Rule: when adding newer QuickShell APIs, verify the QuickShell version provided by the pinned `nixpkgs` lock, not just the docs or the binary currently found in the user profile
+- Context: QuickShell network quickmenu migration from local `nmcli` wrapper to `Quickshell.Networking`
+- Related knowledge: [quickshell](libraries/quickshell.md), [Workflow](workflow.md)

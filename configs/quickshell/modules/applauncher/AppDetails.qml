@@ -14,11 +14,11 @@ Item {
     required property DesktopEntry desktopEntry
     required property var view
 
-    property int pad: Pixels.mm(4, screen)
-    property int gap: Pixels.mm(6, screen)
-    property int lineGap: Pixels.mm(2, screen)
+    property int pad: Config.spacing.xxs
+    property int gap: Config.spacing.xs
+    property int lineGap: Config.spacing.xxs
     property int titlePx: Pixels.mm(6, screen)
-    property int bodyPx: Pixels.mm(4.5, screen)
+    property int bodyPx: Pixels.mm(4, screen)
     property int monoPx: Pixels.mm(4.5, screen)
     property int iconSize: Pixels.mm(14, screen)
     property real actionIconScale: 0.7
@@ -78,8 +78,6 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: Config.styling.bg0
-        border.width: 1
-        border.color: Config.styling.primaryAccent
     }
 
     Item {
@@ -184,9 +182,7 @@ Item {
 
                     Rectangle {
                         width: parent.width
-                        color: Config.styling.bg1 || Config.styling.bg0
-                        border.width: 1
-                        border.color: Config.styling.bg4
+                        color: Config.styling.bg1
                         implicitHeight: execText.implicitHeight + 2 * root.pad
 
                         Text {

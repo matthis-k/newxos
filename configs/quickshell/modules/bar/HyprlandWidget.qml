@@ -19,7 +19,7 @@ Item {
     RowLayout {
         id: row
         anchors.fill: parent
-        spacing: 4
+        spacing: Config.spacing.xxs
 
         Repeater {
             id: workspaceRepeater

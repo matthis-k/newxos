@@ -8,7 +8,7 @@ tags:
 - tags
 links:
 - memory-schema
-updated: 2026-05-11
+updated: 2026-05-14
 permalink: newxos/tags
 ---
 
@@ -39,3 +39,4 @@ Prefer existing tags before inventing new ones.
 - `issue`
 - `task`
 - `decision`
+- `quickshell`

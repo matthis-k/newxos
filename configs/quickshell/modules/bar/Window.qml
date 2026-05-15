@@ -4,6 +4,9 @@ import QtQuick
 import qs.utils
 
 PanelWindow {
+    id: win
+    property var shellScreenState
+
     anchors {
         top: true
         right: true
@@ -14,7 +17,9 @@ PanelWindow {
             WlrLayershell.layer = WlrLayer.Top;
     }
     implicitHeight: Math.round(Pixels.mm(10, screen)) | 1
-    Bar {}
+    Bar {
+        screenState: win.shellScreenState
+    }
 
     function open() {
         visible = true;

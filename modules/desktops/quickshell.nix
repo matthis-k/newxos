@@ -12,8 +12,10 @@ let
 in
 {
   perSystem =
-    { pkgs, ... }:
+    { pkgs, self', ... }:
     {
+      packages.quickshell = pkgs.quickshell;
+
       packages.newshell = pkgs.writeShellScriptBin "newshell" ''
         config_dir=${configDir}
         local_config_root="''${NEWXOS_FLAKE_PATH:-$HOME/newxos}"
@@ -34,7 +36,7 @@ in
           args+=("$arg")
         done
 
-        exec ${lib.getExe pkgs.quickshell} -p "$config_dir" "''${args[@]}"
+        exec ${lib.getExe self'.packages.quickshell} -p "$config_dir" "''${args[@]}"
       '';
     };
 
@@ -54,7 +56,7 @@ in
       home.packages = withSystem pkgs.stdenv.hostPlatform.system (
         { self', ... }:
         [
-          pkgs.quickshell
+          self'.packages.quickshell
           self'.packages.newshell
           pkgs.kdePackages.qtdeclarative
           pkgs.kdePackages.qt3d

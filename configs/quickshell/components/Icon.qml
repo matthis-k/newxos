@@ -25,12 +25,13 @@ Item {
         id: icon
         anchors.fill: parent
         source: root.source !== undefined ? root.source : root.iconPath
+        scale: root.hasImplicitSize ? root.implicitSize / Math.max(parent.width, parent.height, 1) : 1.0
     }
 
     ColorOverlay {
         visible: root.color !== undefined && root.color !== null
         anchors.fill: icon
-        color: visible ? root.color : "transparent"
+        color: root.color !== undefined && root.color !== null ? root.color : "transparent"
         source: icon
         scale: icon.scale
     }

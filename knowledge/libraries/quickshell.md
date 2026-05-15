@@ -20,6 +20,7 @@ Quickshell (v0.3) provides a QtQuick/QML-based compositor-agnostic shell toolkit
 
 - Edit `configs/quickshell/shell.qml` when changing the repo template.
 - Use `newshell` for the repo template and `quickshell` directly for other config paths.
+- If the pinned `nixpkgs` QuickShell is too old for a new module such as `Quickshell.Networking`, update the repo lock before changing imports.
 - Leave `.qmlls.ini` untracked next to `shell.qml`; Quickshell manages it per machine for `qmlls` support.
 - Related reading: [Wrapped Programs And Generated Config](../patterns/wrapped-programs.md), [Flake Structure](../flake-structure.md#configs).
 

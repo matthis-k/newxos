@@ -1,0 +1,215 @@
+import QtQuick
+import QtQuick.Layouts
+import Quickshell.Services.Notifications
+
+import qs.services
+
+Item {
+    id: root
+
+    property bool showControls: false
+    property bool compact: false
+    property int maxEntries: -1
+    property string emptyTitle: "No notifications"
+    property string emptyDescription: NotificationCenter.doNotDisturbEnabled ? "Do Not Disturb is currently enabled." : "You are all caught up."
+
+    readonly property var orderedNotifications: {
+        const items = NotificationCenter.notifications.slice().reverse();
+        return maxEntries > 0 ? items.slice(0, maxEntries) : items;
+    }
+
+    implicitWidth: parent ? parent.width : 320
+    implicitHeight: controls.implicitHeight + listContainer.implicitHeight
+
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: Config.spacing.xs
+
+        RowLayout {
+            id: controls
+            Layout.fillWidth: true
+            visible: root.showControls
+            spacing: Config.spacing.xs
+
+            ActionButton {
+                Layout.fillWidth: true
+                active: !NotificationCenter.doNotDisturbEnabled
+                backgroundColor: Config.styling.bg3
+                accentColor: Config.styling.primaryAccent
+                indicatorOnHover: true
+                scaleTarget: null
+                flat: true
+                onClicked: NotificationCenter.toastsEnabled = !NotificationCenter.toastsEnabled
+
+                contentItem: Text {
+                    text: NotificationCenter.doNotDisturbEnabled ? "Enable Toasts" : "Disable Toasts"
+                    color: Config.styling.text0
+                    font.pixelSize: 14
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
+            ActionButton {
+                Layout.fillWidth: true
+                enabled: NotificationCenter.count > 0
+                backgroundColor: Config.styling.bg3
+                accentColor: Config.styling.close
+                indicatorOnHover: true
+                scaleTarget: null
+                flat: true
+                onClicked: NotificationCenter.clearAll()
+
+                contentItem: Text {
+                    text: "Clear all"
+                    color: Config.styling.text0
+                    font.pixelSize: 14
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+        }
+
+        Item {
+            id: listContainer
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            implicitHeight: emptyState.visible ? 120 : Math.min(feedColumn.implicitHeight, 320)
+
+            Flickable {
+                anchors.fill: parent
+                contentWidth: width
+                contentHeight: feedColumn.implicitHeight
+                clip: true
+
+                ColumnLayout {
+                    id: feedColumn
+                    width: parent.width
+                    spacing: Config.spacing.xs
+
+                    Repeater {
+                        model: root.orderedNotifications
+
+                        delegate: Rectangle {
+                            required property var modelData
+                            readonly property var notification: modelData
+
+                            Layout.fillWidth: true
+                            color: Config.styling.bg2
+                            radius: Config.styling.radius
+                            implicitWidth: feedColumn.width
+                            implicitHeight: body.implicitHeight + Config.spacing.xs * 2
+
+                            TapHandler {
+                                acceptedButtons: Qt.LeftButton
+                                onTapped: NotificationCenter.invokeDefaultAction(notification)
+                            }
+
+                            ColumnLayout {
+                                id: body
+                                anchors.fill: parent
+                                anchors.margins: Config.spacing.xs
+                                spacing: Config.spacing.xs
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: Config.spacing.xs
+
+                                    Icon {
+                                        iconName: notification.appIcon || "preferences-system-notifications-symbolic"
+                                        color: NotificationCenter.urgencyColor(notification)
+                                        implicitSize: 18
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: notification.summary || notification.appName || "Notification"
+                                        color: Config.styling.text0
+                                        font.pixelSize: root.compact ? 13 : 14
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Badge {
+                                        text: notification.urgency === NotificationUrgency.Critical ? "Urgent" : ""
+                                        badgeColor: Config.styling.critical
+                                    }
+
+                                    ActionButton {
+                                        implicitWidth: 20
+                                        implicitHeight: 20
+                                        backgroundColor: "transparent"
+                                        highlightThickness: 0
+                                        scaleTarget: null
+                                        onClicked: NotificationCenter.dismiss(notification)
+
+                                        contentItem: Icon {
+                                            iconName: "window-close-symbolic"
+                                            color: Config.styling.text1
+                                            implicitSize: 14
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    Layout.fillWidth: true
+                                    visible: notification.body !== ""
+                                    text: NotificationCenter.renderBody(notification.body)
+                                    textFormat: Text.RichText
+                                    color: Config.styling.text1
+                                    font.pixelSize: root.compact ? 12 : 13
+                                    wrapMode: Text.WordWrap
+                                    maximumLineCount: root.compact ? 4 : -1
+                                    elide: root.compact ? Text.ElideRight : Text.ElideNone
+                                    onLinkActivated: link => Qt.openUrlExternally(link)
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    visible: !root.compact && notification.actions.length > 0
+                                    spacing: Config.spacing.xs
+
+                                    Repeater {
+                                        model: notification.actions
+
+                                        delegate: ActionButton {
+                                            required property var modelData
+                                            readonly property var action: modelData
+
+                                            Layout.fillWidth: true
+                                            backgroundColor: Config.styling.bg3
+                                            accentColor: Config.styling.primaryAccent
+                                            indicatorOnHover: true
+                                            scaleTarget: null
+                                            flat: true
+                                            onClicked: action.invoke()
+
+                                            contentItem: Text {
+                                                text: action.text
+                                                color: Config.styling.text0
+                                                font.pixelSize: 12
+                                                font.bold: true
+                                                horizontalAlignment: Text.AlignHCenter
+                                                verticalAlignment: Text.AlignVCenter
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            EmptyState {
+                id: emptyState
+                anchors.fill: parent
+                visible: root.orderedNotifications.length === 0
+                title: root.emptyTitle
+                description: root.emptyDescription
+            }
+        }
+    }
+}

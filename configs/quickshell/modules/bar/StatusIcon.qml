@@ -1,48 +1,70 @@
 import QtQuick
-import Quickshell
 import qs.services
 import qs.components
-import qs.modules.quickmenu
 
-InteractiveButton {
+ActionButton {
     id: root
-    property var quickmenuName
-    property alias iconName: icon.iconName
-    property alias fallbackIconName: icon.fallbackIconName
-    property alias source: icon.source
-    property alias color: icon.color
-    property alias iconSize: icon.implicitSize
-    property alias smooth: icon.smooth
-    property alias mipmap: icon.mipmap
+    property var screenState
+    property string tabName: ""
+    property string iconName: "dialog-warning"
+    property string fallbackIconName: "dialog-warning"
+    property var iconColor: Config.styling.text0
+    property string badgeText: ""
+    property color badgeColor: Config.styling.primaryAccent
+    property alias smooth: statusIcon.smooth
+    property alias mipmap: statusIcon.mipmap
 
-    implicitWidth: iconSize >= 0 ? iconSize : Math.max(16, parent ? parent.height : icon.implicitWidth)
-    implicitHeight: iconSize >= 0 ? iconSize : Math.max(16, parent ? parent.height : icon.implicitHeight)
+    readonly property bool expanded: !!screenState && screenState.barExpandedForDashboard
+    readonly property int transitionMs: screenState
+        ? screenState.dashboardTransitionMs
+        : (Config.behaviour.animation.enabled ? Config.behaviour.animation.calc(0.18) : 0)
+
+    implicitWidth: parent ? parent.height : 24
+    implicitHeight: parent ? parent.height : 24
+
+    backgroundColor: Config.styling.bg3
+    active: screenState ? screenState.isIndicatorActive(tabName) : false
     scaleTarget: null
     scaleIcon: true
-    iconScaleTarget: icon
-    baseScale: Config.styling.statusIconScaler
-    hoveredScale: 1.0 / Math.max(0.001, baseScale)
-    unhoveredScale: 1.0
-    padding: 0
-    leftPadding: 0
-    rightPadding: 0
-    topPadding: 0
-    bottomPadding: 0
+    iconScaleTarget: statusIcon
+    hoveredScale: 1.0
+    unhoveredScale: expanded || active ? 1.0 : 0.8
 
     contentItem: Icon {
-        id: icon
-        anchors.centerIn: parent
-        color: Config.styling.text0
+        id: statusIcon
+        iconName: root.iconName
+        fallbackIconName: root.fallbackIconName
+        color: root.iconColor
+        implicitSize: (parent ? parent.height : root.implicitHeight) * 0.7
+
+        Badge {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.topMargin: -2
+            anchors.rightMargin: -2
+            text: root.badgeText
+            badgeColor: root.badgeColor
+        }
     }
 
-    onHoveredChanged: {
-        if (!quickmenuName) {
+    Behavior on x {
+        NumberAnimation {
+            duration: root.transitionMs
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    Behavior on width {
+        NumberAnimation {
+            duration: root.transitionMs
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    onClicked: {
+        if (!screenState || tabName === "")
             return;
-        }
-        let qm = ShellState.getScreenByName(screen.name).quickmenu;
-        if (hovered) {
-            qm.view = quickmenuName;
-        }
-        qm.externalHovers += hovered ? 1 : -1;
+
+        screenState.toggleDashboard(tabName);
     }
 }

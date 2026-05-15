@@ -8,7 +8,7 @@ StatusIcon {
     property UPowerDevice bat: UPower.displayDevice
     visible: bat.isLaptopBattery == true
 
-    color: {
+    iconColor: {
         let percentage = Math.floor(root.bat.percentage * 100);
         return [
             {
@@ -34,5 +34,5 @@ StatusIcon {
     }
 
     iconName: root.bat.iconName
-    quickmenuName: "battery"
+    tabName: "energy"
 }

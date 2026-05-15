@@ -5,8 +5,9 @@ title: Tasks
 status: active
 tags:
 - task
-links: []
-updated: 2026-05-12
+links:
+- task-quickshell-desktop-shell
+updated: 2026-05-14
 permalink: newxos/tasks/readme
 ---
 
@@ -16,4 +17,4 @@ This folder tracks durable TODOs and planned work.
 
 ## Active tasks
 
-None currently. Add new tasks as they arise.
+- [QuickShell desktop shell requirements](quickshell-desktop-shell.md): requirements and implementation TODOs for the desktop shell rewrite.

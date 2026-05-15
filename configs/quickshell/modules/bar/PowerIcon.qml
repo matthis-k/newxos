@@ -4,6 +4,6 @@ import qs.services
 
 StatusIcon {
     iconName: "system-shutdown-symbolic"
-    color: Config.colors.red
-    quickmenuName: "power"
+    iconColor: Config.colors.red
+    tabName: "overview"
 }
