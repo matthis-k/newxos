@@ -26,6 +26,17 @@ Singleton {
     property real _lastTxBytes: 0
     property double _lastSampleMs: 0
 
+    // Per-CPU tracking
+    property var cpuCorePercents: []
+    property var _lastCpuCoreTotals: []
+    property var _lastCpuCoreIdles: []
+
+    // History buffer for graphs (60 samples at 2s interval = 2 minutes)
+    property int historyMaxSamples: 60
+    property var cpuHistory: []
+    property var cpuCoreHistory: []
+    property double _lastHistorySampleMs: 0
+
     function formatRate(bytesPerSecond) {
         const absValue = Math.abs(bytesPerSecond || 0);
         if (absValue >= 1024 * 1024)
@@ -33,6 +44,12 @@ Singleton {
         if (absValue >= 1024)
             return `${(bytesPerSecond / 1024).toFixed(1)} KiB/s`;
         return `${Math.round(bytesPerSecond || 0)} B/s`;
+    }
+
+    function pushToHistory(historyArray, value) {
+        historyArray.push(value);
+        if (historyArray.length > root.historyMaxSamples)
+            historyArray.shift();
     }
 
     function applySample(text) {
@@ -44,6 +61,7 @@ Singleton {
             sample[parts[0]] = parts.slice(1);
         }
 
+        // Parse total CPU
         if (sample.cpu && sample.cpu.length >= 2) {
             const cpuTotal = parseFloat(sample.cpu[0]);
             const cpuIdle = parseFloat(sample.cpu[1]);
@@ -55,6 +73,42 @@ Singleton {
                 _lastCpuTotal = cpuTotal;
                 _lastCpuIdle = cpuIdle;
             }
+        }
+
+        // Parse per-CPU cores
+        if (sample.cpu0) {
+            const coreCount = Object.keys(sample).filter(k => k.startsWith('cpu') && k !== 'cpu' && !isNaN(k.charAt(3))).length;
+            const newCorePercents = [];
+            const newLastTotals = [];
+            const newLastIdles = [];
+
+            for (let i = 0; i < coreCount; i++) {
+                const key = `cpu${i}`;
+                if (sample[key] && sample[key].length >= 2) {
+                    const coreTotal = parseFloat(sample[key][0]);
+                    const coreIdle = parseFloat(sample[key][1]);
+                    
+                    if (_lastCpuCoreTotals[i] !== undefined && _lastCpuCoreTotals[i] > 0) {
+                        const totalDelta = coreTotal - _lastCpuCoreTotals[i];
+                        const idleDelta = coreIdle - _lastCpuCoreIdles[i];
+                        if (totalDelta > 0) {
+                            const corePercent = Math.max(0, Math.min(100, ((totalDelta - idleDelta) / totalDelta) * 100));
+                            newCorePercents.push(corePercent);
+                        } else {
+                            newCorePercents.push(0);
+                        }
+                    } else {
+                        newCorePercents.push(0);
+                    }
+                    
+                    newLastTotals.push(coreTotal);
+                    newLastIdles.push(coreIdle);
+                }
+            }
+
+            cpuCorePercents = newCorePercents;
+            _lastCpuCoreTotals = newLastTotals;
+            _lastCpuCoreIdles = newLastIdles;
         }
 
         if (sample.mem && sample.mem.length >= 2) {
@@ -106,6 +160,28 @@ Singleton {
                 _lastSampleMs = now;
             }
         }
+
+        // Push to history every 2 seconds
+        const now = Date.now();
+        if (_lastHistorySampleMs === 0 || (now - _lastHistorySampleMs) >= 2000) {
+            pushToHistory(cpuHistory, cpuPercent);
+            
+            if (cpuCoreHistory.length === 0 || cpuCoreHistory[0] === undefined) {
+                cpuCoreHistory = cpuCorePercents.map(p => [p]);
+            } else {
+                for (let i = 0; i < cpuCorePercents.length; i++) {
+                    if (cpuCoreHistory[i]) {
+                        cpuCoreHistory[i].push(cpuCorePercents[i]);
+                        if (cpuCoreHistory[i].length > root.historyMaxSamples)
+                            cpuCoreHistory[i].shift();
+                    } else {
+                        cpuCoreHistory[i] = [cpuCorePercents[i]];
+                    }
+                }
+            }
+            
+            _lastHistorySampleMs = now;
+        }
     }
 
     function refresh() {
@@ -113,7 +189,7 @@ Singleton {
             command: [
                 "sh",
                 "-c",
-                "read _ u n s i w irq sirq st g gn < /proc/stat; total=$((u+n+s+i+w+irq+sirq+st)); idle=$((i+w)); mem_total=$(awk '/MemTotal/ {print $2}' /proc/meminfo); mem_available=$(awk '/MemAvailable/ {print $2}' /proc/meminfo); swap_total=$(awk '/SwapTotal/ {print $2}' /proc/meminfo); swap_free=$(awk '/SwapFree/ {print $2}' /proc/meminfo); iface=$(awk -F: '$1 !~ /lo/ {gsub(/ /, \"\", $1); print $1; exit}' /proc/net/dev); if [ -n \"$iface\" ]; then set -- $(awk -F'[: ]+' -v iface=\"$iface\" '$1 === iface {print $3, $11}' /proc/net/dev); rx=$1; tx=$2; else iface=none; rx=0; tx=0; fi; set -- $(df -Pk / | awk 'NR===2 {print $2, $3}'); disk_total=$1; disk_used=$2; printf 'cpu %s %s\\nmem %s %s\\nswap %s %s\\nnet %s %s %s\\ndisk %s %s\\n' \"$total\" \"$idle\" \"$((mem_total-mem_available))\" \"$mem_total\" \"$((swap_total-swap_free))\" \"$swap_total\" \"$iface\" \"$rx\" \"$tx\" \"$disk_used\" \"$disk_total\""
+                "read _ u n s i w irq sirq st g gn < /proc/stat; total=$((u+n+s+i+w+irq+sirq+st)); idle=$((i+w)); echo \"cpu $total $idle\"; idx=0; while read -r line; do case \"$line\" in cpu[0-9]*) set -- $line; u2=$2; n2=$3; s2=$4; i2=$5; w2=$6; irq2=$7; sirq2=$8; st2=$9; t2=$((u2+n2+s2+i2+w2+irq2+sirq2+st2)); id2=$((i2+w2)); echo \"cpu${idx} $t2 $id2\"; idx=$((idx+1));; esac; done < /proc/stat; mem_total=$(awk '/MemTotal/ {print $2}' /proc/meminfo); mem_available=$(awk '/MemAvailable/ {print $2}' /proc/meminfo); swap_total=$(awk '/SwapTotal/ {print $2}' /proc/meminfo); swap_free=$(awk '/SwapFree/ {print $2}' /proc/meminfo); iface=$(awk -F: '$1 !~ /lo/ {gsub(/ /, \"\", $1); print $1; exit}' /proc/net/dev); if [ -n \"$iface\" ]; then set -- $(awk -F'[: ]+' -v iface=\"$iface\" '$1 == iface {print $3, $11}' /proc/net/dev); rx=$1; tx=$2; else iface=none; rx=0; tx=0; fi; set -- $(df -Pk / | awk 'NR==2 {print $2, $3}'); disk_total=$1; disk_used=$2; printf 'mem %s %s\\nswap %s %s\\nnet %s %s %s\\ndisk %s %s\\n' \"$((mem_total-mem_available))\" \"$mem_total\" \"$((swap_total-swap_free))\" \"$swap_total\" \"$iface\" \"$rx\" \"$tx\" \"$disk_used\" \"$disk_total\""
             ]
         });
     }
