@@ -26,7 +26,7 @@ ActionButton {
     scaleIcon: true
     iconScaleTarget: statusIcon
     hoveredScale: 1.0
-    unhoveredScale: expanded || active ? 1.0 : 0.8
+    unhoveredScale: active ? 1.0 : 0.8
 
     contentItem: Item {
         implicitWidth: root.implicitWidth
