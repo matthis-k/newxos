@@ -1,12 +1,12 @@
 import QtQuick
 
 ActionButton {
-    id: control
-
-    signal confirmed
+    id: root
 
     property bool confirming: false
     property int confirmTimeoutMs: 1600
+
+    signal confirmed
 
     onClicked: {
         if (confirming) {
@@ -22,7 +22,7 @@ ActionButton {
 
     Timer {
         id: confirmTimer
-        interval: control.confirmTimeoutMs
-        onTriggered: control.confirming = false
+        interval: root.confirmTimeoutMs
+        onTriggered: root.confirming = false
     }
 }

@@ -8,7 +8,7 @@ import qs.components
 import "."
 
 PanelWindow {
-    id: win
+    id: root
     focusable: true
 
     color: "transparent"

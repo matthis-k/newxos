@@ -7,13 +7,12 @@ StackView {
     id: root
 
     property string currentView: ""
+    default property alias entries: views.entries
+    property var initProps
 
     implicitWidth: currentItem ? currentItem.implicitWidth : 0
     implicitHeight: currentItem ? currentItem.implicitHeight : 0
     clip: true
-
-    default property alias entries: views.entries
-    property var initProps
 
     SimpleMap {
         id: views

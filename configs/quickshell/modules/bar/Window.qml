@@ -1,10 +1,10 @@
+import QtQuick
 import Quickshell
 import Quickshell.Wayland
-import QtQuick
 import qs.utils
 
 PanelWindow {
-    id: win
+    id: root
     property var shellScreenState
 
     anchors {
@@ -12,13 +12,14 @@ PanelWindow {
         right: true
         left: true
     }
+    implicitHeight: Math.round(Pixels.mm(10, screen)) | 1
+
     Component.onCompleted: {
         if (WlrLayershell)
             WlrLayershell.layer = WlrLayer.Top;
     }
-    implicitHeight: Math.round(Pixels.mm(10, screen)) | 1
     Bar {
-        screenState: win.shellScreenState
+        screenState: root.shellScreenState
     }
 
     function open() {

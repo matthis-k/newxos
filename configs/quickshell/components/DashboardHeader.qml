@@ -19,19 +19,19 @@ ColumnLayout {
     Text {
         visible: text !== ""
         text: root.title
-        Layout.fillWidth: true
         color: Config.styling.text0
         font.pixelSize: root.titlePixelSize
         font.bold: true
         elide: Text.ElideRight
+        Layout.fillWidth: true
     }
 
     Text {
         visible: text !== ""
         text: root.subtitle
-        Layout.fillWidth: true
         color: Config.styling.text2
         font.pixelSize: root.subtitlePixelSize
         wrapMode: Text.WordWrap
+        Layout.fillWidth: true
     }
 }

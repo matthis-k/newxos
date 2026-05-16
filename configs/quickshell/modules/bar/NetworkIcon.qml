@@ -2,6 +2,7 @@ import QtQuick
 import qs.services
 
 StatusIcon {
+    id: root
     readonly property var connectedNetwork: NetworkService.connectedNetwork
 
     iconName: {

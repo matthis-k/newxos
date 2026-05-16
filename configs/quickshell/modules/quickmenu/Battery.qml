@@ -106,14 +106,16 @@ ColumnLayout {
 
             RowLayout {
                 id: row
-                anchors.left: parent.left
-                anchors.leftMargin: root.horizontalPadding
-                anchors.right: parent.right
-                anchors.rightMargin: root.horizontalPadding
-                anchors.top: parent.top
-                anchors.topMargin: root.verticalPadding
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: root.verticalPadding
+                anchors {
+                    left: parent.left
+                    leftMargin: root.horizontalPadding
+                    right: parent.right
+                    rightMargin: root.horizontalPadding
+                    top: parent.top
+                    topMargin: root.verticalPadding
+                    bottom: parent.bottom
+                    bottomMargin: root.verticalPadding
+                }
                 spacing: root.iconTextGap
 
                 Item {

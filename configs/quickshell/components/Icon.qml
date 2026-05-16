@@ -8,18 +8,18 @@ Item {
 
     property string iconName: "dialog-warning"
     property string fallbackIconName: "dialog-warning"
-    property var iconPath: Quickshell.iconPath(iconName, fallbackIconName)
-    property var color: undefined
+    property url iconPath: Quickshell.iconPath(iconName, fallbackIconName)
+    property color color: "transparent"
     property real implicitSize: -1
-    property var source: undefined
+    property url source: ""
 
     readonly property bool hasImplicitSize: implicitSize >= 0
 
-    implicitWidth: hasImplicitSize ? implicitSize : Math.max(16, parent ? parent.height : icon.implicitWidth)
-    implicitHeight: hasImplicitSize ? implicitSize : Math.max(16, parent ? parent.height : icon.implicitHeight)
-
     property alias smooth: icon.smooth
     property alias mipmap: icon.mipmap
+
+    implicitWidth: hasImplicitSize ? implicitSize : Math.max(16, parent ? parent.height : icon.implicitWidth)
+    implicitHeight: hasImplicitSize ? implicitSize : Math.max(16, parent ? parent.height : icon.implicitHeight)
 
     IconImage {
         id: icon

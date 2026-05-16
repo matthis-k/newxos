@@ -2,6 +2,7 @@ import Quickshell.Bluetooth
 import qs.services
 
 StatusIcon {
+    id: root
     readonly property var adapter: Bluetooth.defaultAdapter
     readonly property bool btOn: !!adapter && adapter.enabled
     readonly property int connectedCount: adapter ? (adapter.devices.values || []).filter(device => device.connected).length : 0

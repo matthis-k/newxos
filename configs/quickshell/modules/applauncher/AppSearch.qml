@@ -1,5 +1,5 @@
 import QtQuick
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 import Quickshell
 import qs.components
 import qs.services
@@ -8,7 +8,7 @@ import qs.utils.types
 import "."
 
 Item {
-    id: search
+    id: root
 
     required property var view
     property var closeHandler: null
@@ -67,7 +67,7 @@ Item {
         target: DesktopEntries
         ignoreUnknownSignals: true
         function onApplicationsChanged() {
-            search.refreshFilter();
+            root.refreshFilter();
         }
     }
 
@@ -93,9 +93,11 @@ Item {
         Item {
             id: inputWrapper
             implicitHeight: Pixels.mm(30, screen)
-            anchors.top: parent.top
-            anchors.left: gridWrapper.left
-            anchors.right: gridWrapper.right
+            anchors {
+                top: parent.top
+                left: gridWrapper.left
+                right: gridWrapper.right
+            }
             height: implicitHeight
 
             Item {
@@ -112,9 +114,11 @@ Item {
 
                 TextInput {
                     id: searchInput
-                    anchors.fill: parent
-                    anchors.leftMargin: Config.spacing.xxs
-                    anchors.rightMargin: Config.spacing.xxs
+                    anchors {
+                        fill: parent
+                        leftMargin: Config.spacing.xxs
+                        rightMargin: Config.spacing.xxs
+                    }
                     color: Config.styling.text0
                     focus: true
                     selectionColor: Config.styling.selectionBackground
@@ -126,8 +130,8 @@ Item {
                         if (closeHandler)
                             closeHandler();
                     }
-                    Keys.onReturnPressed: search.activateIndex(grid.currentIndex)
-                    Keys.onEnterPressed: search.activateIndex(grid.currentIndex)
+                    Keys.onReturnPressed: root.activateIndex(grid.currentIndex)
+                    Keys.onEnterPressed: root.activateIndex(grid.currentIndex)
                     Keys.onUpPressed: grid.moveCurrentIndexUp()
                     Keys.onDownPressed: grid.moveCurrentIndexDown()
                     Keys.onLeftPressed: grid.moveCurrentIndexLeft()
@@ -162,18 +166,20 @@ Item {
 
                     onTextChanged: {
                         const normalizedText = text.trim().toLowerCase();
-                        if (search.searchTerm === normalizedText)
+                        if (root.searchTerm === normalizedText)
                             return;
-                        search.suppressSearchInputSync = true;
-                        search.searchTerm = normalizedText;
-                        search.suppressSearchInputSync = false;
+                        root.suppressSearchInputSync = true;
+                        root.searchTerm = normalizedText;
+                        root.suppressSearchInputSync = false;
                     }
                 }
 
                 Text {
-                    anchors.fill: parent
-                    anchors.leftMargin: Config.spacing.xxs
-                    anchors.rightMargin: Config.spacing.xxs
+                    anchors {
+                        fill: parent
+                        leftMargin: Config.spacing.xxs
+                        rightMargin: Config.spacing.xxs
+                    }
                     text: "Search apps"
                     color: Config.styling.placeholderText
                     font.pixelSize: searchInput.font.pixelSize
@@ -201,7 +207,7 @@ Item {
                 height: implicitHeight
                 snapMode: GridView.SnapToRow
                 clip: true
-                model: search.filteredApps
+                model: root.filteredApps
                 focus: false
                 boundsBehavior: Flickable.StopAtBounds
 
@@ -229,7 +235,7 @@ Item {
                         iconScaleTarget: entry.icon
                         textScaleTarget: entry.textContent
 
-                        onClicked: search.activateIndex(index)
+                        onClicked: root.activateIndex(index)
 
                         contentItem: AppLauncherEntry {
                             id: entry
@@ -242,7 +248,7 @@ Item {
                 Text {
                     anchors.centerIn: grid
                     text: searchTerm ? "No matching applications" : "No applications available"
-                    visible: search.filteredApps.length === 0
+                    visible: root.filteredApps.length === 0
                     color: Config.styling.text2
                     font.pixelSize: 14
                 }

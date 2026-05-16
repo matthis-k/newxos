@@ -1,13 +1,13 @@
-import Quickshell
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Controls
+import Quickshell
+import Quickshell.Wayland
 import qs.utils
 import qs.components
 import qs.services
 
 PanelWindow {
-    id: win
+    id: root
     property Component previewComponent: null
 
     function showPreview(component) {
@@ -27,16 +27,16 @@ PanelWindow {
         top: true
         left: true
     }
-    Component.onCompleted: {
-        if (WlrLayershell)
-            WlrLayershell.layer = WlrLayer.Overlay;
-    }
-
     implicitWidth: previewLoader.item ? previewLoader.item.implicitWidth + Config.spacing.md : 0
     implicitHeight: previewLoader.item ? previewLoader.item.implicitHeight + Config.spacing.md : 0
 
     visible: !!previewLoader.item
     color: Config.styling.bg0
+
+    Component.onCompleted: {
+        if (WlrLayershell)
+            WlrLayershell.layer = WlrLayer.Overlay;
+    }
 
     SwipeView {
         id: selection
@@ -52,7 +52,7 @@ PanelWindow {
             Loader {
                 id: previewLoader
                 anchors.centerIn: parent
-                sourceComponent: win.previewComponent
+                sourceComponent: root.previewComponent
             }
         }
     }
@@ -69,6 +69,6 @@ PanelWindow {
     Timer {
         id: closeTimer
         interval: 300
-        onTriggered: win.clearPreview()
+        onTriggered: root.clearPreview()
     }
 }

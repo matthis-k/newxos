@@ -29,8 +29,9 @@ StatusIcon {
         return Config.styling.text0;
     }
 
+    tabName: "audio"
+
     PwObjectTracker {
         objects: root.sink ? [root.sink] : []
     }
-    tabName: "audio"
 }

@@ -6,7 +6,7 @@ import Quickshell
 import Quickshell.Io
 
 Singleton {
-    id: cfg
+    id: root
 
     function colorWithOpacity(colorValue, alpha) {
         const hex = (colorValue && colorValue.toString) ? colorValue.toString() : "#000000";
@@ -118,33 +118,33 @@ Singleton {
         id: colorsObj
         reloadableId: "persistentColors"
 
-        property color rosewater: cfg.paletteColors.rosewater || "#f5e0dc"
-        property color flamingo: cfg.paletteColors.flamingo || "#f2cdcd"
-        property color pink: cfg.paletteColors.pink || "#f5c2e7"
-        property color mauve: cfg.paletteColors.mauve || "#cba6f7"
-        property color red: cfg.paletteColors.red || "#f38ba8"
-        property color maroon: cfg.paletteColors.maroon || "#eba0ac"
-        property color peach: cfg.paletteColors.peach || "#fab387"
-        property color yellow: cfg.paletteColors.yellow || "#f9e2af"
-        property color green: cfg.paletteColors.green || "#a6e3a1"
-        property color teal: cfg.paletteColors.teal || "#94e2d5"
-        property color sky: cfg.paletteColors.sky || "#89dceb"
-        property color sapphire: cfg.paletteColors.sapphire || "#74c7ec"
-        property color blue: cfg.paletteColors.blue || "#89b4fa"
-        property color lavender: cfg.paletteColors.lavender || "#b4befe"
+        property color rosewater: root.paletteColors.rosewater || "#f5e0dc"
+        property color flamingo: root.paletteColors.flamingo || "#f2cdcd"
+        property color pink: root.paletteColors.pink || "#f5c2e7"
+        property color mauve: root.paletteColors.mauve || "#cba6f7"
+        property color red: root.paletteColors.red || "#f38ba8"
+        property color maroon: root.paletteColors.maroon || "#eba0ac"
+        property color peach: root.paletteColors.peach || "#fab387"
+        property color yellow: root.paletteColors.yellow || "#f9e2af"
+        property color green: root.paletteColors.green || "#a6e3a1"
+        property color teal: root.paletteColors.teal || "#94e2d5"
+        property color sky: root.paletteColors.sky || "#89dceb"
+        property color sapphire: root.paletteColors.sapphire || "#74c7ec"
+        property color blue: root.paletteColors.blue || "#89b4fa"
+        property color lavender: root.paletteColors.lavender || "#b4befe"
 
-        property color text: cfg.paletteColors.text || "#cdd6f4"
-        property color subtext1: cfg.paletteColors.subtext1 || "#bac2de"
-        property color subtext0: cfg.paletteColors.subtext0 || "#a6adc8"
-        property color overlay2: cfg.paletteColors.overlay2 || "#9399b2"
-        property color overlay1: cfg.paletteColors.overlay1 || "#7f849c"
-        property color overlay0: cfg.paletteColors.overlay0 || "#6c7086"
-        property color surface2: cfg.paletteColors.surface2 || "#585b70"
-        property color surface1: cfg.paletteColors.surface1 || "#45475a"
-        property color surface0: cfg.paletteColors.surface0 || "#313244"
-        property color base: cfg.paletteColors.base || "#1e1e2e"
-        property color mantle: cfg.paletteColors.mantle || "#181825"
-        property color crust: cfg.paletteColors.crust || "#11111b"
+        property color text: root.paletteColors.text || "#cdd6f4"
+        property color subtext1: root.paletteColors.subtext1 || "#bac2de"
+        property color subtext0: root.paletteColors.subtext0 || "#a6adc8"
+        property color overlay2: root.paletteColors.overlay2 || "#9399b2"
+        property color overlay1: root.paletteColors.overlay1 || "#7f849c"
+        property color overlay0: root.paletteColors.overlay0 || "#6c7086"
+        property color surface2: root.paletteColors.surface2 || "#585b70"
+        property color surface1: root.paletteColors.surface1 || "#45475a"
+        property color surface0: root.paletteColors.surface0 || "#313244"
+        property color base: root.paletteColors.base || "#1e1e2e"
+        property color mantle: root.paletteColors.mantle || "#181825"
+        property color crust: root.paletteColors.crust || "#11111b"
     }
 
     PersistentProperties {

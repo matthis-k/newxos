@@ -1,6 +1,7 @@
 import qs.services
 
 StatusIcon {
+    id: root
     iconName: "utilities-system-monitor-symbolic"
     iconColor: {
         if (SystemStats.cpuPercent >= 90 || SystemStats.memoryPercent >= 90)

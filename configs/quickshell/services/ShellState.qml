@@ -172,7 +172,7 @@ Singleton {
     }
 
     function forActiveScreens(callback) {
-        Quickshell.screens.filter(screen => Hyprland.focusedMonitor && Hyprland.focusedMonitor == Hyprland.monitorFor(screen)).forEach(callback);
+        Quickshell.screens.filter(screen => Hyprland.focusedMonitor && Hyprland.focusedMonitor === Hyprland.monitorFor(screen)).forEach(callback);
     }
 
     IpcHandler {
@@ -201,7 +201,7 @@ Singleton {
     }
 
     function getScreenByName(screenName: string): ScreenState {
-        return root.instances.find(screenState => screenState.screen.name == screenName);
+        return root.instances.find(screenState => screenState.screen.name === screenName);
     }
 
     function getScreenByRegex(screenRegex: string): list<ScreenState> {

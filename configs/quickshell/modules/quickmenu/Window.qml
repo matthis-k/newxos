@@ -1,11 +1,11 @@
-import Quickshell
-import Quickshell.Wayland
 import QtQuick
 import QtQuick.Controls
+import Quickshell
+import Quickshell.Wayland
 import qs.services
 
 PanelWindow {
-    id: win
+    id: root
     property var shellScreenState
     readonly property bool dashboardVisible: !!shellScreenState && shellScreenState.dashboardPhase !== "closed"
     property real tabSwipeAccumulator: 0
@@ -49,7 +49,7 @@ PanelWindow {
             WlrLayershell.layer = WlrLayer.Overlay;
     }
 
-    visible: win.dashboardVisible
+    visible: root.dashboardVisible
     color: "transparent"
 
     readonly property real targetHeight: screen ? screen.height : 720
@@ -59,20 +59,22 @@ PanelWindow {
 
     MouseArea {
         width: panelCard.x
-        anchors.left: parent.left
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        enabled: win.visible && !!win.shellScreenState && win.shellScreenState.dashboardPhase === "open"
+        anchors {
+            left: parent.left
+            top: parent.top
+            bottom: parent.bottom
+        }
+        enabled: root.visible && !!root.shellScreenState && root.shellScreenState.dashboardPhase === "open"
         onClicked: {
             if (!(selection.currentItem?.popupOpen))
-                win.shellScreenState?.closeDashboard();
+                root.shellScreenState?.closeDashboard();
         }
     }
 
     Rectangle {
         anchors.fill: parent
         color: Config.colorWithOpacity(Config.styling.bg0, 1)
-        opacity: win.backdropOpacity
+        opacity: root.backdropOpacity
 
         Behavior on opacity {
             NumberAnimation {
@@ -87,12 +89,12 @@ PanelWindow {
     Item {
         id: panelCard
         z: 1
-        visible: win.dashboardVisible
+        visible: root.dashboardVisible
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        x: parent.width - width * win.panelProgress
-        width: win.targetWidth
-        height: win.targetHeight
+        x: parent.width - width * root.panelProgress
+        width: root.targetWidth
+        height: root.targetHeight
 
         Behavior on x {
             NumberAnimation {
@@ -108,7 +110,7 @@ PanelWindow {
             }
         }
 
-        opacity: win.panelProgress
+        opacity: root.panelProgress
 
         Behavior on width {
             NumberAnimation {
@@ -117,7 +119,7 @@ PanelWindow {
             }
         }
 
-        scale: 0.985 + 0.015 * win.panelProgress
+        scale: 0.985 + 0.015 * root.panelProgress
 
         Behavior on scale {
             NumberAnimation {
@@ -139,7 +141,7 @@ PanelWindow {
             anchors.fill: parent
             interactive: false
             clip: true
-            Component.onCompleted: win.syncCurrentTab()
+            Component.onCompleted: root.syncCurrentTab()
 
             WheelHandler {
                 acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
@@ -148,19 +150,19 @@ PanelWindow {
 
                 onActiveChanged: {
                     if (!active)
-                        win.resetTabSwipe();
+                        root.resetTabSwipe();
                 }
 
                 onWheel: event => {
                     const delta = event.pixelDelta.x !== 0 ? event.pixelDelta.x : event.angleDelta.x / 4;
 
                     if (delta !== 0)
-                        win.queueTabSwipe(delta);
+                        root.queueTabSwipe(delta);
                 }
             }
 
             Overview {
-                screenState: win.shellScreenState
+                screenState: root.shellScreenState
             }
             Audio {}
             Notifications {}
@@ -171,16 +173,16 @@ PanelWindow {
         }
 
         Connections {
-            target: win.shellScreenState
+            target: root.shellScreenState
 
             function onActiveTabChanged() {
-                win.resetTabSwipe();
-                win.syncCurrentTab();
+                root.resetTabSwipe();
+                root.syncCurrentTab();
             }
 
             function onDashboardPhaseChanged() {
-                if (win.shellScreenState?.dashboardPhase !== "open")
-                    win.resetTabSwipe();
+                if (root.shellScreenState?.dashboardPhase !== "open")
+                    root.resetTabSwipe();
             }
         }
     }
@@ -188,6 +190,6 @@ PanelWindow {
     Item {
         focus: visible
 
-        Keys.onEscapePressed: win.shellScreenState?.closeDashboard()
+        Keys.onEscapePressed: root.shellScreenState?.closeDashboard()
     }
 }

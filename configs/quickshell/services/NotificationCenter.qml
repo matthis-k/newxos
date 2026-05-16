@@ -94,8 +94,8 @@ Singleton {
 
     PersistentProperties {
         id: state
-        reloadableId: "notificationCenterState"
         property bool toastsEnabled: true
+        reloadableId: "notificationCenterState"
     }
 
     NotificationServer {

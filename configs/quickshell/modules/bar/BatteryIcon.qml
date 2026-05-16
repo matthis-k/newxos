@@ -6,7 +6,7 @@ import qs.services
 StatusIcon {
     id: root
     property UPowerDevice bat: UPower.displayDevice
-    visible: bat.isLaptopBattery == true
+    visible: bat.isLaptopBattery === true
 
     iconColor: {
         let percentage = Math.floor(root.bat.percentage * 100);

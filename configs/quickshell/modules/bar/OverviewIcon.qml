@@ -3,6 +3,7 @@ import Quickshell.Services.UPower
 import qs.services
 
 StatusIcon {
+    id: root
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property var battery: UPower.displayDevice
     readonly property bool muted: sink?.audio?.muted || false

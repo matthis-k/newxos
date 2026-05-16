@@ -1,13 +1,13 @@
 import QtQuick
 
 Item {
-    id: control
+    id: root
 
     signal clicked
 
     property bool flat: false
     property string text: ""
-    property var iconSource: undefined
+    property url iconSource: ""
     property string iconName: ""
 
     property Item contentItem: defaultContent
@@ -18,7 +18,7 @@ Item {
     property int topPadding: padding
     property int bottomPadding: padding
 
-    property Item scaleTarget: control.contentItem
+    property Item scaleTarget: root.contentItem
     property Item iconScaleTarget: null
     property Item textScaleTarget: null
     property bool scaleIcon: false
@@ -27,7 +27,7 @@ Item {
     property real unhoveredScale: 0.8
     property real baseScale: 1.0
     property int scaleAnimationDuration: 150
-    property var scaleAnimationEasing: Easing.OutCubic
+    property int scaleAnimationEasing: Easing.OutCubic
     property int cursorShape: Qt.PointingHandCursor
 
     readonly property alias hovered: hoverHandler.hovered
@@ -74,55 +74,56 @@ Item {
             applyScale(textScaleTarget, textScaleAnimation, targetScale);
     }
 
-    onContentItemChanged: attachItem(contentItem, contentContainer)
-
     Item {
         id: contentContainer
-        anchors.fill: parent
-        anchors.leftMargin: control.leftPadding
-        anchors.rightMargin: control.rightPadding
-        anchors.topMargin: control.topPadding
-        anchors.bottomMargin: control.bottomPadding
+        anchors {
+            fill: parent
+            leftMargin: root.leftPadding
+            rightMargin: root.rightPadding
+            topMargin: root.topPadding
+            bottomMargin: root.bottomPadding
+        }
     }
 
     Item {
         id: defaultContent
-        visible: control.contentItem === defaultContent
+        visible: root.contentItem === defaultContent
     }
 
     NumberAnimation {
         id: scaleAnimation
         property: "scale"
-        duration: control.scaleAnimationDuration
-        easing.type: control.scaleAnimationEasing
+        duration: root.scaleAnimationDuration
+        easing.type: root.scaleAnimationEasing
     }
 
     NumberAnimation {
         id: iconScaleAnimation
         property: "scale"
-        duration: control.scaleAnimationDuration
-        easing.type: control.scaleAnimationEasing
+        duration: root.scaleAnimationDuration
+        easing.type: root.scaleAnimationEasing
     }
 
     NumberAnimation {
         id: textScaleAnimation
         property: "scale"
-        duration: control.scaleAnimationDuration
-        easing.type: control.scaleAnimationEasing
+        duration: root.scaleAnimationDuration
+        easing.type: root.scaleAnimationEasing
     }
 
     HoverHandler {
         id: hoverHandler
-        cursorShape: control.cursorShape
+        cursorShape: root.cursorShape
     }
 
     TapHandler {
         acceptedButtons: Qt.LeftButton
-        cursorShape: control.cursorShape
+        cursorShape: root.cursorShape
         gesturePolicy: TapHandler.ReleaseWithinBounds
-        onTapped: control.clicked()
+        onTapped: root.clicked()
     }
 
+    onContentItemChanged: attachItem(contentItem, contentContainer)
     onHoveredChanged: updateScale()
     onBaseScaleChanged: updateScale()
     onHoveredScaleChanged: updateScale()

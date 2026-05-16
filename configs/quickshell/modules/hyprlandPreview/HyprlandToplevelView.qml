@@ -35,9 +35,11 @@ Item {
                 DesktopEntries.applications?.values;
                 return DesktopEntries.heuristicLookup(root.toplevel?.wayland?.appId);
             }
-            anchors.left: parent.left
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
+            anchors {
+                left: parent.left
+                top: parent.top
+                bottom: parent.bottom
+            }
             width: height
             source: Quickshell.iconPath(entry?.icon || "dialog-warning", "dialog-warning")
             mipmap: false
@@ -51,10 +53,12 @@ Item {
             font.bold: true
             elide: Text.ElideRight
             maximumLineCount: 1
-            anchors.left: appIcon.right
-            anchors.leftMargin: Config.spacing.xxs
-            anchors.right: closeBtn.left
-            anchors.verticalCenter: parent.verticalCenter
+            anchors {
+                left: appIcon.right
+                leftMargin: Config.spacing.xxs
+                right: closeBtn.left
+                verticalCenter: parent.verticalCenter
+            }
         }
 
         InteractiveButton {

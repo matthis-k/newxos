@@ -2,16 +2,17 @@ import QtQuick
 
 QtObject {
     id: root
+
+    property Component entryFactory: Component {
+        Entry {}
+    }
+    property bool _reactivityTrigger: false
     default property list<Entry> entries
 
     component Entry: QtObject {
         property var key
         property var value
     }
-    property Component entryFactory: Component {
-        Entry {}
-    }
-    property bool _reactivityTrigger: false
 
     function _touch() {
         _reactivityTrigger = !_reactivityTrigger;

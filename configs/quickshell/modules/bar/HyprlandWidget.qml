@@ -121,7 +121,7 @@ Item {
         implicitHeight: root.height
         implicitWidth: root.height
         backgroundColor: Config.styling.bg3
-        active: toplevel.activated && Hyprland.focusedWorkspace?.id == toplevel?.workspace.id
+        active: toplevel.activated && Hyprland.focusedWorkspace?.id === toplevel?.workspace.id
         highlightSide: ActiveIndicator.Side.Top
         highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAcross
         highlightThickness: Math.max(2, height * 0.1)

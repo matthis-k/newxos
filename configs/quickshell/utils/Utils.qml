@@ -2,8 +2,9 @@ pragma Singleton
 import Quickshell
 
 Singleton {
+    id: root
     function findContainingQsWindow(item) {
-        var cur = item;
+        let cur = item;
         while (cur) {
             // attached object is QsWindow (named in C++ as QsWindow)
             if (cur.QsWindow && cur.QsWindow.window)
@@ -13,7 +14,7 @@ Singleton {
         return null;
     }
     function getScreen(item) {
-        var cur = item;
+        let cur = item;
         while (true) {
             if (cur.screen) {
                 return cur.screen;

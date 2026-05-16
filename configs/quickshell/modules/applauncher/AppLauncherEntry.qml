@@ -14,9 +14,11 @@ Item {
     Item {
         id: iconWrapper
         implicitHeight: parent.height * 0.5
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.right: parent.right
+        anchors {
+            top: parent.top
+            left: parent.left
+            right: parent.right
+        }
 
         Icon {
             id: icon
@@ -29,16 +31,20 @@ Item {
 
     Item {
         id: textContent
-        anchors.top: iconWrapper.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
+        anchors {
+            top: iconWrapper.bottom
+            left: parent.left
+            right: parent.right
+            bottom: parent.bottom
+        }
 
         Text {
             id: entryName
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
+            anchors {
+                top: parent.top
+                left: parent.left
+                right: parent.right
+            }
             horizontalAlignment: Text.AlignHCenter
             text: desktopEntry?.name || ""
             color: Config.styling.text0
@@ -48,9 +54,11 @@ Item {
         }
 
         Text {
-            anchors.top: entryName.bottom
-            anchors.left: parent.left
-            anchors.right: parent.right
+            anchors {
+                top: entryName.bottom
+                left: parent.left
+                right: parent.right
+            }
             horizontalAlignment: Text.AlignHCenter
             text: desktopEntry?.genericName || desktopEntry?.comment || ""
             color: Config.styling.text2

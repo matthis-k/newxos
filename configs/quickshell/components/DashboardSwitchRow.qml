@@ -45,8 +45,8 @@ Item {
         }
 
         ColumnLayout {
-            Layout.fillWidth: true
             spacing: 2
+            Layout.fillWidth: true
 
             Text {
                 text: root.label
@@ -72,11 +72,13 @@ Item {
             Layout.alignment: Qt.AlignVCenter
 
             DashboardToggleSwitch {
-                anchors.right: parent.right
-                anchors.rightMargin: 2
-                anchors.verticalCenter: parent.verticalCenter
                 checked: root.checked
                 enabled: root.enabled
+                anchors {
+                    right: parent.right
+                    rightMargin: 2
+                    verticalCenter: parent.verticalCenter
+                }
                 onToggled: root.toggled(checked)
             }
         }

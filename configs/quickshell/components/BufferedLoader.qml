@@ -8,7 +8,7 @@ Item {
     property alias active: stagingLoader.active
     readonly property alias status: stagingLoader.status
     readonly property alias progress: stagingLoader.progress
-    readonly property bool hasItem: item != null
+    readonly property bool hasItem: item !== null
 
     property Item item: null
 

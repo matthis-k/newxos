@@ -8,7 +8,7 @@ ActionButton {
     property string tabName: ""
     property string iconName: "dialog-warning"
     property string fallbackIconName: "dialog-warning"
-    property var iconColor: Config.styling.text0
+    property color iconColor: Config.styling.text0
     property string badgeText: ""
     property color badgeColor: Config.styling.primaryAccent
     property alias smooth: statusIcon.smooth
@@ -44,10 +44,12 @@ ActionButton {
         }
 
         Badge {
-            anchors.top: statusIcon.top
-            anchors.right: statusIcon.right
-            anchors.topMargin: -4
-            anchors.rightMargin: -4
+            anchors {
+                top: statusIcon.top
+                right: statusIcon.right
+                topMargin: -4
+                rightMargin: -4
+            }
             text: root.badgeText
             badgeColor: root.badgeColor
         }

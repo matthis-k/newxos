@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
@@ -339,9 +339,11 @@ DashboardPage {
                         highlighted: outputSelector.highlightedIndex === index
 
                         RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: root.horizontalPadding
-                            anchors.rightMargin: root.horizontalPadding
+                            anchors {
+                                fill: parent
+                                leftMargin: root.horizontalPadding
+                                rightMargin: root.horizontalPadding
+                            }
                             spacing: root.iconTextGap
 
                             Icon {

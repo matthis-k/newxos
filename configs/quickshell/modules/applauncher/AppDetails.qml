@@ -125,10 +125,12 @@ Item {
 
                     Item {
                         id: headerLayout
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.leftMargin: root.pad
-                        anchors.rightMargin: root.pad
+                        anchors {
+                            left: parent.left
+                            right: parent.right
+                            leftMargin: root.pad
+                            rightMargin: root.pad
+                        }
                         implicitHeight: Math.max(root.iconSize, titleColumn.implicitHeight)
                         height: implicitHeight
 
@@ -143,10 +145,12 @@ Item {
 
                         Column {
                             id: titleColumn
-                            anchors.left: appIcon.right
-                            anchors.leftMargin: root.lineGap
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
+                            anchors {
+                                left: appIcon.right
+                                leftMargin: root.lineGap
+                                right: parent.right
+                                verticalCenter: parent.verticalCenter
+                            }
                             spacing: root.lineGap
 
                             Text {
@@ -253,9 +257,11 @@ Item {
 
                                 RowLayout {
                                     id: actionLayout
-                                    anchors.fill: parent
-                                    anchors.leftMargin: root.pad
-                                    anchors.rightMargin: root.pad
+                                    anchors {
+                                        fill: parent
+                                        leftMargin: root.pad
+                                        rightMargin: root.pad
+                                    }
                                     spacing: root.lineGap
 
                                     Icon {

@@ -2,6 +2,7 @@ import QtQuick
 import qs.services
 
 Item {
+    id: root
     property string format: "HH:mm"
     implicitHeight: parent.height
     implicitWidth: txt.implicitWidth

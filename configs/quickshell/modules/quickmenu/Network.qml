@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls
+import QtQuick.Controls.Basic
 import Quickshell
 import Quickshell.Io
 
@@ -250,11 +250,13 @@ DashboardPage {
 
                     RowLayout {
                         id: rowContent
-                        anchors.fill: parent
-                        anchors.leftMargin: root.horizontalPadding
-                        anchors.rightMargin: root.horizontalPadding
-                        anchors.topMargin: root.verticalPadding
-                        anchors.bottomMargin: root.verticalPadding
+                        anchors {
+                            fill: parent
+                            leftMargin: root.horizontalPadding
+                            rightMargin: root.horizontalPadding
+                            topMargin: root.verticalPadding
+                            bottomMargin: root.verticalPadding
+                        }
                         spacing: root.iconTextGap
 
                         Item {

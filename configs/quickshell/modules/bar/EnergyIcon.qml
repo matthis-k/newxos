@@ -2,6 +2,7 @@ import Quickshell.Services.UPower
 import qs.services
 
 StatusIcon {
+    id: root
     readonly property var battery: UPower.displayDevice
     readonly property bool hasBattery: battery?.isLaptopBattery === true
 

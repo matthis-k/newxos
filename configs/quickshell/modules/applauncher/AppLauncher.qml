@@ -9,8 +9,10 @@ import qs.utils.types
 import "."
 
 SelectView {
-    id: view
+    id: root
     currentView: "appsearch"
+
+    property var _desktopEntry
 
     SimpleMap.Entry {
         key: "appsearch"
@@ -20,21 +22,25 @@ SelectView {
         }
     }
 
-    property var _desktopEntry
     function openDetails(desktopEntry: DesktopEntry) {
-        view.initProps = {
+        root.initProps = {
             view: view,
             desktopEntry: desktopEntry
         };
-        view.insert("details", Qt.createComponent(Qt.resolvedUrl("AppDetails.qml")));
-        view.currentView = "details";
+        root.insert("details", detailsComponent);
+        root.currentView = "details";
+    }
+
+    Component {
+        id: detailsComponent
+        AppDetails {}
     }
 
     function closeDetails() {
-        view.currentView = "appsearch";
-        view.currentItem.searchTerm = "";
-        view.currentItem.onEnter();
-        view.remove("details");
+        root.currentView = "appsearch";
+        root.currentItem.searchTerm = "";
+        root.currentItem.onEnter();
+        root.remove("details");
         _desktopEntry = undefined;
     }
 
