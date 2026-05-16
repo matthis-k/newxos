@@ -20,11 +20,7 @@ ColumnLayout {
         Layout.fillWidth: true
         Layout.preferredWidth: 1
         implicitHeight: 40
-        backgroundColor: Config.styling.bg3
         accentColor: optionColor
-        indicatorOnHover: true
-        scaleTarget: null
-        flat: true
 
         Process {
             id: runner

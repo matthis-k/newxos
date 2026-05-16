@@ -9,8 +9,8 @@ Switch {
     property color accentColor: Config.styling.primaryAccent
     property color knobColor: Config.styling.textOnAccent
 
-    implicitWidth: 38
-    implicitHeight: 22
+    implicitWidth: 58
+    implicitHeight: 28
     hoverEnabled: true
     spacing: 0
     padding: 0

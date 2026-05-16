@@ -5,17 +5,12 @@ ActionButton {
     id: root
 
     implicitHeight: 28
-    backgroundColor: Config.styling.bg3
-    accentColor: Config.styling.activeIndicator
     highlightSide: ActiveIndicator.Side.Left
     highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAlong
-    highlightThickness: 3
-    indicatorOnHover: true
-    scaleTarget: null
-    flat: true
+    highlightThickness: Config.spacing.xxs
 
     contentItem: Item {
-        implicitWidth: label.implicitWidth + 16
+        implicitWidth: label.implicitWidth + Config.spacing.xs * 2
         implicitHeight: root.implicitHeight
 
         Text {

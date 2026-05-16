@@ -11,8 +11,6 @@ DashboardPage {
     subtitle: NotificationCenter.doNotDisturbEnabled ? "Toasts paused" : "Tracked notification history and actions"
     headerAccessory: Component {
         DashboardToggleSwitch {
-            implicitWidth: 58
-            implicitHeight: 28
             checked: NotificationCenter.toastsEnabled
             onToggled: NotificationCenter.toastsEnabled = checked
         }

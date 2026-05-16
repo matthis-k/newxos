@@ -22,9 +22,7 @@ ActionButton {
     implicitWidth: parent ? parent.height : 24
     implicitHeight: parent ? parent.height : 24
 
-    backgroundColor: Config.styling.bg3
     active: screenState ? screenState.isIndicatorActive(tabName) : false
-    scaleTarget: null
     scaleIcon: true
     iconScaleTarget: statusIcon
     hoveredScale: 1.0
@@ -44,12 +42,10 @@ ActionButton {
         }
 
         Badge {
-            anchors {
-                top: statusIcon.top
-                right: statusIcon.right
-                topMargin: -4
-                rightMargin: -4
-            }
+            anchors.top: statusIcon.top
+            anchors.right: statusIcon.right
+            anchors.topMargin: -Config.spacing.xxs
+            anchors.rightMargin: -Config.spacing.xxs
             text: root.badgeText
             badgeColor: root.badgeColor
         }

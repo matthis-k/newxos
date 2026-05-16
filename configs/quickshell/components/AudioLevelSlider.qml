@@ -44,9 +44,7 @@ Item {
                 anchors.fill: parent
                 visible: root.showIcon
                 enabled: root.enabled
-                flat: true
                 highlightThickness: 0
-                scaleTarget: null
                 onClicked: root.iconClicked()
             }
         }

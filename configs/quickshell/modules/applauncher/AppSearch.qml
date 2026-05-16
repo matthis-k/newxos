@@ -222,14 +222,12 @@ Item {
                         id: entryButton
                         anchors.fill: parent
                         active: isCurrentItem
-                        accentColor: Config.styling.activeIndicator
                         highlightSide: ActiveIndicator.Side.Bottom
                         highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAll
-                        highlightThickness: 8
+                        highlightThickness: Config.spacing.xs
                         baseScale: isCurrentItem ? 1.0 : 0.8
                         hoveredScale: 1.0
                         unhoveredScale: 0.8
-                        scaleTarget: null
                         scaleIcon: true
                         scaleText: true
                         iconScaleTarget: entry.icon

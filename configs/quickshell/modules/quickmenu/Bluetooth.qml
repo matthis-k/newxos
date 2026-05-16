@@ -12,8 +12,6 @@ DashboardPage {
     title: "Bluetooth"
     headerAccessory: Component {
         DashboardToggleSwitch {
-            implicitWidth: 58
-            implicitHeight: 28
             enabled: !!root.adapter
             checked: !!root.adapter && root.adapter.enabled
             onToggled: {
@@ -250,14 +248,10 @@ DashboardPage {
                 implicitHeight: root.rowHeight
                 active: rowRoot.hasDevice && rowRoot.device.connected
                 accentColor: rowRoot.hasDevice && rowRoot.device.connected ? Config.colors.blue : Config.styling.bluetooth
-                backgroundColor: Config.styling.bg3
                 fillOpacity: rowRoot.hasDevice && rowRoot.device.connected ? 0.28 : Config.behaviour.hoverBgOpacity
                 highlightSide: ActiveIndicator.Side.Left
                 highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAlong
-                highlightThickness: 4
-                indicatorOnHover: true
-                scaleTarget: null
-                flat: true
+                highlightThickness: Config.spacing.xxs
 
                 onClicked: {
                     if (rowRoot.expanded)

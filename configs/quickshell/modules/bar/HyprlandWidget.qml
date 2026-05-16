@@ -57,11 +57,9 @@ Item {
             id: ws
             implicitHeight: root.height
             implicitWidth: root.height
-            backgroundColor: Config.styling.bg3
             fillOnHover: false
             indicatorOnHover: false
             highlightThickness: 0
-            scaleTarget: null
             scaleText: true
             textScaleTarget: wsLabel
             hoveredScale: 1.0
@@ -120,12 +118,10 @@ Item {
 
         implicitHeight: root.height
         implicitWidth: root.height
-        backgroundColor: Config.styling.bg3
         active: toplevel.activated && Hyprland.focusedWorkspace?.id === toplevel?.workspace.id
         highlightSide: ActiveIndicator.Side.Top
         highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAcross
         highlightThickness: Math.max(2, height * 0.1)
-        scaleTarget: null
         scaleIcon: true
         iconScaleTarget: tlIcon
         hoveredScale: 1.0

@@ -85,18 +85,14 @@ ColumnLayout {
         implicitHeight: root.rowHeight
         active: isActive
         accentColor: optionColor
-        backgroundColor: Config.styling.bg3
         fillOpacity: isActive ? 0.28 : Config.behaviour.hoverBgOpacity
         highlightSide: ActiveIndicator.Side.Left
         highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAlong
-        highlightThickness: 4
-        indicatorOnHover: true
-        scaleTarget: null
+        highlightThickness: Config.spacing.xxs
         scaleText: true
         textScaleTarget: profileLabel
         hoveredScale: 1.0
         unhoveredScale: 0.8
-        flat: true
 
         onClicked: PowerProfiles.profile = mode
 
@@ -258,16 +254,9 @@ ColumnLayout {
         }
     }
 
-    Component {
-        id: powerModesBlockComponent
-
-        PowerModesBlock {}
-    }
-
-    Loader {
-        active: root.powerModesFirst
+    PowerModesBlock {
         Layout.fillWidth: true
-        sourceComponent: powerModesBlockComponent
+        visible: root.powerModesFirst
     }
 
     Rectangle {
@@ -288,9 +277,8 @@ ColumnLayout {
         color: Config.styling.bg3
     }
 
-    Loader {
-        active: !root.powerModesFirst
+    PowerModesBlock {
         Layout.fillWidth: true
-        sourceComponent: powerModesBlockComponent
+        visible: !root.powerModesFirst
     }
 }

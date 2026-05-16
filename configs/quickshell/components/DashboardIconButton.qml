@@ -1,5 +1,4 @@
 import QtQuick
-
 import qs.services
 
 ActionButton {
@@ -11,10 +10,6 @@ ActionButton {
 
     implicitWidth: 28
     implicitHeight: 28
-    backgroundColor: Config.styling.bg3
-    indicatorOnHover: true
-    scaleTarget: null
-    flat: true
 
     contentItem: Icon {
         anchors.centerIn: parent

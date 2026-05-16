@@ -2,14 +2,13 @@ import QtQuick
 import qs.services
 
 InteractiveButton {
-    id: root
+    id: control
 
     property bool active: false
     property bool fillOnHover: true
-    property bool indicatorOnHover: false
-
+    property bool indicatorOnHover: true
     property color accentColor: Config.styling.activeIndicator
-    property color backgroundColor: "transparent"
+    property color backgroundColor: Config.styling.bg3
     property color borderColor: "transparent"
     property int borderWidth: 0
 
@@ -29,20 +28,20 @@ InteractiveButton {
         anchors.fill: parent
         z: -1
         clip: true
-        color: root.backgroundColor
-        border.width: root.borderWidth
-        border.color: root.borderColor
+        color: control.backgroundColor
+        border.width: control.borderWidth
+        border.color: control.borderColor
         radius: Config.styling.radius
 
         ActiveIndicator {
             anchors.fill: parent
-            side: root.highlightSide
-            animationMode: root.highlightAnimationMode
-            thickness: root.highlightThickness
-            color: root.accentColor
-            bgOpacity: root.fillOpacity
-            bgActive: (root.fillOnHover && root.hovered) || root.active
-            active: root.active || (root.indicatorOnHover && root.hovered)
+            side: control.highlightSide
+            animationMode: control.highlightAnimationMode
+            thickness: control.highlightThickness
+            color: control.accentColor
+            bgOpacity: control.fillOpacity
+            bgActive: (control.fillOnHover && control.hovered) || control.active
+            active: control.active || (control.indicatorOnHover && control.hovered)
         }
     }
 }

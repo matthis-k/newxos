@@ -13,8 +13,6 @@ DashboardPage {
     title: "Networking"
     headerAccessory: Component {
         DashboardToggleSwitch {
-            implicitWidth: 58
-            implicitHeight: 28
             checked: NetworkService.networkingEnabled
             onToggled: nmcliSetNetworkingProcess.exec({
                 command: checked
@@ -228,14 +226,10 @@ DashboardPage {
                 implicitHeight: root.rowHeight
                 active: rowRoot.hasNetwork && rowRoot.network.connected
                 accentColor: rowRoot.hasNetwork && rowRoot.network.connected ? Config.colors.blue : Config.styling.activeIndicator
-                backgroundColor: Config.styling.bg3
                 fillOpacity: rowRoot.hasNetwork && rowRoot.network.connected ? 0.28 : Config.behaviour.hoverBgOpacity
                 highlightSide: ActiveIndicator.Side.Left
                 highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAlong
-                highlightThickness: 4
-                indicatorOnHover: true
-                scaleTarget: null
-                flat: true
+                highlightThickness: Config.spacing.xxs
 
                 onClicked: {
                     if (rowRoot.expanded)

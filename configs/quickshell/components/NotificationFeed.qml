@@ -116,7 +116,6 @@ Item {
                                         implicitHeight: 20
                                         backgroundColor: "transparent"
                                         highlightThickness: 0
-                                        scaleTarget: null
                                         onClicked: NotificationCenter.dismiss(notification)
 
                                         contentItem: Icon {
@@ -153,11 +152,7 @@ Item {
                                             readonly property var action: modelData
 
                                             Layout.fillWidth: true
-                                            backgroundColor: Config.styling.bg3
                                             accentColor: Config.styling.primaryAccent
-                                            indicatorOnHover: true
-                                            scaleTarget: null
-                                            flat: true
                                             onClicked: action.invoke()
 
                                             contentItem: Text {

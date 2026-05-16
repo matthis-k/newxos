@@ -46,9 +46,7 @@ Rectangle {
                 implicitWidth: 18
                 implicitHeight: 18
                 enabled: root.iconEnabled
-                flat: true
                 highlightThickness: 0
-                scaleTarget: null
                 onClicked: root.iconClicked()
 
                 contentItem: Icon {
