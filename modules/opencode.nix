@@ -5,6 +5,11 @@
   ...
 }:
 {
+  flake-file.inputs.qt-agent-skills = {
+    url = "github:TheQtCompanyRnD/agent-skills";
+    flake = false;
+  };
+
   perSystem =
     {
       config,
@@ -110,6 +115,13 @@
               skill.caveman = "allow";
             };
 
+            skills = {
+              paths = [
+                ../configs/opencode/skills
+                "${inputs.qt-agent-skills}/skills"
+              ];
+            };
+
             mcp = {
               github = {
                 type = "local";
@@ -130,6 +142,12 @@
               basic-memory = {
                 type = "local";
                 command = [ (lib.getExe basicMemoryMcpNewxos) ];
+                enabled = true;
+              };
+
+              qt-documentation = {
+                type = "remote";
+                url = "https://qt-docs-mcp.qt.io/mcp";
                 enabled = true;
               };
             };
@@ -154,8 +172,5 @@
           self'.packages.basic-memory-mcp-newxos
         ]
       );
-
-      xdg.configFile."opencode/skills/caveman/SKILL.md".source =
-        ../configs/opencode/skills/caveman/SKILL.md;
     };
 }

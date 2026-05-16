@@ -1101,6 +1101,22 @@
         "type": "github"
       }
     },
+    "qt-agent-skills": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1778512793,
+        "narHash": "sha256-TrfDFt/LwxQUvni3ZS5o9f44CEEQQ4PpchvtVjbJEy4=",
+        "owner": "TheQtCompanyRnD",
+        "repo": "agent-skills",
+        "rev": "24e77fd4ce529adceb8d4c259eb93196a4ef3d9f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "TheQtCompanyRnD",
+        "repo": "agent-skills",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "blink-lib": "blink-lib",
@@ -1121,6 +1137,7 @@
         "pick-resession-nvim": "pick-resession-nvim",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
+        "qt-agent-skills": "qt-agent-skills",
         "sops-nix": "sops-nix",
         "stylix": "stylix",
         "treefmt-nix": "treefmt-nix",

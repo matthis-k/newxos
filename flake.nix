@@ -65,6 +65,10 @@
       url = "github:pyproject-nix/pyproject.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    qt-agent-skills = {
+      url = "github:TheQtCompanyRnD/agent-skills";
+      flake = false;
+    };
     sops-nix = {
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
