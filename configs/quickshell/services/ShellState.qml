@@ -7,7 +7,6 @@ import qs.services
 import "../modules/bar" as Bar
 import "../modules/quickmenu" as Quickmenu
 import "../modules/hyprlandPreview" as HyprlandPreview
-import "../modules/applauncher" as AppLauncher
 import "../modules/background" as Background
 
 Singleton {
@@ -147,22 +146,6 @@ Singleton {
         property HyprlandPreview.Window hyprlandPreview: HyprlandPreview.Window {
             screen: screenState.screen
         }
-
-        property AppLauncher.Window appLauncher: AppLauncher.Window {
-            screen: screenState.screen
-            IpcHandler {
-                target: `applauncher-${screen.name}`
-                function open() {
-                    appLauncher.open();
-                }
-                function close() {
-                    appLauncher.close();
-                }
-                function toggle() {
-                    appLauncher.toggle();
-                }
-            }
-        }
     }
 
     Variants {
@@ -185,18 +168,6 @@ Singleton {
         }
         function toggle() {
             forActiveScreens(screen => getScreenByName(screen.name).bar.toggle());
-        }
-    }
-    IpcHandler {
-        target: "applauncher"
-        function open() {
-            forActiveScreens(screen => getScreenByName(screen.name).appLauncher.open());
-        }
-        function close() {
-            forActiveScreens(screen => getScreenByName(screen.name).appLauncher.close());
-        }
-        function toggle() {
-            forActiveScreens(screen => getScreenByName(screen.name).appLauncher.toggle());
         }
     }
 
