@@ -24,7 +24,7 @@ Item {
     property bool scaleIcon: false
     property bool scaleText: false
     property real hoveredScale: 1.0
-    property real unhoveredScale: 0.8
+    property real unhoveredScale: 1.0
     property real baseScale: 1.0
     property int scaleAnimationDuration: 150
     property int scaleAnimationEasing: Easing.OutCubic
