@@ -20,6 +20,9 @@ Singleton {
     property int rootTotalGiB: 0
     property string primaryInterface: ""
 
+    property var diskPartitions: []
+    property real _lastDiskUpdateMs: 0
+
     property real _lastCpuTotal: 0
     property real _lastCpuIdle: 0
     property real _lastRxBytes: 0
@@ -54,11 +57,25 @@ Singleton {
 
     function applySample(text) {
         const sample = {};
-        for (const line of (text || "").trim().split(/\n+/)) {
+        const lines = (text || "").trim().split(/\n+/);
+        let inDisks = false;
+        sample.disks = [];
+        
+        for (const line of lines) {
+            if (line === 'disks') {
+                inDisks = true;
+                continue;
+            }
+            
             const parts = line.trim().split(/\s+/);
             if (parts.length < 2)
                 continue;
-            sample[parts[0]] = parts.slice(1);
+            
+            if (inDisks) {
+                sample.disks.push(parts);
+            } else {
+                sample[parts[0]] = parts.slice(1);
+            }
         }
 
         // Parse total CPU
@@ -141,6 +158,28 @@ Singleton {
             }
         }
 
+        if (sample.disks) {
+            const newPartitions = [];
+            for (let i = 0; i < sample.disks.length; i++) {
+                const parts = sample.disks[i];
+                if (parts && parts.length >= 3) {
+                    const mountPoint = parts[0];
+                    const usedKiB = parseFloat(parts[1]);
+                    const totalKiB = parseFloat(parts[2]);
+                    if (!isNaN(usedKiB) && !isNaN(totalKiB) && totalKiB > 0) {
+                        const percent = (usedKiB / totalKiB) * 100;
+                        newPartitions.push({
+                            mount: mountPoint,
+                            usedGiB: Math.round(usedKiB / (1024 * 1024)),
+                            totalGiB: Math.round(totalKiB / (1024 * 1024)),
+                            percent: Math.round(percent)
+                        });
+                    }
+                }
+            }
+            diskPartitions = newPartitions;
+        }
+
         if (sample.net && sample.net.length >= 3) {
             const iface = sample.net[0];
             const rxBytes = parseFloat(sample.net[1]);
@@ -189,7 +228,7 @@ Singleton {
             command: [
                 "sh",
                 "-c",
-                "read _ u n s i w irq sirq st g gn < /proc/stat; total=$((u+n+s+i+w+irq+sirq+st)); idle=$((i+w)); echo \"cpu $total $idle\"; idx=0; while read -r line; do case \"$line\" in cpu[0-9]*) set -- $line; u2=$2; n2=$3; s2=$4; i2=$5; w2=$6; irq2=$7; sirq2=$8; st2=$9; t2=$((u2+n2+s2+i2+w2+irq2+sirq2+st2)); id2=$((i2+w2)); echo \"cpu${idx} $t2 $id2\"; idx=$((idx+1));; esac; done < /proc/stat; mem_total=$(awk '/MemTotal/ {print $2}' /proc/meminfo); mem_available=$(awk '/MemAvailable/ {print $2}' /proc/meminfo); swap_total=$(awk '/SwapTotal/ {print $2}' /proc/meminfo); swap_free=$(awk '/SwapFree/ {print $2}' /proc/meminfo); iface=$(awk -F: '$1 !~ /lo/ {gsub(/ /, \"\", $1); print $1; exit}' /proc/net/dev); if [ -n \"$iface\" ]; then set -- $(awk -F'[: ]+' -v iface=\"$iface\" '$1 == iface {print $3, $11}' /proc/net/dev); rx=$1; tx=$2; else iface=none; rx=0; tx=0; fi; set -- $(df -Pk / | awk 'NR==2 {print $2, $3}'); disk_total=$1; disk_used=$2; printf 'mem %s %s\\nswap %s %s\\nnet %s %s %s\\ndisk %s %s\\n' \"$((mem_total-mem_available))\" \"$mem_total\" \"$((swap_total-swap_free))\" \"$swap_total\" \"$iface\" \"$rx\" \"$tx\" \"$disk_used\" \"$disk_total\""
+                "read _ u n s i w irq sirq st g gn < /proc/stat; total=$((u+n+s+i+w+irq+sirq+st)); idle=$((i+w)); echo \"cpu $total $idle\"; idx=0; while read -r line; do case \"$line\" in cpu[0-9]*) set -- $line; u2=$2; n2=$3; s2=$4; i2=$5; w2=$6; irq2=$7; sirq2=$8; st2=$9; t2=$((u2+n2+s2+i2+w2+irq2+sirq2+st2)); id2=$((i2+w2)); echo \"cpu${idx} $t2 $id2\"; idx=$((idx+1));; esac; done < /proc/stat; mem_total=$(awk '/MemTotal/ {print $2}' /proc/meminfo); mem_available=$(awk '/MemAvailable/ {print $2}' /proc/meminfo); swap_total=$(awk '/SwapTotal/ {print $2}' /proc/meminfo); swap_free=$(awk '/SwapFree/ {print $2}' /proc/meminfo); iface=$(awk -F: '$1 !~ /lo/ {gsub(/ /, \"\", $1); print $1; exit}' /proc/net/dev); if [ -n \"$iface\" ]; then set -- $(awk -F'[: ]+' -v iface=\"$iface\" '$1 == iface {print $3, $11}' /proc/net/dev); rx=$1; tx=$2; else iface=none; rx=0; tx=0; fi; set -- $(df -Pk / | awk 'NR==2 {print $2, $3}'); disk_total=$1; disk_used=$2; printf 'mem %s %s\\nswap %s %s\\nnet %s %s %s\\ndisk %s %s\\n' \"$((mem_total-mem_available))\" \"$mem_total\" \"$((swap_total-swap_free))\" \"$swap_total\" \"$iface\" \"$rx\" \"$tx\" \"$disk_used\" \"$disk_total\"; echo 'disks'; df -Pk | awk 'NR>1 && $1 ~ /^\\/dev/ {printf \"%s %s %s\\n\", $6, $3, $2}'"
             ]
         });
     }

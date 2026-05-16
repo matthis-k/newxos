@@ -4,7 +4,7 @@ import qs.services
 
 Item {
     id: root
-    implicitHeight: 180
+    implicitHeight: 270
     implicitWidth: 400
 
     property var seriesList: []
@@ -13,11 +13,25 @@ Item {
     property int graphMaxSamples: 60
     property bool active: false
 
-    property var _labels: []
-    property var _displayModel: []
+    property var _seriesEnabled: []
     property int _tick: 0
 
-    readonly property int _legendHeight: 16
+    function toggleSeries(index) {
+        if (index < 0 || index >= _seriesEnabled.length)
+            return;
+        const newEnabled = _seriesEnabled.slice();
+        newEnabled[index] = !newEnabled[index];
+        _seriesEnabled = newEnabled;
+        canvas.requestPaint();
+    }
+
+    function seriesLabel(seriesIndex) {
+        return seriesIndex === 0 ? "avg" : `core${seriesIndex}`;
+    }
+
+    function seriesColor(seriesIndex) {
+        return root.seriesColors[seriesIndex % root.seriesColors.length];
+    }
 
     Canvas {
         id: canvas
@@ -26,9 +40,7 @@ Item {
             left: parent.left
             right: parent.right
             bottom: legend.top
-            rightMargin: 4
-            topMargin: 2
-            bottomMargin: 2
+            margins: 4
         }
 
         onPaint: {
@@ -48,8 +60,11 @@ Item {
             const graphH = h - padTop - padBottom;
             const graphW = w - padLeft - padRight;
 
-            ctx.strokeStyle = Config.styling.bg4;
-            ctx.lineWidth = 0.5;
+            ctx.fillStyle = Config.colors.surface0;
+            ctx.fillRect(padLeft, padTop, graphW, graphH);
+
+            ctx.strokeStyle = Config.colors.overlay0;
+            ctx.lineWidth = 1;
             ctx.fillStyle = Config.styling.text0;
             ctx.textAlign = "right";
             ctx.textBaseline = "middle";
@@ -67,7 +82,6 @@ Item {
                 return;
 
             const stepX = graphW / (root.graphMaxSamples - 1);
-
             const drawOrder = [];
             for (let s = 1; s < root.seriesList.length; s++)
                 drawOrder.push(s);
@@ -75,11 +89,14 @@ Item {
 
             for (let d = 0; d < drawOrder.length; d++) {
                 const s = drawOrder[d];
+                if (root._seriesEnabled[s] === false)
+                    continue;
+
                 const data = root.seriesList[s];
                 if (!data || data.length < 2)
                     continue;
 
-                const color = root.seriesColors[s % root.seriesColors.length];
+                const color = seriesColor(s);
                 const len = data.length;
                 const startX = padLeft + (root.graphMaxSamples - len) * stepX;
 
@@ -90,11 +107,7 @@ Item {
                 for (let i = 0; i < len; i++) {
                     const x = startX + i * stepX;
                     const y = padTop + graphH - (Math.min(data[i], root.maxValue) / root.maxValue) * graphH;
-
-                    if (i === 0)
-                        ctx.moveTo(x, y);
-                    else
-                        ctx.lineTo(x, y);
+                    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
                 }
 
                 ctx.stroke();
@@ -102,37 +115,61 @@ Item {
         }
     }
 
-    GridLayout {
+    ColumnLayout {
         id: legend
         anchors {
             left: parent.left
             right: parent.right
             bottom: parent.bottom
-            margins: 4
         }
-        columns: 5
-        rowSpacing: 2
-        columnSpacing: 8
-        uniformCellWidths: true
+        spacing: 2
 
-        Repeater {
-            model: root._displayModel.length
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
 
-            Text {
-                horizontalAlignment: Text.AlignHCenter
-                text: {
+            Item { Layout.fillWidth: true }
+
+            LegendButton {
+                Layout.preferredWidth: 100
+                Layout.alignment: Qt.AlignHCenter
+                seriesIndex: 0
+                seriesEnabled: root._seriesEnabled[0] !== false
+                seriesColor: root.seriesColor(0)
+                labelText: root.seriesLabel(0)
+                currentValue: {
                     const _ = root._tick;
-                    const item = root._displayModel[index];
-                    if (!item)
-                        return "";
-                    const current = item.length > 0 ? Math.round(item[item.length - 1]) : 0;
-                    return `${root._labels[index]} (${current}%)`;
+                    const data = root.seriesList[0];
+                    return data && data.length > 0 ? Math.round(data[data.length - 1]) : 0;
                 }
-                font.pixelSize: 10
-                color: {
-                    if (!root._displayModel[index]) return "transparent";
-                    const seriesIdx = index > 5 ? index - 1 : index;
-                    return root.seriesColors[seriesIdx % root.seriesColors.length];
+                onClicked: root.toggleSeries(0)
+            }
+
+            Item { Layout.fillWidth: true }
+        }
+
+        GridLayout {
+            Layout.fillWidth: true
+            columns: 4
+            rowSpacing: 2
+            columnSpacing: 8
+            uniformCellWidths: true
+
+            Repeater {
+                model: Math.max(0, root.seriesList.length - 1)
+
+                LegendButton {
+                    Layout.fillWidth: true
+                    seriesIndex: index + 1
+                    seriesEnabled: root._seriesEnabled[index + 1] !== false
+                    seriesColor: root.seriesColor(index + 1)
+                    labelText: root.seriesLabel(index + 1)
+                    currentValue: {
+                        const _ = root._tick;
+                        const data = root.seriesList[index + 1];
+                        return data && data.length > 0 ? Math.round(data[data.length - 1]) : 0;
+                    }
+                    onClicked: root.toggleSeries(index + 1)
                 }
             }
         }
@@ -149,35 +186,57 @@ Item {
         }
     }
 
-    onActiveChanged: {
-        if (active)
-            canvas.requestPaint();
-    }
+    onActiveChanged: canvas.requestPaint()
 
     onSeriesListChanged: {
-        const newModel = [];
-        const newLabels = [];
+        const newEnabled = [];
+        for (let i = 0; i < seriesList.length; i++)
+            newEnabled[i] = i === 0;
+        _seriesEnabled = newEnabled;
+        canvas.requestPaint();
+    }
 
-        newModel[0] = seriesList[0];
-        newLabels[0] = "avg";
+    component LegendButton: Item {
+        id: btn
+        property int seriesIndex: 0
+        property bool seriesEnabled: true
+        property color seriesColor: "transparent"
+        property string labelText: ""
+        property int currentValue: 0
+        signal clicked
 
-        for (let i = 1; i < seriesList.length; i++) {
-            const idx = i + (i > 4 ? 1 : 0);
-            newModel[idx] = seriesList[i];
-            newLabels[idx] = `core${i}`;
-        }
+        implicitHeight: 20
 
-        for (let k = 0; k < newModel.length; k++) {
-            if (newModel[k] === undefined) {
-                newModel[k] = null;
-                newLabels[k] = "";
+        Rectangle {
+            anchors {
+                fill: parent
+                topMargin: 2
+                bottomMargin: 2
+            }
+            radius: 3
+            color: btn.seriesColor
+            opacity: btn.seriesEnabled ? 1.0 : 0.5
+
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: Config.behaviour.animation.enabled ? Config.behaviour.animation.calc(0.12) : 0
+                    easing.type: Easing.OutCubic
+                }
             }
         }
 
-        _displayModel = newModel;
-        _labels = newLabels;
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: btn.clicked()
+        }
 
-        if (root.active)
-            canvas.requestPaint();
+        Text {
+            anchors.centerIn: parent
+            horizontalAlignment: Text.AlignHCenter
+            text: `${btn.labelText} (${btn.currentValue}%)`
+            font.pixelSize: 13
+            color: Config.colors.base
+        }
     }
 }

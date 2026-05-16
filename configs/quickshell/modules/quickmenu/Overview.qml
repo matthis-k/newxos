@@ -203,9 +203,40 @@ DashboardPage {
         }
     }
 
-    DashboardSection {
+    NavigableSectionHeader {
         Layout.fillWidth: true
         title: "Notifications"
+        screenState: root.screenState
+        targetTab: "notifications"
+
+        InfoRow {
+            Layout.fillWidth: true
+            iconName: "bell-symbolic"
+            label: "Status"
+            value: NotificationCenter.doNotDisturbEnabled ? "Do Not Disturb" : `${NotificationCenter.unreadCount} unread`
+        }
+    }
+
+    NavigableSectionHeader {
+        Layout.fillWidth: true
+        title: "System stats"
+        screenState: root.screenState
+        targetTab: "stats"
+
+        InfoRow {
+            Layout.fillWidth: true
+            iconName: "processor-symbolic"
+            label: "CPU"
+            value: `${Math.round(SystemStats.cpuPercent)}%`
+            valueColor: SystemStats.cpuPercent >= 90 ? Config.styling.critical : (SystemStats.cpuPercent >= 70 ? Config.styling.warning : Config.styling.text0)
+        }
+
+        InfoRow {
+            Layout.fillWidth: true
+            iconName: "computer-symbolic"
+            label: "Memory"
+            value: `${SystemStats.memoryUsedMiB}/${SystemStats.memoryTotalMiB} MiB`
+        }
     }
 
     Process {

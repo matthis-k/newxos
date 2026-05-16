@@ -426,6 +426,7 @@ Keep row sizes, icon sizes, text sizes, and internal gaps tokenized instead of r
 - [x] Split wifi and bluetooth into dedicated dashboard tabs.
 - [x] Add a dedicated energy tab for battery, brightness, and power profiles.
 - [x] Add a lightweight system stats tab.
+- [x] Enhance stats tab with graph toggling and data/memory/storage page.
 - [x] Extract common rows, section wrappers, sliders, badges, and confirmation components.
 - [x] Reshape the sidebar into a full-height fixed-width document layout with internal margins and section dividers.
 - [ ] Add on-screen notification toast windows that respect `NotificationCenter.toastsEnabled`.
