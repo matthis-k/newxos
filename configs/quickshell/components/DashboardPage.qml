@@ -25,23 +25,20 @@ Item {
         contentWidth: width
         contentHeight: root.scrollable
             ? Math.max(column.implicitHeight + root.pagePadding * 2, height)
-            : height
+            : column.implicitHeight + root.pagePadding * 2
         clip: true
 
         ColumnLayout {
             id: column
-            x: root.pagePadding
-            y: root.pagePadding
-            width: Math.max(0, flick.width - root.pagePadding * 2)
-            height: root.scrollable
-                ? implicitHeight
-                : Math.max(0, flick.height - root.pagePadding * 2)
+            anchors {
+                fill: parent
+                margins: root.pagePadding
+            }
             spacing: root.sectionSpacing
 
             DashboardPageHeader {
                 id: header
                 Layout.fillWidth: true
-                Layout.alignment: Qt.AlignTop
                 visible: root.title !== "" || root.subtitle !== "" || root.headerAccessory !== null
                 title: root.title
                 subtitle: root.subtitle
@@ -51,17 +48,12 @@ Item {
             ColumnLayout {
                 id: body
                 Layout.fillWidth: true
-                Layout.fillHeight: !root.scrollable
-                Layout.alignment: Qt.AlignTop
-                width: column.width
                 spacing: root.sectionSpacing
             }
 
             Item {
                 Layout.fillWidth: true
-                implicitHeight: root.scrollable && root.fillHeight
-                    ? Math.max(0, flick.height - root.pagePadding * 2 - header.implicitHeight - body.implicitHeight - (header.visible ? root.sectionSpacing : 0))
-                    : 0
+                Layout.fillHeight: root.scrollable && root.fillHeight
             }
         }
     }
