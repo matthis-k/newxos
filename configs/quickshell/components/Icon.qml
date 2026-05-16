@@ -8,10 +8,12 @@ Item {
 
     property string iconName: "dialog-warning"
     property string fallbackIconName: "dialog-warning"
-    property url iconPath: Quickshell.iconPath(iconName, fallbackIconName)
-    property color color: "transparent"
+    property var iconPath: Quickshell.iconPath(iconName, fallbackIconName)
+    // Must be `var` with `undefined` sentinel — typed `color`/`url` can't be
+    // undefined, breaking the presence check for ColorOverlay visibility
+    property var color: undefined
     property real implicitSize: -1
-    property url source: ""
+    property var source: undefined
 
     readonly property bool hasImplicitSize: implicitSize >= 0
 

@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import qs.utils
-import qs.utils.types
 import qs.services
 import qs.components
 import qs.modules.quickmenu
