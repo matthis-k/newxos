@@ -1,4 +1,12 @@
-{ inputs, ... }:
+{
+  inputs,
+  lib,
+  withSystem,
+  ...
+}:
+let
+  hyprlandWrapper = inputs.self.lib.wrapper-modules.hyprland;
+in
 {
   flake.nixosConfigurations.matthisk-laptop-newxos = inputs.nixpkgs.lib.nixosSystem {
     modules = [
@@ -23,14 +31,26 @@
     ];
 
     networking.hostName = "matthisk-laptop-newxos";
-    newxos.hyprland.monitors = [
-      {
-        output = "eDP-1";
-        mode = "1920x1080";
-        position = "0x0";
-        scale = 1;
-      }
-    ];
+    programs.hyprland.package = lib.mkForce (
+      withSystem "x86_64-linux" (
+        { pkgs, inputs', ... }:
+        hyprlandWrapper.wrap {
+          inherit pkgs;
+          configDirectory = ../../../configs/hypr;
+          package = inputs'.hyprland.packages.hyprland;
+          luaVariables = {
+            monitors = [
+              {
+                output = "eDP-1";
+                mode = "1920x1080";
+                position = "0x0";
+                scale = 1;
+              }
+            ];
+          };
+        }
+      )
+    );
     services.displayManager.autoLogin.user = "matthisk";
     system.stateVersion = "25.11";
 
