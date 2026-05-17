@@ -78,6 +78,7 @@ let
         binName = "Hyprland";
         flags."--config" = configFlag;
         meta.description = "Wrapped Hyprland compositor with newxos config.";
+        passthru.providedSessions = [ "hyprland-uwsm" ];
       };
     }
   );

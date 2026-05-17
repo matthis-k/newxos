@@ -65,6 +65,20 @@ in
         { inputs', ... }: inputs'.hyprland.packages
       );
 
+      hyprland = inputs.self.lib.wrapper-modules.hyprland;
+
+      wrappedHyprland = withSystem pkgs.stdenv.hostPlatform.system (
+        { pkgs, inputs', ... }:
+        hyprland.wrap {
+          inherit pkgs;
+          configDirectory = ../../configs/hypr;
+          package = inputs'.hyprland.packages.hyprland;
+          luaVariables = {
+            monitors = map normalizeMonitor cfg.monitors;
+          };
+        }
+      );
+
       screenShotBin = pkgs.writeShellScriptBin "screen-shot" ''
         set -euo pipefail
 
@@ -205,7 +219,7 @@ in
 
         programs.hyprland = {
           enable = true;
-          package = hyprlandPackages.hyprland;
+          package = wrappedHyprland;
           portalPackage = hyprlandPackages.xdg-desktop-portal-hyprland;
           withUWSM = true;
         };
