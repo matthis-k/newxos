@@ -85,6 +85,53 @@
           attempt=$((attempt + 1))
         done
       '';
+      hyprlandConfigDir = builtins.path {
+        name = "hyprland-config";
+        path = "${self}/configs/hypr";
+      };
+
+      quickshellConfigDir = builtins.path {
+        name = "quickshell-config";
+        path = "${self}/configs/quickshell";
+      };
+
+      checkHyprlandConfig = pkgs.writeShellApplication {
+        name = "check-hyprland-config";
+        runtimeInputs = [ self'.packages.newxos-hyprland ];
+        text = ''
+          set -euo pipefail
+          Hyprland-newxos --verify-config
+        '';
+      };
+
+      checkNeovimConfig = pkgs.writeShellApplication {
+        name = "check-neovim-config";
+        runtimeInputs = [
+          self'.packages.nvim
+          pkgs.git
+        ];
+        text = ''
+          set -euo pipefail
+          nvim --headless -c "quit"
+        '';
+      };
+
+      checkQuickshellConfig = pkgs.writeShellApplication {
+        name = "check-quickshell-config";
+        runtimeInputs = [ pkgs.kdePackages.qtdeclarative ];
+        text = ''
+          set -euo pipefail
+
+          shell_qml="${quickshellConfigDir}/shell.qml"
+
+          if [ ! -f "$shell_qml" ]; then
+            echo "ERROR: $shell_qml not found"
+            exit 1
+          fi
+
+          qmllint "$shell_qml"
+        '';
+      };
     in
     {
       pre-commit.check.enable = false;
@@ -171,6 +218,33 @@
           "repo-update-knowledge-index"
         ];
         files = "^modules/workflow\\.nix$";
+        pass_filenames = false;
+      };
+
+      pre-commit.settings.hooks.check-hyprland-config = {
+        enable = true;
+        name = "check hyprland config";
+        description = "Verify Hyprland Lua config parses without errors.";
+        entry = lib.getExe checkHyprlandConfig;
+        files = "^configs/hypr/";
+        pass_filenames = false;
+      };
+
+      pre-commit.settings.hooks.check-neovim-config = {
+        enable = true;
+        name = "check neovim config";
+        description = "Verify Neovim starts without errors in headless mode.";
+        entry = lib.getExe checkNeovimConfig;
+        files = "^configs/nvim/";
+        pass_filenames = false;
+      };
+
+      pre-commit.settings.hooks.check-quickshell-config = {
+        enable = true;
+        name = "check quickshell config";
+        description = "Verify QuickShell QML files pass qmllint.";
+        entry = lib.getExe checkQuickshellConfig;
+        files = "^configs/quickshell/";
         pass_filenames = false;
       };
 

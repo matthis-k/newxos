@@ -142,11 +142,6 @@ in
       packages.dev-tools = mkDevTools pkgs { };
     };
 
-  flake.lib.devTools = {
-    inherit availableLanguages defaultLanguages;
-    mkPackage = mkDevToolsForSystem;
-  };
-
   flake.modules.homeManager.dev-tools =
     {
       config,

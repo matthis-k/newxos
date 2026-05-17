@@ -5,18 +5,7 @@
   ...
 }:
 let
-  luaValueType = lib.types.oneOf [
-    lib.types.bool
-    lib.types.int
-    lib.types.float
-    lib.types.str
-    (lib.types.listOf luaValueType)
-    (lib.types.attrsOf luaValueType)
-  ];
-
   monitorType = lib.types.submodule {
-    freeformType = lib.types.attrsOf luaValueType;
-
     options = {
       output = lib.mkOption {
         type = lib.types.str;
@@ -52,23 +41,10 @@ let
   hyprlandMonitorOption = lib.mkOption {
     type = lib.types.listOf monitorType;
     default = [ ];
-    description = "Monitor records passed into Hyprland through hypr/nix-import.lua.";
+    description = "Monitor definitions passed to the Hyprland wrapper.";
   };
 
   normalizeMonitor = monitor: lib.filterAttrs (_: value: value != null) monitor;
-
-  toLua =
-    value:
-    if builtins.isAttrs value then
-      "{ "
-      + lib.concatStringsSep ", " (
-        lib.mapAttrsToList (name: attrValue: "[${builtins.toJSON name}] = ${toLua attrValue}") value
-      )
-      + " }"
-    else if builtins.isList value then
-      "{ " + lib.concatMapStringsSep ", " toLua value + " }"
-    else
-      builtins.toJSON value;
 in
 {
   flake-file.inputs.hyprland = {
@@ -270,26 +246,33 @@ in
     };
 
   flake.modules.homeManager.hyprland =
-    { config, ... }:
+    {
+      config,
+      pkgs,
+      ...
+    }:
     let
       cfg = config.newxos.hyprland;
+
+      hyprland = inputs.self.lib.wrapper-modules.hyprland;
+
+      wrappedHyprland = withSystem pkgs.stdenv.hostPlatform.system (
+        { pkgs, inputs', ... }:
+        hyprland.wrap {
+          inherit pkgs;
+          configDirectory = ../../configs/hypr;
+          package = inputs'.hyprland.packages.hyprland;
+          luaVariables = {
+            monitors = map normalizeMonitor cfg.monitors;
+          };
+        }
+      );
     in
     {
       options.newxos.hyprland.monitors = hyprlandMonitorOption;
 
       config = {
-        xdg.configFile."hypr" = {
-          source = ../../configs/hypr;
-          recursive = true;
-        };
-
-        xdg.configFile."hypr/nix-import.lua".text = ''
-          return ${
-            toLua {
-              monitors = map normalizeMonitor cfg.monitors;
-            }
-          }
-        '';
+        home.packages = [ wrappedHyprland ];
 
         xdg.configFile."satty/config.toml".text = ''
           [general]

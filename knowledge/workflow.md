@@ -107,3 +107,13 @@ Day-to-day rules for working in this repo.
 - Confirm new or renamed outputs appear in `nix flake show "path:$PWD"` when applicable.
 - Call out anything you could not verify.
 - Mention any knowledge pages you updated if that matters for later work.
+## Sanity Checks
+Three pre-commit hooks validate config integrity when relevant files change:
+
+- **check-hyprland-config** — runs `Hyprland --verify-config` (0.55+ Lua) against a merged config dir with generated `nix-import.lua` from wrapper's `monitors` option; triggers on `^configs/hypr/`
+- **check-neovim-config** — runs `nvim --headless -c "quit"` using the wrapped `nvim` package; triggers on `^configs/nvim/`
+- **check-quickshell-config** — runs `qmllint` on `configs/quickshell/shell.qml`; triggers on `^configs/quickshell/`
+
+Defined in `modules/workflow.nix`; executed via `repo-gate` or `pre-commit run --hook-stage pre-commit`.
+
+Hyprland wrapper accepts `monitors` as list of Lua-compatible tables, generates `nix-import.lua` at build time. Home Manager module converts `newxos.hyprland.monitors` (submodule records) to tables via `normalizeMonitor`.
