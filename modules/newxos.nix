@@ -335,7 +335,9 @@
                       iso_attr="path:$root#nixosConfigurations.newxos-live-usb.config.system.build.isoImage"
 
                       if [ -n "$key" ]; then
-                        [ -e "$key" ] || die "missing key: $key"
+                        if [ ! -e "$key" ] && ! sudo test -e "$key"; then
+                          die "missing key: $key"
+                        fi
 
                         if [ -r "$key" ]; then
                           NEWXOS_INSTALLER_SOPS_KEY="$key" nix build --impure "$iso_attr"
