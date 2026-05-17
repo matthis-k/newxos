@@ -52,3 +52,9 @@ sops.secrets.github_token.path = "/run/secrets/github_token";
 - The wrapped `sops` command uses `SOPS_AGE_KEY_CMD` so editing can happen as the normal user while the age key stays root-owned.
 - Public companions like `*.pub` are fine to track normally. Private keys and tokens are not.
 - Do not inspect secret plaintext when wiring alone is enough.
+
+## Installer Media
+
+- [technique] Run `newxos build-iso --key /var/lib/sops-nix/key.txt` to build a live USB ISO with the age key embedded.
+- [fact] When embedded, installer activation places the key at `/var/lib/sops-nix/key.txt` and decrypts the GitHub token for `newxos ai` / OpenCode MCP use.
+- [fact] `newxos first-install <host>` copies the installer key into the target at `/var/lib/sops-nix/key.txt` before running `nixos-install`.

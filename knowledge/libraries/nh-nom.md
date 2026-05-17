@@ -11,6 +11,8 @@ This repo uses `nh` and `nix-output-monitor` through repo-owned `newxos` wrapper
 ## Observations
 
 - [fact] `newxos os ...` calls `nh os ...`; `newxos home ...` calls `nh home ...`
+- [fact] `newxos first-install <host>` runs disko and nixos-install from installer media, automatically using `<host>-staging` when staging metadata exists
+- [technique] `newxos build-iso [--key <path>]` builds the live USB ISO and can embed the SOPS age key for installer secrets
 - [fact] `newxos clean` defaults to `nh clean all --keep 1 --keep-since 0h`
 - [technique] `newxos flake build/check/run ...` uses `nom` for rich build output
 - [fact] `newxos` defaults to `path:$NEWXOS_FLAKE` so local unadded changes are visible during eval and builds
@@ -22,6 +24,7 @@ This repo uses `nh` and `nix-output-monitor` through repo-owned `newxos` wrapper
 - relates_to [[Workflow]]
 
 ## What It Does Here
+- `newxos first-install <host>` runs the installer flow from live USB media: disko, `nixos-install`, and repo copy into `/home/<user>/newxos`.
 
 - `newxos os ...` calls `nh os ...` for NixOS rebuild flows.
 - `newxos home ...` calls `nh home ...` for Home Manager build and switch flows.

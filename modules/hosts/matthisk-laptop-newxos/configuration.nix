@@ -6,6 +6,20 @@
 }:
 let
   hyprlandWrapper = inputs.self.lib.wrapper-modules.hyprland;
+
+  fullModules = with inputs.self.modules.nixos; [
+    audio
+    disko
+    homeManager
+    hyprland
+    locales
+    networking
+    nix
+    newxos
+    security
+    sops
+    stylix
+  ];
 in
 {
   flake.nixosConfigurations.matthisk-laptop-newxos = inputs.nixpkgs.lib.nixosSystem {
@@ -15,20 +29,10 @@ in
     ];
   };
 
+  newxos.installer.stagingHosts.matthisk-laptop-newxos.user = "matthisk";
+
   flake.modules.nixos.matthisk-laptop-newxos = {
-    imports = with inputs.self.modules.nixos; [
-      audio
-      disko
-      homeManager
-      hyprland
-      locales
-      networking
-      nix
-      newxos
-      security
-      sops
-      stylix
-    ];
+    imports = [ inputs.self.modules.nixos.matthisk-laptop-newxos-base ] ++ fullModules;
 
     networking.hostName = "matthisk-laptop-newxos";
     programs.hyprland.package = lib.mkForce (

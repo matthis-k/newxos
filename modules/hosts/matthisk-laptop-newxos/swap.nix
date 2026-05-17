@@ -1,5 +1,9 @@
-_: {
-  flake.modules.nixos.matthisk-laptop-newxos = {
+_:
+let
+  swapConfig = {
     boot.resumeDevice = "/dev/system/swap";
   };
+in
+{
+  flake.modules.nixos.matthisk-laptop-newxos-base = swapConfig;
 }

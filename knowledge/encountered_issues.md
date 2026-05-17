@@ -143,3 +143,13 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Rule: when adding newer QuickShell APIs, verify the QuickShell version provided by the pinned `nixpkgs` lock, not just the docs or the binary currently found in the user profile
 - Context: QuickShell network quickmenu migration from local `nmcli` wrapper to `Quickshell.Networking`
 - Related knowledge: [[quickshell]], [[Workflow]]
+
+## NixOS module imports inside mkMerge
+
+- [issue] Putting `imports` inside an attrset returned by `lib.mkMerge` makes it part of module `config`, causing `The option 'imports' does not exist` when that branch is enabled.
+- [fix] Keep `imports` at the module top level and put conditional option definitions under `config = lib.mkMerge [...]`.
+- [prevention] When a module needs conditional imports, return `{ imports = lib.optionals condition [...]; config = ...; }` instead of merging `imports` with normal config options.
+
+Relations:
+- relates_to [[Dendritic Feature Modules]]
+- relates_to [[Scope Boundaries And Per-System Access]]

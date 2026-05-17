@@ -9,4 +9,17 @@
       inputs.self.modules.homeManager.matthisk
     ];
   };
+
+  flake.modules.nixos.matthisk-laptop-newxos-base = {
+    users.users.matthisk = {
+      isNormalUser = true;
+      description = "matthisk";
+      extraGroups = [
+        "networkmanager"
+        "wheel"
+        "video"
+        "audio"
+      ];
+    };
+  };
 }

@@ -1,9 +1,20 @@
 {
   inputs,
   self,
+  withSystem,
   ...
 }:
 let
+  sopsAgeKeyPath = builtins.getEnv "NEWXOS_INSTALLER_SOPS_KEY";
+  sopsAgeKeySource =
+    if sopsAgeKeyPath == "" then
+      null
+    else
+      builtins.path {
+        path = builtins.toPath sopsAgeKeyPath;
+        name = "newxos-installer-sops-age-key.txt";
+      };
+
   repoSource = builtins.path {
     path = self;
     name = "newxos-installer-source";
@@ -15,91 +26,61 @@ let
         "result"
       ]);
   };
-
-  mkFirstTimeInstall =
-    pkgs:
-    let
-      inherit (pkgs.stdenv.hostPlatform) system;
-      diskoPackage = inputs.disko.packages.${system}.disko or inputs.disko.packages.${system}.default;
-    in
-    pkgs.writeShellApplication {
-      name = "first-time-install";
-      runtimeInputs = [
-        diskoPackage
-        pkgs.coreutils
-        pkgs.findutils
-        pkgs.gnugrep
-        pkgs.util-linux
-      ];
-      text = ''
-        if [ "$#" -ne 1 ]; then
-          echo "usage: first-time-install <host>" >&2
-          exit 2
-        fi
-
-        if [ "$EUID" -ne 0 ]; then
-          exec sudo "$0" "$@"
-        fi
-
-        host="$1"
-        flake_root=/etc/newxos
-        root_mountpoint=/mnt
-
-        if [ ! -e "$flake_root/flake.nix" ]; then
-          echo "missing bundled flake at $flake_root" >&2
-          exit 1
-        fi
-
-        disko \
-          --mode destroy,format,mount \
-          --root-mountpoint "$root_mountpoint" \
-          --flake "$flake_root#$host"
-
-        nixos-install \
-          --root "$root_mountpoint" \
-          --flake "$flake_root#$host" \
-          --no-root-passwd
-      '';
-    };
 in
 {
-  perSystem =
-    { pkgs, ... }:
-    {
-      packages.first-time-install = mkFirstTimeInstall pkgs;
-    };
-
   flake.modules.nixos.installerMedia =
-    { pkgs, ... }:
-    let
-      firstTimeInstall = mkFirstTimeInstall pkgs;
-      inherit (pkgs.stdenv.hostPlatform) system;
-      diskoPackage = inputs.disko.packages.${system}.disko or inputs.disko.packages.${system}.default;
-    in
+    { lib, pkgs, ... }:
     {
-      environment.etc."newxos".source = repoSource;
+      imports = lib.optionals (sopsAgeKeySource != null) (
+        with inputs.self.modules.nixos;
+        [
+          sops
+        ]
+      );
 
-      environment.systemPackages = [
-        pkgs.curl
-        pkgs.cryptsetup
-        diskoPackage
-        pkgs.dosfstools
-        firstTimeInstall
-        pkgs.git
-        pkgs.gptfdisk
-        pkgs.jq
-        pkgs.lvm2
-        pkgs.mdadm
-        pkgs.nvme-cli
-        pkgs.parted
-        pkgs.pciutils
-        pkgs.ripgrep
-        pkgs.rsync
-        pkgs.usbutils
-        pkgs.vim
-        pkgs.wget
+      config = lib.mkMerge [
+        {
+          environment.etc."newxos".source = repoSource;
+
+          environment.systemPackages = [
+            pkgs.curl
+            pkgs.cryptsetup
+            pkgs.dosfstools
+            pkgs.git
+            pkgs.gptfdisk
+            pkgs.jq
+            pkgs.lvm2
+            pkgs.mdadm
+            pkgs.nvme-cli
+            pkgs.parted
+            pkgs.pciutils
+            pkgs.ripgrep
+            pkgs.rsync
+            pkgs.usbutils
+            pkgs.vim
+            pkgs.wget
+          ]
+          ++ withSystem pkgs.stdenv.hostPlatform.system ({ self', ... }: [ self'.packages.newxos ]);
+        }
+
+        (lib.optionalAttrs (sopsAgeKeySource != null) {
+          environment.etc."newxos-sops-age-key.txt" = {
+            source = sopsAgeKeySource;
+            mode = "0400";
+          };
+
+          system.activationScripts.newxosInstallerSopsAgeKey.text = ''
+            install -d -m 0700 /var/lib/sops-nix
+            install -m 0400 /etc/newxos-sops-age-key.txt /var/lib/sops-nix/key.txt
+          '';
+
+          sops.secrets.github_token = {
+            format = "binary";
+            mode = "0444";
+            path = "/run/secrets/github_token";
+            sopsFile = ../secrets/github_token;
+          };
+        })
       ];
-
-      system.build.first-time-install = firstTimeInstall;
     };
 }

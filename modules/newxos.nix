@@ -1,9 +1,13 @@
-{ withSystem, ... }:
+{ inputs, withSystem, ... }:
 {
   flake.modules.nixos.newxos =
-    { config, ... }:
+    { config, pkgs, ... }:
     {
       environment.sessionVariables.NEWXOS_HOST = config.networking.hostName;
+
+      environment.systemPackages = withSystem pkgs.stdenv.hostPlatform.system (
+        { self', ... }: [ self'.packages.newxos ]
+      );
     };
 
   perSystem =
@@ -14,25 +18,34 @@
       ...
     }:
     let
+      inherit (pkgs.stdenv.hostPlatform) system;
+      diskoPackage = inputs.disko.packages.${system}.disko or inputs.disko.packages.${system}.default;
+
       newxos-bin = pkgs.writeShellApplication {
         name = "newxos";
         runtimeInputs =
           with pkgs;
           [
             coreutils
+            diskoPackage
+            gnugrep
             jq
             nh
             nix
+            nixos-install-tools
             nix-output-monitor
             ripgrep
+            util-linux
             self'.packages.basic-memory-uv2nix
           ]
           ++ (lib.optionals (self'.packages ? opencode) [ self'.packages.opencode ]);
         text = ''
                     usage() {
                       cat <<'EOF' >&2
-          usage: newxos <os|home|flake|clean> ...
+          usage: newxos <build-iso|first-install|os|home|flake|clean> ...
 
+            newxos build-iso [--key <path-to-key>]
+            newxos first-install <host>
             newxos os <switch|boot|build> [host] [--git-only]
             newxos home <switch|build> <config> [--git-only]
             newxos flake build [host] [--git-only]
@@ -76,6 +89,67 @@
                         git) printf 'git+file://%s\n' "$root" ;;
                         *) die "bad flake mode: $mode" ;;
                       esac
+                    }
+
+                    install_repo_root() {
+                      local root
+
+                      root="''${NEWXOS_FLAKE:-}"
+                      if [ -z "$root" ]; then
+                        if [ -e /etc/newxos/flake.nix ]; then
+                          root=/etc/newxos
+                        else
+                          root="$HOME/newxos"
+                        fi
+                      fi
+
+                      [ -d "$root" ] || die "missing repo at $root"
+                      [ -e "$root/flake.nix" ] || die "missing flake at $root"
+
+                      printf '%s\n' "$root"
+                    }
+
+                    staging_user_for_host() {
+                      local root host
+
+                      root="$1"
+                      host="$2"
+
+                      nix eval --raw "path:$root#newxosInstallerStagingHosts.$host.user" 2>/dev/null || true
+                    }
+
+                    copy_repo_to_home() {
+                      local root root_mountpoint user home_dir
+
+                      root="$1"
+                      root_mountpoint="$2"
+                      user="$3"
+                      home_dir="$root_mountpoint/home/$user"
+
+                      mkdir -p "$home_dir"
+                      rm -rf "$home_dir/newxos"
+                      cp -aL "$root" "$home_dir/newxos"
+                      chroot "$root_mountpoint" chown -R "$user:users" "/home/$user/newxos"
+                    }
+
+                    install_sops_age_key() {
+                      local root_mountpoint key_source
+
+                      root_mountpoint="$1"
+                      key_source=""
+
+                      if [ -r /var/lib/sops-nix/key.txt ]; then
+                        key_source=/var/lib/sops-nix/key.txt
+                      elif [ -r /etc/newxos-sops-age-key.txt ]; then
+                        key_source=/etc/newxos-sops-age-key.txt
+                      fi
+
+                      if [ -z "$key_source" ]; then
+                        return 0
+                      fi
+
+                      install -d -m 0700 "$root_mountpoint/var/lib/sops-nix"
+                      install -m 0400 "$key_source" "$root_mountpoint/var/lib/sops-nix/key.txt"
                     }
 
                     list_nixos_hosts() {
@@ -194,6 +268,85 @@
                       nh os "$action" "$(flake_ref "$FLAKE_MODE")" -H "$host"
                     }
 
+                    first_install_cmd() {
+                      local host install_host install_user flake_root root_mountpoint staging_user
+
+                      [ "$#" -eq 1 ] || usage
+
+                      if [ "$EUID" -ne 0 ]; then
+                        exec sudo "$0" first-install "$@"
+                      fi
+
+                      host="$1"
+                      flake_root="$(install_repo_root)"
+                      root_mountpoint=/mnt
+                      staging_user="$(staging_user_for_host "$flake_root" "$host")"
+                      install_host="$host"
+                      install_user="''${host%%-*}"
+
+                      if [ -n "$staging_user" ]; then
+                        install_host="$host-staging"
+                        install_user="$staging_user"
+                      fi
+
+                      disko \
+                        --mode destroy,format,mount \
+                        --root-mountpoint "$root_mountpoint" \
+                        --flake "path:$flake_root#$install_host"
+
+                      install_sops_age_key "$root_mountpoint"
+
+                      nixos-install \
+                        --root "$root_mountpoint" \
+                        --flake "path:$flake_root#$install_host" \
+                        --no-root-passwd
+
+                      echo "=== copying newxos flake to /home/$install_user/newxos ==="
+                      copy_repo_to_home "$flake_root" "$root_mountpoint" "$install_user"
+
+                      echo ""
+                      if [ "$install_host" != "$host" ]; then
+                        echo "=== staging install complete ==="
+                        echo "reboot, log in as $install_user, then run: newxos os switch"
+                      else
+                        echo "=== install complete ==="
+                        echo "reboot into $host"
+                      fi
+                    }
+
+                    build_iso_cmd() {
+                      local key root iso_attr
+
+                      key=""
+                      while [ "$#" -gt 0 ]; do
+                        case "$1" in
+                          --key)
+                            [ "$#" -ge 2 ] || usage
+                            key="$2"
+                            shift 2
+                            ;;
+                          -h|--help) usage ;;
+                          -*) die "unknown build-iso flag: $1" ;;
+                          *) usage ;;
+                        esac
+                      done
+
+                      root="$(repo_root)"
+                      iso_attr="path:$root#nixosConfigurations.newxos-live-usb.config.system.build.isoImage"
+
+                      if [ -n "$key" ]; then
+                        [ -e "$key" ] || die "missing key: $key"
+
+                        if [ -r "$key" ]; then
+                          NEWXOS_INSTALLER_SOPS_KEY="$key" nix build --impure "$iso_attr"
+                        else
+                          sudo env NEWXOS_INSTALLER_SOPS_KEY="$key" nix build --impure "$iso_attr"
+                        fi
+                      else
+                        nix build "$iso_attr"
+                      fi
+                    }
+
                     home_cmd() {
                       local action config_name
 
@@ -279,6 +432,15 @@
                       command -v opencode >/dev/null 2>&1 \
                         || die "opencode not available (build this system with the opencode module)"
 
+                      if [ -r /run/secrets/github_token ] && [ -z "''${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ]; then
+                        github_token="$(tr -d '[:space:]' < /run/secrets/github_token)"
+                        if [ -n "$github_token" ]; then
+                          export GH_TOKEN="$github_token"
+                          export GITHUB_TOKEN="$github_token"
+                          export GITHUB_PERSONAL_ACCESS_TOKEN="$github_token"
+                        fi
+                      fi
+
                       (cd "$(repo_root)" && exec opencode)
                     }
 
@@ -337,6 +499,8 @@
                       shift
 
                       case "$group" in
+                        build-iso) build_iso_cmd "$@" ;;
+                        first-install) first_install_cmd "$@" ;;
                         os) os_cmd "$@" ;;
                         home) home_cmd "$@" ;;
                         flake) flake_cmd "$@" ;;
@@ -363,6 +527,18 @@
           test (count $words) -eq 3; or return 1
           test "$words[2]" = os; or return 1
           contains -- "$words[3]" switch boot build
+        end
+
+        function __fish_newxos_wants_build_iso_flag
+          set -l words (__fish_newxos_words)
+          test (count $words) -ge 2; or return 1
+          test "$words[2]" = build-iso
+        end
+
+        function __fish_newxos_wants_first_install_host
+          set -l words (__fish_newxos_words)
+          test (count $words) -eq 2; or return 1
+          test "$words[2]" = first-install
         end
 
         function __fish_newxos_wants_home_config
@@ -405,13 +581,15 @@
         end
 
         complete -c newxos -f
-        complete -c newxos -n 'not __fish_seen_subcommand_from os home flake memory clean' -a 'os home flake memory clean'
+        complete -c newxos -n 'not __fish_seen_subcommand_from build-iso first-install os home flake memory clean' -a 'build-iso first-install os home flake memory clean'
         complete -c newxos -n '__fish_seen_subcommand_from os; and not __fish_seen_subcommand_from switch boot build' -a 'switch boot build'
         complete -c newxos -n '__fish_seen_subcommand_from home; and not __fish_seen_subcommand_from switch build' -a 'switch build'
         complete -c newxos -n '__fish_seen_subcommand_from flake; and not __fish_seen_subcommand_from build check show run' -a 'build check show run'
         complete -c newxos -n '__fish_seen_subcommand_from memory; and not __fish_seen_subcommand_from reindex reset' -a 'reindex reset'
 
+        complete -c newxos -n '__fish_newxos_wants_build_iso_flag; and not __fish_seen_argument -l key' -l key -r -d 'Embed SOPS age key in ISO'
         complete -c newxos -n '__fish_newxos_wants_nixos_host' -a '(newxos _complete nixos-hosts 2>/dev/null)'
+        complete -c newxos -n '__fish_newxos_wants_first_install_host' -a '(newxos _complete nixos-hosts 2>/dev/null | string replace -r -- "-staging$" "" | sort -u)'
         complete -c newxos -n '__fish_newxos_wants_home_config' -a '(newxos _complete home-configs 2>/dev/null)'
         complete -c newxos -n '__fish_newxos_wants_flake_host' -a '(newxos _complete nixos-hosts 2>/dev/null)'
         complete -c newxos -n '__fish_newxos_wants_run_target' -a '(newxos _complete run-targets 2>/dev/null)'
