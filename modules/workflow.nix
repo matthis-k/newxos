@@ -109,10 +109,17 @@
         runtimeInputs = [
           self'.packages.nvim
           pkgs.git
+          pkgs.gnugrep
         ];
         text = ''
-          set -euo pipefail
-          nvim --headless -c "quit"
+          output=$(nvim --headless -c "quitall!" 2>&1) || true
+          if [ -n "$output" ]; then
+            echo "$output"
+          fi
+          if echo "$output" | grep -qiE "error|E[0-9]+:"; then
+            echo "Neovim config validation failed"
+            exit 1
+          fi
         '';
       };
 
