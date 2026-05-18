@@ -15,6 +15,7 @@
 
     users.users.matthisk = {
       isNormalUser = true;
+      initialPassword = lib.mkDefault "";
       description = "matthisk";
       extraGroups = [
         "networkmanager"
@@ -23,6 +24,10 @@
         "audio"
       ];
     };
+
+    home-manager.users.matthisk.imports = [
+      inputs.self.modules.homeManager.matthisk
+    ];
 
     security.sudo.extraRules = lib.mkAfter [
       {

@@ -16,5 +16,5 @@ let
   };
 in
 {
-  flake.modules.nixos.matthisk-laptop-newxos-base = bootConfig;
+  flake.modules.nixos.matthisk-laptop-newxos = bootConfig;
 }

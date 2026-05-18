@@ -5,5 +5,5 @@ let
   };
 in
 {
-  flake.modules.nixos.matthisk-laptop-newxos = swapConfig;
+  flake.modules.nixos.matthisk-desktop-newxos = swapConfig;
 }

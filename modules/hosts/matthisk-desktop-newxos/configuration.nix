@@ -8,20 +8,20 @@ let
   hyprlandWrapper = inputs.self.lib.wrapper-modules.hyprland;
 in
 {
-  flake.nixosConfigurations.matthisk-laptop-newxos = inputs.nixpkgs.lib.nixosSystem {
+  flake.nixosConfigurations.matthisk-desktop-newxos = inputs.nixpkgs.lib.nixosSystem {
     modules = [
-      inputs.self.modules.nixos.matthisk-laptop-newxos
+      inputs.self.modules.nixos.matthisk-desktop-newxos
       { nixpkgs.hostPlatform = "x86_64-linux"; }
     ];
   };
 
-  flake.modules.nixos.matthisk-laptop-newxos = {
+  flake.modules.nixos.matthisk-desktop-newxos = {
     imports = with inputs.self.modules.nixos; [
       common-workstation
       matthisk
     ];
 
-    networking.hostName = "matthisk-laptop-newxos";
+    networking.hostName = "matthisk-desktop-newxos";
     programs.hyprland.package = lib.mkForce (
       withSystem "x86_64-linux" (
         { pkgs, inputs', ... }:
@@ -30,14 +30,7 @@ in
           configDirectory = ../../../configs/hypr;
           package = inputs'.hyprland.packages.hyprland;
           luaVariables = {
-            monitors = [
-              {
-                output = "eDP-1";
-                mode = "1920x1080";
-                position = "0x0";
-                scale = 1;
-              }
-            ];
+            monitors = [ ];
           };
         }
       )

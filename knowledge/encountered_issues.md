@@ -153,3 +153,11 @@ Append-only repo memory for repeatable mistakes and gotchas.
 Relations:
 - relates_to [[Dendritic Feature Modules]]
 - relates_to [[Scope Boundaries And Per-System Access]]
+
+### 2026-05-18: ATA DRM logs are not graphics DRM
+
+- Context: investigating Plymouth/NVIDIA boot graphics on `matthisk-desktop-newxos`.
+- Problem: kernel messages like `ata5.00: supports DRM functions and may not be fully accessible` look related to Direct Rendering Manager at first glance.
+- Root cause: in this ATA/storage context, DRM refers to drive feature/security support, not Linux graphics DRM/KMS.
+- Rule: for Plymouth/NVIDIA issues, focus on `simpledrm`, `nvidia_drm`, framebuffer handoff, and Plymouth service logs; do not treat `ata*.00 supports DRM functions` as a graphics error.
+- Related knowledge: [[Host And User Layout]], [[hyprland]].

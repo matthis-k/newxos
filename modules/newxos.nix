@@ -109,15 +109,6 @@
                       printf '%s\n' "$root"
                     }
 
-                    staging_user_for_host() {
-                      local root host
-
-                      root="$1"
-                      host="$2"
-
-                      nix eval --raw "path:$root#newxosInstallerStagingHosts.$host.user" 2>/dev/null || true
-                    }
-
                     copy_repo_to_home() {
                       local root root_mountpoint user home_dir
 
@@ -269,7 +260,7 @@
                     }
 
                     first_install_cmd() {
-                      local host install_host install_user flake_root root_mountpoint staging_user
+                      local host install_host install_user flake_root root_mountpoint
 
                       [ "$#" -eq 1 ] || usage
 
@@ -278,16 +269,11 @@
                       fi
 
                       host="$1"
+                      require_nixos_host "$host"
                       flake_root="$(install_repo_root)"
                       root_mountpoint=/mnt
-                      staging_user="$(staging_user_for_host "$flake_root" "$host")"
                       install_host="$host"
                       install_user="''${host%%-*}"
-
-                      if [ -n "$staging_user" ]; then
-                        install_host="$host-staging"
-                        install_user="$staging_user"
-                      fi
 
                       disko \
                         --mode destroy,format,mount \
@@ -305,13 +291,8 @@
                       copy_repo_to_home "$flake_root" "$root_mountpoint" "$install_user"
 
                       echo ""
-                      if [ "$install_host" != "$host" ]; then
-                        echo "=== staging install complete ==="
-                        echo "reboot, log in as $install_user, then run: newxos os switch"
-                      else
-                        echo "=== install complete ==="
-                        echo "reboot into $host"
-                      fi
+                      echo "=== install complete ==="
+                      echo "reboot into $host"
                     }
 
                     build_iso_cmd() {
@@ -591,7 +572,7 @@
 
         complete -c newxos -n '__fish_newxos_wants_build_iso_flag; and not __fish_seen_argument -l key' -l key -r -d 'Embed SOPS age key in ISO'
         complete -c newxos -n '__fish_newxos_wants_nixos_host' -a '(newxos _complete nixos-hosts 2>/dev/null)'
-        complete -c newxos -n '__fish_newxos_wants_first_install_host' -a '(newxos _complete nixos-hosts 2>/dev/null | string replace -r -- "-staging$" "" | sort -u)'
+        complete -c newxos -n '__fish_newxos_wants_first_install_host' -a '(newxos _complete nixos-hosts 2>/dev/null)'
         complete -c newxos -n '__fish_newxos_wants_home_config' -a '(newxos _complete home-configs 2>/dev/null)'
         complete -c newxos -n '__fish_newxos_wants_flake_host' -a '(newxos _complete nixos-hosts 2>/dev/null)'
         complete -c newxos -n '__fish_newxos_wants_run_target' -a '(newxos _complete run-targets 2>/dev/null)'

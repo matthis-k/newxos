@@ -1,6 +1,7 @@
 _:
 let
-  mainDisk = "/dev/disk/by-id/ata-SAMSUNG_SSD_PM871b_M.2_2280_256GB_S3U0NE0JB62490";
+  # KINGSTON SNVS2000G (1.8T NVMe SSD) — replace with actual disk on reinstall.
+  mainDisk = "/dev/disk/by-id/nvme-KINGSTON_SNVS2000G_50026B7282A10367";
   filesystemConfig = {
     disko.devices = {
       disk.main = {
@@ -62,5 +63,5 @@ let
   };
 in
 {
-  flake.modules.nixos.matthisk-laptop-newxos = filesystemConfig;
+  flake.modules.nixos.matthisk-desktop-newxos = filesystemConfig;
 }
