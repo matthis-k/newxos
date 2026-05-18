@@ -102,14 +102,14 @@ in
         };
 
         "matthisk-desktop-newxos desktop" = {
-          hostname = "matthisk-desktop-newxos";
+          hostname = "matthisk-desktop-newxos.local";
           identitiesOnly = true;
           identityFile = "/run/secrets/home_network_id";
           user = "matthisk";
         };
 
         "matthisk-laptop-newxos laptop" = {
-          hostname = "matthisk-laptop-newxos";
+          hostname = "matthisk-laptop-newxos.local";
           identitiesOnly = true;
           identityFile = "/run/secrets/home_network_id";
           user = "matthisk";
