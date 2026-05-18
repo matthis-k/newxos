@@ -152,6 +152,14 @@
               };
             };
           };
+
+          envDefault.OPENCODE_DISABLE_AUTOUPDATE = "1";
+          envDefault.OPENCODE_TUI_CONFIG = pkgs.writeText "opencode-tui.json" (
+            builtins.toJSON {
+              "$schema" = "https://opencode.ai/tui.json";
+              theme = "catppuccin";
+            }
+          );
         }
       );
 
