@@ -118,6 +118,10 @@ let
         dark = "Papirus-Dark";
         light = "Papirus";
       };
+      fonts.monospace = {
+        package = pkgs.nerd-fonts.hack;
+        name = "Hack Nerd Font Mono";
+      };
     };
 in
 {

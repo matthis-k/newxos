@@ -56,5 +56,5 @@ sops.secrets.github_token.path = "/run/secrets/github_token";
 ## Installer Media
 
 - [technique] Run `newxos build-iso --key /var/lib/sops-nix/key.txt` to build a live USB ISO with the age key embedded.
-- [fact] When embedded, installer activation places the key at `/var/lib/sops-nix/key.txt` and decrypts the GitHub token for `newxos ai` / OpenCode MCP use.
+- [fact] When embedded, installer activation places the key at `/var/lib/sops-nix/key.txt` as `root:wheel` mode `0440`, letting the live `newxos` wheel user read it, and decrypts the GitHub MCP token.
 - [fact] `newxos first-install <host>` copies the installer key into the target at `/var/lib/sops-nix/key.txt` before running `nixos-install`.

@@ -36,6 +36,8 @@ This repo uses `nh` and `nix-output-monitor` through repo-owned `newxos` wrapper
 ## Basics
 
 - Home Manager exports `NEWXOS_FLAKE=$HOME/newxos` and installs `newxos` into user profile.
+- Installer media exports `NEWXOS_FLAKE=/home/newxos/newxos` for a mutable flake copy seeded from `/etc/newxos-source` in the live `newxos` user's home.
+- `newxos first-install` preserves the resolved `NEWXOS_FLAKE` path across its sudo handoff.
 - NixOS host module exports `NEWXOS_HOST=$HOSTNAME` through `environment.sessionVariables`.
 - Fish completion comes from package payload under `share/fish/vendor_completions.d/`.
 - Host completion is repo-driven by reading `flake.nixosConfigurations.*` declarations from `modules/`.

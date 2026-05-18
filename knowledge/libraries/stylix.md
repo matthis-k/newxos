@@ -10,7 +10,7 @@ Stylix is the repo's theme backbone.
 
 ## Observations
 
-- [fact] Holds repo-owned semantic palette in `modules/stylix/stylix.nix`; derives Base16 scheme from that palette
+- [fact] Holds repo-owned semantic palette in `modules/theming/stylix.nix`; derives Base16 scheme from that palette
 - [technique] Feed same palette into custom Kitty, Fish, Zen Browser, and QuickShell JSON theme generation
 - [decision] Disable some built-in Stylix targets when repo-owned generated theme is better fit
 - [fact] `stylix.homeManagerIntegration.autoImport` stays off so repo's explicit Home Manager entrypoint remains one source of truth
@@ -24,7 +24,7 @@ Stylix is the repo's theme backbone.
 
 ## What It Does Here
 
-- Holds the repo-owned semantic palette in `modules/stylix/stylix.nix`.
+- Holds the repo-owned semantic palette in `modules/theming/stylix.nix`.
 - Derives the Base16 scheme from that palette.
 - Feeds the same palette into custom Kitty and Fish theme generation.
 - Feeds the same palette into a repo-owned Zen Browser Catppuccin-style theme layer.
@@ -35,7 +35,7 @@ Stylix is the repo's theme backbone.
 
 ## Basics
 
-- Keep custom theme logic in `modules/stylix/`.
+- Keep custom theme logic in `modules/theming/`.
 - Prefer generating small theme fragments from Nix and importing them from program config.
 - This repo disables some built-in Stylix targets when a repo-owned generated theme is the better fit.
 - QuickShell reads the generated JSON palette at runtime; see [[quickshell-design]].
@@ -71,4 +71,16 @@ include ~/.config/kitty/stylix-theme.auto.conf
 - Built-in Zen Browser CSS is disabled because the generic Base16 target lost too much full-palette intent for contrast-sensitive UI like selected tabs and urlbar suggestions.
 - Cursor theme comes from the upstream cursor flake's packaged blue output instead of copying raw theme files inside this repo.
 - GTK and Qt stay on Stylix-managed theming; repo only overrides app theming when Stylix target is not enough.
-- If you want a custom theme tweak that should apply across multiple apps, start in `modules/stylix/`, not inside a single app config.
+- If you want a custom theme tweak that should apply across multiple apps, start in `modules/theming/`, not inside a single app config.
+
+## Bootloader Theming
+
+## Observations
+
+- [decision] Repo font defaults belong in the Stylix module, not host boot modules
+- [technique] Stylix's GRUB target derives the GRUB `.pf2` font from `stylix.fonts.monospace` when GRUB is enabled
+
+## Relations
+
+- relates_to [[Host And User Layout]]
+- relates_to [[Hardware]]

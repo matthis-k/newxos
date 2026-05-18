@@ -57,7 +57,7 @@ This replaces the old `dendritic-workflow-module` template.
 ```
 
 ```nix
-# modules/workflow.nix
+# modules/dev/workflow.nix
 { inputs, lib, self, ... }:
 {
   imports = [
@@ -172,7 +172,7 @@ This replaces the old `dendritic-workflow-module` template.
 - The managed `repo-write-nvim-pack-lock` hook only runs when staged `flake.lock` matches.
 - The managed `repo-flake-check` hook only runs when staged `*.nix` files match.
 - The managed `repo-update-knowledge-index` hook only runs when staged `knowledge/` files match.
-- The managed `repo-install-git-hooks` hook only runs when staged `modules/workflow.nix` matches.
+- The managed `repo-install-git-hooks` hook only runs when staged `modules/dev/workflow.nix` matches.
 - `repo-gate` is a good handoff check because it reuses the real hook graph without requiring you to stage files first.
 - Import upstream flake modules from top-level `inputs`. Use `inputs'` only inside `perSystem` for system-qualified packages.
 - Use top-level `self` for source-tree paths like `treefmt.projectRoot`. Use `self'` only inside `perSystem` when referring to built outputs.

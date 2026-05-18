@@ -2,7 +2,7 @@
 let
   configDir = builtins.path {
     name = "quickshell-config";
-    path = ../../configs/quickshell;
+    path = ../../../configs/quickshell;
     filter = path: type: !(type == "regular" && builtins.baseNameOf path == ".qmlls.ini");
   };
 

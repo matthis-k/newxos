@@ -111,7 +111,7 @@ All colors come from the Catppuccin palette passed through a JSON file in the Ni
 
 ### How it works
 
-1. `modules/stylix/quickshell.nix` generates `catppuccin-palette.json` from `config.stylix.fullPalette.colors` and installs it to `$XDG_CONFIG_HOME/quickshell/`.
+1. `modules/theming/quickshell.nix` generates `catppuccin-palette.json` from `config.stylix.fullPalette.colors` and installs it to `$XDG_CONFIG_HOME/quickshell/`.
 2. `configs/quickshell/services/Config.qml` reads the JSON at runtime via `FileView` + `JsonAdapter`.
 3. The 24 semantic Catppuccin colors are exposed through `Config.colors` and `Config.styling` / `Config.palette`.
 

@@ -15,11 +15,17 @@ This folder documents hardware-specific configuration and known compatibility no
 
 ## Observations
 
-- [fact] Content not yet written
-- [decision] Placeholder index created for future hardware documentation
+- [fact] `matthisk-desktop-newxos` is a desktop NixOS host for AMD CPU and NVIDIA RTX 5060 hardware
+- [technique] NVIDIA desktop support uses early initrd NVIDIA modules plus `nvidia_drm.fbdev=1` and `nvidia_drm.modeset=1` for Plymouth/Wayland startup
+- [fact] The desktop host uses a concrete Kingston NVMe `/dev/disk/by-id/...` disko target
+- [decision] Placeholder index remains for future hardware-specific notes
 
 ## Relations
 
 - part_of [[Knowledge]]
+- relates_to [[Host And User Layout]]
+- relates_to [[hyprland]]
 
-Content not yet written.
+## Desktop Host
+
+The current desktop hardware profile includes AMD microcode, NVIDIA open kernel modules, 32-bit graphics support for Vulkan/Proton/Wine use cases, and NVIDIA power management.

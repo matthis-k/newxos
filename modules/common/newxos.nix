@@ -415,15 +415,6 @@
                       command -v opencode >/dev/null 2>&1 \
                         || die "opencode not available (build this system with the opencode module)"
 
-                      if [ -r /run/secrets/github_token ] && [ -z "''${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ]; then
-                        github_token="$(tr -d '[:space:]' < /run/secrets/github_token)"
-                        if [ -n "$github_token" ]; then
-                          export GH_TOKEN="$github_token"
-                          export GITHUB_TOKEN="$github_token"
-                          export GITHUB_PERSONAL_ACCESS_TOKEN="$github_token"
-                        fi
-                      fi
-
                       (cd "$(repo_root)" && exec opencode)
                     }
 

@@ -21,7 +21,7 @@ Model Context Protocol servers provide tool access to agents.
 ## Observations
 
 - [fact] Three MCP servers configured: GitHub, NixOS, and Basic Memory
-- [technique] Add servers to `settings.mcp` in `modules/opencode.nix`
+- [technique] Add servers to `settings.mcp` in `modules/dev/opencode.nix`
 - [fact] Servers run in local `stdio` mode
 
 ## Relations
@@ -40,7 +40,7 @@ Model Context Protocol servers provide tool access to agents.
 
 ## Adding a server
 
-Add to `settings.mcp` in `modules/opencode.nix`:
+Add to `settings.mcp` in `modules/dev/opencode.nix`:
 
 ```nix
 mcp = {

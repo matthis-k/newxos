@@ -40,7 +40,30 @@ in
 
       config = lib.mkMerge [
         {
-          environment.etc."newxos".source = repoSource;
+          environment.etc."newxos-source".source = repoSource;
+          environment.sessionVariables.NEWXOS_FLAKE = "/home/newxos/newxos";
+
+          users.users.newxos = {
+            isNormalUser = true;
+            extraGroups = [
+              "networkmanager"
+              "video"
+              "wheel"
+            ];
+            initialHashedPassword = "";
+          };
+
+          services.getty.autologinUser = lib.mkForce "newxos";
+
+          system.activationScripts.newxosInstallerMutableFlake.text = ''
+            if [ ! -e /home/newxos/newxos/flake.nix ]; then
+              rm -rf /home/newxos/newxos
+              install -d -m 0755 -o newxos -g users /home/newxos/newxos
+              cp -R --no-preserve=mode,ownership /etc/newxos-source/. /home/newxos/newxos/
+              chmod -R u+rwX /home/newxos/newxos
+              chown -R newxos:users /home/newxos/newxos
+            fi
+          '';
 
           environment.systemPackages = [
             pkgs.curl
@@ -70,15 +93,15 @@ in
           };
 
           system.activationScripts.newxosInstallerSopsAgeKey.text = ''
-            install -d -m 0700 /var/lib/sops-nix
-            install -m 0400 /etc/newxos-sops-age-key.txt /var/lib/sops-nix/key.txt
+            install -d -m 0750 -o root -g wheel /var/lib/sops-nix
+            install -m 0440 -o root -g wheel /etc/newxos-sops-age-key.txt /var/lib/sops-nix/key.txt
           '';
 
           sops.secrets.github_token = {
             format = "binary";
             mode = "0444";
             path = "/run/secrets/github_token";
-            sopsFile = ../secrets/github_token;
+            sopsFile = ../../secrets/github_token;
           };
         })
       ];

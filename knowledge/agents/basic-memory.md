@@ -67,7 +67,7 @@ Basic Memory is built with `uv2nix` instead of running via `uvx` at runtime.
 
 The uv workspace lives in `uv/basic-memory/` with `pyproject.toml` and `uv.lock`.
 
-In `modules/opencode.nix`, the package is built through:
+In `modules/dev/opencode.nix`, the package is built through:
 1. `uv2nix.lib.workspace.loadWorkspace` — loads the uv workspace
 2. `mkPyprojectOverlay` — creates a Nix overlay from the workspace
 3. `pyproject-nix.build.packages` — builds the Python package set

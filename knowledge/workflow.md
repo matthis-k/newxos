@@ -61,7 +61,7 @@ Day-to-day rules for working in this repo.
 - The managed Neovim pack lock hook only runs when the commit includes staged `flake.lock` changes.
 - The managed `flake check` hook only runs when the commit includes staged `*.nix` files.
 - The managed knowledge index hook only runs when the commit includes staged `knowledge/` changes.
-- The managed hook reinstall step only runs when the commit includes staged `modules/workflow.nix` changes.
+- The managed hook reinstall step only runs when the commit includes staged `modules/dev/workflow.nix` changes.
 - `repo-gate` stages all tracked and untracked worktree changes into a temporary index and runs the real managed pre-commit hooks against that index, leaving your actual staging area untouched.
 - In a fresh clone, `nix develop "path:$PWD"` gives you the pre-commit dev shell. Otherwise use `nix run "path:$PWD#install-git-hooks"`.
 - If Nix garbage collection removes the `pre-commit` binary, the hook will fail with `No such file or directory`. Run `nix run "path:$PWD#install-git-hooks"` to regenerate it.
@@ -114,6 +114,6 @@ Three pre-commit hooks validate config integrity when relevant files change:
 - **check-neovim-config** — runs `nvim --headless -c "quit"` using the wrapped `nvim` package; triggers on `^configs/nvim/`
 - **check-quickshell-config** — runs `qmllint` on `configs/quickshell/shell.qml`; triggers on `^configs/quickshell/`
 
-Defined in `modules/workflow.nix`; executed via `repo-gate` or `pre-commit run --hook-stage pre-commit`.
+Defined in `modules/dev/workflow.nix`; executed via `repo-gate` or `pre-commit run --hook-stage pre-commit`.
 
 Hyprland wrapper accepts `monitors` as list of Lua-compatible tables, generates `nix-import.lua` at build time. Home Manager module converts `newxos.hyprland.monitors` (submodule records) to tables via `normalizeMonitor`.

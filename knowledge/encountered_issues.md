@@ -74,7 +74,7 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Symptom: contrast looked wrong in places like selected vertical tabs and urlbar suggestion rows even though palette itself was fine
 - Cause: full semantic palette got flattened into Base16 slots before browser-specific UI groups were chosen, so contrast-sensitive surfaces lost app-specific intent
 - Fix: generate repo-owned Zen Browser CSS directly from `config.stylix.fullPalette.colors` and keep browser UI groups mapped from semantic colors in one place
-- Rule: when app theme needs more nuance than Base16 slots provide, disable built-in target CSS and generate repo-owned full-palette target under `modules/stylix/`
+- Rule: when app theme needs more nuance than Base16 slots provide, disable built-in target CSS and generate repo-owned full-palette target under `modules/theming/`
 - Context: Zen Browser Catppuccin-style theme customization
 - Related knowledge: [[stylix]], [[Wrapped Programs And Generated Config]], [[Workflow]]
 
@@ -108,7 +108,7 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Cause: both wrapper toolchains exported the same linker path into the merged environment
 - Fix: keep one compiler toolchain per `buildEnv` bundle, and add only the extra tools that do not collide with that wrapper
 - Rule: when building shared tool bundles with `pkgs.buildEnv`, avoid mixing `gcc` and `clang` wrappers unless you split them into separate outputs
-- Context: `modules/development/dev-tools.nix`
+- Context: `modules/dev/dev-tools.nix`
 - Related knowledge: [[Workflow]]
 
 ### 2026-05-11: `git-hooks.nix` pre-commit hook breaks after Nix GC
@@ -119,7 +119,7 @@ Append-only repo memory for repeatable mistakes and gotchas.
 - Cause: `git-hooks.nix` generates `.git/hooks/pre-commit` with an absolute store path to the Python `pre-commit` binary; Nix garbage collection removes that path
 - Fix: run `nix run "path:$PWD#install-git-hooks"` to regenerate the hook with a valid store path
 - Rule: after Nix GC, flake updates, or any rebuild that could change the `pre-commit` store path, run `install-git-hooks` before committing
-- Context: pre-commit hook wired through `git-hooks.nix` (`modules/workflow.nix`)
+- Context: pre-commit hook wired through `git-hooks.nix` (`modules/dev/workflow.nix`)
 - Related knowledge: [[workflow tooling]], [[Workflow]]
 
 ### 2026-05-07: Lua multi-return inside table constructors can collapse runtime library lists

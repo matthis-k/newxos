@@ -10,7 +10,7 @@ Home Manager handles user-level configuration.
 
 ## Observations
 
-- [fact] Provides the Home Manager flake module imported from `modules/home-manager.nix`
+- [fact] Provides the Home Manager flake module imported from `modules/common/home-manager.nix`
 - [technique] Enables `useGlobalPkgs = true` and `useUserPackages = true` for NixOS integration
 - [decision] Prefer explicit shared module imports when the repo owns the integration pattern
 - [fact] Stylix Home Manager wiring is explicit; do not rely on automatic HM import from Stylix
@@ -22,7 +22,7 @@ Home Manager handles user-level configuration.
 
 ## What It Does Here
 
-- Provides the Home Manager flake module imported from `modules/home-manager.nix`.
+- Provides the Home Manager flake module imported from `modules/common/home-manager.nix`.
 - Exposes shared `flake.modules.homeManager.*` modules that hosts or standalone configs can reuse.
 - Owns user-level packages and app config placement.
 

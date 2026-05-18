@@ -6,7 +6,7 @@
 let
   configDir = builtins.path {
     name = "hyprland-config";
-    path = ../../configs/hypr;
+    path = ../../../configs/hypr;
   };
 
   luaValueType = lib.types.oneOf [

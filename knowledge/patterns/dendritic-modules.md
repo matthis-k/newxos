@@ -57,11 +57,11 @@ Concrete rules:
 
 This replaces the old `dendritic-simple-module` template.
 
-- `modules/dendritic.nix`: turn on the dendritic `flake-file` layout.
+- `modules/core/dendritic.nix`: turn on the dendritic `flake-file` layout.
 - `modules/example-message.nix`: one small concern in one nearby `flake-parts` module.
 
 ```nix
-# modules/dendritic.nix
+# modules/core/dendritic.nix
 { inputs, ... }:
 {
   imports = [ inputs.flake-file.flakeModules.dendritic ];

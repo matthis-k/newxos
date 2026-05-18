@@ -10,7 +10,7 @@
       ...
     }:
     let
-      workspaceRoot = ../../../packages/basic-memory-uv2nix;
+      workspaceRoot = ../../../../packages/basic-memory-uv2nix;
 
       workspace = inputs.uv2nix.lib.workspace.loadWorkspace {
         inherit workspaceRoot;

@@ -41,7 +41,7 @@ This repo exposes a wrapped `opencode` package with MCP servers preconfigured.
 ## Configuration
 
 - `opencode.json` controls which knowledge files are loaded as instructions.
-- MCP servers are configured in `modules/opencode.nix`.
+- MCP servers are configured in `modules/dev/opencode.nix`.
 - Skills are loaded from `configs/opencode/skills/`.
 
 ## MCP servers
@@ -71,3 +71,15 @@ This repo exposes a wrapped `opencode` package with MCP servers preconfigured.
 - Do not print or inspect the GitHub token when debugging auth wiring.
 - Verify executable paths and package exposure through `nix flake show "path:$PWD"` when changing the wrapper.
 - Keep `configs/opencode/` for repo-owned config fragments only. Do not keep `node_modules/`, `package.json`, or lockfiles there unless repo starts managing plugins explicitly.
+
+## Auth Automation
+
+- [fact] The wrapped `opencode` package exports GitHub token environment variables from `/run/secrets/github_token` when present for GitHub MCP use
+- [requirement] Do not auto-import OpenCode provider auth for `openai` or `opencode`; provider login remains user-controlled through OpenCode
+- [requirement] Keep provider secrets and OAuth tokens out of repo memory and commits unless explicitly needed as encrypted SOPS files
+- [requirement] Do not print decrypted OpenCode API keys or OAuth tokens
+
+## Relations
+
+- relates_to [[sops-nix]]
+- relates_to [[Installation]]

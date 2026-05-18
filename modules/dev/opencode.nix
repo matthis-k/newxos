@@ -19,7 +19,7 @@
     }:
     let
       workspace = inputs.uv2nix.lib.workspace.loadWorkspace {
-        workspaceRoot = ../packages/basic-memory-uv2nix;
+        workspaceRoot = ../../packages/basic-memory-uv2nix;
       };
 
       overlay = workspace.mkPyprojectOverlay {
@@ -117,7 +117,7 @@
 
             skills = {
               paths = [
-                ../configs/opencode/skills
+                ../../configs/opencode/skills
                 "${inputs.qt-agent-skills}/skills"
               ];
             };
@@ -154,10 +154,27 @@
           };
         }
       );
+
+      opencodeWithEnv = pkgs.writeShellApplication {
+        name = "opencode";
+        runtimeInputs = [ pkgs.coreutils ];
+        text = ''
+          if [ -r /run/secrets/github_token ] && [ -z "''${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ]; then
+            github_token="$(tr -d '[:space:]' < /run/secrets/github_token)"
+            if [ -n "$github_token" ]; then
+              export GH_TOKEN="$github_token"
+              export GITHUB_TOKEN="$github_token"
+              export GITHUB_PERSONAL_ACCESS_TOKEN="$github_token"
+            fi
+          fi
+
+          exec ${lib.getExe wrappedOpencode.value} "$@"
+        '';
+      };
     in
     {
       packages = lib.optionalAttrs wrappedOpencode.success {
-        opencode = wrappedOpencode.value;
+        opencode = opencodeWithEnv;
         basic-memory-mcp-newxos = basicMemoryMcpNewxos;
       };
     };
