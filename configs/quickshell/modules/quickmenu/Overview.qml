@@ -200,6 +200,7 @@ DashboardPage {
         Battery {
             id: batteryContent
             Layout.fillWidth: true
+            showGraph: false
         }
     }
 

@@ -10,6 +10,8 @@ ColumnLayout {
 
     property UPowerDevice bat: UPower.displayDevice
     property bool powerModesFirst: false
+    property bool showGraph: true
+    property bool graphActive: true
 
     readonly property int contentWidth: width > 0 ? width : 320
     readonly property int sectionSpacing: Config.spacing.xs
@@ -280,5 +282,46 @@ ColumnLayout {
     PowerModesBlock {
         Layout.fillWidth: true
         visible: !root.powerModesFirst
+    }
+
+    Rectangle {
+        Layout.fillWidth: true
+        implicitHeight: 1
+        color: Config.styling.bg3
+    }
+
+    ColumnLayout {
+        Layout.fillWidth: true
+        visible: root.showGraph
+        spacing: Config.spacing.xs
+
+        Text {
+            Layout.fillWidth: true
+            text: "Battery history (5h)"
+            color: Config.styling.text1
+            font.pixelSize: 14
+            font.bold: true
+        }
+
+        GraphView {
+            id: batteryGraph
+            active: root.graphActive && root.showGraph
+            yMin: 0
+            yMax: 100
+            xWindowMs: 18000000
+            sampleIntervalMs: 300000
+            cacheEnabled: true
+            cacheKey: "battery"
+            dataSets: root.bat ? [{
+                    name: "Battery",
+                    value: Math.round((root.bat.percentage || 0) * 100),
+                    color: stateColor,
+                    visible: true
+                }] : []
+            Layout.fillWidth: true
+            Layout.preferredHeight: 160
+            Layout.minimumHeight: 120
+            implicitHeight: 160
+        }
     }
 }

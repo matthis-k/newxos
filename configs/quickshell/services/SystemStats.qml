@@ -25,6 +25,7 @@ Singleton {
 
     property real _lastCpuTotal: 0
     property real _lastCpuIdle: 0
+    property bool _hasCpuDelta: false
     property real _lastRxBytes: 0
     property real _lastTxBytes: 0
     property double _lastSampleMs: 0
@@ -34,11 +35,7 @@ Singleton {
     property var _lastCpuCoreTotals: []
     property var _lastCpuCoreIdles: []
 
-    // History buffer for graphs (60 samples at 2s interval = 2 minutes)
-    property int historyMaxSamples: 60
-    property var cpuHistory: []
-    property var cpuCoreHistory: []
-    property double _lastHistorySampleMs: 0
+    property int _tick: 0
 
     function formatRate(bytesPerSecond) {
         const absValue = Math.abs(bytesPerSecond || 0);
@@ -47,12 +44,6 @@ Singleton {
         if (absValue >= 1024)
             return `${(bytesPerSecond / 1024).toFixed(1)} KiB/s`;
         return `${Math.round(bytesPerSecond || 0)} B/s`;
-    }
-
-    function pushToHistory(historyArray, value) {
-        historyArray.push(value);
-        if (historyArray.length > root.historyMaxSamples)
-            historyArray.shift();
     }
 
     function applySample(text) {
@@ -85,8 +76,10 @@ Singleton {
             if (!isNaN(cpuTotal) && !isNaN(cpuIdle)) {
                 const totalDelta = cpuTotal - _lastCpuTotal;
                 const idleDelta = cpuIdle - _lastCpuIdle;
-                if (_lastCpuTotal > 0 && totalDelta > 0)
+                if (_lastCpuTotal > 0 && totalDelta > 0) {
                     cpuPercent = Math.max(0, Math.min(100, ((totalDelta - idleDelta) / totalDelta) * 100));
+                    _hasCpuDelta = true;
+                }
                 _lastCpuTotal = cpuTotal;
                 _lastCpuIdle = cpuIdle;
             }
@@ -200,27 +193,7 @@ Singleton {
             }
         }
 
-        // Push to history every 2 seconds
-        const now = Date.now();
-        if (_lastHistorySampleMs === 0 || (now - _lastHistorySampleMs) >= 2000) {
-            pushToHistory(cpuHistory, cpuPercent);
-            
-            if (cpuCoreHistory.length === 0 || cpuCoreHistory[0] === undefined) {
-                cpuCoreHistory = cpuCorePercents.map(p => [p]);
-            } else {
-                for (let i = 0; i < cpuCorePercents.length; i++) {
-                    if (cpuCoreHistory[i]) {
-                        cpuCoreHistory[i].push(cpuCorePercents[i]);
-                        if (cpuCoreHistory[i].length > root.historyMaxSamples)
-                            cpuCoreHistory[i].shift();
-                    } else {
-                        cpuCoreHistory[i] = [cpuCorePercents[i]];
-                    }
-                }
-            }
-            
-            _lastHistorySampleMs = now;
-        }
+        _tick++;
     }
 
     function refresh() {

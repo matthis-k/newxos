@@ -8,6 +8,7 @@ DashboardPage {
     id: root
 
     title: "Battery"
+    scrollable: true
 
     DashboardSection {
         Layout.fillWidth: true
@@ -16,6 +17,7 @@ DashboardPage {
         Battery {
             id: batteryContent
             Layout.fillWidth: true
+            graphActive: root.SwipeView.isCurrentItem
             powerModesFirst: true
         }
     }
