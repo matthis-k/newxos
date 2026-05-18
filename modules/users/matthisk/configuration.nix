@@ -1,4 +1,7 @@
 { inputs, lib, ... }:
+let
+  homeNetworkPublicKey = builtins.readFile ../../../secrets/home_network_id.pub;
+in
 {
   flake.homeConfigurations.matthisk = inputs.home-manager.lib.homeManagerConfiguration {
     pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
@@ -17,12 +20,29 @@
       isNormalUser = true;
       initialPassword = lib.mkDefault "";
       description = "matthisk";
+      openssh.authorizedKeys.keys = [ homeNetworkPublicKey ];
       extraGroups = [
         "networkmanager"
         "wheel"
         "video"
         "audio"
       ];
+    };
+
+    services.openssh = {
+      enable = true;
+      settings = {
+        KbdInteractiveAuthentication = false;
+        PasswordAuthentication = false;
+      };
+    };
+
+    sops.secrets.home_network_id = {
+      format = "binary";
+      mode = "0600";
+      owner = "matthisk";
+      path = "/run/secrets/home_network_id";
+      sopsFile = ../../../secrets/home_network_id;
     };
 
     home-manager.users.matthisk.imports = [
@@ -67,17 +87,33 @@
     programs.ssh = {
       enable = true;
       enableDefaultConfig = false;
-      matchBlocks."*" = {
-        forwardAgent = false;
-        addKeysToAgent = "no";
-        compression = false;
-        serverAliveInterval = 0;
-        serverAliveCountMax = 3;
-        hashKnownHosts = false;
-        userKnownHostsFile = "~/.ssh/known_hosts";
-        controlMaster = "no";
-        controlPath = "~/.ssh/master-%r@%n:%p";
-        controlPersist = "no";
+      matchBlocks = {
+        "*" = {
+          forwardAgent = false;
+          addKeysToAgent = "no";
+          compression = false;
+          serverAliveInterval = 0;
+          serverAliveCountMax = 3;
+          hashKnownHosts = false;
+          userKnownHostsFile = "~/.ssh/known_hosts";
+          controlMaster = "no";
+          controlPath = "~/.ssh/master-%r@%n:%p";
+          controlPersist = "no";
+        };
+
+        "matthisk-desktop-newxos desktop" = {
+          hostname = "matthisk-desktop-newxos";
+          identitiesOnly = true;
+          identityFile = "/run/secrets/home_network_id";
+          user = "matthisk";
+        };
+
+        "matthisk-laptop-newxos laptop" = {
+          hostname = "matthisk-laptop-newxos";
+          identitiesOnly = true;
+          identityFile = "/run/secrets/home_network_id";
+          user = "matthisk";
+        };
       };
     };
   };
