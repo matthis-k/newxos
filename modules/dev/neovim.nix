@@ -204,7 +204,7 @@
             perl.nvim-host.enable = true;
           };
 
-          extraPackages =
+          runtimePkgs =
             with pkgs;
             [
               curl
