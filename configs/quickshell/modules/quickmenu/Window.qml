@@ -169,7 +169,7 @@ PanelWindow {
             Bluetooth {}
             Network {}
             Energy {}
-            Stats {}
+            SystemStats {}
         }
 
         Connections {

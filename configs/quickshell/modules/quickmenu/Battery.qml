@@ -3,12 +3,13 @@ import QtQuick.Layouts
 import Quickshell.Services.UPower
 
 import qs.services
+import qs.services as Services
 import qs.components
 
 ColumnLayout {
     id: root
 
-    property UPowerDevice bat: UPower.displayDevice
+    property UPowerDevice bat: Services.Stats.battery
     property bool powerModesFirst: false
     property bool showGraph: true
     property bool graphActive: true
@@ -45,7 +46,9 @@ ColumnLayout {
                 max: 100,
                 col: Config.styling.good
             }
-        ].find(({ max }) => percentage <= max).col;
+        ].find(({
+                max
+            }) => percentage <= max).col;
     }
 
     function formatDuration(seconds, prefix) {
@@ -73,6 +76,13 @@ ColumnLayout {
 
         const percentage = `${Math.floor((bat.percentage || 0) * 100)}%`;
         return batteryDetail !== "" ? `${percentage} • ${batteryDetail}` : percentage;
+    }
+
+    function batteryGraphSeries() {
+        const _ = Services.Stats.graphRevision;
+        return Services.Stats.calculateBatteryGraphSeries().map(series => Object.assign({}, series, {
+                color: root.stateColor
+            }));
     }
 
     component ProfileButton: ActionButton {
@@ -297,7 +307,7 @@ ColumnLayout {
 
         Text {
             Layout.fillWidth: true
-            text: "Battery history (5h)"
+            text: qsTr("Battery history (5h)")
             color: Config.styling.text1
             font.pixelSize: 14
             font.bold: true
@@ -308,20 +318,13 @@ ColumnLayout {
             active: root.graphActive && root.showGraph
             yMin: 0
             yMax: 100
-            xWindowMs: 18000000
-            sampleIntervalMs: 300000
-            cacheEnabled: true
-            cacheKey: "battery"
-            dataSets: root.bat ? [{
-                    name: "Battery",
-                    value: Math.round((root.bat.percentage || 0) * 100),
-                    color: stateColor,
-                    visible: true
-                }] : []
+            xWindow: 18000000
+            xMarkerInterval: 3600000
+            xMarkerLabel: (x, view) => x < view.maxX ? qsTr("%1h").arg(Math.round((view.maxX - x) / 3600000)) : ""
+            graphs: root.batteryGraphSeries()
             Layout.fillWidth: true
             Layout.preferredHeight: 160
             Layout.minimumHeight: 120
-            implicitHeight: 160
         }
     }
 }
