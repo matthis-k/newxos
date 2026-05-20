@@ -114,11 +114,9 @@ DashboardPage {
                 iconColor: NetworkService.wifiEnabled ? Config.styling.primaryAccent : Config.styling.text1
                 enabled: NetworkService.wifiHardwareEnabled
                 checked: NetworkService.wifiEnabled
-                onToggled: function(checked) {
+                onToggled: function (checked) {
                     overviewWifiToggleProcess.exec({
-                        command: checked
-                            ? ["nmcli", "radio", "wifi", "on"]
-                            : ["nmcli", "radio", "wifi", "off"]
+                        command: checked ? ["nmcli", "radio", "wifi", "on"] : ["nmcli", "radio", "wifi", "off"]
                     });
                 }
             }
@@ -131,7 +129,7 @@ DashboardPage {
                 iconColor: root.adapter && root.adapter.enabled ? Config.styling.bluetooth : Config.styling.text1
                 enabled: !!root.adapter
                 checked: !!root.adapter && root.adapter.enabled
-                onToggled: function(checked) {
+                onToggled: function (checked) {
                     if (root.adapter)
                         root.adapter.enabled = checked;
                 }
@@ -156,7 +154,7 @@ DashboardPage {
             sliderEnabled: !!root.sink && !root.sink?.audio?.muted
             accentColor: root.sink?.audio?.muted ? Config.styling.critical : Config.colors.blue
             onIconClicked: root.toggleMute(root.sink)
-            onValueModified: (value) => root.setVolume(root.sink, value)
+            onValueModified: value => root.setVolume(root.sink, value)
         }
 
         AudioDeviceCard {
@@ -172,7 +170,7 @@ DashboardPage {
             sliderEnabled: !!root.source && !root.source?.audio?.muted
             accentColor: root.source?.audio?.muted ? Config.styling.critical : Config.colors.blue
             onIconClicked: root.toggleMute(root.source)
-            onValueModified: (value) => root.setVolume(root.source, value)
+            onValueModified: value => root.setVolume(root.source, value)
         }
     }
 
@@ -189,7 +187,7 @@ DashboardPage {
             to: 100
             valueText: Brightness.available ? `${Brightness.percent}%` : "Unavailable"
             enabled: Brightness.available
-            onValueCommitted: (val) => Brightness.setPercent(val)
+            onValueCommitted: val => Brightness.setPercent(val)
         }
     }
 
@@ -228,15 +226,15 @@ DashboardPage {
             Layout.fillWidth: true
             iconName: "processor-symbolic"
             label: "CPU"
-            value: `${Math.round(SystemStats.cpuPercent)}%`
-            valueColor: SystemStats.cpuPercent >= 90 ? Config.styling.critical : (SystemStats.cpuPercent >= 70 ? Config.styling.warning : Config.styling.text0)
+            value: `${Math.round(Stats.cpuPercent)}%`
+            valueColor: Stats.cpuPercent >= 90 ? Config.styling.critical : (Stats.cpuPercent >= 70 ? Config.styling.warning : Config.styling.text0)
         }
 
         InfoRow {
             Layout.fillWidth: true
             iconName: "computer-symbolic"
             label: "Memory"
-            value: `${SystemStats.memoryUsedMiB}/${SystemStats.memoryTotalMiB} MiB`
+            value: `${Stats.memoryUsedMiB}/${Stats.memoryTotalMiB} MiB`
         }
     }
 

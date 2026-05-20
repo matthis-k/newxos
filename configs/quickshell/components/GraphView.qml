@@ -1,7 +1,4 @@
 import QtQuick
-import QtCore
-import Quickshell
-import Quickshell.Io
 import qs.services
 
 Item {
@@ -10,144 +7,206 @@ Item {
     implicitWidth: 400
     implicitHeight: 180
 
-    // [{ name, value, color, visible, transform }]
-    property var dataSets: []
+    property var graphs: []
+    property var markers: []
+    property real xMarkerInterval: 0
+    property var xMarkerLabel: null
     property real yMin: 0
     property real yMax: 100
-    property int xWindowMs: 300000
-    property int maxSamples: -1
+    property real xWindow: 300000
     property bool active: true
     property string yLabelFormat: "%1"
+    property bool showXAxis: true
+    property bool showYAxis: true
+    property bool showLabels: true
+    property string viewportMode: "manual"
+    property var viewport: ({
+            minX: 0,
+            maxX: 1,
+            minY: 0,
+            maxY: 100
+        })
+    property var globalBounds: ({
+            minX: 0,
+            maxX: 1,
+            minY: 0,
+            maxY: 100,
+            valid: false
+        })
+    property var padding: ({
+            top: 8,
+            right: 4,
+            bottom: 8,
+            left: -1
+        })
 
-    property bool samplingEnabled: true
-    property int sampleIntervalMs: 1000
-    property bool timestampEnabled: true
+    property bool relativeX: true
 
-    property bool cacheEnabled: false
-    property bool cacheLoadEnabled: true
-    property bool cacheSaveEnabled: true
-    property string cacheKey: ""
-
-    // Optional function(leftName, rightName) -> negative/zero/positive.
-    property var renderOrderCompare: null
-
-    property var _histories: ({})
     property var _visibleOverrides: ({})
-    property bool _cacheLoaded: false
     property int _revision: 0
-    property int _sequence: 0
+    property int _batchDepth: 0
+    property bool _renderQueued: false
+    property bool _renderPending: false
+    property var _dirtyReasons: ({})
+    property var _connectedGraphs: []
+    property var _connectedCollectors: []
+    property var _plotArea: ({
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+            viewport: ({
+                    minX: 0,
+                    maxX: 1,
+                    minY: 0,
+                    maxY: 100
+                })
+        })
 
-    function _cachePath() {
-        return StandardPaths.writableLocation(StandardPaths.StateLocation) + "/graphs/" + root.cacheKey + ".json";
+    function _handleGraphChanged() {
+        root.requestRender("", "graph");
     }
 
-    function _historyWindowMs() {
-        return Math.max(root.xWindowMs, 1);
+    function _xWindow() {
+        return Math.max(root.xWindow, 1);
     }
 
-    function _pointX(point, fallback) {
-        return point.time !== undefined ? point.time : (point.x !== undefined ? point.x : fallback);
+    function _connectGraphs() {
+        const next = root._connectedGraphs.slice();
+        const graphs = root._graphs();
+        for (let i = 0; i < graphs.length; i++) {
+            const graph = graphs[i];
+            if (!graph || next.indexOf(graph) !== -1)
+                continue;
+            let connected = false;
+            if (graph.dataChanged) {
+                graph.dataChanged.connect(root._handleGraphChanged);
+                connected = true;
+            }
+            if (graph.configChanged) {
+                graph.configChanged.connect(root._handleGraphChanged);
+                connected = true;
+            }
+            if (connected)
+                next.push(graph);
+        }
+        root._connectedGraphs = next;
+
+        const collectors = [];
+        for (let i = 0; i < graphs.length; i++) {
+            const graph = graphs[i];
+            if (graph && !graph.dataChanged && graph.collector && graph.collector.collected)
+                collectors.push(graph.collector);
+        }
+
+        for (let i = 0; i < collectors.length; i++) {
+            const collector = collectors[i];
+            if (root._connectedCollectors.indexOf(collector) !== -1)
+                continue;
+
+            collector.collected.connect(root._handleGraphChanged);
+            root._connectedCollectors = root._connectedCollectors.concat([collector]);
+        }
     }
 
-    function _pointY(point) {
-        return point.value !== undefined ? point.value : (point.y !== undefined ? point.y : 0);
+    function _validNumber(value) {
+        return typeof value === "number" && isFinite(value);
     }
 
     function _resolveName(nameOrIndex) {
         if (typeof nameOrIndex === "number")
-            return root.dataSetNames()[nameOrIndex] || "";
+            return root.seriesNames()[nameOrIndex] || "";
         return String(nameOrIndex || "");
     }
 
-    function _dataSet(name) {
-        for (let i = 0; i < root.dataSets.length; i++) {
-            const item = root.dataSets[i];
+    function _graph(name) {
+        const graphs = root._graphs();
+        for (let i = 0; i < graphs.length; i++) {
+            const item = graphs[i];
             if (item && item.name === name)
                 return item;
         }
         return null;
     }
 
-    function _compareNames(left, right) {
-        return root.renderOrderCompare ? root.renderOrderCompare(left, right) : String(left).localeCompare(String(right));
-    }
-
-    function _ensureHistory(item) {
-        if (!item || !item.name)
-            return null;
-
-        const name = String(item.name);
-        const existing = root._histories[name] || {};
-        root._histories[name] = {
-            name: name,
-            color: item.color || existing.color || Config.colors.blue,
-            visible: item.visible !== undefined ? item.visible : (existing.visible !== false),
-            transform: item.transform || existing.transform || null,
-            data: existing.data || []
-        };
-        return root._histories[name];
-    }
-
-    function _trim(data) {
-        const maxAge = root.timestampEnabled ? Date.now() - root._historyWindowMs() : null;
-        let result = root.timestampEnabled ? data.filter(p => p.time >= maxAge) : data.slice();
-        const maxCount = root.maxSamples > 0 ? root.maxSamples : Math.max(1, Math.ceil(root.xWindowMs / root.sampleIntervalMs) + 1);
-        if (result.length > maxCount)
-            result = result.slice(result.length - maxCount);
+    function _graphs() {
+        const result = [];
+        for (let i = 0; i < root.graphs.length; i++)
+            result.push(root.graphs[i]);
         return result;
     }
 
-    function sample() {
-        if (!root.samplingEnabled)
-            return;
-
-        const now = Date.now();
-        const next = Object.assign({}, root._histories);
-
-        for (let i = 0; i < root.dataSets.length; i++) {
-            const item = root.dataSets[i];
-            const history = root._ensureHistory(item);
-            if (!history || item.value === undefined || item.value === null)
-                continue;
-
-            const point = root.timestampEnabled
-                ? { time: now, value: item.value }
-                : { x: root._sequence, value: item.value };
-            next[history.name] = Object.assign({}, history, { data: root._trim(history.data.concat([point])) });
-        }
-
-        root._sequence++;
-        root._histories = next;
-        root._revision++;
-        canvas.requestPaint();
-        root._saveCache();
+    function _series(name) {
+        return root._graph(name);
     }
 
-    function dataSetNames() {
-        const names = {};
-        for (let i = 0; i < root.dataSets.length; i++) {
-            if (root.dataSets[i] && root.dataSets[i].name)
-                names[String(root.dataSets[i].name)] = true;
+    function _seriesUsesCollector(series) {
+        return !!(series && series.collector && series.collector.calculate);
+    }
+
+    function _compareNames(left, right) {
+        const leftSeries = root._series(left);
+        const rightSeries = root._series(right);
+        const leftZ = leftSeries && leftSeries.z !== undefined ? leftSeries.z : 0;
+        const rightZ = rightSeries && rightSeries.z !== undefined ? rightSeries.z : 0;
+        if (leftZ !== rightZ)
+            return leftZ - rightZ;
+        return String(left).localeCompare(String(right));
+    }
+
+    function requestRender(graphName, reason) {
+        const key = graphName || "view";
+        const next = Object.assign({}, root._dirtyReasons);
+        next[key] = reason || true;
+        root._dirtyReasons = next;
+        root._renderPending = true;
+
+        if (!root.active)
+            return;
+
+        if (root._batchDepth > 0 || root._renderQueued)
+            return;
+
+        root._renderQueued = true;
+        renderScheduler.restart();
+    }
+
+    function batch(fn) {
+        root._batchDepth++;
+        try {
+            if (fn)
+                fn();
+        } finally {
+            root._batchDepth--;
+            if (root._batchDepth === 0 && root._renderPending)
+                root.requestRender("", "batch");
         }
-        for (const name in root._histories)
-            names[name] = true;
+    }
+
+    function seriesNames() {
+        const names = {};
+        const graphs = root._graphs();
+        for (let i = 0; i < graphs.length; i++) {
+            if (graphs[i] && graphs[i].name)
+                names[String(graphs[i].name)] = true;
+        }
 
         return Object.keys(names).sort((left, right) => String(left).localeCompare(String(right)));
     }
 
     function renderNames() {
-        return root.dataSetNames().sort(root._compareNames);
+        return root.seriesNames().sort(root._compareNames);
     }
 
-    function history(nameOrIndex) {
+    function series(nameOrIndex) {
         const name = root._resolveName(nameOrIndex);
-        return root._histories[name] || root._ensureHistory(root._dataSet(name));
+        return root._graph(name);
     }
 
     function currentValue(nameOrIndex) {
-        const item = root.history(nameOrIndex);
-        const data = item ? item.data : [];
-        return data && data.length > 0 ? Math.round(root._pointY(data[data.length - 1])) : 0;
+        const item = root.series(nameOrIndex);
+        const points = root._seriesPoints(item, root._plotArea.viewport);
+        return points.length > 0 ? Math.round(points[points.length - 1].y) : 0;
     }
 
     function isSeriesVisible(nameOrIndex) {
@@ -157,7 +216,7 @@ Item {
         if (root._visibleOverrides[name] !== undefined)
             return root._visibleOverrides[name];
 
-        const item = root._dataSet(name) || root._histories[name];
+        const item = root._series(name);
         return item ? item.visible !== false : false;
     }
 
@@ -170,65 +229,168 @@ Item {
         next[name] = !root.isSeriesVisible(name);
         root._visibleOverrides = next;
         root._revision++;
-        canvas.requestPaint();
+        root.requestRender(name, "visibility");
     }
 
-    function _loadCache() {
-        if (!root.cacheEnabled || !root.cacheLoadEnabled || root.cacheKey === "") {
-            root._cacheLoaded = true;
-            return;
+    function _collectorPoints(series, view) {
+        if (!root._seriesUsesCollector(series))
+            return [];
+        const result = series.collector.calculate(view || root.viewport, series.name) || {};
+        return result.points || [];
+    }
+
+    function _seriesPoints(series, view) {
+        if (!series)
+            return [];
+        if (root._seriesUsesCollector(series))
+            return root._collectorPoints(series, view);
+        return [];
+    }
+
+    function _extendBounds(bounds, point) {
+        if (!point)
+            return bounds;
+        if (!bounds.valid) {
+            bounds.minX = point.x;
+            bounds.maxX = point.x;
+            bounds.minY = point.y;
+            bounds.maxY = point.y;
+            bounds.valid = true;
+            return bounds;
         }
-        cacheLoader.exec({ command: ["sh", "-c", `cat "${root._cachePath()}" 2>/dev/null || echo '{}'`] });
+        bounds.minX = Math.min(bounds.minX, point.x);
+        bounds.maxX = Math.max(bounds.maxX, point.x);
+        bounds.minY = Math.min(bounds.minY, point.y);
+        bounds.maxY = Math.max(bounds.maxY, point.y);
+        return bounds;
     }
 
-    function _applyCache(text) {
-        try {
-            const payload = JSON.parse(text || "{}");
-            const loaded = payload.histories || {};
-            const next = {};
+    function _computeGlobalBounds(fallbackMaxX) {
+        const bounds = {
+            minX: 0,
+            maxX: 1,
+            minY: root.yMin,
+            maxY: root.yMax,
+            valid: false
+        };
+        const names = root.seriesNames();
+        const entries = [];
+        let maxX = null;
 
-            for (const name in loaded) {
-                const item = loaded[name];
-                next[name] = {
-                    name: name,
-                    color: item.color || Config.colors.blue,
-                    visible: item.visible !== false,
-                    data: root._trim(item.data || [])
-                };
+        for (let n = 0; n < names.length; n++) {
+            if (!root.isSeriesVisible(names[n]))
+                continue;
+
+            const series = root.series(names[n]);
+            if (!series)
+                continue;
+
+            const collector = root._seriesUsesCollector(series) ? series.collector : null;
+            const collectorBounds = collector && collector.rawBounds && collector.rawBounds.valid ? collector.rawBounds : null;
+            if (collectorBounds && (maxX === null || collectorBounds.maxX > maxX))
+                maxX = collectorBounds.maxX;
+
+            const rawData = root._seriesPoints(series, root.viewport);
+            const points = [];
+            for (let i = 0; i < rawData.length; i++) {
+                const point = rawData[i];
+                if (!point)
+                    continue;
+                points.push(point);
+                if (!collectorBounds && (maxX === null || point.x > maxX))
+                    maxX = point.x;
             }
-            root._histories = next;
-        } catch (e) {
-            root._histories = {};
+            entries.push({
+                points: points,
+                viewReady: !!collector
+            });
         }
-        root._cacheLoaded = true;
+
+        const resolvedMaxX = maxX !== null ? maxX : fallbackMaxX;
+        const windowStart = root.relativeX ? (resolvedMaxX - root._xWindow()) : 0;
+
+        for (let n = 0; n < entries.length; n++) {
+            const entry = entries[n];
+            const points = entry.points;
+            for (let i = 0; i < points.length; i++) {
+                const point = points[i];
+                if (root.relativeX && !entry.viewReady && (point.x < windowStart || point.x > resolvedMaxX))
+                    continue;
+                root._extendBounds(bounds, point);
+            }
+        }
+
+        if (!bounds.valid) {
+            bounds.minX = root.relativeX ? windowStart : 0;
+            bounds.maxX = root.relativeX ? resolvedMaxX : 1;
+            bounds.minY = root.yMin;
+            bounds.maxY = root.yMax;
+        } else if (root.relativeX) {
+            bounds.minX = windowStart;
+            bounds.maxX = resolvedMaxX;
+        }
+        return bounds;
+    }
+
+    function _currentViewport() {
+        if (root.relativeX && !(root.viewport && root.viewport.manual === true)) {
+            const sourceMaxX = root.globalBounds.valid ? root.globalBounds.maxX : root.viewport.maxX;
+            const width = root._xWindow();
+            return {
+                minX: 0,
+                maxX: width,
+                minY: root.yMin,
+                maxY: root.yMax,
+                sourceMinX: sourceMaxX - width,
+                sourceMaxX: sourceMaxX
+            };
+        }
+
+        if (root.viewportMode === "auto") {
+            const bounds = root.globalBounds.valid ? root.globalBounds : root._computeGlobalBounds(root.viewport.maxX);
+            const xPad = Math.max(1, (bounds.maxX - bounds.minX) * 0.02);
+            const yPad = Math.max(1, (bounds.maxY - bounds.minY) * 0.08);
+            return {
+                minX: bounds.minX - xPad,
+                maxX: bounds.maxX + xPad,
+                minY: bounds.minY - yPad,
+                maxY: bounds.maxY + yPad
+            };
+        }
+
+        if (root.viewport && root.viewport.manual === true)
+            return root.viewport;
+
+        return {
+            minX: root.viewport.minX,
+            maxX: root.viewport.maxX,
+            minY: root.yMin,
+            maxY: root.yMax
+        };
+    }
+
+    function toScreen(x, y) {
+        const area = root._plotArea;
+        const view = area.viewport;
+        const xRange = Math.max(1, view.maxX - view.minX);
+        const yRange = Math.max(1, view.maxY - view.minY);
+        return {
+            x: area.x + ((x - view.minX) / xRange) * area.width,
+            y: area.y + area.height - ((y - view.minY) / yRange) * area.height
+        };
+    }
+
+    onGraphsChanged: {
         root._revision++;
-        canvas.requestPaint();
+        root._connectGraphs();
+        root.requestRender("", "graphs");
     }
-
-    function _saveCache() {
-        if (!root.cacheEnabled || !root.cacheSaveEnabled || root.cacheKey === "" || !root._cacheLoaded)
-            return;
-
-        cacheSaver.exec({
-            command: ["sh", "-c", `mkdir -p "$1" && printf '%s' "$2" > "$1/$3.json"`, "save", StandardPaths.writableLocation(StandardPaths.StateLocation) + "/graphs", JSON.stringify({ histories: root._histories }), root.cacheKey]
-        });
-    }
-
-    Process {
-        id: cacheLoader
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: root._applyCache(text)
-        }
-    }
-
-    Process {
-        id: cacheSaver
-    }
-
-    Component.onCompleted: root._loadCache()
-    onCacheKeyChanged: root._loadCache()
-    onCacheEnabledChanged: root._loadCache()
+    onMarkersChanged: root.requestRender("", "markers")
+    onViewportChanged: root.requestRender("", "viewport")
+    onViewportModeChanged: root.requestRender("", "viewport")
+    onShowXAxisChanged: root.requestRender("", "axis")
+    onShowYAxisChanged: root.requestRender("", "axis")
+    onShowLabelsChanged: root.requestRender("", "labels")
 
     Canvas {
         id: canvas
@@ -241,79 +403,128 @@ Item {
 
             const w = width;
             const h = height;
-            const padTop = 8;
-            const padBottom = 8;
-            const padRight = 4;
-            const now = Date.now();
-            const windowStart = now - root._historyWindowMs();
+            root.globalBounds = root._computeGlobalBounds(root.viewport.maxX);
+            const view = root._currentViewport();
 
             ctx.font = "10px sans-serif";
-            const padLeft = ctx.measureText(root.yLabelFormat.arg(Math.round(root.yMax))).width + 8;
+            const padTop = root.padding.top !== undefined ? root.padding.top : 8;
+            const markerLabelSpace = root.showLabels && root.xMarkerLabel ? 14 : 0;
+            const padBottom = (root.padding.bottom !== undefined ? root.padding.bottom : 8) + markerLabelSpace;
+            const padRight = root.padding.right !== undefined ? root.padding.right : 4;
+            const padLeft = root.padding.left >= 0 ? root.padding.left : (root.showLabels ? ctx.measureText(root.yLabelFormat.arg(Math.round(view.maxY))).width + 8 : 4);
             const graphW = Math.max(1, w - padLeft - padRight);
             const graphH = Math.max(1, h - padTop - padBottom);
-            const yRange = Math.max(1, root.yMax - root.yMin);
+            const yRange = Math.max(1, view.maxY - view.minY);
+            const xRange = Math.max(1, view.maxX - view.minX);
+            root._plotArea = {
+                x: padLeft,
+                y: padTop,
+                width: graphW,
+                height: graphH,
+                viewport: view
+            };
 
             ctx.fillStyle = Config.colors.surface0;
             ctx.fillRect(padLeft, padTop, graphW, graphH);
 
-            ctx.strokeStyle = Config.colors.overlay0;
-            ctx.lineWidth = 1;
-            ctx.fillStyle = Config.styling.text0;
-            ctx.textAlign = "right";
-            ctx.textBaseline = "middle";
+            if (root.showYAxis) {
+                ctx.strokeStyle = Config.colors.overlay0;
+                ctx.lineWidth = 1;
+                ctx.fillStyle = Config.styling.text0;
+                ctx.textAlign = "right";
+                ctx.textBaseline = "middle";
 
-            for (let i = 0; i <= 5; i++) {
-                const val = root.yMin + (yRange * i / 5);
-                const y = padTop + graphH - ((val - root.yMin) / yRange) * graphH;
+                for (let i = 0; i <= 5; i++) {
+                    const val = view.minY + (yRange * i / 5);
+                    const y = padTop + graphH - ((val - view.minY) / yRange) * graphH;
+                    ctx.beginPath();
+                    ctx.moveTo(padLeft, y);
+                    ctx.lineTo(w - padRight, y);
+                    ctx.stroke();
+                    if (root.showLabels)
+                        ctx.fillText(root.yLabelFormat.arg(Math.round(val)), padLeft - 4, y);
+                }
+            }
+
+            if (root.showXAxis) {
+                ctx.strokeStyle = Config.colors.overlay0;
+                ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.moveTo(padLeft, y);
-                ctx.lineTo(w - padRight, y);
+                ctx.moveTo(padLeft, padTop + graphH);
+                ctx.lineTo(w - padRight, padTop + graphH);
                 ctx.stroke();
-                ctx.fillText(root.yLabelFormat.arg(Math.round(val)), padLeft - 4, y);
+            }
+
+            if (root.xMarkerInterval > 0) {
+                const firstX = Math.ceil(view.minX / root.xMarkerInterval) * root.xMarkerInterval;
+                ctx.strokeStyle = Config.colors.overlay1;
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.45;
+                for (let xValue = firstX; xValue <= view.maxX; xValue += root.xMarkerInterval) {
+                    const x = padLeft + ((xValue - view.minX) / xRange) * graphW;
+                    ctx.beginPath();
+                    ctx.moveTo(x, padTop);
+                    ctx.lineTo(x, padTop + graphH);
+                    ctx.stroke();
+                    if (root.showLabels && root.xMarkerLabel) {
+                        const label = root.xMarkerLabel(xValue, view);
+                        if (label) {
+                            ctx.fillStyle = Config.styling.text2;
+                            ctx.textAlign = "center";
+                            ctx.textBaseline = "top";
+                            ctx.fillText(label, x, padTop + graphH + 4);
+                        }
+                    }
+                }
+                ctx.globalAlpha = 1;
             }
 
             const names = root.renderNames();
             for (let n = 0; n < names.length; n++) {
-                const item = root.history(names[n]);
-                const data = item ? root._trim(item.data || []) : [];
+                const item = root.series(names[n]);
+                const data = root._seriesPoints(item, view);
                 if (!item || !root.isSeriesVisible(names[n]) || data.length === 0)
                     continue;
 
-                const xMin = root.timestampEnabled ? windowStart : root._pointX(data[0], 0);
-                const xMax = root.timestampEnabled ? now : root._pointX(data[data.length - 1], data.length - 1);
-                const xRange = Math.max(1, xMax - xMin);
-
                 ctx.strokeStyle = item.color || Config.colors.blue;
-                ctx.lineWidth = 1.6;
+                ctx.lineWidth = item.lineWidth !== undefined ? item.lineWidth : 1.6;
                 ctx.beginPath();
 
                 let drawn = 0;
                 let lastX = 0;
                 let lastY = 0;
+                let lastViewPoint = null;
 
                 for (let i = 0; i < data.length; i++) {
-                    const point = data[i];
-                    let xValue = root._pointX(point, i);
-                    let yValue = root._pointY(point);
-
-                    if (root.timestampEnabled && xValue < windowStart)
+                    const viewPoint = data[i];
+                    if (!viewPoint || viewPoint.x < view.minX || viewPoint.x > view.maxX)
                         continue;
 
-                    if (item.transform) {
-                        const transformed = item.transform(xValue, yValue, point);
-                        if (transformed && transformed.visible === false)
-                            continue;
-                        if (transformed && transformed.x !== undefined)
-                            xValue = transformed.x;
-                        if (transformed && transformed.y !== undefined)
-                            yValue = transformed.y;
+                    const color = item.colorAt ? item.colorAt(viewPoint.x, viewPoint.y, i) : null;
+                    if (color)
+                        ctx.strokeStyle = color;
+
+                    const x = padLeft + ((viewPoint.x - view.minX) / xRange) * graphW;
+                    const y = padTop + graphH - ((Math.max(view.minY, Math.min(view.maxY, viewPoint.y)) - view.minY) / yRange) * graphH;
+
+                    if (drawn === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        const collector = root._seriesUsesCollector(item) ? item.collector : null;
+                        const connect = collector ? collector.connects(lastViewPoint, viewPoint) : true;
+                        if (connect) {
+                            ctx.lineTo(x, y);
+                        } else {
+                            ctx.stroke();
+                            ctx.beginPath();
+                            ctx.moveTo(x, y);
+                            drawn = 0;
+                        }
                     }
 
-                    const x = padLeft + ((xValue - xMin) / xRange) * graphW;
-                    const y = padTop + graphH - ((Math.max(root.yMin, Math.min(root.yMax, yValue)) - root.yMin) / yRange) * graphH;
-                    drawn === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
                     lastX = x;
                     lastY = y;
+                    lastViewPoint = viewPoint;
                     drawn++;
                 }
 
@@ -321,24 +532,75 @@ Item {
                     ctx.arc(lastX, lastY, 2, 0, Math.PI * 2);
                 ctx.stroke();
             }
+
+            const markers = (root.markers || []).slice().sort((left, right) => (left.z || 0) - (right.z || 0));
+            for (let i = 0; i < markers.length; i++) {
+                const marker = markers[i];
+                if (!marker || marker.visible === false)
+                    continue;
+
+                ctx.strokeStyle = marker.color || Config.colors.overlay2;
+                ctx.fillStyle = marker.color || Config.colors.overlay2;
+                ctx.lineWidth = 1;
+
+                if (marker.type === "xLine" && root._validNumber(marker.x)) {
+                    const p = root.toScreen(marker.x, view.minY);
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, padTop);
+                    ctx.lineTo(p.x, padTop + graphH);
+                    ctx.stroke();
+                } else if (marker.type === "yLine" && root._validNumber(marker.y)) {
+                    const p = root.toScreen(view.minX, marker.y);
+                    ctx.beginPath();
+                    ctx.moveTo(padLeft, p.y);
+                    ctx.lineTo(padLeft + graphW, p.y);
+                    ctx.stroke();
+                } else if (marker.type === "point" && root._validNumber(marker.x) && root._validNumber(marker.y)) {
+                    const p = root.toScreen(marker.x, marker.y);
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (marker.type === "rangeX" && root._validNumber(marker.min) && root._validNumber(marker.max)) {
+                    const left = root.toScreen(marker.min, view.minY).x;
+                    const right = root.toScreen(marker.max, view.minY).x;
+                    ctx.globalAlpha = 0.14;
+                    ctx.fillRect(Math.min(left, right), padTop, Math.abs(right - left), graphH);
+                    ctx.globalAlpha = 1;
+                } else if (marker.type === "rangeY" && root._validNumber(marker.min) && root._validNumber(marker.max)) {
+                    const top = root.toScreen(view.minX, marker.max).y;
+                    const bottom = root.toScreen(view.minX, marker.min).y;
+                    ctx.globalAlpha = 0.14;
+                    ctx.fillRect(padLeft, Math.min(top, bottom), graphW, Math.abs(bottom - top));
+                    ctx.globalAlpha = 1;
+                }
+
+                if (root.showLabels && marker.label && marker.labelVisible !== false) {
+                    const labelX = root._validNumber(marker.x) ? root.toScreen(marker.x, view.minY).x + 4 : padLeft + 4;
+                    const labelY = root._validNumber(marker.y) ? root.toScreen(view.minX, marker.y).y - 4 : padTop + 12;
+                    ctx.textAlign = "left";
+                    ctx.textBaseline = "bottom";
+                    ctx.fillText(marker.label, labelX, labelY);
+                }
+            }
+
+            root._dirtyReasons = {};
+            root._renderPending = false;
         }
     }
 
     Timer {
-        interval: Math.max(100, root.sampleIntervalMs)
-        running: root.active && root.samplingEnabled && root._cacheLoaded
-        repeat: true
-        triggeredOnStart: true
-        onTriggered: root.sample()
+        id: renderScheduler
+        interval: 0
+        repeat: false
+        onTriggered: {
+            root._renderQueued = false;
+            canvas.requestPaint();
+        }
     }
 
-    Timer {
-        interval: 1000
-        running: root.active
-        repeat: true
-        onTriggered: canvas.requestPaint()
-    }
-
-    onDataSetsChanged: canvas.requestPaint()
-    onActiveChanged: canvas.requestPaint()
+    onActiveChanged: root.requestRender("", "active")
+    onYMinChanged: root.requestRender("", "viewport")
+    onYMaxChanged: root.requestRender("", "viewport")
+    onXMarkerIntervalChanged: root.requestRender("", "markers")
+    onXMarkerLabelChanged: root.requestRender("", "markers")
 }

@@ -5,4 +5,6 @@ import "./services"
 
 ShellRoot {
     property ShellState shellState: ShellState
+    property Stats stats: Stats
+    // hi
 }

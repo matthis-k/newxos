@@ -5,6 +5,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 import qs.services
+import qs.services as Services
 import qs.components
 
 DashboardPage {
@@ -13,37 +14,49 @@ DashboardPage {
     title: "System stats"
     scrollable: true
 
-    readonly property var cpuCoreColors: [
-        Config.colors.green,
-        Config.colors.yellow,
-        Config.colors.red,
-        Config.colors.maroon,
-        Config.colors.peach,
-        Config.colors.mauve,
-        Config.colors.pink,
-        Config.colors.flamingo,
-        Config.colors.rosewater
-    ]
+    readonly property var cpuCoreColors: [Config.colors.green, Config.colors.yellow, Config.colors.red, Config.colors.maroon, Config.colors.peach, Config.colors.mauve, Config.colors.pink, Config.colors.flamingo, Config.colors.rosewater]
     readonly property color ramColor: Config.colors.mauve
     readonly property color swapColor: Config.colors.blue
 
-    function cpuSeriesOrder(left, right) {
-        if (left === "avg")
-            return 1;
-        if (right === "avg")
-            return -1;
-
-        const leftCore = parseInt(String(left).replace("core", ""));
-        const rightCore = parseInt(String(right).replace("core", ""));
-        if (!isNaN(leftCore) && !isNaN(rightCore))
-            return leftCore - rightCore;
-
-        return String(left).localeCompare(String(right));
+    function cpuGraphSeries() {
+        const _ = Services.Stats.graphRevision;
+        return Services.Stats.calculateCpuGraphSeries().map(series => Object.assign({}, series, {
+                color: series.name === "avg" ? Config.colors.blue : root.cpuCoreColors[parseInt(String(series.name).replace("core", "")) % root.cpuCoreColors.length],
+                lineWidth: series.name === "avg" ? 2.5 : 1.2
+            }));
     }
 
-    function cpuCoreNames() {
-        const _ = cpuGraph._revision;
-        return cpuGraph.dataSetNames().filter(name => name !== "avg");
+    readonly property int _coreCount: {
+        const _ = Services.Stats.graphRevision;
+        return Services.Stats.cpuCorePercents.length;
+    }
+
+    function cpuCoreNameAt(index) {
+        return `core${index}`;
+    }
+
+    function anyCoresVisible() {
+        for (let i = 0; i < root._coreCount; i++) {
+            if (cpuGraph.isSeriesVisible(root.cpuCoreNameAt(i)))
+                return true;
+        }
+        return false;
+    }
+
+    function toggleAllCores() {
+        const show = !root.anyCoresVisible();
+        for (let i = 0; i < root._coreCount; i++) {
+            const name = root.cpuCoreNameAt(i);
+            if (cpuGraph.isSeriesVisible(name) !== show)
+                cpuGraph.toggleSeries(name);
+        }
+    }
+
+    function memoryGraphSeries() {
+        const _ = Services.Stats.graphRevision;
+        return Services.Stats.calculateMemoryGraphSeries().map(series => Object.assign({}, series, {
+                color: series.name === "RAM" ? root.ramColor : root.swapColor
+            }));
     }
 
     DashboardSection {
@@ -59,23 +72,10 @@ DashboardPage {
                 active: root.SwipeView.isCurrentItem
                 yMin: 0
                 yMax: 100
-                xWindowMs: 120000
-                sampleIntervalMs: 2000
-                cacheEnabled: true
-                cacheKey: "cpu"
-                renderOrderCompare: root.cpuSeriesOrder
-                dataSets: {
-                    const _ = SystemStats._tick;
-                    const all = [];
-                    if (!SystemStats._hasCpuDelta)
-                        return all;
-
-                    all.push({ name: "avg", value: SystemStats.cpuPercent, color: Config.colors.blue, visible: true });
-
-                    for (let i = 0; i < SystemStats.cpuCorePercents.length; i++)
-                        all.push({ name: `core${i}`, value: SystemStats.cpuCorePercents[i], color: root.cpuCoreColors[i % root.cpuCoreColors.length], visible: false });
-                    return all;
-                }
+                xWindow: 120000
+                xMarkerInterval: 60000
+                xMarkerLabel: (x, view) => x < view.maxX ? qsTr("%1m").arg(Math.round((view.maxX - x) / 60000)) : ""
+                graphs: root.cpuGraphSeries()
                 Layout.fillWidth: true
                 Layout.preferredHeight: 180
                 Layout.minimumHeight: 140
@@ -84,13 +84,26 @@ DashboardPage {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
-                Item { Layout.fillWidth: true }
+                Item {
+                    Layout.fillWidth: true
+                }
                 CpuLegendButton {
                     Layout.preferredWidth: 100
                     Layout.alignment: Qt.AlignHCenter
                     seriesName: "avg"
+                    onClicked: cpuGraph.toggleSeries("avg")
                 }
-                Item { Layout.fillWidth: true }
+                CpuLegendButton {
+                    Layout.preferredWidth: 100
+                    Layout.alignment: Qt.AlignHCenter
+                    lbl: "cores"
+                    seriesEnabled: root.anyCoresVisible()
+                    color: Config.colors.overlay2
+                    onClicked: root.toggleAllCores()
+                }
+                Item {
+                    Layout.fillWidth: true
+                }
             }
 
             GridLayout {
@@ -101,10 +114,7 @@ DashboardPage {
                 uniformCellWidths: true
 
                 Repeater {
-                    model: {
-                        const _ = cpuGraph._revision;
-                        return root.cpuCoreNames().length;
-                    }
+                    model: root._coreCount
                     CpuLegendDelegate {}
                 }
             }
@@ -124,24 +134,10 @@ DashboardPage {
                 active: root.SwipeView.isCurrentItem
                 yMin: 0
                 yMax: 100
-                xWindowMs: 300000
-                sampleIntervalMs: 10000
-                cacheEnabled: true
-                cacheKey: "memory"
-                dataSets: {
-                    const _ = SystemStats._tick;
-                    return [{
-                        name: "RAM",
-                        value: SystemStats.memoryPercent,
-                        color: root.ramColor,
-                        visible: true
-                    }, {
-                        name: "Swap",
-                        value: SystemStats.swapTotalMiB > 0 ? SystemStats.swapPercent : 0,
-                        color: root.swapColor,
-                        visible: true
-                    }];
-                }
+                xWindow: 300000
+                xMarkerInterval: 60000
+                xMarkerLabel: (x, view) => x < view.maxX ? qsTr("%1m").arg(Math.round((view.maxX - x) / 60000)) : ""
+                graphs: root.memoryGraphSeries()
                 Layout.fillWidth: true
                 Layout.preferredHeight: 160
                 Layout.minimumHeight: 120
@@ -151,16 +147,16 @@ DashboardPage {
 
             StatTableRow {
                 label: "RAM"
-                valueText: `${SystemStats.memoryUsedMiB} / ${SystemStats.memoryTotalMiB} MiB`
-                percent: SystemStats.memoryPercent
+                valueText: `${Services.Stats.memoryUsedMiB} / ${Services.Stats.memoryTotalMiB} MiB`
+                percent: Services.Stats.memoryPercent
                 rowColor: root.ramColor
                 percentColor: root.ramColor
             }
 
             StatTableRow {
                 label: "Swap"
-                valueText: SystemStats.swapTotalMiB > 0 ? `${SystemStats.swapUsedMiB} / ${SystemStats.swapTotalMiB} MiB` : "Disabled"
-                percent: SystemStats.swapTotalMiB > 0 ? SystemStats.swapPercent : -1
+                valueText: Services.Stats.swapTotalMiB > 0 ? `${Services.Stats.swapUsedMiB} / ${Services.Stats.swapTotalMiB} MiB` : "Disabled"
+                percent: Services.Stats.swapTotalMiB > 0 ? Services.Stats.swapPercent : -1
                 rowColor: root.swapColor
                 percentColor: root.swapColor
             }
@@ -178,7 +174,7 @@ DashboardPage {
             StatTableHeader {}
 
             Repeater {
-                model: SystemStats.diskPartitions
+                model: Services.Stats.diskPartitions
 
                 PartitionRow {}
             }
@@ -192,14 +188,14 @@ DashboardPage {
         InfoRow {
             iconName: "go-down-symbolic"
             label: "Download"
-            value: SystemStats.formatRate(SystemStats.rxBytesPerSecond)
+            value: Services.Stats.formatRate(Services.Stats.rxBytesPerSecond)
             Layout.fillWidth: true
         }
 
         InfoRow {
             iconName: "go-up-symbolic"
             label: "Upload"
-            value: SystemStats.formatRate(SystemStats.txBytesPerSecond)
+            value: Services.Stats.formatRate(Services.Stats.txBytesPerSecond)
             Layout.fillWidth: true
         }
     }
@@ -281,28 +277,22 @@ DashboardPage {
     component CpuLegendButton: Item {
         id: btn
         property string seriesName: ""
-        readonly property int graphRevision: cpuGraph._revision
-        readonly property var history: {
-            const _ = btn.graphRevision;
-            return cpuGraph.history(seriesName);
+        property string lbl: seriesName
+        property bool seriesEnabled: cpuGraph.isSeriesVisible(seriesName)
+        property color color: {
+            const s = cpuGraph.series(seriesName);
+            return s ? s.color : Config.colors.surface1;
         }
-        readonly property bool seriesEnabled: {
-            const _ = btn.graphRevision;
-            return cpuGraph.isSeriesVisible(seriesName);
-        }
-        readonly property color clr: history ? history.color : "transparent"
-        readonly property string lbl: history ? history.name : ""
-        readonly property int val: {
-            const _ = btn.graphRevision;
-            return cpuGraph.currentValue(seriesName);
-        }
+        signal clicked
 
         implicitHeight: 20
 
         Rectangle {
-            anchors.fill: parent; anchors.topMargin: 2; anchors.bottomMargin: 2
+            anchors.fill: parent
+            anchors.topMargin: 2
+            anchors.bottomMargin: 2
             radius: 3
-            color: btn.clr
+            color: btn.color
             opacity: btn.seriesEnabled ? 1.0 : 0.5
             Behavior on opacity {
                 NumberAnimation {
@@ -315,13 +305,13 @@ DashboardPage {
         MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: cpuGraph.toggleSeries(btn.seriesName)
+            onClicked: btn.clicked()
         }
 
         Text {
             anchors.centerIn: parent
             horizontalAlignment: Text.AlignHCenter
-            text: `${btn.lbl} (${btn.val}%)`
+            text: btn.lbl
             font.pixelSize: 13
             color: Config.colors.base
         }
@@ -331,7 +321,7 @@ DashboardPage {
         required property int index
 
         Layout.fillWidth: true
-        seriesName: root.cpuCoreNames()[index] || ""
+        seriesName: root.cpuCoreNameAt(index)
     }
 
     component PartitionRow: StatTableRow {

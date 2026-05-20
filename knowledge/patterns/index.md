@@ -10,7 +10,7 @@ Important repo composition patterns.
 
 ## Observations
 
-- [fact] Five patterns documented: dendritic modules, scope boundaries, host/user layout, wrapped programs, QuickShell design
+- [fact] Seven patterns documented: dendritic modules, scope boundaries, host/user layout, wrapped programs, QuickShell design, QML graph goal, QML graph requirements
 - [decision] Use these pages for repo conventions; library pages for upstream behavior; [[Encountered Issues]] for repeated mistakes
 
 ## Relations
@@ -25,6 +25,8 @@ Important repo composition patterns.
 - [[Host And User Layout]]: how concrete hosts, shared system modules, and user modules are arranged.
 - [[Wrapped Programs And Generated Config]]: when config belongs in wrappers, in `configs/`, or in generated imports.
 - [[quickshell-design]]: flat design, animations, and Catppuccin palette usage for QuickShell UI.
+- [[QML Graph Goal]]: intent and scope for the reusable QuickShell/QML graph component.
+- [[QML Graph Requirements]]: API and behavior requirements for graph views, series, data adapters, projections, markers, and redraw scheduling.
 
 ## Notes
 

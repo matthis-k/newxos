@@ -4,9 +4,9 @@ StatusIcon {
     id: root
     iconName: "utilities-system-monitor-symbolic"
     iconColor: {
-        if (SystemStats.cpuPercent >= 90 || SystemStats.memoryPercent >= 90)
+        if (Stats.cpuPercent >= 90 || Stats.memoryPercent >= 90)
             return Config.styling.critical;
-        if (SystemStats.cpuPercent >= 70 || SystemStats.memoryPercent >= 75)
+        if (Stats.cpuPercent >= 70 || Stats.memoryPercent >= 75)
             return Config.styling.warning;
         return Config.styling.text0;
     }
