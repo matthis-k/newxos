@@ -161,3 +161,13 @@ Relations:
 - Root cause: in this ATA/storage context, DRM refers to drive feature/security support, not Linux graphics DRM/KMS.
 - Rule: for Plymouth/NVIDIA issues, focus on `simpledrm`, `nvidia_drm`, framebuffer handoff, and Plymouth service logs; do not treat `ata*.00 supports DRM functions` as a graphics error.
 - Related knowledge: [[Host And User Layout]], [[hyprland]].
+
+### 2026-05-21: Hyprland `hyprctl` fish completions can be generated stale
+
+- Context: fixing `hyprctl` completions from upstream Hyprland.
+- Problem: upstream-generated `hyprctl.fish` can show nested literals like `0` at top level and pair commands with wrong descriptions.
+- Symptom: `hyprctl ` completion listed `event` with `Output in JSON format` and `0` with the monitor description.
+- Cause: the generated completion state machine in the upstream package was stale or misindexed relative to `hyprctl.usage`.
+- Fix: keep the upstream Hyprland package, copy only the installed `hyprctl.fish`, apply a local patch in a tiny derivation, and install it with `lib.hiPrio`.
+- Rule: for broken package-provided shell completions, prefer a high-priority post-install completion override before rebuilding the upstream package from source.
+- Related knowledge: [[hyprland]], [[Workflow]].
