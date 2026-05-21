@@ -68,6 +68,7 @@ in
         ];
         subnets = [ "224.0.0.0/24" ];
       };
+      settings.technology = "OPENVPN";
       users = [ "matthisk" ];
     };
   };
