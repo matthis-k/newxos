@@ -4,6 +4,7 @@ let
     { pkgs, ... }:
     {
       boot.initrd.systemd.enable = true;
+      boot.initrd.verbose = false;
       boot.plymouth = {
         enable = true;
         font = "${pkgs.nerd-fonts.hack}/share/fonts/truetype/NerdFonts/Hack/HackNerdFontMono-Regular.ttf";

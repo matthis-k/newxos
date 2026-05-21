@@ -27,6 +27,7 @@ _: {
       boot.kernelModules = [ "kvm-amd" ];
       boot.kernelParams = [
         "amd_pstate=active"
+        "quiet"
         "nvidia_drm.fbdev=1"
         "nvidia_drm.modeset=1"
       ];

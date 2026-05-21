@@ -36,6 +36,7 @@ This folder tracks known issues and their workarounds.
 - [[issue-zen-browser-chrome-not-themed]]
 - [[issue-nixos-install-oom]]
 - [[issue-prefers-color-scheme-dark]]
+- [[plymouth-hidden-during-luks-prompt-on-nvidia-desktop]]
 
 ## Resolved issues
 
