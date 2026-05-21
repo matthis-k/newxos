@@ -47,6 +47,19 @@ in
 
     services.nordvpn = {
       enable = true;
+      settings.autoConnect = {
+        group = "Dedicated_IP";
+        target = [ ];
+      };
+      settings.allowlist = {
+        ports = [
+          {
+            port = 5353;
+            protocol = "UDP";
+          }
+        ];
+        subnets = [ "224.0.0.0/24" ];
+      };
       users = [ "matthisk" ];
     };
   };
