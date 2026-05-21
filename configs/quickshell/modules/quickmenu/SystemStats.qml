@@ -45,11 +45,13 @@ DashboardPage {
 
     function toggleAllCores() {
         const show = !root.anyCoresVisible();
-        for (let i = 0; i < root._coreCount; i++) {
-            const name = root.cpuCoreNameAt(i);
-            if (cpuGraph.isSeriesVisible(name) !== show)
-                cpuGraph.toggleSeries(name);
-        }
+        cpuGraph.batch(() => {
+            for (let i = 0; i < root._coreCount; i++) {
+                const name = root.cpuCoreNameAt(i);
+                if (cpuGraph.isSeriesVisible(name) !== show)
+                    cpuGraph.setSeriesVisible(name, show);
+            }
+        });
     }
 
     function memoryGraphSeries() {
@@ -322,6 +324,7 @@ DashboardPage {
 
         Layout.fillWidth: true
         seriesName: root.cpuCoreNameAt(index)
+        onClicked: cpuGraph.toggleSeries(seriesName)
     }
 
     component PartitionRow: StatTableRow {

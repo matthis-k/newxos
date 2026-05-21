@@ -140,6 +140,15 @@ Item {
         return root._graph(name);
     }
 
+    function _applyVisibleOverrides() {
+        const graphs = root._graphs();
+        for (let i = 0; i < graphs.length; i++) {
+            const graph = graphs[i];
+            if (graph && graph.name && root._visibleOverrides[graph.name] !== undefined)
+                graph.visible = root._visibleOverrides[graph.name];
+        }
+    }
+
     function _seriesUsesCollector(series) {
         return !!(series && series.collector && series.collector.calculate);
     }
@@ -210,14 +219,31 @@ Item {
     }
 
     function isSeriesVisible(nameOrIndex) {
+        const _ = root._revision;
         const name = root._resolveName(nameOrIndex);
         if (!name)
             return false;
-        if (root._visibleOverrides[name] !== undefined)
-            return root._visibleOverrides[name];
 
         const item = root._series(name);
         return item ? item.visible !== false : false;
+    }
+
+    function setSeriesVisible(nameOrIndex, visible) {
+        const name = root._resolveName(nameOrIndex);
+        if (!name)
+            return;
+
+        const item = root._series(name);
+        if (!item)
+            return;
+
+        const enabled = !!visible;
+        const next = Object.assign({}, root._visibleOverrides);
+        next[name] = enabled;
+        root._visibleOverrides = next;
+        item.visible = enabled;
+        root._revision++;
+        root.requestRender(name, "visibility");
     }
 
     function toggleSeries(nameOrIndex) {
@@ -225,11 +251,7 @@ Item {
         if (!name)
             return;
 
-        const next = Object.assign({}, root._visibleOverrides);
-        next[name] = !root.isSeriesVisible(name);
-        root._visibleOverrides = next;
-        root._revision++;
-        root.requestRender(name, "visibility");
+        root.setSeriesVisible(name, !root.isSeriesVisible(name));
     }
 
     function _collectorPoints(series, view) {
@@ -381,6 +403,7 @@ Item {
     }
 
     onGraphsChanged: {
+        root._applyVisibleOverrides();
         root._revision++;
         root._connectGraphs();
         root.requestRender("", "graphs");
