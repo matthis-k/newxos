@@ -116,4 +116,4 @@ Three pre-commit hooks validate config integrity when relevant files change:
 
 Defined in `modules/dev/workflow.nix`; executed via `repo-gate` or `pre-commit run --hook-stage pre-commit`.
 
-Hyprland wrapper accepts `monitors` as list of Lua-compatible tables, generates `nix-import.lua` at build time. Home Manager module converts `newxos.hyprland.monitors` (submodule records) to tables via `normalizeMonitor`.
+Hyprland wrapper accepts `monitors` as list of Lua-compatible tables and generates `nix-import.lua` at build time. Host-specific monitor definitions belong in the host's `programs.hyprland.package` wrapper override.

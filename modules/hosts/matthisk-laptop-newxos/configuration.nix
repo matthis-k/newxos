@@ -6,6 +6,14 @@
 }:
 let
   hyprlandWrapper = inputs.self.lib.wrapper-modules.hyprland;
+  laptopMonitors = [
+    {
+      output = "eDP-1";
+      mode = "1920x1080";
+      position = "0x0";
+      scale = 1;
+    }
+  ];
 in
 {
   flake.nixosConfigurations.matthisk-laptop-newxos = inputs.nixpkgs.lib.nixosSystem {
@@ -30,14 +38,7 @@ in
           configDirectory = ../../../configs/hypr;
           package = inputs'.hyprland.packages.hyprland;
           luaVariables = {
-            monitors = [
-              {
-                output = "eDP-1";
-                mode = "1920x1080";
-                position = "0x0";
-                scale = 1;
-              }
-            ];
+            monitors = laptopMonitors;
           };
         }
       )

@@ -13,7 +13,7 @@ Hyprland (0.55+) provides the graphical desktop session used by this repo. Since
 - [fact] Upstream flake input provides compositor packages; NixOS module enables session and supporting packages
 - [technique] Keep `configs/hypr/hyprland.lua` as hand-written root config; `configs/hypr/monitors.lua` as logic layer for Nix-provided monitor imports
 - [decision] Prefer editing Lua config tree instead of generating whole Hyprland config from Nix
-- [fact] Nix-generated values go into `~/.config/hypr/nix-import.lua` instead of cluttering hand-written root config
+- [fact] Nix-generated values go into the wrapper-generated `nix-import.lua` instead of cluttering hand-written root config
 - [fact] Home Manager's Hyprland plugin option generates `hyprland.conf` entries, not suitable for Lua-native root config
 
 ## Relations
@@ -27,8 +27,8 @@ Hyprland (0.55+) provides the graphical desktop session used by this repo. Since
 - The NixOS module enables the session and supporting packages.
 - Home Manager copies the hand-written `configs/hypr/` tree into `~/.config/hypr`.
 - Screenshot helpers use `grimblast` for capture. `screen-shot` selects `region`, `region-direct`, `output`, or `window`; `satty` is separate for annotation, and `screen-read-region` uses `tesseract` OCR.
-- Nix-generated values should go into `~/.config/hypr/nix-import.lua` instead of cluttering the hand-written root config.
-- Repo monitor definitions flow through `newxos.hyprland.monitors`, into `nix-import.lua`, and are applied by `configs/hypr/monitors.lua`.
+- Nix-generated values should go into the wrapper-generated `nix-import.lua` instead of cluttering the hand-written root config.
+- Host-specific monitor definitions belong in each host's `programs.hyprland.package` wrapper override, where they become `nix-import.lua` values applied by `configs/hypr/monitors.lua`.
 
 ## Basics
 

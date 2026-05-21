@@ -4,48 +4,6 @@
   withSystem,
   ...
 }:
-let
-  monitorType = lib.types.submodule {
-    options = {
-      output = lib.mkOption {
-        type = lib.types.str;
-        description = "Hyprland monitor output name or desc: prefix.";
-      };
-
-      mode = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-        description = "Hyprland monitor mode string such as 1920x1080@144.";
-      };
-
-      position = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-        description = "Hyprland monitor position string such as 0x0 or auto.";
-      };
-
-      scale = lib.mkOption {
-        type = lib.types.nullOr (
-          lib.types.oneOf [
-            lib.types.int
-            lib.types.float
-            lib.types.str
-          ]
-        );
-        default = null;
-        description = "Hyprland monitor scale value or auto.";
-      };
-    };
-  };
-
-  hyprlandMonitorOption = lib.mkOption {
-    type = lib.types.listOf monitorType;
-    default = [ ];
-    description = "Monitor definitions passed to the Hyprland wrapper.";
-  };
-
-  normalizeMonitor = monitor: lib.filterAttrs (_: value: value != null) monitor;
-in
 {
   flake-file.inputs.hyprland = {
     url = "github:hyprwm/Hyprland";
@@ -59,8 +17,6 @@ in
       ...
     }:
     let
-      cfg = config.newxos.hyprland;
-
       hyprlandPackages = withSystem pkgs.stdenv.hostPlatform.system (
         { inputs', ... }: inputs'.hyprland.packages
       );
@@ -171,8 +127,6 @@ in
       '';
     in
     {
-      options.newxos.hyprland.monitors = hyprlandMonitorOption;
-
       config = {
         environment.systemPackages = with pkgs; [
           brightnessctl
@@ -212,12 +166,6 @@ in
 
         security.polkit.enable = true;
 
-        home-manager.sharedModules = lib.optionals (builtins.hasAttr "home-manager" options) [
-          {
-            newxos.hyprland.monitors = lib.mkDefault cfg.monitors;
-          }
-        ];
-
         services.dbus.enable = true;
         services.displayManager.defaultSession = "hyprland-uwsm";
         services.displayManager.sddm = {
@@ -245,46 +193,19 @@ in
       };
     };
 
-  flake.modules.homeManager.hyprland =
-    {
-      config,
-      pkgs,
-      ...
-    }:
-    let
-      cfg = config.newxos.hyprland;
-
-      hyprland = inputs.self.lib.wrapper-modules.hyprland;
-
-      wrappedHyprland = withSystem pkgs.stdenv.hostPlatform.system (
-        { pkgs, inputs', ... }:
-        hyprland.wrap {
-          inherit pkgs;
-          configDirectory = ../../configs/hypr;
-          package = inputs'.hyprland.packages.hyprland;
-          luaVariables = {
-            monitors = map normalizeMonitor cfg.monitors;
-          };
-        }
-      );
-    in
-    {
-      options.newxos.hyprland.monitors = hyprlandMonitorOption;
-
-      config = {
-        home.packages = [ wrappedHyprland ];
-
-        xdg.configFile."satty/config.toml".text = ''
-          [general]
-          copy-command = "wl-copy"
-          corner-roundness = 10
-          early-exit = true
-          fullscreen = true
-          initial-tool = "arrow"
-          actions-on-enter = ["save-to-clipboard", "save-to-file", "exit"]
-          actions-on-escape = ["exit"]
-          actions-on-right-click = ["save-to-clipboard", "save-to-file", "exit"]
-        '';
-      };
+  flake.modules.homeManager.hyprland = _: {
+    config = {
+      xdg.configFile."satty/config.toml".text = ''
+        [general]
+        copy-command = "wl-copy"
+        corner-roundness = 10
+        early-exit = true
+        fullscreen = true
+        initial-tool = "arrow"
+        actions-on-enter = ["save-to-clipboard", "save-to-file", "exit"]
+        actions-on-escape = ["exit"]
+        actions-on-right-click = ["save-to-clipboard", "save-to-file", "exit"]
+      '';
     };
+  };
 }
