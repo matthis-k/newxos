@@ -28,6 +28,7 @@
     services.avahi = {
       enable = true;
       denyInterfaces = [
+        "lo"
         "nordlynx"
         "tun0"
       ];

@@ -22,8 +22,132 @@
           builtins.head cfg.users
         else
           "";
-      dnsArgs = lib.escapeShellArgs cfg.settings.dnsServers;
       boolToEnabled = v: if v then "enabled" else "disabled";
+      autoConnectGroupArgs =
+        lib.optional (cfg.settings.autoConnect.group != null) "--group"
+        ++ lib.optional (cfg.settings.autoConnect.group != null) cfg.settings.autoConnect.group;
+      autoConnectArgs = autoConnectGroupArgs ++ cfg.settings.autoConnect.target;
+      networkOnlineServices = [
+        "network-online.target"
+      ]
+      ++ lib.optional config.networking.networkmanager.enable "NetworkManager-wait-online.service";
+      commandLine = args: ''"$NORDVPN" ${lib.escapeShellArgs args}'';
+      setCommandArgs = args: "nordvpn_set ${lib.escapeShellArgs args}";
+      setCommand =
+        name: value:
+        setCommandArgs [
+          name
+          value
+        ];
+      allowlistCommand = args: "allowlist_add ${lib.escapeShellArgs args}";
+      settingsCommands = [
+        (setCommand "technology" cfg.settings.technology)
+        (setCommand "firewall" (boolToEnabled cfg.settings.firewall))
+      ]
+      ++ lib.optional (cfg.settings.fwmark != null) (setCommand "fwmark" cfg.settings.fwmark)
+      ++ [
+        (setCommand "routing" (boolToEnabled cfg.settings.routing))
+        (setCommand "analytics" (boolToEnabled cfg.settings.analytics))
+        (setCommand "killswitch" (boolToEnabled cfg.settings.killSwitch))
+        (setCommand "threatprotectionlite" (boolToEnabled cfg.settings.threatProtectionLite))
+        (setCommand "notify" (boolToEnabled cfg.settings.notify))
+        (setCommand "tray" (boolToEnabled cfg.settings.tray))
+        (setCommand "ipv6" (boolToEnabled cfg.settings.ipv6))
+        (setCommand "meshnet" (boolToEnabled cfg.settings.meshnet))
+        (setCommand "lan-discovery" (boolToEnabled cfg.settings.lanDiscovery))
+        (setCommand "virtual-location" (boolToEnabled cfg.settings.virtualLocation))
+        (setCommand "post-quantum" (boolToEnabled cfg.settings.postQuantum))
+        (setCommandArgs (
+          [
+            "dns"
+          ]
+          ++ (if cfg.settings.dnsServers == [ ] then [ "false" ] else cfg.settings.dnsServers)
+        ))
+      ]
+      ++ map (
+        entry:
+        allowlistCommand [
+          "port"
+          (toString entry.port)
+          "protocol"
+          entry.protocol
+        ]
+      ) cfg.settings.allowlist.ports
+      ++ map (
+        entry:
+        allowlistCommand [
+          "ports"
+          (toString entry.from)
+          (toString entry.to)
+          "protocol"
+          entry.protocol
+        ]
+      ) cfg.settings.allowlist.portRanges
+      ++ map (
+        subnet:
+        allowlistCommand [
+          "subnet"
+          subnet
+        ]
+      ) cfg.settings.allowlist.subnets
+      ++ lib.optionals cfg.settings.autoConnect.enable [
+        (setCommandArgs (
+          [
+            "autoconnect"
+            "true"
+          ]
+          ++ autoConnectArgs
+        ))
+      ]
+      ++ lib.optional (!cfg.settings.autoConnect.enable) (setCommand "autoconnect" "false");
+      connectCommand = commandLine ([ "connect" ] ++ autoConnectArgs);
+      configureNordvpn = pkgs.writeShellScript "configure-nordvpn" ''
+        set -euo pipefail
+
+        NORDVPN=/run/current-system/sw/bin/nordvpn
+
+        allowlist_add() {
+          output="$("$NORDVPN" allowlist add "$@" 2>&1)" && {
+            printf '%s\n' "$output"
+            return 0
+          }
+
+          case "$output" in
+            *"already allowlisted"*)
+              printf '%s\n' "$output"
+              return 0
+              ;;
+          esac
+
+          printf '%s\n' "$output" >&2
+          return 1
+        }
+
+        nordvpn_set() {
+          output="$("$NORDVPN" set "$@" 2>&1)" && {
+            printf '%s\n' "$output"
+            return 0
+          }
+
+          case "$output" in
+            *already*)
+              printf '%s\n' "$output"
+              return 0
+              ;;
+          esac
+
+          printf '%s\n' "$output" >&2
+          return 1
+        }
+
+        ${lib.concatStringsSep "\n" settingsCommands}
+
+        ${lib.optionalString cfg.settings.autoConnect.enable ''
+          if ! "$NORDVPN" status | ${pkgs.gnugrep}/bin/grep -q 'Status: Connected'; then
+            ${connectCommand}
+          fi
+        ''}
+      '';
     in
     {
       imports = [ inputs.nordvpn-flake.nixosModules.default ];
@@ -55,12 +179,79 @@
                 `[ "Hungary" "Budapest" ]`.
               '';
             };
+
+            group = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              description = ''
+                Optional server group passed as `--group <group>` for auto-connect.
+              '';
+            };
           };
 
           analytics = lib.mkOption {
             type = lib.types.bool;
             default = false;
             description = "Whether NordVPN analytics should be enabled.";
+          };
+
+          allowlist = {
+            ports = lib.mkOption {
+              type = lib.types.listOf (
+                lib.types.submodule {
+                  options = {
+                    port = lib.mkOption {
+                      type = lib.types.port;
+                      description = "Port to allow through the NordVPN firewall.";
+                    };
+
+                    protocol = lib.mkOption {
+                      type = lib.types.enum [
+                        "TCP"
+                        "UDP"
+                      ];
+                      description = "Protocol for the allowlisted port.";
+                    };
+                  };
+                }
+              );
+              default = [ ];
+              description = "Ports to allow through NordVPN's firewall.";
+            };
+
+            portRanges = lib.mkOption {
+              type = lib.types.listOf (
+                lib.types.submodule {
+                  options = {
+                    from = lib.mkOption {
+                      type = lib.types.port;
+                      description = "First port in the allowlisted range.";
+                    };
+
+                    to = lib.mkOption {
+                      type = lib.types.port;
+                      description = "Last port in the allowlisted range.";
+                    };
+
+                    protocol = lib.mkOption {
+                      type = lib.types.enum [
+                        "TCP"
+                        "UDP"
+                      ];
+                      description = "Protocol for the allowlisted port range.";
+                    };
+                  };
+                }
+              );
+              default = [ ];
+              description = "Port ranges to allow through NordVPN's firewall.";
+            };
+
+            subnets = lib.mkOption {
+              type = lib.types.listOf lib.types.str;
+              default = [ ];
+              description = "Subnets to allow through NordVPN's firewall.";
+            };
           };
 
           dnsServers = lib.mkOption {
@@ -75,6 +266,15 @@
             type = lib.types.bool;
             default = true;
             description = "Whether NordVPN's firewall setting should be enabled.";
+          };
+
+          fwmark = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = ''
+              Optional firewall mark for NordVPN policy routing, for example `0xe1f1`.
+              Leave null to keep the NordVPN default.
+            '';
           };
 
           ipv6 = lib.mkOption {
@@ -123,6 +323,14 @@
             type = lib.types.bool;
             default = true;
             description = "Whether NordVPN traffic routing should be enabled.";
+          };
+
+          resetDefaults = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = ''
+              Whether to run `nordvpn set defaults` before applying declarative settings.
+            '';
           };
 
           technology = lib.mkOption {
@@ -177,22 +385,21 @@
             assertion = !(cfg.settings.postQuantum && cfg.settings.meshnet);
             message = "services.nordvpn.settings.postQuantum is incompatible with meshnet.";
           }
+          {
+            assertion = lib.all (entry: entry.from <= entry.to) cfg.settings.allowlist.portRanges;
+            message = "services.nordvpn.settings.allowlist.portRanges entries must have from <= to.";
+          }
         ];
 
         systemd.services.nordvpn-bootstrap = {
           description = "Bootstrap NordVPN login and settings";
-          after = [
-            "network-online.target"
-            "nordvpn.service"
-          ];
-          wants = [
-            "network-online.target"
-            "nordvpn.service"
-          ];
+          after = networkOnlineServices ++ [ "nordvpn.service" ];
+          wants = networkOnlineServices ++ [ "nordvpn.service" ];
           wantedBy = [ "multi-user.target" ];
           restartTriggers = [
             "${cfg.settings.technology}"
             "${boolToEnabled cfg.settings.firewall}"
+            "${toString cfg.settings.fwmark}"
             "${boolToEnabled cfg.settings.routing}"
             "${boolToEnabled cfg.settings.analytics}"
             "${boolToEnabled cfg.settings.killSwitch}"
@@ -204,13 +411,20 @@
             "${boolToEnabled cfg.settings.lanDiscovery}"
             "${boolToEnabled cfg.settings.virtualLocation}"
             "${boolToEnabled cfg.settings.postQuantum}"
+            "${boolToEnabled cfg.settings.resetDefaults}"
             "${boolToEnabled cfg.settings.autoConnect.enable}"
+            "${toString cfg.settings.autoConnect.group}"
             "${lib.concatStrings cfg.settings.autoConnect.target}"
             "${lib.concatStrings cfg.settings.dnsServers}"
+            "${builtins.toJSON cfg.settings.allowlist.ports}"
+            "${builtins.toJSON cfg.settings.allowlist.portRanges}"
+            "${builtins.toJSON cfg.settings.allowlist.subnets}"
             cliUser
           ];
           serviceConfig = {
             RemainAfterExit = true;
+            Restart = "on-failure";
+            RestartSec = "30s";
             Type = "oneshot";
           };
           script = ''
@@ -220,30 +434,9 @@
               ${pkgs.util-linux}/bin/runuser -u ${lib.escapeShellArg cliUser} -- /run/current-system/sw/bin/nordvpn "$@"
             }
 
-            skip_bootstrap() {
-              printf 'warning: %s\n' "$1" >&2
-              exit 0
-            }
-
-            nordvpn_connected() {
-              case "$(nordvpn status 2>/dev/null || true)" in
-                *"Status: Connected"*)
-                  return 0
-                  ;;
-                *)
-                  return 1
-                  ;;
-              esac
-            }
-
-            try_nordvpn() {
-              if ! nordvpn "$@"; then
-                printf 'warning: nordvpn %s failed; continuing without blocking activation\n' "$*" >&2
-              fi
-            }
-
-            try_nordvpn_set() {
-              try_nordvpn set "$1" "$2"
+            fail_bootstrap() {
+              printf 'error: %s\n' "$1" >&2
+              exit 1
             }
 
             attempt=0
@@ -251,49 +444,24 @@
               attempt=$((attempt + 1))
 
               if [ "$attempt" -ge 30 ]; then
-                skip_bootstrap "nordvpn CLI did not become ready; skipping NordVPN bootstrap for this activation"
+                fail_bootstrap "nordvpn CLI did not become ready"
               fi
 
               sleep 1
             done
 
+            ${lib.optionalString cfg.settings.resetDefaults ''
+              nordvpn set defaults
+            ''}
+
             if ! nordvpn account >/dev/null 2>&1; then
               token="$(${pkgs.coreutils}/bin/tr -d '\r\n' < /run/secrets/nordvpn_token)"
               if ! nordvpn login --token "$token"; then
-                skip_bootstrap "nordvpn login failed; skipping NordVPN settings for this activation"
+                fail_bootstrap "nordvpn login failed"
               fi
             fi
 
-            try_nordvpn_set technology ${cfg.settings.technology}
-            try_nordvpn_set firewall ${boolToEnabled cfg.settings.firewall}
-            try_nordvpn_set routing ${boolToEnabled cfg.settings.routing}
-            try_nordvpn_set analytics ${boolToEnabled cfg.settings.analytics}
-            try_nordvpn_set killswitch ${boolToEnabled cfg.settings.killSwitch}
-            try_nordvpn_set threatprotectionlite ${boolToEnabled cfg.settings.threatProtectionLite}
-            try_nordvpn_set notify ${boolToEnabled cfg.settings.notify}
-            try_nordvpn_set tray ${boolToEnabled cfg.settings.tray}
-            try_nordvpn_set ipv6 ${boolToEnabled cfg.settings.ipv6}
-            try_nordvpn_set meshnet ${boolToEnabled cfg.settings.meshnet}
-            try_nordvpn_set lan-discovery ${boolToEnabled cfg.settings.lanDiscovery}
-            try_nordvpn_set virtual-location ${boolToEnabled cfg.settings.virtualLocation}
-            try_nordvpn_set post-quantum ${boolToEnabled cfg.settings.postQuantum}
-
-            ${
-              if cfg.settings.dnsServers == [ ] then
-                "try_nordvpn_set dns false"
-              else
-                "try_nordvpn set dns ${dnsArgs}"
-            }
-
-            if ${if cfg.settings.autoConnect.enable then "true" else "false"}; then
-              try_nordvpn set autoconnect true ${lib.escapeShellArgs cfg.settings.autoConnect.target}
-
-              if ! nordvpn_connected; then
-                try_nordvpn connect ${lib.escapeShellArgs cfg.settings.autoConnect.target}
-              fi
-            else
-              try_nordvpn_set autoconnect false
-            fi
+            ${pkgs.util-linux}/bin/runuser -u ${lib.escapeShellArg cliUser} -- ${configureNordvpn}
           '';
         };
       };
