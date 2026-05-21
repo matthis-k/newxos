@@ -134,8 +134,9 @@ Calculated graphs should live behind a collector mapper or a custom collector `c
 
 ## Implementation Notes
 
-- [fact] `GraphView` exposes `graphs`, `graphItems`, `markers`, `viewportMode`, `viewport`, `globalBounds`, `padding`, `toScreen()`, `batch()`, and `requestRender()`.
+- [fact] `GraphView` exposes `graphs`, `graphItems`, `markers`, `viewportMode`, `viewport`, `globalBounds`, `padding`, `toScreen()`, `batch()`, `setSeriesVisible()`, `toggleSeries()`, and `requestRender()`.
 - [fact] `Graph` is a collector-backed series descriptor with `name`, `visible`, `z`, `color`, `colorAt`, and `collector`.
+- [decision] Graph controls should derive enabled/disabled state from graph `visible` state and change visibility through `GraphView.setSeriesVisible()` or `GraphView.toggleSeries()` so rendering and controls share one source of truth.
 - [decision] The first implementation keeps one shared render surface and coalesces paint requests; per-series render layers remain a future optimization.
 
 ## Viewport Notes
