@@ -52,6 +52,7 @@ _: {
           default = [
             "qwen2.5:7b"
             "dolphin-mistral:7b"
+            "nomic-embed-text"
           ];
           description = "Ollama models to preload";
         };
@@ -139,6 +140,9 @@ _: {
               openFirewall = cfg.webUIOpenFirewall;
               environment = lib.filterAttrs (_: v: v != null) {
                 OLLAMA_BASE_URL = "http://localhost:${toString cfg.ollamaPort}";
+                RAG_EMBEDDING_ENGINE = "ollama";
+                RAG_EMBEDDING_BASE_URL = "http://localhost:${toString cfg.ollamaPort}";
+                RAG_EMBEDDING_MODEL = "nomic-embed-text";
                 AUDIO_TTS_ENGINE = lib.mkIf cfg.enableKokoroTTS "openai";
                 AUDIO_TTS_OPENAI_API_BASE_URL = lib.mkIf cfg.enableKokoroTTS "http://localhost:${toString cfg.kokoroPort}/v1";
                 AUDIO_TTS_OPENAI_API_KEY = lib.mkIf cfg.enableKokoroTTS "not-needed";
