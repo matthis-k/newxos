@@ -418,7 +418,6 @@ _: {
                     }
                   ]
                 );
-                ENABLE_PERSISTENT_CONFIG = "False";
               };
             };
 
