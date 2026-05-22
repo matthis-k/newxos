@@ -160,6 +160,7 @@ _: {
                 Type = "simple";
                 Restart = "always";
                 RestartSec = 10;
+                TimeoutStartSec = "5min";
 
                 ExecStartPre = "${pkgs.docker}/bin/docker pull ghcr.io/remsky/kokoro-fastapi-cpu:latest";
 
