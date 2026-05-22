@@ -97,6 +97,18 @@ _: {
           default = false;
           description = "Open firewall for ComfyUI";
         };
+
+        comfyUIModelUrl = lib.mkOption {
+          type = lib.types.str;
+          default = "https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned-emaonly.safetensors";
+          description = "URL to download the default Stable Diffusion model checkpoint";
+        };
+
+        comfyUIModelName = lib.mkOption {
+          type = lib.types.str;
+          default = "v1-5-pruned-emaonly.safetensors";
+          description = "Filename for the downloaded model checkpoint";
+        };
       };
 
       config =
@@ -174,6 +186,9 @@ _: {
 
                 ExecStartPre = lib.concatStrings [
                   "${pkgs.coreutils}/bin/mkdir -p ${cfg.comfyUIDataDir}/{models,output,input} "
+                  "&& ${pkgs.coreutils}/bin/mkdir -p ${cfg.comfyUIDataDir}/models/checkpoints "
+                  "&& (test -f ${cfg.comfyUIDataDir}/models/checkpoints/${cfg.comfyUIModelName} "
+                  "|| ${pkgs.curl}/bin/curl -L -o ${cfg.comfyUIDataDir}/models/checkpoints/${cfg.comfyUIModelName} ${cfg.comfyUIModelUrl}) "
                   "&& ${pkgs.docker}/bin/docker pull ghcr.io/ai-dock/comfyui:latest"
                 ];
 
