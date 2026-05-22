@@ -129,6 +129,7 @@ _: {
                 AUDIO_TTS_OPENAI_API_BASE_URL = lib.mkIf cfg.enableKokoroTTS "http://localhost:${toString cfg.kokoroPort}/v1";
                 AUDIO_TTS_OPENAI_API_KEY = lib.mkIf cfg.enableKokoroTTS "not-needed";
                 AUDIO_TTS_MODEL = lib.mkIf cfg.enableKokoroTTS "kokoro";
+                AUDIO_TTS_VOICE = lib.mkIf cfg.enableKokoroTTS "bf_isabella";
                 IMAGE_GENERATION_ENGINE = lib.mkIf cfg.enableComfyUI "comfyui";
                 IMAGE_GENERATION_COMFYUI_URL = lib.mkIf cfg.enableComfyUI "http://localhost:${toString cfg.comfyUIPort}";
               };
@@ -150,8 +151,8 @@ _: {
                 ExecStart = lib.concatStrings [
                   "${pkgs.docker}/bin/docker run --rm "
                   "--name kokoro-tts "
+                  "--network host "
                   "--gpus all "
-                  "-p ${toString cfg.kokoroPort}:8880 "
                   "ghcr.io/remsky/kokoro-fastapi-gpu:latest"
                 ];
 
