@@ -19,8 +19,13 @@ in
     imports = with inputs.self.modules.nixos; [
       common-workstation
       matthisk
-      ollama
+      llm-server
     ];
+
+    services.llm-server = {
+      enableKokoroTTS = true;
+      enableComfyUI = true;
+    };
 
     networking.hostName = "matthisk-desktop-newxos";
     programs.hyprland.package = lib.mkForce (
