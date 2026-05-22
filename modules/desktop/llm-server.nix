@@ -147,6 +147,7 @@ _: {
                 AUDIO_TTS_SPLIT_ON = lib.mkIf cfg.enableKokoroTTS "none";
                 ENABLE_IMAGE_GENERATION = lib.mkIf cfg.enableComfyUI "True";
                 ENABLE_IMAGE_EDITING = lib.mkIf cfg.enableComfyUI "True";
+                IMAGE_GENERATION_MODEL = lib.mkIf cfg.enableComfyUI cfg.comfyUIModelName;
                 IMAGE_GENERATION_ENGINE = lib.mkIf cfg.enableComfyUI "comfyui";
                 IMAGE_GENERATION_COMFYUI_URL = lib.mkIf cfg.enableComfyUI "http://localhost:${toString cfg.comfyUIPort}";
                 COMFYUI_BASE_URL = lib.mkIf cfg.enableComfyUI "http://localhost:${toString cfg.comfyUIPort}";
