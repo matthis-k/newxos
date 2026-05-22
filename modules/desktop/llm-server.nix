@@ -161,14 +161,13 @@ _: {
                 Restart = "always";
                 RestartSec = 10;
 
-                ExecStartPre = "${pkgs.docker}/bin/docker pull ghcr.io/remsky/kokoro-fastapi-gpu:latest";
+                ExecStartPre = "${pkgs.docker}/bin/docker pull ghcr.io/remsky/kokoro-fastapi-cpu:latest";
 
                 ExecStart = lib.concatStrings [
                   "${pkgs.docker}/bin/docker run --rm "
                   "--name kokoro-tts "
                   "--network host "
-                  "--gpus all "
-                  "ghcr.io/remsky/kokoro-fastapi-gpu:latest"
+                  "ghcr.io/remsky/kokoro-fastapi-cpu:latest"
                 ];
 
                 ExecStop = "${pkgs.docker}/bin/docker stop kokoro-tts";
@@ -185,19 +184,18 @@ _: {
                 Type = "simple";
                 Restart = "always";
                 RestartSec = 10;
+                TimeoutStartSec = "10min";
 
-                ExecStartPre = lib.concatStrings [
-                  "${pkgs.coreutils}/bin/mkdir -p ${cfg.comfyUIDataDir}/{models,output,input} "
-                  "&& ${pkgs.coreutils}/bin/mkdir -p ${cfg.comfyUIDataDir}/models/checkpoints "
-                  "&& (test -f ${cfg.comfyUIDataDir}/models/checkpoints/${cfg.comfyUIModelName} "
-                  "|| ${pkgs.curl}/bin/curl -L -o ${cfg.comfyUIDataDir}/models/checkpoints/${cfg.comfyUIModelName} ${cfg.comfyUIModelUrl}) "
-                  "&& ${pkgs.docker}/bin/docker pull ghcr.io/ai-dock/comfyui:latest"
+                ExecStartPre = [
+                  "${pkgs.bash}/bin/bash -c '${pkgs.coreutils}/bin/mkdir -p ${cfg.comfyUIDataDir}/{models,output,input} && ${pkgs.coreutils}/bin/mkdir -p ${cfg.comfyUIDataDir}/models/checkpoints'"
+                  "${pkgs.bash}/bin/bash -c 'test -f ${cfg.comfyUIDataDir}/models/checkpoints/${cfg.comfyUIModelName} || ${pkgs.curl}/bin/curl -L -o ${cfg.comfyUIDataDir}/models/checkpoints/${cfg.comfyUIModelName} ${cfg.comfyUIModelUrl}'"
+                  "${pkgs.docker}/bin/docker pull ghcr.io/ai-dock/comfyui:latest"
                 ];
 
                 ExecStart = lib.concatStrings [
                   "${pkgs.docker}/bin/docker run --rm "
                   "--name comfyui "
-                  "--gpus all "
+                  "--device nvidia.com/gpu=all "
                   "-p ${toString cfg.comfyUIPort}:8188 "
                   "-v ${cfg.comfyUIDataDir}/models:/opt/ComfyUI/models:rw "
                   "-v ${cfg.comfyUIDataDir}/output:/opt/ComfyUI/output:rw "
