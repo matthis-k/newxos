@@ -233,6 +233,7 @@
             "signon.rememberSignons" = false;
             "toolkit.legacyUserProfileCustomizations.stylesheets" = true;
             "zen.urlbar.behavior" = "normal";
+            "zen.view.use-single-toolbar" = false;
           };
         };
       };
