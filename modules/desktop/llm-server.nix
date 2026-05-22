@@ -123,6 +123,8 @@ _: {
 
             virtualisation.docker.enable = lib.mkIf (cfg.enableKokoroTTS || cfg.enableComfyUI) true;
 
+            hardware.nvidia-container-toolkit.enable = lib.mkIf (cfg.enableKokoroTTS || cfg.enableComfyUI) true;
+
             services.ollama = lib.mkIf cfg.enableOllama {
               enable = true;
               package = pkgs.ollama-cuda;
