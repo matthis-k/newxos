@@ -24,7 +24,6 @@ in
 
     services.llm-server = {
       enableKokoroTTS = true;
-      enableComfyUI = true;
     };
 
     networking.hostName = "matthisk-desktop-newxos";
