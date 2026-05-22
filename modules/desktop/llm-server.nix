@@ -147,6 +147,271 @@ _: {
                 AUDIO_TTS_SPLIT_ON = lib.mkIf cfg.enableKokoroTTS "none";
                 IMAGE_GENERATION_ENGINE = lib.mkIf cfg.enableComfyUI "comfyui";
                 IMAGE_GENERATION_COMFYUI_URL = lib.mkIf cfg.enableComfyUI "http://localhost:${toString cfg.comfyUIPort}";
+                COMFYUI_BASE_URL = lib.mkIf cfg.enableComfyUI "http://localhost:${toString cfg.comfyUIPort}";
+                COMFYUI_WORKFLOW = lib.mkIf cfg.enableComfyUI (
+                  builtins.toJSON {
+                    "3" = {
+                      inputs = {
+                        seed = 0;
+                        steps = 20;
+                        cfg = 8;
+                        sampler_name = "euler";
+                        scheduler = "normal";
+                        denoise = 1;
+                        model = [
+                          "4"
+                          0
+                        ];
+                        positive = [
+                          "6"
+                          0
+                        ];
+                        negative = [
+                          "7"
+                          0
+                        ];
+                        latent_image = [
+                          "5"
+                          0
+                        ];
+                      };
+                      class_type = "KSampler";
+                      _meta.title = "KSampler";
+                    };
+                    "4" = {
+                      inputs.ckpt_name = cfg.comfyUIModelName;
+                      class_type = "CheckpointLoaderSimple";
+                      _meta.title = "Load Checkpoint";
+                    };
+                    "5" = {
+                      inputs = {
+                        width = 512;
+                        height = 512;
+                        batch_size = 1;
+                      };
+                      class_type = "EmptyLatentImage";
+                      _meta.title = "Empty Latent Image";
+                    };
+                    "6" = {
+                      inputs = {
+                        text = "masterpiece, best quality";
+                        clip = [
+                          "4"
+                          1
+                        ];
+                      };
+                      class_type = "CLIPTextEncode";
+                      _meta.title = "CLIP Text Encode (positive)";
+                    };
+                    "7" = {
+                      inputs = {
+                        text = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry";
+                        clip = [
+                          "4"
+                          1
+                        ];
+                      };
+                      class_type = "CLIPTextEncode";
+                      _meta.title = "CLIP Text Encode (negative)";
+                    };
+                    "8" = {
+                      inputs = {
+                        samples = [
+                          "3"
+                          0
+                        ];
+                        vae = [
+                          "4"
+                          2
+                        ];
+                      };
+                      class_type = "VAEDecode";
+                      _meta.title = "VAE Decode";
+                    };
+                    "9" = {
+                      inputs = {
+                        filename_prefix = "ComfyUI";
+                        images = [
+                          "8"
+                          0
+                        ];
+                      };
+                      class_type = "SaveImage";
+                      _meta.title = "Save Image";
+                    };
+                  }
+                );
+                COMFYUI_WORKFLOW_NODES = lib.mkIf cfg.enableComfyUI (
+                  builtins.toJSON [
+                    {
+                      node_ids = "6";
+                      key = "text";
+                      type = "prompt";
+                    }
+                    {
+                      node_ids = "4";
+                      key = "ckpt_name";
+                      type = "model";
+                    }
+                    {
+                      node_ids = "5";
+                      key = "width";
+                      type = "width";
+                    }
+                    {
+                      node_ids = "5";
+                      key = "height";
+                      type = "height";
+                    }
+                    {
+                      node_ids = "3";
+                      key = "steps";
+                      type = "steps";
+                    }
+                    {
+                      node_ids = "3";
+                      key = "seed";
+                      type = "seed";
+                    }
+                  ]
+                );
+                IMAGES_EDIT_COMFYUI_BASE_URL = lib.mkIf cfg.enableComfyUI "http://localhost:${toString cfg.comfyUIPort}";
+                IMAGES_EDIT_COMFYUI_WORKFLOW = lib.mkIf cfg.enableComfyUI (
+                  builtins.toJSON {
+                    "10" = {
+                      inputs = {
+                        image = "input.png";
+                        upload = "image";
+                      };
+                      class_type = "LoadImage";
+                      _meta.title = "Load Image";
+                    };
+                    "11" = {
+                      inputs = {
+                        text = "edit prompt";
+                        clip = [
+                          "4"
+                          1
+                        ];
+                      };
+                      class_type = "CLIPTextEncode";
+                      _meta.title = "CLIP Text Encode (edit prompt)";
+                    };
+                    "12" = {
+                      inputs = {
+                        seed = 0;
+                        steps = 20;
+                        cfg = 8;
+                        sampler_name = "euler";
+                        scheduler = "normal";
+                        denoise = 0.5;
+                        model = [
+                          "4"
+                          0
+                        ];
+                        positive = [
+                          "11"
+                          0
+                        ];
+                        negative = [
+                          "7"
+                          0
+                        ];
+                        latent_image = [
+                          "13"
+                          0
+                        ];
+                      };
+                      class_type = "KSampler";
+                      _meta.title = "KSampler (edit)";
+                    };
+                    "13" = {
+                      inputs = {
+                        pixels = [
+                          "10"
+                          0
+                        ];
+                        vae = [
+                          "4"
+                          2
+                        ];
+                      };
+                      class_type = "VAEEncode";
+                      _meta.title = "VAE Encode (input)";
+                    };
+                    "14" = {
+                      inputs = {
+                        samples = [
+                          "12"
+                          0
+                        ];
+                        vae = [
+                          "4"
+                          2
+                        ];
+                      };
+                      class_type = "VAEDecode";
+                      _meta.title = "VAE Decode (output)";
+                    };
+                    "15" = {
+                      inputs = {
+                        filename_prefix = "ComfyUI_Edit";
+                        images = [
+                          "14"
+                          0
+                        ];
+                      };
+                      class_type = "SaveImage";
+                      _meta.title = "Save Image (edit)";
+                    };
+                    "4" = {
+                      inputs.ckpt_name = cfg.comfyUIModelName;
+                      class_type = "CheckpointLoaderSimple";
+                      _meta.title = "Load Checkpoint";
+                    };
+                    "7" = {
+                      inputs = {
+                        text = "lowres, bad anatomy, bad hands, text, error";
+                        clip = [
+                          "4"
+                          1
+                        ];
+                      };
+                      class_type = "CLIPTextEncode";
+                      _meta.title = "CLIP Text Encode (negative)";
+                    };
+                  }
+                );
+                IMAGES_EDIT_COMFYUI_WORKFLOW_NODES = lib.mkIf cfg.enableComfyUI (
+                  builtins.toJSON [
+                    {
+                      node_ids = "10";
+                      key = "image";
+                      type = "image";
+                    }
+                    {
+                      node_ids = "11";
+                      key = "prompt";
+                      type = "prompt";
+                    }
+                    {
+                      node_ids = "4";
+                      key = "unet_name";
+                      type = "model";
+                    }
+                    {
+                      node_ids = "10";
+                      key = "width";
+                      type = "width";
+                    }
+                    {
+                      node_ids = "10";
+                      key = "height";
+                      type = "height";
+                    }
+                  ]
+                );
+                ENABLE_PERSISTENT_CONFIG = "False";
               };
             };
 
