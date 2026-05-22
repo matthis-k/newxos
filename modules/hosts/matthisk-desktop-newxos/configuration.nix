@@ -19,6 +19,7 @@ in
     imports = with inputs.self.modules.nixos; [
       common-workstation
       matthisk
+      ollama
     ];
 
     networking.hostName = "matthisk-desktop-newxos";

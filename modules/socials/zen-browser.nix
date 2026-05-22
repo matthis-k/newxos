@@ -189,6 +189,16 @@
                   }
                 ];
               }
+              {
+                name = "AI";
+                toolbar = true;
+                bookmarks = [
+                  {
+                    name = "Ollama";
+                    url = "http://matthisk-desktop-newxos.local:3000";
+                  }
+                ];
+              }
             ];
           };
 
