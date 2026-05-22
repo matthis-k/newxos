@@ -130,6 +130,7 @@ _: {
                 AUDIO_TTS_OPENAI_API_KEY = lib.mkIf cfg.enableKokoroTTS "not-needed";
                 AUDIO_TTS_MODEL = lib.mkIf cfg.enableKokoroTTS "kokoro";
                 AUDIO_TTS_VOICE = lib.mkIf cfg.enableKokoroTTS "bf_isabella";
+                AUDIO_TTS_SPLIT_ON = lib.mkIf cfg.enableKokoroTTS "none";
                 IMAGE_GENERATION_ENGINE = lib.mkIf cfg.enableComfyUI "comfyui";
                 IMAGE_GENERATION_COMFYUI_URL = lib.mkIf cfg.enableComfyUI "http://localhost:${toString cfg.comfyUIPort}";
               };
