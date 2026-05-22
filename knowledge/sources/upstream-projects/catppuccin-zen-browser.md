@@ -38,6 +38,18 @@ Catppuccin-style theme for Zen Browser.
 
 The repo generates its own Zen Browser CSS from `config.stylix.fullPalette.colors` to preserve semantic contrast intent that generic Base16 slot mapping loses.
 
+
 ## Related
 
 - [[issue-zen-browser-chrome-not-themed]]
+
+## Documentation
+
+- Official docs: <https://docs.zen-browser.app>
+- User Manual: <https://docs.zen-browser.app/user-manual>
+- URL Bar & Search: <https://docs.zen-browser.app/user-manual/urlbar>
+- Compact Mode: <https://docs.zen-browser.app/user-manual/compact-mode>
+- FAQ: <https://docs.zen-browser.app/faq>
+- Mods Registry: <https://zen-browser.app/mods>
+- GitHub: <https://github.com/zen-browser/desktop>
+
