@@ -23,7 +23,7 @@ in
     ];
 
     services.llm-server = {
-      enableKokoroTTS = true;
+      enableTTS = true;
     };
 
     networking.hostName = "matthisk-desktop-newxos";
