@@ -171,3 +171,25 @@ Relations:
 - Fix: keep the upstream Hyprland package, copy only the installed `hyprctl.fish`, apply a local patch in a tiny derivation, and install it with `lib.hiPrio`.
 - Rule: for broken package-provided shell completions, prefer a high-priority post-install completion override before rebuilding the upstream package from source.
 - Related knowledge: [[hyprland]], [[Workflow]].
+
+### 2026-05-23: Open WebUI TTS split setting persisted over Nix env
+
+- Date: `2026-05-23`
+- Problem: Open WebUI kept stopping Kokoro TTS playback after the first split chunk even after changing `AUDIO_TTS_SPLIT_ON` in Nix.
+- Symptom: long text playback stopped after one or two sentences while direct Kokoro `/v1/audio/speech` requests generated full audio.
+- Cause: Open WebUI stores audio config in SQLite as `PersistentConfig`; persisted `audio.tts.split_on = "punctuation"` overrode Nix environment settings while `ENABLE_PERSISTENT_CONFIG` was true. Empty `AUDIO_TTS_SPLIT_ON` also falls back to punctuation in the frontend splitter.
+- Fix: set `ENABLE_PERSISTENT_CONFIG = "False"` and `AUDIO_TTS_SPLIT_ON = "none"` declaratively for Open WebUI, letting Kokoro handle long text as one request.
+- Rule: for declarative Open WebUI settings, disable persistent config or explicitly clear/update the database; use valid splitter values (`punctuation`, `paragraphs`, `none`), not an empty string.
+- Context: `modules/desktop/llm-server.nix`, Kokoro TTS on RTX 5060.
+- Related knowledge: [[Ollama local LLM setup]], [[Workflow]]
+
+### 2026-05-23: OpenedAI Speech upstream image needs CUDA 12.8 and TorchCodec on RTX 5060
+
+- Date: `2026-05-23`
+- Problem: upstream `ghcr.io/matatonic/openedai-speech:latest` is not sufficient for XTTS on RTX 5060 / Blackwell.
+- Symptom: XTTS can fail with CUDA kernel compatibility errors, or torchaudio can raise `TorchCodec is required for load_with_torchcodec` after upgrading PyTorch/torchaudio.
+- Cause: the upstream image ships PyTorch wheels that do not support Blackwell `sm_120`, and newer torchaudio load paths require `torchcodec`.
+- Fix: build the local `openedai-speech-xtts-sm120:torchcodec` image from `modules/desktop/xtts-gpu-fix/Dockerfile`, installing `torch==2.11.0+cu128`, `torchaudio==2.11.0+cu128`, and `torchcodec==0.13.0`.
+- Rule: for GPU containers on RTX 5060, verify the container PyTorch CUDA arch support and companion codec packages, not just host driver support.
+- Context: `modules/desktop/llm-server.nix`, `modules/desktop/xtts-gpu-fix/Dockerfile`, OpenedAI Speech XTTS-v2.
+- Related knowledge: [[Local LLM and TTS setup]], [[Workflow]]
