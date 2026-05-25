@@ -16,26 +16,30 @@ Item {
 
     implicitHeight: 20
 
+    function seriesNames() {
+        if (!graphView)
+            return [];
+        if (seriesFilter)
+            return graphView.seriesNames().filter(n => seriesFilter(graphView.series(n)));
+        return seriesName ? [seriesName] : [];
+    }
+
     function refreshChecked() {
-        if (!graphView || !graphView.getSeries || !graphView.isSeriesVisible)
+        if (!graphView || !graphView.isSeriesVisible)
             return;
 
-        const names = graphView.getSeries(seriesFilter || seriesName);
+        const names = root.seriesNames();
         if (names.length === 0)
             return;
 
         root.checked = names.some(n => graphView.isSeriesVisible(n) === true);
     }
 
-    function _refreshLater() {
-        Qt.callLater(root.refreshChecked);
-    }
+    Component.onCompleted: Qt.callLater(root.refreshChecked)
 
-    Component.onCompleted: root._refreshLater()
-
-    onGraphViewChanged: root._refreshLater()
-    onSeriesNameChanged: root._refreshLater()
-    onSeriesFilterChanged: root._refreshLater()
+    onGraphViewChanged: Qt.callLater(root.refreshChecked)
+    onSeriesNameChanged: Qt.callLater(root.refreshChecked)
+    onSeriesFilterChanged: Qt.callLater(root.refreshChecked)
 
     Connections {
         target: root.graphView || null
@@ -64,18 +68,14 @@ Item {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
         onClicked: {
-            const names = graphView.getSeries(seriesFilter || seriesName);
+            const names = root.seriesNames();
             if (names.length === 0)
                 return;
             const currentlyVisible = names.some(n => graphView.isSeriesVisible(n) === true);
             const target = !currentlyVisible;
-            if (graphView.batch) {
-                graphView.batch(() => {
-                    names.forEach(n => graphView.setSeriesVisible(n, target));
-                });
-            } else {
+            graphView.batch(() => {
                 names.forEach(n => graphView.setSeriesVisible(n, target));
-            }
+            });
         }
     }
 

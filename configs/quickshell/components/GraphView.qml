@@ -210,17 +210,6 @@ Item {
         return Object.keys(names).sort((left, right) => String(left).localeCompare(String(right)));
     }
 
-    function getSeries(filter) {
-        if (typeof filter === "string")
-            return filter ? [filter] : [];
-        if (typeof filter === "function")
-            return root.seriesNames().filter(n => {
-                const s = root.series(n);
-                return s && filter(s);
-            });
-        return [];
-    }
-
     function renderNames() {
         return root.seriesNames().sort(root._compareNames);
     }

@@ -20,7 +20,7 @@ DashboardPage {
         Battery {
             id: batteryContent
             Layout.fillWidth: true
-            graphActive: root.SwipeView.isCurrentItem
+            graphActive: root.visible
             powerModesFirst: true
         }
     }

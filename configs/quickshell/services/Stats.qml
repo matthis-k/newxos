@@ -21,8 +21,6 @@ Singleton {
     property int memoryTotalMiB: 0
     property int swapUsedMiB: 0
     property int swapTotalMiB: 0
-    property int rootUsedGiB: 0
-    property int rootTotalGiB: 0
     property string primaryInterface: ""
     property var diskPartitions: []
     property int graphRevision: 0
@@ -522,11 +520,8 @@ Singleton {
                         totalGiB: Math.round(totalKiB / (1024 * 1024)),
                         percent: Math.round(percent)
                     });
-                    if (mountPoint === "/") {
-                        rootUsedGiB = Math.round(usedKiB / (1024 * 1024));
-                        rootTotalGiB = Math.round(totalKiB / (1024 * 1024));
+                    if (mountPoint === "/")
                         rootDiskPercent = (usedKiB / totalKiB) * 100;
-                    }
                 }
             }
         }
