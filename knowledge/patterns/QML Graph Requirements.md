@@ -134,10 +134,9 @@ Calculated graphs should live behind a collector mapper or a custom collector `c
 
 ## Implementation Notes
 
-- [fact] `GraphView` exposes `graphs`, `graphItems`, `markers`, `viewportMode`, `viewport`, `globalBounds`, `padding`, `toScreen()`, `batch()`, `setSeriesVisible()`, `toggleSeries()`, and `requestRender()`.
-- [fact] `Graph` is a collector-backed series descriptor with `name`, `visible`, `z`, `color`, `colorAt`, and `collector`.
-- [decision] Graph controls should derive enabled/disabled state from graph `visible` state and change visibility through `GraphView.setSeriesVisible()` or `GraphView.toggleSeries()` so rendering and controls share one source of truth.
-- [decision] The first implementation keeps one shared render surface and coalesces paint requests; per-series render layers remain a future optimization.
+- [decision] Graph controls should derive enabled/disabled state from graph visibility state so rendering and controls share one source of truth.
+- [decision] The first implementation can keep one shared render surface and coalesce paint requests; per-series render layers remain a future optimization.
+- [technique] Read `configs/quickshell/components/GraphView.qml` and related graph components for the current public API.
 
 ## Viewport Notes
 - [requirement] Default relative viewports should use `GraphView.globalBounds.maxX` as the raw x upper bound and render into normalized x coordinates from `0` to `xWindow`.
@@ -156,7 +155,7 @@ Calculated graphs should live behind a collector mapper or a custom collector `c
 ## Interval Marker Notes
 
 - [requirement] `GraphView.xMarkerInterval` draws vertical markers at fixed x-axis intervals, measured in the graph's own x units.
-- [fact] Current sampled graphs set `xMarkerInterval` in their own x units: CPU `30000`, memory `60000`, battery `3600000`.
+- [technique] Current marker intervals belong in the calling graph components or services, not in memory.
 
 ## Relative X Transform
 
@@ -172,4 +171,4 @@ Calculated graphs should live behind a collector mapper or a custom collector `c
 - [decision] Long-lived telemetry history should be collected by data-source services at shell startup, not by panel-local graph views.
 - [requirement] Data-source services should expose collectors with raw data, retention filtering, viewport filtering, and mapping before `GraphView` renders.
 - [requirement] `GraphView` should treat collector-provided points as graph-ready viewport points and avoid reapplying its legacy relative-x transform to them.
-- [fact] System CPU, memory, and battery graph histories are owned by centralized `Stats` `TimedDataCollector` instances.
+- [technique] Current telemetry collector ownership belongs in `configs/quickshell/services/`.

@@ -37,9 +37,9 @@ Keep the root flake thin. Most behavior lives under `modules/` and `configs/`.
 ## `modules/`
 
 - Keep shared repo behavior in category directories rather than the root of `modules/`.
-- Use small focused files like `common/nix.nix`, `common/networking.nix`, `dev/workflow.nix`, `common/home-manager.nix`, `common/sops.nix`, and `common/disko.nix` for shared wiring.
+- Use small focused files for shared wiring.
 - Use category folders when one concern needs multiple files.
-- Current category directories include `common/`, `core/`, `desktop/`, `dev/`, `gaming/`, `installation/`, `network/`, `socials/`, `theming/`, `hosts/`, and `users/`.
+- Inspect `modules/` for the current category list.
 - Related reading: [[Dendritic Feature Modules]].
 
 ## `modules/common/`
@@ -61,7 +61,7 @@ Keep the root flake thin. Most behavior lives under `modules/` and `configs/`.
 ## `modules/desktop/`
 
 - Desktop session, shell, terminal, and desktop wrapper modules live here.
-- Current examples include Hyprland, QuickShell, Fish, Starship, Kitty, and desktop wrapper definitions.
+- Inspect `modules/desktop/` for current desktop features and wrapper definitions.
 
 ## `modules/socials/`
 
@@ -85,7 +85,7 @@ Keep the root flake thin. Most behavior lives under `modules/` and `configs/`.
 
 - One directory per concrete NixOS system.
 - Keep host-local boot, hardware, storage, swap, and user-linking files close to the host.
-- Good examples are files like `configuration.nix`, `boot.nix`, `filesystem.nix`, `swap.nix`, and `hardware-configuration.nix`.
+- Common host files cover configuration, boot, filesystem, swap, and generated hardware defaults.
 - If `disko` manages storage, keep it as the source of truth and avoid duplicated `fileSystems` declarations.
 - Installer hosts follow the same pattern.
 - Related reading: [[Host And User Layout]], [[disko]].
@@ -102,7 +102,7 @@ Keep the root flake thin. Most behavior lives under `modules/` and `configs/`.
 - Keep repo-owned palette logic and generated theme integration here.
 - Prefer putting custom theme logic into the Stylix module instead of scattering color decisions through program configs.
 - Generated theme fragments should usually be imported from program configs instead of being hand-written inside `configs/`.
-- Current examples are generated `kitty/stylix-theme.auto.conf` and `fish/stylix-theme.auto.fish`.
+- Inspect `modules/theming/` for current generated theme fragments.
 - Related reading: [[stylix]], [[Wrapped Programs And Generated Config]].
 
 ## `modules/desktop/wrappers/`

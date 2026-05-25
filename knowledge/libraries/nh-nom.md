@@ -10,13 +10,10 @@ This repo uses `nh` and `nix-output-monitor` through repo-owned `newxos` wrapper
 
 ## Observations
 
-- [fact] `newxos os ...` calls `nh os ...`; `newxos home ...` calls `nh home ...`
-- [fact] `newxos first-install <host>` runs disko and nixos-install from installer media, automatically using `<host>-staging` when staging metadata exists
-- [technique] `newxos build-iso [--key <path>]` builds the live USB ISO and can embed the SOPS age key for installer secrets
-- [fact] `newxos clean` defaults to `nh clean all --keep 1 --keep-since 0h`
-- [technique] `newxos flake build/check/run ...` uses `nom` for rich build output
-- [fact] `newxos` defaults to `path:$NEWXOS_FLAKE` so local unadded changes are visible during eval and builds
-- [fact] `--git-only` switches back to git flake semantics when you want repo-visible tree only
+- [fact] The repo-owned `newxos` wrapper is the command entrypoint for rebuild, install, ISO, clean, and flake helper flows
+- [technique] Wrapper source owns exact subcommands, defaults, environment variables, and host inference behavior
+- [decision] Use `path:$PWD` or the wrapper's path-based flake handling during agent work so local unadded changes are visible when intended
+- [fact] `nom` is used for richer build output where it fits; plain `nix` remains better for some structured output
 
 ## Relations
 
@@ -24,24 +21,15 @@ This repo uses `nh` and `nix-output-monitor` through repo-owned `newxos` wrapper
 - relates_to [[Workflow]]
 
 ## What It Does Here
-- `newxos first-install <host>` runs the installer flow from live USB media: disko, `nixos-install`, and repo copy into `/home/<user>/newxos`.
 
-- `newxos os ...` calls `nh os ...` for NixOS rebuild flows.
-- `newxos home ...` calls `nh home ...` for Home Manager build and switch flows.
-- `newxos clean` defaults to `nh clean all --keep 1 --keep-since 0h`, and forwards any extra flags to `nh clean all` when you want a different retention policy.
-- `newxos flake build/check/run ...` uses `nom` so direct `nix` operations still get rich build output.
-- `newxos` defaults to `path:$NEWXOS_FLAKE` so local unadded changes are visible during eval and builds.
-- `--git-only` switches back to git flake semantics when you want repo-visible tree only.
+- Wraps common `nh`, `nix`, installer, ISO, cleanup, and flake operations behind a repo-owned command.
+- Keeps command ergonomics and host/path inference in source instead of scattered shell aliases.
+- Gives installer media and normal hosts one common command surface.
 
 ## Basics
 
-- Home Manager exports `NEWXOS_FLAKE=$HOME/newxos` and installs `newxos` into user profile.
-- Installer media exports `NEWXOS_FLAKE=/home/newxos/newxos` for a mutable flake copy seeded from `/etc/newxos-source` in the live `newxos` user's home.
-- `newxos first-install` preserves the resolved `NEWXOS_FLAKE` path across its sudo handoff.
-- NixOS host module exports `NEWXOS_HOST=$HOSTNAME` through `environment.sessionVariables`.
-- Fish completion comes from package payload under `share/fish/vendor_completions.d/`.
-- Host completion is repo-driven by reading `flake.nixosConfigurations.*` declarations from `modules/`.
-- Home config completion is repo-driven by reading `flake.homeConfigurations.*` declarations from `modules/`.
+- Read the wrapper package source for exact subcommands, environment variables, completions, and default retention settings.
+- Related installation behavior lives in `modules/installation/`.
 - Related reading: [[home-manager]], [[Workflow]].
 
 ## Helpful Docs
@@ -52,5 +40,5 @@ This repo uses `nh` and `nix-output-monitor` through repo-owned `newxos` wrapper
 ## Known Quirks
 
 - `newxos flake show` stays plain `nix flake show`; there is no useful `nom` wrapper for that output.
-- `newxos os ...` and `newxos flake build ...` can omit host only when `NEWXOS_HOST` is present in shell environment.
+- Host inference depends on wrapper-managed environment; read source for current fallback behavior.
 - `newxos flake run` targets runnable flake attrs like package or app names, not NixOS host names.

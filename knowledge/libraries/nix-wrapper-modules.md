@@ -10,10 +10,10 @@ permalink: newxos/libraries/nix-wrapper-modules
 
 ## Observations
 
-- [fact] Wraps `opencode`, `kitty`, Neovim, and custom QuickShell launchers as packages exposed by this flake
+- [fact] Wrapper package definitions are owned by nearby feature modules and `modules/desktop/wrappers/`
 - [technique] Put custom wrapper module definitions in `modules/desktop/wrappers/`; install via `withSystem` and `self'.packages`
 - [decision] Keep hand-written config in `configs/` and generated fragments in nearby modules when that split is cleaner
-- [fact] Native Neovim compatibility uses static loader at `configs/nvim/lua/newxos/non_nix_compatibility.lua` plus generated `configs/nvim/nvim-pack-lock.json`
+- [fact] Native Neovim compatibility has repo-specific source files under `configs/nvim/`; inspect source for current lock and loader behavior
 
 ## Relations
 
@@ -22,9 +22,9 @@ permalink: newxos/libraries/nix-wrapper-modules
 
 ## What It Does Here
 
-- Wraps `opencode`, `kitty`, Neovim, and custom QuickShell launchers as packages exposed by this flake.
-- The Neovim wrapper currently exposes a portable `nvim` package plus a repo-bound `nvimdev` variant for live editing against `configs/nvim`.
-- Native Neovim compatibility uses the static loader at `configs/nvim/lua/newxos/non_nix_compatibility.lua` plus the generated `configs/nvim/nvim-pack-lock.json` written from the Nix plugin source of truth.
+- Wrapper package definitions live near the feature that owns them.
+- Custom desktop wrapper definitions live in `modules/desktop/wrappers/`.
+- Neovim wrapper details and native compatibility files live under `modules/dev/` and `configs/nvim/`.
 - Lets the repo install a configured program instead of only a raw upstream package.
 - Keeps custom wrapper definitions in `modules/desktop/wrappers/` and hand-written app config in `configs/`.
 
@@ -44,35 +44,9 @@ permalink: newxos/libraries/nix-wrapper-modules
 - The wrapper takes a set of arguments and returns a wrapped derivation.
 - Wrappers handle: config file generation, environment variable injection, wrapper script creation, dependency bundling.
 
-### Common wrapper arguments
+### Wrapper inputs and supported programs
 
-- **pkgs** — the nixpkgs package set (required).
-- **extraConfig** — raw config text to inject into the generated config file.
-- **extraConfigFiles** — attrset of relative path → content for additional config files.
-- **extraPackages** — list of packages to add to the wrapper's PATH.
-- **env** — attrset of environment variables to set in the wrapper.
-- **preStart** — shell snippet to run before the program starts.
-- **postStart** — shell snippet to run after the program starts.
-- **wrapperArgs** — additional arguments passed to the wrapper script.
-- **passthru** — attrset to merge into the derivation's passthru.
-
-### Supported programs (non-exhaustive)
-
-The library covers many popular tools. Commonly used ones include:
-
-- **kitty** — terminal emulator; wraps with `kitty.conf`, additional config includes, font/theme files.
-- **neovim** — editor; wraps with `init.lua`, plugin packs, runtime paths, environment setup.
-- **helix** — editor; wraps with `config.toml`, `languages.toml`, theme files.
-- **alacritty** — terminal emulator; wraps with `alacritty.toml`/`alacritty.yml`.
-- **foot** — terminal emulator; wraps with `foot.ini`.
-- **zellij** — terminal multiplexer; wraps with `config.kdl`, layout files.
-- **tmux** — terminal multiplexer; wraps with `tmux.conf`.
-- **ghostty** — terminal emulator; wraps with config files.
-- **mpv** — media player; wraps with `mpv.conf`, `input.conf`, script files.
-- **firefox** / **zen** — browsers; wraps with policies, preferences, profile setup.
-- **thunderbird** — email client; wraps with policies and preferences.
-
-Check `inputs.nix-wrapper-modules.wrappers` for the full current list.
+Check upstream source or the pinned flake input for the current wrapper argument schema and supported programs. Do not copy that list into memory; it changes with the library.
 
 ### Wrapper behavior
 
@@ -81,38 +55,15 @@ Check `inputs.nix-wrapper-modules.wrappers` for the full current list.
 - The wrapper script sets up the environment (XDG paths, env vars) before exec'ing the real binary.
 - Some wrappers support a "portable" mode where config lives alongside the binary rather than in XDG paths.
 
-### Integration pattern
-
-```nix
-# Basic wrapper usage
-packages.kitty = inputs.nix-wrapper-modules.wrappers.kitty.wrap {
-  inherit pkgs;
-  extraConfig = ''
-    include ~/.config/kitty/stylix-theme.auto.conf
-    ${builtins.readFile ../../configs/kitty/kitty.conf}
-  '';
-};
-
-# With extra packages and environment
-packages.neovim = inputs.nix-wrapper-modules.wrappers.neovim.wrap {
-  inherit pkgs;
-  extraPackages = [ pkgs.ripgrep pkgs.fzf ];
-  env.LANG = "en_US.UTF-8";
-  extraConfigFiles."init.lua".text = builtins.readFile ../../configs/nvim/init.lua;
-};
-```
-
 ### Config generation strategy
 
 - Wrapper-owned generated config should usually be imported into hand-written config, not copied and duplicated by hand.
-- Use `extraConfig` for small inline snippets.
-- Use `extraConfigFiles` for larger or structured config that benefits from being a separate file.
 - Reference `configs/` files via `builtins.readFile` when the hand-written config is the source of truth.
 
 ### Helpful Docs
 
 - Upstream repo: `https://github.com/BirdeeHub/nix-wrapper-modules`
-- This repo's wrapper configs: `configs/` directory
+- This repo's wrapper configs: `modules/desktop/wrappers/`, `modules/dev/`, and `configs/`
 - Related pattern: [[Wrapped Programs And Generated Config]]
 
 ## Known Quirks

@@ -104,43 +104,11 @@ Inside `perSystem = { ... }`:
 - They add their own options to the flake-parts module system.
 - You configure them through the options they define, and they contribute to flake outputs.
 
-### Short Examples
+### Repo source pointers
 
-```nix
-# Import a flake module
-{ inputs, ... }:
-{
-  imports = [ inputs.treefmt-nix.flakeModule ];
-}
-```
-
-```nix
-# Define a per-system package
-perSystem = { inputs', pkgs, ... }: {
-  packages.example = pkgs.writeShellScriptBin "example" ''
-    exec ${inputs'.some-input.packages.default}/bin/example "$@"
-  '';
-};
-```
-
-```nix
-# Use withSystem in a reusable Home Manager module
-flake.modules.homeManager.example =
-  { pkgs, ... }:
-  {
-    home.packages = withSystem pkgs.stdenv.hostPlatform.system ({ self', ... }: [
-      self'.packages.example
-    ]);
-  };
-```
-
-```nix
-# Contribute non-system flake outputs
-flake = { self', inputs', ... }: {
-  nixosModules.default = import ./modules/nixos-default.nix;
-  homeManagerModules.default = import ./modules/hm-default.nix;
-};
-```
+- Flake-parts module usage lives throughout `modules/`.
+- Per-system scope patterns are summarized in [[Scope Boundaries And Per-System Access]].
+- Keep concrete examples in source files or upstream docs so this note does not drift.
 
 ### Helpful Docs
 

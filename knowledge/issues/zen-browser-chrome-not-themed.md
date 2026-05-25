@@ -22,7 +22,7 @@ permalink: newxos/issues/zen-browser-chrome-not-themed
 
 - [fact] Zen Browser's chrome (UI shell) does not pick up the repo's Catppuccin-style theme
 - [fact] Stylix does not generate `userChrome.css` by default for Zen
-- [technique] Generate repo-owned Zen Browser CSS from `config.stylix.fullPalette.colors` and install as `userChrome.css`
+- [technique] Generate repo-owned Zen Browser CSS from the Stylix full palette and install it as browser chrome CSS
 - [decision] When app theme needs more nuance than Base16 slots, disable built-in target CSS and generate repo-owned full-palette target under `modules/theming/`
 
 ## Relations
@@ -46,7 +46,7 @@ Zen Browser requires `userChrome.css` to theme its chrome. Stylix does not gener
 
 ## Fix
 
-Generate repo-owned Zen Browser CSS from `config.stylix.fullPalette.colors` and install it as `userChrome.css`.
+Generate repo-owned Zen Browser CSS from the Stylix full palette and install it as browser chrome CSS. Read `modules/theming/` and the Zen module for exact option names and file paths.
 
 ## Rule
 

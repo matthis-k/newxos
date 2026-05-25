@@ -11,7 +11,7 @@ links:
 - sources-index
 - theming-zen-browser
 - theming-catppuccin
-updated: 2026-05-11
+updated: 2026-05-25
 permalink: newxos/sources/upstream-projects/catppuccin-zen-browser
 ---
 
@@ -22,7 +22,7 @@ Catppuccin-style theme for Zen Browser.
 ## Observations
 
 - [fact] Upstream repo: <https://github.com/catppuccin/zen-browser>
-- [decision] Repo generates its own Zen Browser CSS from `config.stylix.fullPalette.colors` to preserve semantic contrast intent
+- [decision] Repo generates its own Zen Browser CSS from the Stylix full palette to preserve semantic contrast intent
 - [fact] Generic Base16 slot mapping loses contrast for contrast-sensitive UI
 
 ## Relations
@@ -36,7 +36,7 @@ Catppuccin-style theme for Zen Browser.
 
 ## Usage in this repo
 
-The repo generates its own Zen Browser CSS from `config.stylix.fullPalette.colors` to preserve semantic contrast intent that generic Base16 slot mapping loses.
+The repo generates its own Zen Browser CSS from the Stylix full palette to preserve semantic contrast intent that generic Base16 slot mapping loses. Read theming source for current option names and output paths.
 
 
 ## Related
@@ -52,4 +52,3 @@ The repo generates its own Zen Browser CSS from `config.stylix.fullPalette.color
 - FAQ: <https://docs.zen-browser.app/faq>
 - Mods Registry: <https://zen-browser.app/mods>
 - GitHub: <https://github.com/zen-browser/desktop>
-

@@ -9,7 +9,7 @@ tags:
 links:
 - sources-index
 - agents-opencode
-updated: 2026-05-11
+updated: 2026-05-25
 permalink: newxos/sources/upstream-projects/opencode
 ---
 
@@ -20,9 +20,9 @@ Interactive CLI assistant for software engineering tasks.
 ## Observations
 
 - [fact] Upstream docs: <https://opencode.ai>; config schema: <https://opencode.ai/docs/config/>
-- [technique] Wrapped via `nix-wrapper-modules` in `modules/dev/opencode.nix`
-- [fact] MCP servers configured for GitHub, NixOS metadata, and Basic Memory
-- [fact] Skills loaded from `configs/opencode/skills/`
+- [technique] Repo integration is owned by `modules/dev/opencode.nix` and `configs/opencode/`
+- [decision] Keep exact providers, MCP server definitions, skill lists, and auth wiring in source files
+- [fact] Upstream config schema should be checked before changing wrapper settings
 
 ## Relations
 
@@ -34,18 +34,18 @@ Interactive CLI assistant for software engineering tasks.
 - Docs: <https://opencode.ai>
 - Config schema: <https://opencode.ai/docs/config/>
 
-## Usage in this repo
+## Repo Usage Index
 
-- Wrapped via `nix-wrapper-modules` in `modules/dev/opencode.nix`.
-- MCP servers configured for GitHub, NixOS metadata, and Basic Memory.
-- Skills loaded from `configs/opencode/skills/`.
+- Wrapper and generated settings: `modules/dev/opencode.nix`.
+- Repo-owned OpenCode assets: `configs/opencode/`.
+- Agent workflow guidance: `knowledge/agents/`.
+- Exact provider, model, MCP, and auth details belong in source.
 
-## Local Ollama Provider
+## Local Provider Notes
 
-- [fact] OpenCode config includes an `ollama` provider via `@ai-sdk/openai-compatible`
-- [fact] Local provider endpoint is `http://localhost:11434/v1`
-- [fact] Local coding model exposed in OpenCode is `ollama/qwen2.5-coder:7b`
-- [technique] Use `/models` in OpenCode to select `Ollama (local)` / `Qwen2.5 Coder 7B (local)`
+- Local model provider wiring, if enabled, belongs in `modules/dev/opencode.nix`.
+- Read source for current endpoint, provider package, and model aliases.
+- Related local LLM ownership: [[Local LLM and TTS setup]].
 
 Relations:
 - relates_to [[Local LLM and TTS setup]]

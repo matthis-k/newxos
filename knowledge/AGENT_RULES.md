@@ -10,7 +10,7 @@ tags:
 links:
 - agents-basic-memory
 - architecture-index
-updated: 2026-05-11
+updated: 2026-05-25
 permalink: newxos/agent-rules
 ---
 
@@ -24,6 +24,8 @@ This repository uses Markdown project memory under `knowledge/`.
 - [technique] Search in order: Basic Memory search → `rg` over `knowledge/` → source inspection
 - [requirement] Do not store secrets, keys, decrypted SOPS values, tokens, raw logs, or transient reasoning
 - [decision] Prefer updating existing notes over creating duplicates; use stable IDs for links
+- [decision] Knowledge indexes concepts to source locations and durable decisions; source files remain the truth for exact implementation details
+- [requirement] Pick task-appropriate skills before specialized work, such as Qt/QML docs or QML skills for QML changes
 - [technique] Use `edit_note` for incremental changes; `write_note` only for new notes or with `overwrite=True`
 
 ## Relations
@@ -46,6 +48,13 @@ Use, in order:
 
 ### Task hygiene
 
+Load any task-appropriate skill before specialized work. Examples:
+
+- Use QML skills and Qt documentation tools when creating, reviewing, fixing, or documenting QML.
+- Use Qt/C++ skills and Qt documentation tools when creating, reviewing, fixing, or documenting Qt/C++.
+- Use UI design skills when designing or auditing screens, layouts, navigation, or embedded UI.
+- Use profiling or review skills for performance investigations or code review tasks.
+
 Check `knowledge/tasks/` and related task notes before committing. If a commit resolves, partially completes, or changes the scope of a tracked task, update or remove the task note in the same commit.
 
 Create or update memory when learning durable project information:
@@ -57,6 +66,35 @@ Create or update memory when learning durable project information:
 - durable TODOs
 - upstream source notes
 - debugging lessons
+
+### Knowledge boundary
+
+Use `knowledge/` as project indirection and decision memory, not as duplicate documentation of Nix or config files.
+
+Good knowledge entries answer: "when searching for this concept, where should I look, what owns it, and what durable decisions constrain changes?"
+
+Keep in `knowledge/`:
+
+- concept-to-file maps, such as which folders own agent tooling, theming, hosts, wrappers, or install flows
+- placement rules and ownership boundaries
+- architecture or workflow decisions and their rationale
+- recurring issues, debugging lessons, and prevention rules
+- upstream library references and repo-specific integration notes
+- durable tasks or future structural cleanup
+
+Keep in source files:
+
+- exact option values, package lists, arguments, generated settings, and current implementation details
+- small comments explaining fragile values, integration constraints, or local invariants next to the code they protect
+
+Do not put in `knowledge/`:
+
+- full summaries of current Nix declarations or generated config
+- values that are better read from `modules/`, `configs/`, `flake.lock`, or upstream option docs
+- minor implementation notes that belong as nearby source comments
+- source mirrors that will drift when code changes
+
+When a note mentions implementation, prefer concise pointers like `modules/dev/` or `configs/opencode/` plus the reason those paths own the concern. Read source files for exact behavior.
 
 Do not store:
 

@@ -92,6 +92,9 @@ Day-to-day rules for working in this repo.
 ## Keeping Knowledge Current
 
 - Keep `AGENTS.md` and `opencode.json` aligned with this knowledge layout.
+- Treat `knowledge/` as concept indexing and decision memory. It should point future agents to the right files and durable constraints, not restate exact Nix or config contents.
+- Put minor implementation rationale in nearby source comments when it only explains a local option value or integration invariant.
+- Keep exact behavior in source files; read `modules/`, `configs/`, `flake.lock`, and upstream docs instead of relying on memory notes for current values.
 - Update [[Flake Structure]], [[Libraries]], and [[Patterns]] when their guidance changes.
 - Update [[Encountered Issues]] when a mistake is repeatable and worth remembering.
 - If a library quirk caused an issue, cross-link the library page, the pattern page, and the issue entry.
@@ -108,12 +111,7 @@ Day-to-day rules for working in this repo.
 - Call out anything you could not verify.
 - Mention any knowledge pages you updated if that matters for later work.
 ## Sanity Checks
-Three pre-commit hooks validate config integrity when relevant files change:
 
-- **check-hyprland-config** — runs `Hyprland --verify-config` (0.55+ Lua) against a merged config dir with generated `nix-import.lua` from wrapper's `monitors` option; triggers on `^configs/hypr/`
-- **check-neovim-config** — runs `nvim --headless -c "quit"` using the wrapped `nvim` package; triggers on `^configs/nvim/`
-- **check-quickshell-config** — runs `qmllint` on `configs/quickshell/shell.qml`; triggers on `^configs/quickshell/`
+Config integrity hooks are defined in `modules/dev/workflow.nix` and executed through `repo-gate` or managed pre-commit hooks.
 
-Defined in `modules/dev/workflow.nix`; executed via `repo-gate` or `pre-commit run --hook-stage pre-commit`.
-
-Hyprland wrapper accepts `monitors` as list of Lua-compatible tables and generates `nix-import.lua` at build time. Host-specific monitor definitions belong in the host's `programs.hyprland.package` wrapper override.
+Read the workflow module for exact hook names, trigger patterns, and commands. Keep only durable workflow rules here.

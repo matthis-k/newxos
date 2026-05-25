@@ -13,7 +13,7 @@ links:
 - decision-2026-05-11-markdown-only-git-history
 - decision-2026-05-11-local-memory-index
 - task-basic-memory-package-with-uv2nix
-updated: 2026-05-11
+updated: 2026-05-25
 permalink: newxos/agents/basic-memory
 ---
 
@@ -25,7 +25,7 @@ Basic Memory provides searchable local project memory for agents.
 
 - [fact] Canonical memory is committed as Markdown under `knowledge/**/*.md`
 - [fact] Generated state is local and ignored under `.cache/basic-memory/`
-- [technique] Basic Memory is built with `uv2nix` instead of running via `uvx` at runtime
+- [technique] Basic Memory packaging is owned by the OpenCode/dev tooling modules and the `uv/basic-memory/` workspace
 - [fact] Semantic embeddings use FastEmbed (local, no cloud API)
 - [requirement] Commit Markdown only; do not commit SQLite, index, cache, or embedding files
 
@@ -40,19 +40,9 @@ Basic Memory provides searchable local project memory for agents.
 - Docs: <https://docs.basicmemory.com>
 - Default embedding provider: FastEmbed (local)
 
-## Storage model
+## Storage Model
 
-Canonical memory is committed as Markdown:
-
-```text
-knowledge/**/*.md
-```
-
-Generated state is local and ignored:
-
-```text
-.cache/basic-memory/
-```
+Canonical memory is committed as Markdown under `knowledge/`. Generated database, index, cache, and embedding state is local and ignored.
 
 ## Commands
 
@@ -61,19 +51,11 @@ newxos memory reindex
 newxos memory reset
 ```
 
-## Packaging
+## Packaging Ownership
 
-Basic Memory is built with `uv2nix` instead of running via `uvx` at runtime.
-
-The uv workspace lives in `uv/basic-memory/` with `pyproject.toml` and `uv.lock`.
-
-In `modules/dev/opencode.nix`, the package is built through:
-1. `uv2nix.lib.workspace.loadWorkspace` — loads the uv workspace
-2. `mkPyprojectOverlay` — creates a Nix overlay from the workspace
-3. `pyproject-nix.build.packages` — builds the Python package set
-4. `mkVirtualEnv` — creates a virtualenv with basic-memory and all dependencies
-
-The virtualenv is used as `runtimeInputs` in the shell applications.
+- Python workspace: `uv/basic-memory/`.
+- Nix packaging and wrapper integration: dev/OpenCode tooling modules.
+- Exact `uv2nix`, virtualenv, and runtime input details belong in source.
 
 ## Rules
 
@@ -84,11 +66,6 @@ The virtualenv is used as `runtimeInputs` in the shell applications.
 - Promote stable, important lessons into topic index pages.
 - When updating `uv/basic-memory/uv.lock`, run `nix flake lock` to update flake.lock.
 
-## Embedding model
+## Embedding Model
 
-Semantic embeddings use **FastEmbed** (local, no cloud API). Configured via:
-
-- `semantic_embedding_provider: "fastembed"` in the Basic Memory config
-- `BASIC_MEMORY_SEMANTIC_EMBEDDING_PROVIDER="fastembed"` environment variable
-
-FastEmbed downloads its model on first run and caches it locally. No additional Nix packaging is needed — it runs within the `uv2nix`-built virtualenv.
+Semantic embeddings use a local provider so project search does not require a cloud API. Read the OpenCode/dev tooling source for exact provider config and environment wiring.

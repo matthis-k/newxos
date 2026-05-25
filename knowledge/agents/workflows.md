@@ -9,7 +9,7 @@ tags:
 links:
 - agents-index
 - agent-rules
-updated: 2026-05-11
+updated: 2026-05-25
 permalink: newxos/agents/workflows
 ---
 
@@ -20,20 +20,15 @@ permalink: newxos/agents/workflows
 - [technique] Search in order: Basic Memory search first, `rg` as exact-search fallback, inspect source files last
 - [fact] For exact terms, paths, Nix options, errors, and identifiers, use `rg`
 - [fact] For conceptual queries, use Basic Memory hybrid search
-- [fact] Managed pre-commit hook runs `newxos memory reindex` automatically when staged files under `knowledge/` change
+- [fact] Managed hook behavior is defined in `modules/dev/workflow.nix`; read source for exact triggers
+- [requirement] Load task-appropriate skills before specialized work, such as QML, Qt/C++, UI design, profiling, documentation, or review
 
 ## Relations
 
 - relates_to [[agents-index]]
 - relates_to [[agent-rules]]
 
-Before non-trivial work:
-
-```bash
-newxos memory reindex || true
-```
-
-Then search:
+Before non-trivial work, search:
 
 1. Basic Memory search first
 2. `rg` as exact-search fallback
@@ -43,18 +38,8 @@ For exact terms, paths, Nix options, errors, and identifiers, use `rg`.
 
 For conceptual queries, use Basic Memory hybrid search.
 
-After work:
+Before specialized implementation or review, load the matching skill. For QML work, use the QML skill and Qt documentation tools as appropriate; for Qt/C++ work, use the Qt/C++ skill and Qt documentation tools.
 
-```bash
-newxos memory reindex
-```
+After changing knowledge files, refresh the Basic Memory index with `newxos memory reindex` or rely on the managed hook when committing.
 
-The managed pre-commit hook also runs `newxos memory reindex` automatically when staged files under `knowledge/` change.
-
-Then ensure no generated state is staged:
-
-```bash
-git status --short
-```
-
-Generated files under `.cache/` must not appear.
+Before committing, ensure no generated memory state under `.cache/` is staged.

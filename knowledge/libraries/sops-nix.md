@@ -12,7 +12,7 @@ permalink: newxos/libraries/sops-nix
 
 - [fact] Decrypts encrypted files at activation time; installs secrets onto target system or user environment
 - [technique] Keep encrypted payloads under `secrets/`; keep recipient rules in `.sops.yaml`
-- [fact] Current machine uses `/var/lib/sops-nix/key.txt` as the age key file
+- [fact] Age key placement and installer key handling are owned by the SOPS and installation modules
 - [decision] Do not inspect secret plaintext when wiring alone is enough
 
 ## Relations
@@ -30,15 +30,8 @@ permalink: newxos/libraries/sops-nix
 
 - Keep encrypted payloads under `secrets/`.
 - Keep recipient rules in `.sops.yaml`.
-- The current machine uses `/var/lib/sops-nix/key.txt` as the age key file.
-- When a program expects a fixed file path, wire the secret through `sops.secrets.<name>.path`.
+- Read SOPS and installation modules for exact key paths and secret file wiring.
 - Related reading: [[Workflow]], [[Flake Structure]].
-
-## Short Example
-
-```nix
-sops.secrets.github_token.path = "/run/secrets/github_token";
-```
 
 ## Helpful Docs
 
@@ -55,6 +48,5 @@ sops.secrets.github_token.path = "/run/secrets/github_token";
 
 ## Installer Media
 
-- [technique] Run `newxos build-iso --key /var/lib/sops-nix/key.txt` to build a live USB ISO with the age key embedded.
-- [fact] When embedded, installer activation places the key at `/var/lib/sops-nix/key.txt` as `root:wheel` mode `0440`, letting the live `newxos` wheel user read it, and decrypts the GitHub MCP token.
-- [fact] `newxos first-install <host>` copies the installer key into the target at `/var/lib/sops-nix/key.txt` before running `nixos-install`.
+- Installer media key embedding and first-install key transfer are owned by `modules/installation/` and install helpers.
+- Do not document secret paths or payload details here beyond the ownership rule; inspect source wiring without printing secret contents.

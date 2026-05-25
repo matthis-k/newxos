@@ -33,15 +33,6 @@ permalink: newxos/libraries/flake-file
 - Do not hand-edit generated `flake.nix`.
 - Related reading: [[Workflow]], [[Dendritic Feature Modules]].
 
-## Short Example
-
-```nix
-flake-file.inputs.home-manager = {
-  url = "github:nix-community/home-manager";
-  inputs.nixpkgs.follows = "nixpkgs";
-};
-```
-
 ## Helpful Docs
 
 - Overview: `https://flake-file.oeiuwq.com/overview/`

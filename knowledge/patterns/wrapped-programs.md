@@ -28,18 +28,6 @@ This repo prefers wrapped programs when it owns opinionated config.
 - Generate small derived fragments from Nix and import them from the hand-written config when that keeps ownership clear.
 - Related reading: [[nix-wrapper-modules]], [[stylix]], [[hyprland]].
 
-## Short Examples
-
-```conf
-include ~/.config/kitty/stylix-theme.auto.conf
-```
-
-```nix
-xdg.configFile."hypr/nix-import.lua".text = ''
-  return {}
-'';
-```
-
 ## Practical Rules
 
 - Put custom nix-wrapper-modules wrapper definitions in `modules/desktop/wrappers/`.

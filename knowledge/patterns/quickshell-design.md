@@ -20,8 +20,8 @@ permalink: newxos/quickshell-design
 ## Observations
 
 - [decision] QuickShell UI must follow flat design principles: no gradients, drop shadows, or 3D effects
-- [fact] 4px base grid for all spacing, padding, and margins; values scale in multiples of 4
-- [fact] All colors from Catppuccin palette passed through JSON file in Nix store, read at runtime via `FileView` + `JsonAdapter`
+- [fact] Use a small spacing grid for all spacing, padding, and margins; read `Config.spacing` for exact values
+- [fact] Colors come from the repo Catppuccin/Stylix pipeline; read `modules/theming/` and `configs/quickshell/services/Config.qml` for exact keys
 - [decision] Animations should be responsive and subtle, not decorative: 100-250ms for micro-interactions, up to 400ms for panel open/close
 
 ## Relations
@@ -54,18 +54,7 @@ See the original flat design principles for reference:
 
 ## Spacing
 
-Use a **4px base grid** for all spacing, padding, and margins. Values scale in multiples of 4:
-
-| Scale | Value | Use case |
-|-------|-------|----------|
-| `4` | 4px | Tight inline gaps (icon-to-text, small element padding) |
-| `8` | 8px | Default padding, related item spacing |
-| `12` | 12px | Medium gaps within a component |
-| `16` | 16px | Standard section padding, card inner spacing |
-| `24` | 24px | Large gaps between related sections |
-| `32` | 32px | Major section breaks, panel margins |
-| `48` | 48px | Page-level spacing, between unrelated groups |
-| `64` | 64px | Maximum gap, layout boundaries |
+Use a small base grid for all spacing, padding, and margins. Exact spacing constants live in `configs/quickshell/services/Config.qml`.
 
 ### Spacing coherence rules
 
@@ -76,55 +65,11 @@ Use a **4px base grid** for all spacing, padding, and margins. Values scale in m
 
 Keep spacing consistent within a component. If a bar uses 8px internal padding, all widgets in that bar should use 8px as their base unit.
 
-### QML pattern
-
-All spacing constants live in `Config.spacing`. Access them directly:
-
-```qml
-Row {
-    spacing: Config.spacing.xs  // 8px for related items
-    // ...
-}
-
-Column {
-    spacing: Config.spacing.md  // 16px for sections
-    // ...
-}
-```
-
-Available properties:
-
-| Property | Value | Scale name |
-|----------|-------|------------|
-| `Config.spacing.xxs` | 4px | tight inline |
-| `Config.spacing.xs` | 8px | default padding |
-| `Config.spacing.sm` | 12px | medium component gap |
-| `Config.spacing.md` | 16px | standard section |
-| `Config.spacing.lg` | 24px | large section break |
-| `Config.spacing.xl` | 32px | panel margin |
-| `Config.spacing.xxl` | 48px | page-level gap |
-| `Config.spacing.xxxl` | 64px | layout boundary |
-
 ## Color palette
 
-All colors come from the Catppuccin palette passed through a JSON file in the Nix store.
+All colors come from the Catppuccin/Stylix palette pipeline.
 
-### How it works
-
-1. `modules/theming/quickshell.nix` generates `catppuccin-palette.json` from `config.stylix.fullPalette.colors` and installs it to `$XDG_CONFIG_HOME/quickshell/`.
-2. `configs/quickshell/services/Config.qml` reads the JSON at runtime via `FileView` + `JsonAdapter`.
-3. The 24 semantic Catppuccin colors are exposed through `Config.colors` and `Config.styling` / `Config.palette`.
-
-### Palette keys
-
-The JSON provides all 24 Catppuccin Mocha semantic colors:
-
-| Category | Keys |
-|----------|------|
-| Accents | `rosewater`, `flamingo`, `pink`, `mauve`, `red`, `maroon`, `peach`, `yellow`, `green`, `teal`, `sky`, `sapphire`, `blue`, `lavender` |
-| Text | `text`, `subtext1`, `subtext0` |
-| Overlays | `overlay2`, `overlay1`, `overlay0` |
-| Surfaces | `surface2`, `surface1`, `surface0`, `base`, `mantle`, `crust` |
+Read `modules/theming/` for generated palette files and `configs/quickshell/services/Config.qml` for the current runtime API.
 
 ### Color choice rules
 
@@ -133,19 +78,6 @@ The JSON provides all 24 Catppuccin Mocha semantic colors:
 - Text uses `text` for primary, `subtext0`/`subtext1` for secondary/deemphasized content.
 - Accent colors from the palette should be used sparingly -- one primary accent (`blue`) and one secondary (`sky`) per view.
 - Do not introduce colors outside the palette. If a new shade is needed, derive it from existing palette colors using `colorWithOpacity()`.
-
-### Accessing colors in QML
-
-```qml
-// From Config.colors (raw Catppuccin names)
-color: Config.colors.blue
-color: Config.colors.crust
-
-// From Config.styling (semantic aliases)
-color: Config.styling.bg0
-color: Config.styling.primaryAccent
-color: Config.styling.good
-```
 
 ## Animations
 
@@ -156,19 +88,6 @@ Animations should be **responsive and subtle**, not decorative:
 - Prefer `Easing.InOutQuad` or `Easing.OutCubic` for natural motion.
 - Respect the `behaviourObj.animation.enabled` flag -- if disabled, skip animations entirely.
 - Use `behaviourObj.animation.calc(baseSeconds)` for duration calculation so the multiplier applies globally.
-
-### Example
-
-```qml
-Behavior on opacity {
-    NumberAnimation {
-        duration: behaviourObj.animation.enabled
-            ? behaviourObj.animation.calc(0.15)
-            : 0
-        easing.type: Easing.OutCubic
-    }
-}
-```
 
 ### Dashboard Motion
 
