@@ -46,6 +46,7 @@ _: {
           type = lib.types.listOf lib.types.str;
           default = [
             "qwen2.5:7b"
+            "qwen2.5-coder:7b"
             "dolphin-mistral:7b"
             "nomic-embed-text"
           ];
@@ -143,7 +144,7 @@ _: {
             AUDIO_TTS_OPENAI_API_KEY = "not-needed";
             AUDIO_TTS_MODEL = cfg.ttsModel;
             AUDIO_TTS_VOICE = cfg.ttsVoice;
-            AUDIO_TTS_SPLIT_ON = "none";
+            AUDIO_TTS_SPLIT_ON = "punctuation";
           };
         };
 
