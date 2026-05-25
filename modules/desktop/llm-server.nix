@@ -66,12 +66,6 @@ _: {
           description = "Local TTS API port";
         };
 
-        ttsModel = lib.mkOption {
-          type = lib.types.str;
-          default = "kokoro";
-          description = "Kokoro-FastAPI OpenAI-compatible TTS model";
-        };
-
         ttsVoice = lib.mkOption {
           type = lib.types.str;
           default = "af_heart";
@@ -130,7 +124,7 @@ _: {
             AUDIO_TTS_ENGINE = "openai";
             AUDIO_TTS_OPENAI_API_BASE_URL = ttsUrl;
             AUDIO_TTS_OPENAI_API_KEY = "not-needed";
-            AUDIO_TTS_MODEL = cfg.ttsModel;
+            AUDIO_TTS_MODEL = "kokoro";
             AUDIO_TTS_VOICE = cfg.ttsVoice;
             # Open WebUI owns live playback chunking; Kokoro-FastAPI then streams
             # each OpenAI-compatible /v1/audio/speech request internally.
