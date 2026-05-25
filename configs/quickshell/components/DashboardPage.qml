@@ -10,6 +10,7 @@ Item {
     property Component headerAccessory: null
     property bool scrollable: false
     property bool fillHeight: true
+    property bool contentFillHeight: false
     property int pagePadding: Config.spacing.md
     property int sectionSpacing: Config.spacing.md
     default property alias content: body.data
@@ -25,7 +26,7 @@ Item {
         contentWidth: width
         contentHeight: root.scrollable
             ? Math.max(column.implicitHeight + root.pagePadding * 2, height)
-            : column.implicitHeight + root.pagePadding * 2
+            : height
         clip: true
 
         ColumnLayout {
@@ -48,12 +49,13 @@ Item {
             ColumnLayout {
                 id: body
                 Layout.fillWidth: true
+                Layout.fillHeight: root.contentFillHeight
                 spacing: root.sectionSpacing
             }
 
             Item {
                 Layout.fillWidth: true
-                Layout.fillHeight: root.scrollable && root.fillHeight
+                Layout.fillHeight: root.fillHeight && !root.contentFillHeight
             }
         }
     }

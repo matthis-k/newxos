@@ -13,6 +13,7 @@ ColumnLayout {
     property bool powerModesFirst: false
     property bool showGraph: true
     property bool graphActive: true
+    readonly property bool hasBattery: Services.Stats.hasBattery
 
     readonly property int contentWidth: width > 0 ? width : 320
     readonly property int sectionSpacing: Config.spacing.xs
@@ -268,18 +269,19 @@ ColumnLayout {
 
     PowerModesBlock {
         Layout.fillWidth: true
-        visible: root.powerModesFirst
+        visible: root.powerModesFirst && root.hasBattery
     }
 
     Rectangle {
         Layout.fillWidth: true
-        visible: root.powerModesFirst
+        visible: root.powerModesFirst && root.hasBattery
         implicitHeight: 1
         color: Config.styling.bg3
     }
 
     SummaryBlock {
         Layout.fillWidth: true
+        visible: root.hasBattery
     }
 
     Rectangle {
@@ -291,7 +293,7 @@ ColumnLayout {
 
     PowerModesBlock {
         Layout.fillWidth: true
-        visible: !root.powerModesFirst
+        visible: !root.powerModesFirst && root.hasBattery
     }
 
     Rectangle {
@@ -302,7 +304,7 @@ ColumnLayout {
 
     ColumnLayout {
         Layout.fillWidth: true
-        visible: root.showGraph
+        visible: root.showGraph && root.hasBattery
         spacing: Config.spacing.xs
 
         Text {

@@ -305,6 +305,7 @@ DashboardPage {
 
     DashboardSection {
         title: "Storage"
+        visible: Services.Stats.diskPartitions.length > 0
         collapsible: true
         summary: Component {
             HeaderMetric {
@@ -331,6 +332,7 @@ DashboardPage {
 
     DashboardSection {
         title: "Network throughput"
+        visible: Services.Stats.primaryInterface !== ""
         collapsible: true
         summary: Component {
             RowLayout {

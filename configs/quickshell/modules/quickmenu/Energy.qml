@@ -28,6 +28,7 @@ DashboardPage {
     DashboardSection {
         Layout.fillWidth: true
         title: "Display"
+        visible: Brightness.available
 
         LabeledSlider {
             Layout.fillWidth: true

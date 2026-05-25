@@ -177,6 +177,7 @@ DashboardPage {
     DashboardSection {
         Layout.fillWidth: true
         title: "Brightness"
+        visible: Brightness.available
 
         LabeledSlider {
             Layout.fillWidth: true
@@ -194,6 +195,7 @@ DashboardPage {
     DashboardSection {
         Layout.fillWidth: true
         title: "Battery and power"
+        visible: Stats.hasBattery
 
         Battery {
             id: batteryContent

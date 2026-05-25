@@ -11,6 +11,7 @@ Singleton {
     id: root
 
     property UPowerDevice battery: UPower.displayDevice
+    readonly property bool hasBattery: battery?.isLaptopBattery === true
     property real cpuPercent: 0
     property real memoryPercent: 0
     property real swapPercent: 0

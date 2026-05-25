@@ -11,6 +11,7 @@ DashboardPage {
     id: root
 
     title: "Networking"
+    contentFillHeight: true
     headerAccessory: Component {
         DashboardToggleSwitch {
             checked: NetworkService.networkingEnabled
@@ -512,6 +513,8 @@ DashboardPage {
     DashboardSection {
         Layout.fillWidth: true
         Layout.fillHeight: true
+        Layout.minimumHeight: 120
+        Layout.preferredHeight: 0
         title: "Available networks"
         headerAccessory: Component {
             DashboardIconButton {
@@ -542,6 +545,111 @@ DashboardPage {
                 text: "No Wi-Fi networks found"
                 color: Config.styling.text2
                 font.pixelSize: 12
+            }
+        }
+    }
+
+    DashboardSection {
+        Layout.fillWidth: true
+        title: "NordVPN"
+        visible: NordVPN.available
+        collapsible: true
+        collapsed: true
+        summary: Component {
+            Text {
+                text: NordVPN.connected ? `${NordVPN.country} • ${NordVPN.server}` : NordVPN.status
+                color: NordVPN.connected ? Config.styling.good : Config.styling.text1
+                font.pixelSize: 12
+            }
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Config.spacing.xs
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: root.itemSpacing
+
+                Icon {
+                    Layout.preferredWidth: root.itemIconSize
+                    Layout.preferredHeight: root.itemIconSize
+                    iconName: NordVPN.connected ? "network-vpn-symbolic" : "network-vpn-disconnected-symbolic"
+                    color: NordVPN.connected ? Config.styling.good : Config.styling.text1
+                    implicitSize: root.itemIconSize
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    Text {
+                        text: NordVPN.connected ? "Connected" : "Disconnected"
+                        color: NordVPN.connected ? Config.styling.good : Config.styling.text0
+                        font.pixelSize: root.itemTextSize
+                        font.bold: true
+                    }
+
+                    Text {
+                        visible: NordVPN.connected
+                        text: `${NordVPN.city}, ${NordVPN.country} (${NordVPN.server})`
+                        color: Config.styling.text2
+                        font.pixelSize: 12
+                    }
+                }
+
+                SmallButton {
+                    text: NordVPN.connected ? "Disconnect" : "Connect"
+                    onClicked: NordVPN.connected ? NordVPN.disconnect() : NordVPN.connect()
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: Config.styling.bg3
+            }
+
+            InfoRow {
+                Layout.fillWidth: true
+                label: "Server"
+                value: NordVPN.server
+            }
+
+            InfoRow {
+                Layout.fillWidth: true
+                label: "Hostname"
+                value: NordVPN.hostname
+            }
+
+            InfoRow {
+                Layout.fillWidth: true
+                label: "IP"
+                value: NordVPN.ip
+            }
+
+            InfoRow {
+                Layout.fillWidth: true
+                label: "Technology"
+                value: NordVPN.technology
+            }
+
+            InfoRow {
+                Layout.fillWidth: true
+                label: "Protocol"
+                value: NordVPN.protocol
+            }
+
+            InfoRow {
+                Layout.fillWidth: true
+                label: "Transfer"
+                value: NordVPN.transfer
+            }
+
+            InfoRow {
+                Layout.fillWidth: true
+                label: "Uptime"
+                value: NordVPN.uptime
             }
         }
     }
