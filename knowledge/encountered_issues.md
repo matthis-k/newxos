@@ -193,3 +193,25 @@ Relations:
 - Rule: for GPU containers on RTX 5060, verify the container PyTorch CUDA arch support and companion codec packages, not just host driver support.
 - Context: `modules/desktop/llm-server.nix`, `modules/desktop/xtts-gpu-fix/Dockerfile`, OpenedAI Speech XTTS-v2.
 - Related knowledge: [[Local LLM and TTS setup]], [[Workflow]]
+
+### 2026-05-25: Open WebUI punctuation TTS chunks can sound clipped
+
+- Date: `2026-05-25`
+- Problem: Open WebUI punctuation-based TTS chunking creates audible clipped or slashed transitions between XTTS chunks.
+- Symptom: speech works, but sentence boundaries sound abrupt compared with longer chunks.
+- Cause: punctuation splitting sends many short requests to the OpenAI-compatible TTS backend, so prosody and audio joins are less smooth.
+- Fix: use paragraph chunking for Open WebUI TTS while keeping persistent config disabled so the declarative environment wins.
+- Rule: for XTTS quality, prefer paragraph-sized Open WebUI chunks over punctuation-sized chunks unless latency matters more than transition smoothness.
+- Context: `modules/desktop/llm-server.nix`, Open WebUI, OpenedAI Speech XTTS-v2.
+- Related knowledge: [[Local LLM and TTS setup]], [[Workflow]]
+
+### 2026-05-25: Kokoro-FastAPI GPU container image and CDI selector must match host
+
+- Date: `2026-05-25`
+- Problem: Open WebUI read-aloud showed a server connection error after switching to Kokoro-FastAPI.
+- Symptom: `kokoro-fastapi.service` restarted with Docker exit status 125 and no process listened on the configured TTS port.
+- Cause: the configured `ghcr.io/remsky/kokoro-fastapi-gpu:latest-cu128` tag was not available locally or in GHCR, and Docker `--gpus all` selected a missing AMD CDI spec on this mixed/RTX host.
+- Fix: use the known local `kokoro-fastapi-gpu-sm120:latest` image and pass the NVIDIA CDI device explicitly with `--device nvidia.com/gpu=all`.
+- Rule: for RTX 50-series local TTS containers, verify both the image tag and Docker GPU selector with a direct container probe before wiring Open WebUI to the service.
+- Context: `modules/desktop/llm-server.nix`, Kokoro-FastAPI, Open WebUI TTS.
+- Related knowledge: [[Local LLM and TTS setup]], [[Workflow]]

@@ -8,27 +8,22 @@ _: {
     }:
     let
       cfg = config.services.llm-server;
-      ttsImage = "openedai-speech-xtts-sm120:torchcodec";
+      ttsServiceName = "kokoro-fastapi";
+      ttsImage = "kokoro-fastapi-gpu-sm120:latest";
+      ollamaUrl = "http://localhost:${toString cfg.ollamaPort}";
+      ttsUrl = "http://localhost:${toString cfg.ttsPort}/v1";
     in
     {
       options.services.llm-server = {
-        enableOllama = lib.mkOption {
-          type = lib.types.bool;
+        enableOllama = (lib.mkEnableOption "Ollama LLM inference service") // {
           default = true;
-          description = "Enable Ollama LLM inference service";
         };
 
-        enableOpenWebUI = lib.mkOption {
-          type = lib.types.bool;
+        enableOpenWebUI = (lib.mkEnableOption "Open WebUI frontend") // {
           default = true;
-          description = "Enable Open WebUI frontend";
         };
 
-        enableTTS = lib.mkOption {
-          type = lib.types.bool;
-          default = false;
-          description = "Enable local OpenAI-compatible XTTS service";
-        };
+        enableTTS = lib.mkEnableOption "local OpenAI-compatible Kokoro-FastAPI TTS service";
 
         ollamaHost = lib.mkOption {
           type = lib.types.str;
@@ -72,26 +67,25 @@ _: {
         };
 
         ttsModel = lib.mkOption {
-          type = lib.types.enum [
-            "tts-1-hd"
-            "tts-1"
-          ];
-          default = "tts-1-hd";
-          description = "OpenAI-compatible TTS model; tts-1-hd uses XTTS, tts-1 uses Piper";
+          type = lib.types.str;
+          default = "kokoro";
+          description = "Kokoro-FastAPI OpenAI-compatible TTS model";
         };
 
         ttsVoice = lib.mkOption {
+          type = lib.types.str;
+          default = "af_heart";
+          description = "Default Kokoro-FastAPI voice or voice formula";
+        };
+
+        ttsSplitOn = lib.mkOption {
           type = lib.types.enum [
-            "alloy"
-            "alloy-alt"
-            "echo"
-            "fable"
-            "nova"
-            "onyx"
-            "shimmer"
+            "punctuation"
+            "paragraphs"
+            "none"
           ];
-          default = "alloy";
-          description = "Default XTTS voice";
+          default = "punctuation";
+          description = "Open WebUI TTS text splitting mode before sending requests to Kokoro-FastAPI";
         };
 
         ttsOpenFirewall = lib.mkOption {
@@ -113,12 +107,6 @@ _: {
 
         virtualisation.docker.enable = lib.mkIf cfg.enableTTS true;
 
-        systemd.tmpfiles.rules = lib.mkIf cfg.enableTTS [
-          "d /var/lib/openedai-speech 0755 root root -"
-          "d /var/lib/openedai-speech/config 0755 root root -"
-          "d /var/lib/openedai-speech/voices 0755 root root -"
-        ];
-
         services.ollama = lib.mkIf cfg.enableOllama {
           enable = true;
           package = pkgs.ollama-cuda;
@@ -133,23 +121,25 @@ _: {
           openFirewall = cfg.webUIOpenFirewall;
           environment = {
             ENABLE_PERSISTENT_CONFIG = "False";
-            OLLAMA_BASE_URL = "http://localhost:${toString cfg.ollamaPort}";
+            OLLAMA_BASE_URL = ollamaUrl;
             RAG_EMBEDDING_ENGINE = "ollama";
-            RAG_EMBEDDING_BASE_URL = "http://localhost:${toString cfg.ollamaPort}";
+            RAG_EMBEDDING_BASE_URL = ollamaUrl;
             RAG_EMBEDDING_MODEL = "nomic-embed-text";
           }
           // lib.optionalAttrs cfg.enableTTS {
             AUDIO_TTS_ENGINE = "openai";
-            AUDIO_TTS_OPENAI_API_BASE_URL = "http://localhost:${toString cfg.ttsPort}/v1";
+            AUDIO_TTS_OPENAI_API_BASE_URL = ttsUrl;
             AUDIO_TTS_OPENAI_API_KEY = "not-needed";
             AUDIO_TTS_MODEL = cfg.ttsModel;
             AUDIO_TTS_VOICE = cfg.ttsVoice;
-            AUDIO_TTS_SPLIT_ON = "punctuation";
+            # Open WebUI owns live playback chunking; Kokoro-FastAPI then streams
+            # each OpenAI-compatible /v1/audio/speech request internally.
+            AUDIO_TTS_SPLIT_ON = cfg.ttsSplitOn;
           };
         };
 
-        systemd.services.openedai-speech = lib.mkIf cfg.enableTTS {
-          description = "OpenedAI Speech XTTS Service";
+        systemd.services.${ttsServiceName} = lib.mkIf cfg.enableTTS {
+          description = "Kokoro-FastAPI TTS Service";
           after = [ "docker.service" ];
           wants = [ "docker.service" ];
           wantedBy = [ "multi-user.target" ];
@@ -160,22 +150,20 @@ _: {
             RestartSec = 10;
             TimeoutStartSec = "5min";
 
-            ExecStartPre = "${pkgs.bash}/bin/sh -c '${pkgs.docker}/bin/docker image inspect ${ttsImage} >/dev/null 2>&1 || ${pkgs.docker}/bin/docker build -t ${ttsImage} ${./.}/xtts-gpu-fix'";
-
-            ExecStart = lib.concatStrings [
-              "${pkgs.docker}/bin/docker run --rm "
-              "--name openedai-speech "
-              "--network host "
-              "--device nvidia.com/gpu=all "
-              "-e PRELOAD_MODEL=xtts "
-              "-e TTS_HOME=/app/voices "
-              "-e HF_HOME=/app/voices "
-              "-v /var/lib/openedai-speech/config:/app/config "
-              "-v /var/lib/openedai-speech/voices:/app/voices "
+            ExecStart = lib.concatStringsSep " " [
+              "${pkgs.docker}/bin/docker"
+              "run"
+              "--rm"
+              "--name"
+              ttsServiceName
+              "--device"
+              "nvidia.com/gpu=all"
+              "-p"
+              "${toString cfg.ttsPort}:8880"
               ttsImage
             ];
 
-            ExecStop = "${pkgs.docker}/bin/docker stop openedai-speech";
+            ExecStop = "${pkgs.docker}/bin/docker stop ${ttsServiceName}";
           };
         };
 

@@ -19,9 +19,9 @@ updated: 2026-05-23
 ## Context
 Local LLM and TTS support is owned by the desktop LLM module. This note is an index to the owning files and durable constraints; read source for current models, ports, containers, users, and service options.
 ## Observations
-- [fact] `modules/desktop/llm-server.nix` owns local LLM, Open WebUI, GPU container, and local TTS wiring
+- [fact] `modules/desktop/llm-server.nix` owns local LLM, Open WebUI, Kokoro-FastAPI TTS wiring, and related containers
 - [decision] Keep model choices, service ports, container image names, and environment values in the module source
-- [requirement] NVIDIA/CUDA runtime support constrains this module; verify host GPU and container compatibility before changing it
+- [requirement] Kokoro-FastAPI is the current local TTS backend for live playback; keep Open WebUI pointed at its OpenAI-compatible `/v1` endpoint and set `AUDIO_TTS_SPLIT_ON` deliberately for the desired latency/quality tradeoff
 - [technique] Use this note to find the owner, then inspect source for exact Ollama, Open WebUI, and TTS behavior
 ## Relations
 
@@ -33,7 +33,7 @@ Local LLM and TTS support is owned by the desktop LLM module. This note is an in
 
 - Module owner: `modules/desktop/llm-server.nix`
 - Host imports and enablement live under the concrete desktop host in `modules/hosts/`.
-- Container compatibility fixes live near the module when they are repo-owned.
+- Kokoro-FastAPI uses the OpenAI-compatible `/v1` speech endpoint; exact image, port, model, voice, split mode, and API key defaults live in the module.
 
 ## Durable Rules
 
