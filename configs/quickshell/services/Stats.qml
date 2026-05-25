@@ -27,42 +27,14 @@ Singleton {
     property var diskPartitions: []
     property int graphRevision: 0
     property var cpuCorePercents: []
+    property real gpuVramUsedMiB: 0
+    property real gpuVramTotalMiB: 0
+    property real gpuVramPercent: 0
+    property real gpuUtilPercent: 0
+    property string gpuName: ""
+    property bool gpuAvailable: false
 
     property string _statsCacheDir: StandardPaths.writableLocation(StandardPaths.CacheLocation).toString().replace("file://", "") + "/newshell/stats"
-
-    property int _cpuPersistCount: 0
-    property int _memoryPersistCount: 0
-    property int _batteryPersistCount: 0
-
-    Timer {
-        id: _cpuPersistTimer
-        interval: 10000
-        repeat: false
-        onTriggered: {
-            _writeJson("cpu.json", cpuGraphCollector.rawData);
-            _cpuPersistCount = 0;
-        }
-    }
-
-    Timer {
-        id: _memoryPersistTimer
-        interval: 10000
-        repeat: false
-        onTriggered: {
-            _writeJson("memory.json", memoryGraphCollector.rawData);
-            _memoryPersistCount = 0;
-        }
-    }
-
-    Timer {
-        id: _batteryPersistTimer
-        interval: 10000
-        repeat: false
-        onTriggered: {
-            _writeJson("battery.json", batteryGraphCollector.rawData);
-            _batteryPersistCount = 0;
-        }
-    }
 
     Process {
         id: _persistProcess
@@ -112,6 +84,20 @@ Singleton {
         }
     }
 
+    Process {
+        id: _loadGpuProcess
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                try {
+                    const data = _flatSeriesData(JSON.parse(text));
+                    if (Array.isArray(data) && data.length > 0)
+                        gpuGraphCollector.replaceRawData(data);
+                } catch (e) {}
+            }
+        }
+    }
+
     Component.onCompleted: {
         _loadCpuProcess.exec({
             command: ["sh", "-c", "mkdir -p \"$1\" && cat \"$1/$2\" 2>/dev/null || echo \"[]\"", "sh", _statsCacheDir, "cpu.json"]
@@ -121,6 +107,9 @@ Singleton {
         });
         _loadBatteryProcess.exec({
             command: ["sh", "-c", "mkdir -p \"$1\" && cat \"$1/$2\" 2>/dev/null || echo \"[]\"", "sh", _statsCacheDir, "battery.json"]
+        });
+        _loadGpuProcess.exec({
+            command: ["sh", "-c", "mkdir -p \"$1\" && cat \"$1/$2\" 2>/dev/null || echo \"[]\"", "sh", _statsCacheDir, "gpu.json"]
         });
     }
 
@@ -156,6 +145,8 @@ Singleton {
         running: true
         xWindow: 120000
         sampleInterval: 2000
+        persistFilename: "cpu.json"
+        persistEvery: 10
 
         collect: function () {
             if (!root._hasCpuDelta)
@@ -181,14 +172,10 @@ Singleton {
 
         onCollected: {
             root.graphRevision++;
-            _cpuPersistCount++;
-            if (_cpuPersistCount >= 10) {
-                _writeJson("cpu.json", cpuGraphCollector.rawData);
-                _cpuPersistCount = 0;
-                _cpuPersistTimer.stop();
-            } else if (!_cpuPersistTimer.running) {
-                _cpuPersistTimer.start();
-            }
+        }
+
+        onPersistReady: function (filename, data) {
+            root._writeJson(filename, data);
         }
     }
 
@@ -196,6 +183,8 @@ Singleton {
         running: true
         xWindow: 300000
         sampleInterval: 10000
+        persistFilename: "memory.json"
+        persistEvery: 10
 
         collect: function () {
             const x = Date.now();
@@ -215,14 +204,10 @@ Singleton {
 
         onCollected: {
             root.graphRevision++;
-            _memoryPersistCount++;
-            if (_memoryPersistCount >= 10) {
-                _writeJson("memory.json", memoryGraphCollector.rawData);
-                _memoryPersistCount = 0;
-                _memoryPersistTimer.stop();
-            } else if (!_memoryPersistTimer.running) {
-                _memoryPersistTimer.start();
-            }
+        }
+
+        onPersistReady: function (filename, data) {
+            root._writeJson(filename, data);
         }
     }
 
@@ -230,6 +215,8 @@ Singleton {
         running: true
         xWindow: 18000000
         sampleInterval: 300000
+        persistFilename: "battery.json"
+        persistEvery: 10
 
         collect: function () {
             if (!root.battery || root.battery.isLaptopBattery !== true)
@@ -244,14 +231,45 @@ Singleton {
 
         onCollected: {
             root.graphRevision++;
-            _batteryPersistCount++;
-            if (_batteryPersistCount >= 10) {
-                _writeJson("battery.json", batteryGraphCollector.rawData);
-                _batteryPersistCount = 0;
-                _batteryPersistTimer.stop();
-            } else if (!_batteryPersistTimer.running) {
-                _batteryPersistTimer.start();
-            }
+        }
+
+        onPersistReady: function (filename, data) {
+            root._writeJson(filename, data);
+        }
+    }
+
+    property TimedDataCollector gpuGraphCollector: TimedDataCollector {
+        running: true
+        xWindow: 120000
+        sampleInterval: 2000
+        persistFilename: "gpu.json"
+        persistEvery: 10
+
+        collect: function () {
+            if (!root.gpuAvailable)
+                return null;
+
+            const x = Date.now();
+            return [
+                {
+                    x: x,
+                    y: root.gpuVramPercent,
+                    series: "VRAM"
+                },
+                {
+                    x: x,
+                    y: root.gpuUtilPercent,
+                    series: "GPU"
+                }
+            ];
+        }
+
+        onCollected: {
+            root.graphRevision++;
+        }
+
+        onPersistReady: function (filename, data) {
+            root._writeJson(filename, data);
         }
     }
 
@@ -311,6 +329,22 @@ Singleton {
         ];
     }
 
+    function calculateGpuGraphSeries() {
+        const _ = graphRevision;
+        return [
+            {
+                name: "VRAM",
+                collector: gpuGraphCollector,
+                visible: true
+            },
+            {
+                name: "GPU",
+                collector: gpuGraphCollector,
+                visible: true
+            }
+        ];
+    }
+
     function formatRate(bytesPerSecond) {
         const absValue = Math.abs(bytesPerSecond || 0);
         if (absValue >= 1024 * 1024)
@@ -348,6 +382,13 @@ Singleton {
         }
     }
 
+    property Process gpuCollectorProcess: Process {
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: root.applyGpuSample(text)
+        }
+    }
+
     property Timer cpuTimer: Timer {
         interval: 1000
         running: true
@@ -378,6 +419,14 @@ Singleton {
         repeat: true
         triggeredOnStart: true
         onTriggered: root.refreshNetwork()
+    }
+
+    property Timer gpuTimer: Timer {
+        interval: 1000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: root.refreshGpu()
     }
 
     function applyCpuSample(text) {
@@ -510,6 +559,25 @@ Singleton {
         }
     }
 
+    function applyGpuSample(text) {
+        const parts = (text || "").trim().split(",");
+        if (parts.length >= 4) {
+            const name = parts[0].trim();
+            const vramUsed = parseFloat(parts[1]);
+            const vramTotal = parseFloat(parts[2]);
+            const util = parseFloat(parts[3]);
+
+            if (!isNaN(vramUsed) && !isNaN(vramTotal) && vramTotal > 0) {
+                gpuName = name;
+                gpuVramUsedMiB = Math.round(vramUsed);
+                gpuVramTotalMiB = Math.round(vramTotal);
+                gpuVramPercent = (vramUsed / vramTotal) * 100;
+                gpuUtilPercent = isNaN(util) ? 0 : util;
+                gpuAvailable = true;
+            }
+        }
+    }
+
     function refreshCpu() {
         cpuCollectorProcess.exec({
             command: ["sh", "-c", "read _ u n s i w irq sirq st g gn < /proc/stat; total=$((u+n+s+i+w+irq+sirq+st)); idle=$((i+w)); echo \"cpu $total $idle\"; idx=0; while read -r line; do case \"$line\" in cpu[0-9]*) set -- $line; u2=$2; n2=$3; s2=$4; i2=$5; w2=$6; irq2=$7; sirq2=$8; st2=$9; t2=$((u2+n2+s2+i2+w2+irq2+sirq2+st2)); id2=$((i2+w2)); echo \"cpu${idx} $t2 $id2\"; idx=$((idx+1));; esac; done < /proc/stat"]
@@ -531,6 +599,12 @@ Singleton {
     function refreshNetwork() {
         networkCollectorProcess.exec({
             command: ["sh", "-c", "iface=$(awk -F: '$1 !~ /lo/ {gsub(/ /, \"\", $1); print $1; exit}' /proc/net/dev); if [ -n \"$iface\" ]; then set -- $(awk -F'[: ]+' -v iface=\"$iface\" '$1 == iface {print $3, $11}' /proc/net/dev); rx=$1; tx=$2; else iface=none; rx=0; tx=0; fi; echo \"$iface $rx $tx\""]
+        });
+    }
+
+    function refreshGpu() {
+        gpuCollectorProcess.exec({
+            command: ["sh", "-c", "nvidia-smi --query-gpu=name,memory.used,memory.total,utilization.gpu --format=csv,noheader,nounits 2>/dev/null | head -1"]
         });
     }
 }

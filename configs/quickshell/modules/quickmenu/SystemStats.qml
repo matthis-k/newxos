@@ -15,8 +15,10 @@ DashboardPage {
     scrollable: true
 
     readonly property var cpuCoreColors: [Config.colors.green, Config.colors.yellow, Config.colors.red, Config.colors.maroon, Config.colors.peach, Config.colors.mauve, Config.colors.pink, Config.colors.flamingo, Config.colors.rosewater]
-    readonly property color ramColor: Config.colors.mauve
-    readonly property color swapColor: Config.colors.blue
+    readonly property color ramColor: Config.colors.blue
+    readonly property color swapColor: Config.colors.mauve
+    readonly property color gpuUsageColor: Config.colors.blue
+    readonly property color gpuVramColor: Config.colors.mauve
 
     function cpuGraphSeries() {
         const _ = Services.Stats.graphRevision;
@@ -31,29 +33,6 @@ DashboardPage {
         return Services.Stats.cpuCorePercents.length;
     }
 
-    function cpuCoreNameAt(index) {
-        return `core${index}`;
-    }
-
-    function anyCoresVisible() {
-        for (let i = 0; i < root._coreCount; i++) {
-            if (cpuGraph.isSeriesVisible(root.cpuCoreNameAt(i)))
-                return true;
-        }
-        return false;
-    }
-
-    function toggleAllCores() {
-        const show = !root.anyCoresVisible();
-        cpuGraph.batch(() => {
-            for (let i = 0; i < root._coreCount; i++) {
-                const name = root.cpuCoreNameAt(i);
-                if (cpuGraph.isSeriesVisible(name) !== show)
-                    cpuGraph.setSeriesVisible(name, show);
-            }
-        });
-    }
-
     function memoryGraphSeries() {
         const _ = Services.Stats.graphRevision;
         return Services.Stats.calculateMemoryGraphSeries().map(series => Object.assign({}, series, {
@@ -61,8 +40,24 @@ DashboardPage {
             }));
     }
 
+    function gpuGraphSeries() {
+        const _ = Services.Stats.graphRevision;
+        return Services.Stats.calculateGpuGraphSeries().map(series => Object.assign({}, series, {
+                color: series.name === "VRAM" ? root.gpuVramColor : root.gpuUsageColor,
+                z: series.name === "VRAM" ? 0 : 1
+            }));
+    }
+
     DashboardSection {
         title: "CPU Usage"
+        collapsible: true
+        summary: Component {
+            HeaderMetric {
+                label: "avg"
+                value: Services.Stats.cpuPercent
+                metricColor: Config.colors.blue
+            }
+        }
         Layout.fillWidth: true
 
         ColumnLayout {
@@ -89,19 +84,39 @@ DashboardPage {
                 Item {
                     Layout.fillWidth: true
                 }
-                CpuLegendButton {
+                LegendButton {
                     Layout.preferredWidth: 100
                     Layout.alignment: Qt.AlignHCenter
+                    graphView: cpuGraph
                     seriesName: "avg"
-                    onClicked: cpuGraph.toggleSeries("avg")
+                    color: Config.colors.blue
+
+                    Text {
+                        text: "average"
+                        font.pixelSize: 13
+                        color: Config.colors.base
+                    }
+                    Item { Layout.fillWidth: true }
+
+                    UsagePie {
+                        percent: Services.Stats.cpuPercent
+                        fillColor: Config.colors.base
+                    }
                 }
-                CpuLegendButton {
+                LegendButton {
                     Layout.preferredWidth: 100
                     Layout.alignment: Qt.AlignHCenter
-                    lbl: "cores"
-                    seriesEnabled: root.anyCoresVisible()
+                    graphView: cpuGraph
+                    seriesFilter: (s) => s.name.startsWith("core")
                     color: Config.colors.overlay2
-                    onClicked: root.toggleAllCores()
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "cores"
+                        horizontalAlignment: Text.AlignHCenter
+                        font.pixelSize: 13
+                        color: Config.colors.base
+                    }
                 }
                 Item {
                     Layout.fillWidth: true
@@ -125,6 +140,22 @@ DashboardPage {
 
     DashboardSection {
         title: "Memory"
+        collapsible: true
+        summary: Component {
+            RowLayout {
+                spacing: Config.spacing.xs
+                HeaderMetric {
+                    label: "RAM"
+                    value: Services.Stats.memoryPercent
+                    metricColor: root.ramColor
+                }
+                HeaderMetric {
+                    label: "Swap"
+                    value: Services.Stats.swapTotalMiB > 0 ? Services.Stats.swapPercent : 0
+                    metricColor: root.swapColor
+                }
+            }
+        }
         Layout.fillWidth: true
 
         ColumnLayout {
@@ -166,7 +197,123 @@ DashboardPage {
     }
 
     DashboardSection {
+        title: "GPU"
+        visible: Services.Stats.gpuAvailable
+        collapsible: true
+        summary: Component {
+            RowLayout {
+                spacing: Config.spacing.xs
+                HeaderMetric {
+                    label: "Compute"
+                    value: Services.Stats.gpuUtilPercent
+                    metricColor: root.gpuUsageColor
+                }
+                HeaderMetric {
+                    label: "VRAM"
+                    value: Services.Stats.gpuVramPercent
+                    metricColor: root.gpuVramColor
+                }
+            }
+        }
+        Layout.fillWidth: true
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Config.spacing.xs
+
+            Text {
+                text: Services.Stats.gpuName
+                color: Config.styling.text0
+                font.pixelSize: 13
+                font.bold: true
+                Layout.fillWidth: true
+            }
+
+            GraphView {
+                id: gpuGraph
+                active: root.SwipeView.isCurrentItem
+                yMin: 0
+                yMax: 100
+                xWindow: 120000
+                xMarkerInterval: 60000
+                xMarkerLabel: (x, view) => x < view.maxX ? qsTr("%1m").arg(Math.round((view.maxX - x) / 60000)) : ""
+                graphs: root.gpuGraphSeries()
+                Layout.fillWidth: true
+                Layout.preferredHeight: 180
+                Layout.minimumHeight: 140
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Item {
+                    Layout.fillWidth: true
+                }
+                LegendButton {
+                    Layout.preferredWidth: 100
+                    Layout.alignment: Qt.AlignHCenter
+                    graphView: gpuGraph
+                    seriesName: "GPU"
+                    color: root.gpuUsageColor
+
+                    Text {
+                        text: "Compute"
+                        font.pixelSize: 13
+                        color: Config.colors.base
+                    }
+                    Item { Layout.fillWidth: true }
+
+                    UsagePie {
+                        percent: Services.Stats.gpuUtilPercent
+                        fillColor: Config.colors.base
+                    }
+                }
+                LegendButton {
+                    Layout.preferredWidth: 100
+                    Layout.alignment: Qt.AlignHCenter
+                    graphView: gpuGraph
+                    seriesName: "VRAM"
+                    color: root.gpuVramColor
+
+                    Text {
+                        text: "VRAM"
+                        font.pixelSize: 13
+                        color: Config.colors.base
+                    }
+                    Item { Layout.fillWidth: true }
+
+                    UsagePie {
+                        percent: Services.Stats.gpuVramPercent
+                        fillColor: Config.colors.base
+                    }
+                }
+                Item {
+                    Layout.fillWidth: true
+                }
+            }
+
+            StatTableHeader {}
+
+            StatTableRow {
+                label: "VRAM"
+                valueText: `${Services.Stats.gpuVramUsedMiB} / ${Services.Stats.gpuVramTotalMiB} MiB`
+                percent: Services.Stats.gpuVramPercent
+                rowColor: root.gpuVramColor
+                percentColor: root.gpuVramColor
+            }
+        }
+    }
+
+    DashboardSection {
         title: "Storage"
+        collapsible: true
+        summary: Component {
+            HeaderMetric {
+                label: "/"
+                value: Services.Stats.rootDiskPercent
+                metricColor: Services.Stats.rootDiskPercent >= 90 ? Config.styling.critical : (Services.Stats.rootDiskPercent >= 75 ? Config.styling.warning : Config.styling.text0)
+            }
+        }
         Layout.fillWidth: true
 
         ColumnLayout {
@@ -185,6 +332,24 @@ DashboardPage {
 
     DashboardSection {
         title: "Network throughput"
+        collapsible: true
+        summary: Component {
+            RowLayout {
+                spacing: Config.spacing.xs
+                Text {
+                    text: Services.Stats.formatRate(Services.Stats.rxBytesPerSecond)
+                    color: Config.styling.text0
+                    font.pixelSize: 12
+                    font.family: "monospace"
+                }
+                Text {
+                    text: Services.Stats.formatRate(Services.Stats.txBytesPerSecond)
+                    color: Config.styling.text2
+                    font.pixelSize: 12
+                    font.family: "monospace"
+                }
+            }
+        }
         Layout.fillWidth: true
 
         InfoRow {
@@ -276,55 +441,47 @@ DashboardPage {
         }
     }
 
-    component CpuLegendButton: Item {
-        id: btn
-        property string seriesName: ""
-        property string lbl: seriesName
-        property bool seriesEnabled: cpuGraph.isSeriesVisible(seriesName)
-        property color color: {
-            const s = cpuGraph.series(seriesName);
-            return s ? s.color : Config.colors.surface1;
-        }
-        signal clicked
-
-        implicitHeight: 20
-
-        Rectangle {
-            anchors.fill: parent
-            anchors.topMargin: 2
-            anchors.bottomMargin: 2
-            radius: 3
-            color: btn.color
-            opacity: btn.seriesEnabled ? 1.0 : 0.5
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: Config.behaviour.animation.enabled ? Config.behaviour.animation.calc(0.12) : 0
-                    easing.type: Easing.OutCubic
-                }
-            }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: btn.clicked()
-        }
-
-        Text {
-            anchors.centerIn: parent
-            horizontalAlignment: Text.AlignHCenter
-            text: btn.lbl
-            font.pixelSize: 13
-            color: Config.colors.base
-        }
-    }
-
-    component CpuLegendDelegate: CpuLegendButton {
+    component CpuLegendDelegate: LegendButton {
         required property int index
 
         Layout.fillWidth: true
-        seriesName: root.cpuCoreNameAt(index)
-        onClicked: cpuGraph.toggleSeries(seriesName)
+        graphView: cpuGraph
+        seriesName: `core${index}`
+        color: root.cpuCoreColors[index % root.cpuCoreColors.length]
+
+        Text {
+            text: `core${index}`
+            font.pixelSize: 13
+            color: Config.colors.base
+        }
+        Item { Layout.fillWidth: true }
+
+        UsagePie {
+            percent: {
+                const _ = Services.Stats.graphRevision;
+                return Services.Stats.cpuCorePercents[index] || 0;
+            }
+            fillColor: Config.colors.base
+        }
+    }
+
+    component HeaderMetric: RowLayout {
+        property string label: ""
+        property real value: 0
+        property color metricColor: Config.styling.text0
+
+        spacing: 4
+
+        Text {
+            text: parent.label
+            color: parent.metricColor
+            font.pixelSize: 12
+        }
+
+        UsagePie {
+            percent: parent.value
+            fillColor: parent.metricColor
+        }
     }
 
     component PartitionRow: StatTableRow {

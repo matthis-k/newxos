@@ -42,11 +42,14 @@ Item {
 
     property bool relativeX: true
 
+    signal visibilityChanged
+
     property var _visibleOverrides: ({})
     property int _revision: 0
     property int _batchDepth: 0
     property bool _renderQueued: false
     property bool _renderPending: false
+    property bool _visibilityChangedInBatch: false
     property var _dirtyReasons: ({})
     property var _connectedGraphs: []
     property var _connectedCollectors: []
@@ -187,6 +190,10 @@ Item {
                 fn();
         } finally {
             root._batchDepth--;
+            if (root._batchDepth === 0 && root._visibilityChangedInBatch) {
+                root._visibilityChangedInBatch = false;
+                root.visibilityChanged();
+            }
             if (root._batchDepth === 0 && root._renderPending)
                 root.requestRender("", "batch");
         }
@@ -201,6 +208,17 @@ Item {
         }
 
         return Object.keys(names).sort((left, right) => String(left).localeCompare(String(right)));
+    }
+
+    function getSeries(filter) {
+        if (typeof filter === "string")
+            return filter ? [filter] : [];
+        if (typeof filter === "function")
+            return root.seriesNames().filter(n => {
+                const s = root.series(n);
+                return s && filter(s);
+            });
+        return [];
     }
 
     function renderNames() {
@@ -243,6 +261,10 @@ Item {
         root._visibleOverrides = next;
         item.visible = enabled;
         root._revision++;
+        if (root._batchDepth > 0)
+            root._visibilityChangedInBatch = true;
+        else
+            root.visibilityChanged();
         root.requestRender(name, "visibility");
     }
 
@@ -407,6 +429,7 @@ Item {
         root._revision++;
         root._connectGraphs();
         root.requestRender("", "graphs");
+        visibilityNotifier.restart();
     }
     onMarkersChanged: root.requestRender("", "markers")
     onViewportChanged: root.requestRender("", "viewport")
@@ -619,6 +642,13 @@ Item {
             root._renderQueued = false;
             canvas.requestPaint();
         }
+    }
+
+    Timer {
+        id: visibilityNotifier
+        interval: 0
+        repeat: false
+        onTriggered: root.visibilityChanged()
     }
 
     onActiveChanged: root.requestRender("", "active")
