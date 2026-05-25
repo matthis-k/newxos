@@ -169,6 +169,20 @@
                   "@chatgpt"
                 ];
               };
+              "Open WebUI" = {
+                urls = [
+                  {
+                    template = "${openWebUIOrigin}/";
+                    params = [
+                      {
+                        name = "q";
+                        value = "{searchTerms}";
+                      }
+                    ];
+                  }
+                ];
+                definedAliases = [ "@llm" ];
+              };
             };
           };
 

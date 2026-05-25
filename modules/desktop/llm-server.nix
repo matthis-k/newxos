@@ -12,6 +12,7 @@ _: {
       ttsImage = "kokoro-fastapi-gpu-sm120:latest";
       webUIHostName = "matthisk-desktop-newxos.local";
       caddyLocalRootCert = "/run/caddy-local-root.crt";
+      webUIPublicUrl = "https://${webUIHostName}";
       ollamaUrl = "http://localhost:${toString cfg.ollamaPort}";
       webUIUrl = "http://localhost:${toString cfg.webUIPort}";
       ttsUrl = "http://localhost:${toString cfg.ttsPort}/v1";
@@ -122,6 +123,7 @@ _: {
             RAG_EMBEDDING_ENGINE = "ollama";
             RAG_EMBEDDING_BASE_URL = ollamaUrl;
             RAG_EMBEDDING_MODEL = "nomic-embed-text";
+            WEBUI_URL = webUIPublicUrl;
           }
           // lib.optionalAttrs cfg.enableTTS {
             AUDIO_TTS_ENGINE = "openai";
