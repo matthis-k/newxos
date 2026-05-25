@@ -21,9 +21,9 @@ Local LLM inference is configured on the desktop host with Ollama CUDA accelerat
 ## Observations
 - [fact] Ollama service uses `ollama-cuda` package for NVIDIA GPU acceleration
 - [fact] `modules/desktop/llm-server.nix` owns Ollama, Open WebUI, and local TTS wiring
-- [fact] Default Ollama models are `qwen2.5:7b`, `dolphin-mistral:7b`, and `nomic-embed-text`
+- [fact] Default Ollama models are `qwen2.5:7b`, `qwen2.5-coder:7b`, `dolphin-mistral:7b`, and `nomic-embed-text`
 - [fact] OpenedAI Speech provides local OpenAI-compatible TTS on port 8000 when `services.llm-server.enableTTS = true`
-- [technique] Open WebUI TTS is configured through environment variables with `ENABLE_PERSISTENT_CONFIG=False` and `AUDIO_TTS_SPLIT_ON=none`
+- [technique] Open WebUI TTS is configured through environment variables with `ENABLE_PERSISTENT_CONFIG=False` and `AUDIO_TTS_SPLIT_ON=punctuation`
 - [requirement] `allowUnfree = true` and CUDA support are required for NVIDIA/CUDA runtime libraries
 ## Relations
 
@@ -38,7 +38,7 @@ This module is imported by the desktop host and exposes `services.llm-server.*` 
 
 Key settings:
 - Ollama: `services.ollama.enable = true`, package `pkgs.ollama-cuda`, default port 11434
-- Models: `qwen2.5:7b`, `dolphin-mistral:7b`, `nomic-embed-text`
+- Models: `qwen2.5:7b`, `qwen2.5-coder:7b`, `dolphin-mistral:7b`, `nomic-embed-text`
 - Open WebUI: `services.open-webui.enable = true`, default port 3000, firewall open by default
 - RAG embeddings: Open WebUI uses Ollama `nomic-embed-text`
 - TTS: `openedai-speech.service` runs Docker image `openedai-speech-xtts-sm120:torchcodec` on host networking, default port 8000

@@ -39,3 +39,13 @@ Interactive CLI assistant for software engineering tasks.
 - Wrapped via `nix-wrapper-modules` in `modules/dev/opencode.nix`.
 - MCP servers configured for GitHub, NixOS metadata, and Basic Memory.
 - Skills loaded from `configs/opencode/skills/`.
+
+## Local Ollama Provider
+
+- [fact] OpenCode config includes an `ollama` provider via `@ai-sdk/openai-compatible`
+- [fact] Local provider endpoint is `http://localhost:11434/v1`
+- [fact] Local coding model exposed in OpenCode is `ollama/qwen2.5-coder:7b`
+- [technique] Use `/models` in OpenCode to select `Ollama (local)` / `Qwen2.5 Coder 7B (local)`
+
+Relations:
+- relates_to [[Local LLM and TTS setup]]
