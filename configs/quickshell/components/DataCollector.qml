@@ -19,6 +19,11 @@ QtObject {
         return true;
     }
 
+    property string persistFilename: ""
+    property int persistEvery: 10
+    property int _persistCount: 0
+    signal persistReady(string filename, var data)
+
     signal collected(var data)
     signal calculated(var points)
 
@@ -150,6 +155,13 @@ QtObject {
         rawBounds = calculateBounds(normalized(rawData));
         revision++;
         collected(rawData);
+        if (persistFilename) {
+            _persistCount++;
+            if (_persistCount >= persistEvery) {
+                persistReady(persistFilename, rawData);
+                _persistCount = 0;
+            }
+        }
     }
 
     function appendRaw(raw) {
