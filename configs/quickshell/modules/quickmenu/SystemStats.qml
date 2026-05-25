@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Layouts
 
 import qs.services
@@ -66,7 +65,7 @@ DashboardPage {
 
             GraphView {
                 id: cpuGraph
-                active: root.SwipeView.isCurrentItem
+                active: root.visible
                 yMin: 0
                 yMax: 100
                 xWindow: 120000
@@ -164,7 +163,7 @@ DashboardPage {
 
             GraphView {
                 id: memGraph
-                active: root.SwipeView.isCurrentItem
+                active: root.visible
                 yMin: 0
                 yMax: 100
                 xWindow: 300000
@@ -231,7 +230,7 @@ DashboardPage {
 
             GraphView {
                 id: gpuGraph
-                active: root.SwipeView.isCurrentItem
+                active: root.visible
                 yMin: 0
                 yMax: 100
                 xWindow: 120000
