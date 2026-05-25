@@ -10,51 +10,45 @@ tags:
 links:
 - agents-basic-memory
 - agents-mcp
-updated: 2026-05-11
+updated: 2026-05-25
 permalink: newxos/agents/opencode
 ---
 
 # OpenCode integration
 
-This repo exposes a wrapped `opencode` package with MCP servers preconfigured.
+This repo exposes OpenCode through Nix so agent tooling is reproducible. This note indexes the owning files and durable rules; read source for current settings.
 
 ## Observations
 
-- [fact] Wrapped package exposed via `nix run "path:$PWD#opencode"`
-- [fact] MCP servers preconfigured: `mcp-nixos`, GitHub, and Basic Memory in local `stdio` mode
-- [technique] Assistant can read trusted paths under `~/.config/` and `/nix/store/`
+- [fact] OpenCode wrapper ownership lives in `modules/dev/opencode.nix`
+- [fact] Repo-owned OpenCode assets live in `configs/opencode/`
+- [technique] Use `nix run "path:$PWD#opencode"` to run the repo-managed assistant package
 - [requirement] GitHub token provisioned from `sops`-managed secret, not `gh` auth state
-- [decision] Keep `configs/opencode/` for repo-owned config fragments only
+- [decision] Keep exact MCP servers, provider aliases, trusted paths, and environment details in source
 
 ## Relations
 
 - relates_to [[agents-basic-memory]]
 - relates_to [[agents-mcp]]
 
-## What It Does Here
+## Ownership
 
-- Exposes `nix run "path:$PWD#opencode"` as the repo-managed assistant package.
-- Preconfigures `mcp-nixos` and GitHub MCP in local `stdio` mode.
-- Allows the wrapped assistant to read trusted paths under `~/.config/` and `/nix/store/`.
-- Installs the `caveman` skill into `~/.config/opencode/skills/` through Home Manager.
+- Wrapper and generated OpenCode settings: `modules/dev/opencode.nix`.
+- Repo-owned skill sources and config fragments: `configs/opencode/`.
+- Knowledge-loading rules: `AGENTS.md`, `opencode.json`, and `knowledge/agents/`.
+- Secret provisioning: `modules/common/sops.nix`, user/host wiring, and [[sops-nix]].
 
 ## Configuration
 
-- `opencode.json` controls which knowledge files are loaded as instructions.
-- MCP servers are configured in `modules/dev/opencode.nix`.
-- Skills are loaded from `configs/opencode/skills/`.
-
-## MCP servers
-
-- `github` — GitHub repository operations
-- `nixos` — NixOS/Home Manager/darwin option and package metadata
-- `basic-memory` — local project memory search
+- `opencode.json` controls the stable instruction entrypoints.
+- `modules/dev/opencode.nix` is the source of truth for generated settings and package behavior.
+- `configs/opencode/` is for repo-owned OpenCode assets, not package manager state.
 
 ## Basics
 
 - Use `nixos_nix` or the packaged MCP server for upstream Nix package and option facts.
-- GitHub MCP expects `GITHUB_PERSONAL_ACCESS_TOKEN` in the environment.
-- The repo provisions that token from a `sops`-managed secret rather than relying on `gh` auth state.
+- GitHub MCP token environment wiring is provisioned from a `sops`-managed secret rather than relying on `gh` auth state.
+- Read source for the current MCP server list and provider configuration.
 - Related reading: [[sops-nix]], [[Workflow]].
 
 ## Helpful Docs
@@ -72,9 +66,8 @@ This repo exposes a wrapped `opencode` package with MCP servers preconfigured.
 - Verify executable paths and package exposure through `nix flake show "path:$PWD"` when changing the wrapper.
 - Keep `configs/opencode/` for repo-owned config fragments only. Do not keep `node_modules/`, `package.json`, or lockfiles there unless repo starts managing plugins explicitly.
 
-## Auth Automation
+## Auth Rules
 
-- [fact] The wrapped `opencode` package exports GitHub token environment variables from `/run/secrets/github_token` when present for GitHub MCP use
 - [requirement] Do not auto-import OpenCode provider auth for `openai` or `opencode`; provider login remains user-controlled through OpenCode
 - [requirement] Keep provider secrets and OAuth tokens out of repo memory and commits unless explicitly needed as encrypted SOPS files
 - [requirement] Do not print decrypted OpenCode API keys or OAuth tokens

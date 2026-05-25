@@ -16,18 +16,17 @@ Plymouth boot splash does not show during initrd LUKS password prompt on `matthi
 
 ## Root Cause
 Two issues combined:
-1. `boot.initrd.verbose = true` (NixOS default) forces verbose TTY output during initrd, overriding Plymouth's graphics mode
-2. Missing `"quiet"` kernel parameter allows kernel messages to interrupt Plymouth display
+1. Verbose initrd output can override Plymouth's graphics mode
+2. Non-quiet kernel output can interrupt Plymouth display
 
 When NVIDIA driver takes over the framebuffer from `simpledrm`, the verbose initrd output pushes Plymouth out of the display pipeline entirely.
 
-## Fix
-Applied to `modules/hosts/matthisk-desktop-newxos/`:
-- `boot.nix`: Added `boot.initrd.verbose = false;`
-- `hardware-configuration.nix`: Added `"quiet"` to `boot.kernelParams`
+## Fix Location
+
+Host-local boot and kernel parameter changes belong under the affected host in `modules/hosts/`.
 
 ## Rule
-For Plymouth + NVIDIA + LUKS setups, always set `boot.initrd.verbose = false` and include `"quiet"` in kernel params alongside `"splash"`.
+For Plymouth + NVIDIA + LUKS setups, keep initrd output quiet enough for Plymouth to own the display path. Put exact NixOS option values beside the host boot config.
 
 ## Related
 - [[plymouth-nvidia-luks-integration]]

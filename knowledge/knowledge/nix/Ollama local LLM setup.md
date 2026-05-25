@@ -17,41 +17,30 @@ updated: 2026-05-23
 # Local LLM and TTS setup
 
 ## Context
-Local LLM inference is configured on the desktop host with Ollama CUDA acceleration, Open WebUI, and optional local OpenAI-compatible TTS through OpenedAI Speech / XTTS-v2.
+Local LLM and TTS support is owned by the desktop LLM module. This note is an index to the owning files and durable constraints; read source for current models, ports, containers, users, and service options.
 ## Observations
-- [fact] Ollama service uses `ollama-cuda` package for NVIDIA GPU acceleration
-- [fact] `modules/desktop/llm-server.nix` owns Ollama, Open WebUI, and local TTS wiring
-- [fact] Default Ollama models are `qwen2.5:7b`, `qwen2.5-coder:7b`, `dolphin-mistral:7b`, and `nomic-embed-text`
-- [fact] OpenedAI Speech provides local OpenAI-compatible TTS on port 8000 when `services.llm-server.enableTTS = true`
-- [technique] Open WebUI TTS is configured through environment variables with `ENABLE_PERSISTENT_CONFIG=False` and `AUDIO_TTS_SPLIT_ON=punctuation`
-- [requirement] `allowUnfree = true` and CUDA support are required for NVIDIA/CUDA runtime libraries
+- [fact] `modules/desktop/llm-server.nix` owns local LLM, Open WebUI, GPU container, and local TTS wiring
+- [decision] Keep model choices, service ports, container image names, and environment values in the module source
+- [requirement] NVIDIA/CUDA runtime support constrains this module; verify host GPU and container compatibility before changing it
+- [technique] Use this note to find the owner, then inspect source for exact Ollama, Open WebUI, and TTS behavior
 ## Relations
 
 - implements [[Hardware]]
 - relates_to [[Flake Structure]]
 - part_of [[Desktop Host]]
 
-## Configuration
-Module location: `modules/desktop/llm-server.nix`
+## Ownership
 
-This module is imported by the desktop host and exposes `services.llm-server.*` options.
+- Module owner: `modules/desktop/llm-server.nix`
+- Host imports and enablement live under the concrete desktop host in `modules/hosts/`.
+- Container compatibility fixes live near the module when they are repo-owned.
 
-Key settings:
-- Ollama: `services.ollama.enable = true`, package `pkgs.ollama-cuda`, default port 11434
-- Models: `qwen2.5:7b`, `qwen2.5-coder:7b`, `dolphin-mistral:7b`, `nomic-embed-text`
-- Open WebUI: `services.open-webui.enable = true`, default port 3000, firewall open by default
-- RAG embeddings: Open WebUI uses Ollama `nomic-embed-text`
-- TTS: `openedai-speech.service` runs Docker image `openedai-speech-xtts-sm120:torchcodec` on host networking, default port 8000
-- GPU container access: `hardware.nvidia-container-toolkit.enable = true` and Docker `--device nvidia.com/gpu=all` when TTS is enabled
-## Model Selection
-- `qwen2.5:7b`: balanced Qwen model for general tasks, fits well in RTX 5060 VRAM
-- `dolphin-mistral:7b`: uncensored variant based on Mistral architecture
-- `nomic-embed-text`: local embedding model for Open WebUI RAG
-- `tts-1-hd`: OpenedAI Speech XTTS-v2 model for natural local TTS
-- `tts-1`: OpenedAI Speech Piper model option
-## Access
-User `matthisk` is added to `ollama` and `docker` groups by the module.
+## Durable Rules
 
-Open WebUI is accessible at `http://localhost:3000`.
+- Do not duplicate model lists or endpoint values here; they drift quickly.
+- Record recurring failures in `knowledge/issues/` or `knowledge/encountered_issues.md` and point back to this module.
+- Keep small comments beside fragile environment values in `modules/desktop/llm-server.nix`.
 
-OpenedAI Speech is accessible locally at `http://localhost:8000`; direct health/docs check is `http://localhost:8000/docs`, and speech generation uses `POST /v1/audio/speech` with model `tts-1-hd` and voice `alloy` by default.
+## Related Issues
+
+- [[Encountered Issues]] records Open WebUI TTS persistence and GPU container compatibility gotchas.

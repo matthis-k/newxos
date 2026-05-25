@@ -10,7 +10,7 @@ links:
 - agents-index
 - agents-opencode
 - agents-basic-memory
-updated: 2026-05-11
+updated: 2026-05-25
 permalink: newxos/agents/mcp
 ---
 
@@ -20,9 +20,9 @@ Model Context Protocol servers provide tool access to agents.
 
 ## Observations
 
-- [fact] Three MCP servers configured: GitHub, NixOS, and Basic Memory
-- [technique] Add servers to `settings.mcp` in `modules/dev/opencode.nix`
-- [fact] Servers run in local `stdio` mode
+- [fact] MCP server wiring for OpenCode is owned by `modules/dev/opencode.nix`
+- [decision] Keep exact server names, commands, environment variables, and enablement in source
+- [technique] Use this note to route conceptual MCP work to the OpenCode wrapper and related agent docs
 
 ## Relations
 
@@ -30,27 +30,17 @@ Model Context Protocol servers provide tool access to agents.
 - relates_to [[agents-opencode]]
 - relates_to [[agents-basic-memory]]
 
-## Configured servers
+## Ownership
 
-| Server | Purpose |
-|--------|---------|
-| `github` | GitHub API access (issues, PRs, repos) |
-| `nixos` | NixOS/Home Manager/darwin option and package truth |
-| `basic-memory` | Local Markdown project memory search |
+- Server definitions: `modules/dev/opencode.nix`.
+- Repo-owned skill/config assets: `configs/opencode/`.
+- Agent-facing workflow rules: `knowledge/agents/` and `AGENTS.md`.
 
 ## Adding a server
 
-Add to `settings.mcp` in `modules/dev/opencode.nix`:
+Add server wiring in `modules/dev/opencode.nix`. Keep tokens and command details out of memory unless they are generic placement rules.
 
-```nix
-mcp = {
-  name = {
-    type = "local";
-    command = [ (lib.getExe pkgs.some-tool) ];
-    enabled = true;
-  };
-};
-```
+Document only durable decisions here, such as why a server belongs in the default wrapper or why a class of server should stay opt-in.
 
 ## Related
 

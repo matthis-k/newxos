@@ -39,48 +39,11 @@ Concrete rules:
 - Organize by concern or feature, not one central registry file.
 - Related reading: [[Flake Structure]], [[flake-file]], [[flake-parts]].
 
-## Short Example
+## Source Pointers
 
-```nix
-{ inputs, ... }:
-{
-  flake-file.inputs.home-manager = {
-    url = "github:nix-community/home-manager";
-    inputs.nixpkgs.follows = "nixpkgs";
-  };
-
-  imports = [ inputs.home-manager.flakeModules.home-manager ];
-}
-```
-
-## Minimal Starter Shape
-
-This replaces the old `dendritic-simple-module` template.
-
-- `modules/core/dendritic.nix`: turn on the dendritic `flake-file` layout.
-- `modules/example-message.nix`: one small concern in one nearby `flake-parts` module.
-
-```nix
-# modules/core/dendritic.nix
-{ inputs, ... }:
-{
-  imports = [ inputs.flake-file.flakeModules.dendritic ];
-}
-```
-
-```nix
-# modules/example-message.nix
-{ ... }:
-{
-  perSystem = { pkgs, self', ... }: {
-    packages.example-message = pkgs.writeShellScriptBin "example-message" ''
-      printf '%s\n' "hello from a small dendritic module"
-    '';
-
-    apps.example-message.program = "${self'.packages.example-message}/bin/example-message";
-  };
-}
-```
+- Dendritic layout activation lives in `modules/core/`.
+- Feature modules live under `modules/` near the owning concern.
+- Exact examples belong in source modules, not copied into memory.
 
 ## Practical Rules
 

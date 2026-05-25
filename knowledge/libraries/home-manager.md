@@ -11,7 +11,7 @@ Home Manager handles user-level configuration.
 ## Observations
 
 - [fact] Provides the Home Manager flake module imported from `modules/common/home-manager.nix`
-- [technique] Enables `useGlobalPkgs = true` and `useUserPackages = true` for NixOS integration
+- [technique] Shared Home Manager integration is owned by `modules/common/home-manager.nix`
 - [decision] Prefer explicit shared module imports when the repo owns the integration pattern
 - [fact] Stylix Home Manager wiring is explicit; do not rely on automatic HM import from Stylix
 
@@ -28,23 +28,10 @@ Home Manager handles user-level configuration.
 
 ## Basics
 
-- This repo enables `useGlobalPkgs = true` and `useUserPackages = true` for NixOS integration.
+- Read `modules/common/home-manager.nix` for exact NixOS integration options.
 - User-specific config belongs under `modules/users/<name>/`.
 - Shared user-facing features live in shared `flake.modules.homeManager.*` modules.
 - Related reading: [[Host And User Layout]], [[Wrapped Programs And Generated Config]].
-
-## Short Example
-
-```nix
-flake.modules.homeManager.neovim =
-  { pkgs, ... }:
-  {
-    home.packages = withSystem pkgs.stdenv.hostPlatform.system ({ self', ... }: [
-      self'.packages.nvim
-      self'.packages.nvimdev
-    ]);
-  };
-```
 
 ## Helpful Docs
 

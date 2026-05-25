@@ -60,8 +60,8 @@ Use this conceptual split:
 
 The first implementation is complete when existing QuickShell stats/battery graph usage can use the new API without leaving temporary task notes or one-off graph code paths.
 
-## Implementation
+## Implementation Ownership
 
-- [fact] Initial implementation lives in `configs/quickshell/components/GraphView.qml` and `configs/quickshell/components/Graph.qml`.
-- [fact] CPU, memory, and battery history graphs now use service-owned `TimedDataCollector` instances exposed through graph series `collector` references.
-- [decision] CPU graph ordering now uses per-series numeric `z` values instead of a custom comparator.
+- [fact] Graph implementation lives under `configs/quickshell/components/`.
+- [fact] Telemetry collectors live under `configs/quickshell/services/`.
+- [decision] Keep exact current caller wiring and graph series lists in QML source, not in memory.

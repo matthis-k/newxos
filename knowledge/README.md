@@ -13,6 +13,7 @@ Short repo memory for this flake.
 - [fact] Basic Memory indexes the whole `knowledge/` tree for semantic search
 - [technique] Structured folders with README.md indexes replace flat files for better navigation
 - [decision] Knowledge pages use frontmatter with id, type, status, tags, links, and permalink fields
+- [decision] Knowledge points concepts to source locations and records durable decisions; source files remain the truth for exact behavior
 - [requirement] Keep pages concise; prefer updating smallest relevant page over growing one giant document
 
 ## Relations
@@ -52,6 +53,9 @@ These files are kept for backward compatibility. New content goes into the struc
 ## Notes
 
 - Keep this concise.
+- Use knowledge as an index and decision log, not as a mirror of Nix or config source.
+- Store concept ownership, placement rules, durable decisions, recurring issues, and library references here.
+- Keep exact option values, package lists, generated settings, and minor implementation rationale in source files or nearby source comments.
 - Cross-link related pages when a library, pattern, and issue interact.
 - Prefer updating the smallest relevant page instead of growing one giant document.
 - Basic Memory indexes the whole `knowledge/` tree for semantic search.

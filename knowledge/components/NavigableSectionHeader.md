@@ -4,46 +4,24 @@ type: note
 permalink: newxos/components/navigable-section-header
 ---
 
-import QtQuick
-import QtQuick.Layouts
-import qs.services
-import qs.components
+# NavigableSectionHeader
 
-DashboardPageHeader {
-    id: root
+This note indexes the QuickShell component; the QML source is the source of truth.
 
-    property var screenState: null
-    property string targetTab: ""
-    property bool isClickable: targetTab !== "" && screenState !== null
+## Observations
 
-    signal clicked
+- [fact] Component implementation belongs in `configs/quickshell/components/NavigableSectionHeader.qml`
+- [decision] Keep QML source and exact animation/color behavior out of knowledge notes
+- [technique] Use this component for dashboard section headers that navigate to another dashboard tab
 
-    titleLabel {
-        MouseArea {
-            anchors.fill: parent
-            visible: root.isClickable
-            cursorShape: root.isClickable ? Qt.PointingHandCursor : Qt.ArrowCursor
+## Relations
 
-            onClicked: {
-                if (root.isClickable) {
-                    root.screenState.openDashboard(root.targetTab);
-                    root.clicked();
-                }
-            }
-        }
+- relates_to [[Dashboard improvements]]
+- relates_to [[QuickShell design guidelines]]
+- part_of [[quickshell]]
 
-        Behavior on color {
-            ColorAnimation {
-                duration: Config.behaviour.animation.enabled ? Config.behaviour.animation.calc(0.15) : 0
-                easing.type: Easing.OutCubic
-            }
-        }
+## Ownership
 
-        color: {
-            if (root.isClickable) {
-                return Config.styling.primaryAccent;
-            }
-            return Config.styling.text0;
-        }
-    }
-}
+- Source: `configs/quickshell/components/NavigableSectionHeader.qml`.
+- Related dashboard pages live under `configs/quickshell/modules/quickmenu/`.
+- Design rules live in [[QuickShell design guidelines]].
