@@ -10,7 +10,10 @@ _: {
       cfg = config.services.llm-server;
       ttsServiceName = "kokoro-fastapi";
       ttsImage = "kokoro-fastapi-gpu-sm120:latest";
+      webUIHostName = "matthisk-desktop-newxos.local";
+      caddyLocalRootCert = "/run/caddy-local-root.crt";
       ollamaUrl = "http://localhost:${toString cfg.ollamaPort}";
+      webUIUrl = "http://localhost:${toString cfg.webUIPort}";
       ttsUrl = "http://localhost:${toString cfg.ttsPort}/v1";
     in
     {
@@ -129,6 +132,44 @@ _: {
             # Open WebUI owns live playback chunking; Kokoro-FastAPI then streams
             # each OpenAI-compatible /v1/audio/speech request internally.
             AUDIO_TTS_SPLIT_ON = cfg.ttsSplitOn;
+          };
+        };
+
+        services.caddy = lib.mkIf cfg.enableOpenWebUI {
+          enable = true;
+          openFirewall = true;
+          virtualHosts.${webUIHostName}.extraConfig = ''
+            tls internal
+            reverse_proxy ${webUIUrl}
+          '';
+        };
+
+        systemd.services.caddy-local-root-cert = lib.mkIf cfg.enableOpenWebUI {
+          description = "Publish Caddy local root certificate for browsers";
+          after = [ "caddy.service" ];
+          requires = [ "caddy.service" ];
+          wantedBy = [ "multi-user.target" ];
+
+          serviceConfig = {
+            Type = "oneshot";
+            RemainAfterExit = true;
+            ExecStart = pkgs.writeShellScript "publish-caddy-local-root-cert" ''
+              set -eu
+
+              source=/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt
+
+              for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
+                if [ -r "$source" ]; then
+                  ${pkgs.coreutils}/bin/install -m 0444 -o root -g root "$source" ${caddyLocalRootCert}
+                  exit 0
+                fi
+
+                ${pkgs.coreutils}/bin/sleep 1
+              done
+
+              printf 'Caddy local root certificate was not readable at %s\n' "$source" >&2
+              exit 1
+            '';
           };
         };
 

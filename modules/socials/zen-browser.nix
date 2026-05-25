@@ -22,6 +22,8 @@
       );
       nixSnowflake = "${pkgs.nixos-icons}/share/icons/hicolor/scalable/apps/nix-snowflake.svg";
       duckduckgoNewTab = "https://duckduckgo.com/";
+      openWebUIOrigin = "https://matthisk-desktop-newxos.local";
+      caddyLocalRootCert = "/run/caddy-local-root.crt";
     in
     {
       imports = [ inputs.zen-flake.homeModules.beta ];
@@ -37,6 +39,7 @@
           AutofillCreditCardEnabled = false;
           BackgroundAppUpdate = false;
           Certificates.ImportEnterpriseRoots = true;
+          Certificates.Install = [ caddyLocalRootCert ];
           DisableAppUpdate = true;
           DisableFeedbackCommands = true;
           DisableFirefoxAccounts = false;
@@ -74,6 +77,7 @@
           OverrideFirstRunPage = duckduckgoNewTab;
           OverridePostUpdatePage = "";
           PasswordManagerEnabled = false;
+          Permissions.Microphone.Allow = [ openWebUIOrigin ];
           Preferences = {
             "browser.contentblocking.category" = "strict";
             "browser.discovery.enabled" = false;
@@ -194,8 +198,8 @@
                 toolbar = true;
                 bookmarks = [
                   {
-                    name = "Ollama";
-                    url = "http://matthisk-desktop-newxos.local:3000";
+                    name = "Open WebUI";
+                    url = openWebUIOrigin;
                   }
                 ];
               }

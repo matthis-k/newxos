@@ -215,3 +215,14 @@ Relations:
 - Rule: for RTX 50-series local TTS containers, verify both the image tag and Docker GPU selector with a direct container probe before wiring Open WebUI to the service.
 - Context: `modules/desktop/llm-server.nix`, Kokoro-FastAPI, Open WebUI TTS.
 - Related knowledge: [[Local LLM and TTS setup]], [[Workflow]]
+
+### 2026-05-25: Zen cannot import Caddy CA from private state path
+
+- Date: `2026-05-25`
+- Problem: Zen Browser policy installed Caddy's local root CA directly from `/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt`.
+- Symptom: the Open WebUI HTTPS reverse proxy worked with `curl -k`, but the policy path was not traversable by the user because `/var/lib/caddy` is private service state.
+- Cause: Firefox/Zen enterprise certificate policy needs a readable certificate file path; Caddy's generated CA lives under service-owned state.
+- Fix: publish the Caddy root CA to a world-readable runtime path such as `/run/caddy-local-root.crt`, then point `Certificates.Install` at that path.
+- Rule: when browser policy consumes a service-generated certificate, verify both TLS trust with `curl --cacert` and user-readable permissions on the policy path.
+- Context: `modules/desktop/llm-server.nix`, `modules/socials/zen-browser.nix`, Open WebUI HTTPS microphone access.
+- Related knowledge: [[Local LLM and TTS setup]], [[Workflow]]
