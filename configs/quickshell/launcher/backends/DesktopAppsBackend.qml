@@ -17,8 +17,6 @@ LauncherBackendBase {
     priority: 80
     maxResults: 6
 
-    Component.onCompleted: console.log("[Launcher][desktop] initialized")
-
     function canHandle(query) {
         const parsed = QueryParsing.parse(query);
         if (!enabled)
@@ -68,7 +66,6 @@ LauncherBackendBase {
     function search(query, context) {
         const parsed = QueryParsing.parse(query);
         const queryText = parsed.targetBackend === root.backendId ? parsed.text : parsed.raw;
-        console.log("[Launcher][desktop] query:", queryText);
 
         const entries = DesktopEntries.applications.values || [];
         const matches = [];
@@ -95,19 +92,14 @@ LauncherBackendBase {
 
         matches.sort((a, b) => b.relevance - a.relevance || a.title.localeCompare(b.title));
         const limited = parsed.targetBackend === root.backendId ? matches : matches.slice(0, root.maxResults);
-        console.log("[Launcher][desktop] results:", limited.length);
         return limited;
     }
 
     function activate(result, action) {
-        console.log("[Launcher][desktop] activate:", result ? result.title : "", action ? action.id : "");
-
         const entryId = result && result.metadata ? result.metadata.desktopEntry : null;
         const entry = entryId ? DesktopEntries.byId(entryId) : null;
-        if (!entry) {
-            console.warn("[Launcher][desktop] missing desktop entry:", entryId);
+        if (!entry)
             return;
-        }
 
         if (!action || action.id === "open") {
             launchDesktopCommand(entry.command, entry.workingDirectory, entry.runInTerminal);

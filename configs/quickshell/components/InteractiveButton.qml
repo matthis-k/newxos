@@ -1,22 +1,11 @@
 import QtQuick
+import QtQuick.Controls.Basic
 
-Item {
+Button {
     id: root
 
-    signal clicked
-
-    property bool flat: false
-    property string text: ""
     property url iconSource: ""
     property string iconName: ""
-
-    property Item contentItem: defaultContent
-
-    property int padding: 0
-    property int leftPadding: padding
-    property int rightPadding: padding
-    property int topPadding: padding
-    property int bottomPadding: padding
 
     property Item scaleTarget: root.contentItem
     property Item iconScaleTarget: null
@@ -30,20 +19,10 @@ Item {
     property int scaleAnimationEasing: Easing.OutCubic
     property int cursorShape: Qt.PointingHandCursor
 
-    readonly property alias hovered: hoverHandler.hovered
-
-    implicitWidth: (contentItem ? contentItem.implicitWidth : 0) + leftPadding + rightPadding
-    implicitHeight: (contentItem ? contentItem.implicitHeight : 0) + topPadding + bottomPadding
-
-    function attachItem(item, container) {
-        if (!item)
-            return;
-
-        item.parent = container;
-        if (item.anchors)
-            item.anchors.fill = container;
-        item.visible = true;
-    }
+    hoverEnabled: true
+    focusPolicy: Qt.TabFocus | Qt.ClickFocus
+    background: null
+    contentItem: defaultContent
 
     function applyScale(target, animation, targetScale) {
         if (!target)
@@ -75,19 +54,7 @@ Item {
     }
 
     Item {
-        id: contentContainer
-        anchors {
-            fill: parent
-            leftMargin: root.leftPadding
-            rightMargin: root.rightPadding
-            topMargin: root.topPadding
-            bottomMargin: root.bottomPadding
-        }
-    }
-
-    Item {
         id: defaultContent
-        visible: root.contentItem === defaultContent
     }
 
     NumberAnimation {
@@ -116,14 +83,6 @@ Item {
         cursorShape: root.cursorShape
     }
 
-    TapHandler {
-        acceptedButtons: Qt.LeftButton
-        cursorShape: root.cursorShape
-        gesturePolicy: TapHandler.ReleaseWithinBounds
-        onTapped: root.clicked()
-    }
-
-    onContentItemChanged: attachItem(contentItem, contentContainer)
     onHoveredChanged: updateScale()
     onBaseScaleChanged: updateScale()
     onHoveredScaleChanged: updateScale()
@@ -133,8 +92,5 @@ Item {
     onTextScaleTargetChanged: updateScale()
     onScaleIconChanged: updateScale()
     onScaleTextChanged: updateScale()
-    Component.onCompleted: {
-        attachItem(contentItem, contentContainer);
-        updateScale();
-    }
+    Component.onCompleted: updateScale()
 }

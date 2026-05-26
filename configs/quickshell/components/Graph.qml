@@ -29,7 +29,7 @@ QtObject {
 
     Connections {
         target: root.collector
-        ignoreUnknownSignals: true
+        enabled: root.collector !== null
 
         function onCollected() {
             root._markDataChanged();

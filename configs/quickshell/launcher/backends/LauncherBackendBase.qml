@@ -20,6 +20,5 @@ QtObject {
     }
 
     function activate(result, action) {
-        console.warn("Backend does not implement activate:", backendId);
     }
 }

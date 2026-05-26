@@ -8,9 +8,9 @@ Item {
     property string title: ""
     property string subtitle: ""
     property Component headerAccessory: null
+    property var tabSwipeTarget: null
     property bool scrollable: false
-    property bool fillHeight: true
-    property bool contentFillHeight: false
+    property bool fillHeight: false
     property int pagePadding: Config.spacing.md
     property int sectionSpacing: Config.spacing.md
     default property alias content: body.data
@@ -24,38 +24,47 @@ Item {
         interactive: root.scrollable
         flickableDirection: Flickable.VerticalFlick
         contentWidth: width
-        contentHeight: root.scrollable
-            ? Math.max(column.implicitHeight + root.pagePadding * 2, height)
-            : height
+        contentHeight: viewport.height
         clip: true
 
-        ColumnLayout {
-            id: column
-            anchors {
-                fill: parent
-                margins: root.pagePadding
-            }
-            spacing: root.sectionSpacing
+        Item {
+            id: viewport
 
-            DashboardPageHeader {
-                id: header
-                Layout.fillWidth: true
-                visible: root.title !== "" || root.subtitle !== "" || root.headerAccessory !== null
-                title: root.title
-                subtitle: root.subtitle
-                accessory: root.headerAccessory
-            }
+            width: flick.width
+            height: root.scrollable
+                ? Math.max(column.implicitHeight + root.pagePadding * 2, flick.height)
+                : flick.height
 
             ColumnLayout {
-                id: body
-                Layout.fillWidth: true
-                Layout.fillHeight: root.contentFillHeight
-                spacing: root.sectionSpacing
-            }
+                id: column
 
-            Item {
-                Layout.fillWidth: true
-                Layout.fillHeight: root.fillHeight && !root.contentFillHeight
+                anchors {
+                    fill: parent
+                    margins: root.pagePadding
+                }
+                spacing: root.sectionSpacing
+
+                DashboardPageHeader {
+                    id: header
+                    Layout.fillWidth: true
+                    visible: root.title !== "" || root.subtitle !== "" || root.headerAccessory !== null
+                    title: root.title
+                    subtitle: root.subtitle
+                    accessory: root.headerAccessory
+                }
+
+                ColumnLayout {
+                    id: body
+                    Layout.fillWidth: true
+                    Layout.fillHeight: root.fillHeight
+                    Layout.alignment: Qt.AlignTop
+                    spacing: root.sectionSpacing
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: !root.fillHeight
+                }
             }
         }
     }

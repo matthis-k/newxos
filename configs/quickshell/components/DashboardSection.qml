@@ -19,6 +19,7 @@ Rectangle {
     color: Config.styling.bg1
     radius: Config.styling.radius
     clip: true
+    Layout.fillWidth: true
     implicitWidth: Math.max(header.implicitWidth, body.implicitWidth) + sectionPadding * 2
     implicitHeight: layout.implicitHeight + sectionPadding * 2
 

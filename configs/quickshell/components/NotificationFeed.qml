@@ -149,14 +149,14 @@ Item {
 
                                         delegate: ActionButton {
                                             required property var modelData
-                                            readonly property var action: modelData
+                                            readonly property var notificationAction: modelData
 
                                             Layout.fillWidth: true
                                             accentColor: Config.styling.primaryAccent
-                                            onClicked: action.invoke()
+                                            onClicked: notificationAction.invoke()
 
                                             contentItem: Text {
-                                                text: action.text
+                                                text: notificationAction.text
                                                 color: Config.styling.text0
                                                 font.pixelSize: 12
                                                 font.bold: true

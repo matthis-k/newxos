@@ -29,6 +29,15 @@ PanelWindow {
         resetTabSwipe();
     }
 
+    function queueTabSwipeFromWheelEvent(event) {
+        const delta = event.pixelDelta.x !== 0 ? event.pixelDelta.x : event.angleDelta.x / 4;
+        if (delta === 0)
+            return false;
+
+        queueTabSwipe(delta);
+        return true;
+    }
+
     function syncCurrentTab() {
         if (!shellScreenState)
             return;
@@ -153,27 +162,36 @@ PanelWindow {
                         root.resetTabSwipe();
                 }
 
-                onWheel: event => {
-                    const delta = event.pixelDelta.x !== 0 ? event.pixelDelta.x : event.angleDelta.x / 4;
-
-                    if (delta !== 0)
-                        root.queueTabSwipe(delta);
-                }
+                onWheel: event => root.queueTabSwipeFromWheelEvent(event)
             }
 
             Overview {
                 screenState: root.shellScreenState
+                tabSwipeTarget: root
             }
-            Audio {}
-            Notifications {}
-            Bluetooth {}
-            Network {}
-            Energy {}
-            SystemStats {}
+            Audio {
+                tabSwipeTarget: root
+            }
+            Notifications {
+                tabSwipeTarget: root
+            }
+            Bluetooth {
+                tabSwipeTarget: root
+            }
+            Network {
+                tabSwipeTarget: root
+            }
+            Energy {
+                tabSwipeTarget: root
+            }
+            SystemStats {
+                tabSwipeTarget: root
+            }
         }
 
         Connections {
             target: root.shellScreenState
+            enabled: root.shellScreenState !== null
 
             function onActiveTabChanged() {
                 root.resetTabSwipe();
@@ -181,7 +199,7 @@ PanelWindow {
             }
 
             function onDashboardPhaseChanged() {
-                if (root.shellScreenState?.dashboardPhase !== "open")
+                if (root.shellScreenState.dashboardPhase !== "open")
                     root.resetTabSwipe();
             }
         }

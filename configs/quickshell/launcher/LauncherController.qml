@@ -20,7 +20,6 @@ QtObject {
     function updateQuery(text) {
         generation += 1;
         const currentGeneration = generation;
-        console.log("[Launcher] query:", text);
 
         query = text;
         results = [];
@@ -62,7 +61,6 @@ QtObject {
             return;
 
         results = scoreAndSort(collected, text, parsed).slice(0, maxResults);
-        console.log("[Launcher] final results:", JSON.stringify(results, null, 2));
     }
 
     function searchBackend(backend, text, currentGeneration, parsed) {
@@ -78,10 +76,8 @@ QtObject {
                 }
             };
             const backendResults = backend.search(text, context) || [];
-            console.log("[Launcher] backend", backendId(backend), "returned", backendResults.length, "results");
             return ResultUtils.normalizeResults(backendResults, backendId(backend));
         } catch (error) {
-            console.warn("[Launcher] backend failed:", backendId(backend), error);
             return [];
         }
     }
@@ -89,7 +85,6 @@ QtObject {
     function mergeResults(newResults, fallbackSource, parsed) {
         const merged = results.concat(ResultUtils.normalizeResults(newResults, fallbackSource));
         results = scoreAndSort(merged, query, parsed).slice(0, maxResults);
-        console.log("[Launcher] merged async results:", JSON.stringify(results, null, 2));
     }
 
     function scoreAndSort(items, text, parsed) {
@@ -107,10 +102,8 @@ QtObject {
 
     function activateSelected() {
         const result = results[selectedIndex];
-        if (!result) {
-            console.warn("[Launcher] no selected result");
+        if (!result)
             return false;
-        }
 
         const action = ResultUtils.defaultAction(result);
         return activateResult(result, action);
@@ -120,23 +113,19 @@ QtObject {
         if (!result || !action)
             return false;
 
-        console.log("[Launcher] activate:", result.title, action.id);
         if (result.metadata && result.metadata.replaceQuery) {
             queryReplacementRequested(result.metadata.replaceQuery);
             return false;
         }
 
         const backend = backends.find(item => item && backendId(item) === result.source);
-        if (!backend) {
-            console.warn("[Launcher] missing backend for source:", result.source);
+        if (!backend)
             return false;
-        }
 
         try {
             backend.activate(result, action);
             return true;
         } catch (error) {
-            console.warn("[Launcher] activation failed:", result.source, action.id, error);
             return false;
         }
     }

@@ -10,6 +10,7 @@ DashboardPage {
     id: root
 
     title: "Bluetooth"
+    fillHeight: true
     headerAccessory: Component {
         DashboardToggleSwitch {
             enabled: !!root.adapter
@@ -242,103 +243,50 @@ DashboardPage {
             anchors.fill: parent
             spacing: root.itemSpacing
 
-            ActionButton {
+            DashboardListRow {
                 id: header
-                Layout.fillWidth: true
-                implicitHeight: root.rowHeight
+                minimumRowHeight: root.rowHeight
                 active: rowRoot.hasDevice && rowRoot.device.connected
                 accentColor: rowRoot.hasDevice && rowRoot.device.connected ? Config.colors.blue : Config.styling.bluetooth
                 fillOpacity: rowRoot.hasDevice && rowRoot.device.connected ? 0.28 : Config.behaviour.hoverBgOpacity
-                highlightSide: ActiveIndicator.Side.Left
-                highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAlong
-                highlightThickness: Config.spacing.xxs
+                iconName: rowRoot.hasDevice ? rowRoot.device.icon : "bluetooth-symbolic"
+                fallbackIconName: "bluetooth-symbolic"
+                iconColor: rowRoot.hasDevice && rowRoot.device.connected ? Config.colors.blue : Config.styling.text0
+                title: rowRoot.hasDevice ? root.displayName(rowRoot.device) : "Unavailable"
+                subtitle: rowRoot.hasDevice
+                    ? `${root.deviceTypeLabel(rowRoot.device)} | ${root.batteryLabel(rowRoot.device)}${rowRoot.device.paired ? " | Paired" : ""}`
+                    : "Device unavailable"
+                status: rowRoot.hasDevice
+                    ? rowRoot.device.connected
+                        ? "Connected"
+                        : rowRoot.isConnecting
+                            ? "Connecting"
+                            : rowRoot.isDisconnecting
+                                ? "Disconnecting"
+                                : rowRoot.device.pairing
+                                    ? "Pairing"
+                                    : rowRoot.device.paired
+                                        ? "Paired"
+                                        : "Available"
+                    : "Unavailable"
+                statusColor: rowRoot.hasDevice && rowRoot.device.connected
+                    ? Config.colors.blue
+                    : rowRoot.isConnecting || rowRoot.isDisconnecting || (rowRoot.hasDevice && rowRoot.device.pairing)
+                        ? Config.colors.yellow
+                        : Config.styling.text1
+                iconSlotWidth: root.iconSlotWidth
+                iconSize: root.itemIconSize
+                titleSize: root.itemTextSize
+                subtitleSize: root.itemSubtextSize
+                horizontalPadding: root.horizontalPadding
+                verticalPadding: root.verticalPadding
+                contentSpacing: root.iconTextGap
 
                 onClicked: {
                     if (rowRoot.expanded)
                         root.unlockInteraction();
                     else if (rowRoot.hasDevice)
                         root.lockInteractionFor(rowRoot.device);
-                }
-
-                contentItem: Item {
-                    implicitWidth: root.contentWidth
-                    implicitHeight: Math.max(root.rowHeight, rowContent.implicitHeight + root.verticalPadding * 2)
-
-                    RowLayout {
-                        id: rowContent
-                        anchors {
-                            fill: parent
-                            leftMargin: root.horizontalPadding
-                            rightMargin: root.horizontalPadding
-                            topMargin: root.verticalPadding
-                            bottomMargin: root.verticalPadding
-                        }
-                        spacing: root.iconTextGap
-
-                        Item {
-                            Layout.preferredWidth: root.iconSlotWidth
-                            Layout.minimumWidth: root.iconSlotWidth
-                            Layout.maximumWidth: root.iconSlotWidth
-                            Layout.preferredHeight: root.itemIconSize
-                            Layout.alignment: Qt.AlignVCenter
-
-                            Icon {
-                                anchors.fill: parent
-                                iconName: rowRoot.hasDevice ? rowRoot.device.icon : "bluetooth-symbolic"
-                                fallbackIconName: "bluetooth-symbolic"
-                                color: rowRoot.hasDevice && rowRoot.device.connected ? Config.colors.blue : Config.styling.text0
-                                implicitSize: root.itemIconSize
-                            }
-                        }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 0
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: rowRoot.hasDevice ? root.displayName(rowRoot.device) : "Unavailable"
-                                color: Config.styling.text0
-                                font.bold: true
-                                font.pixelSize: root.itemTextSize
-                                elide: Text.ElideRight
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: rowRoot.hasDevice
-                                    ? `${root.deviceTypeLabel(rowRoot.device)} | ${root.batteryLabel(rowRoot.device)}${rowRoot.device.paired ? " | Paired" : ""}`
-                                    : "Device unavailable"
-                                color: Config.styling.text2
-                                font.pixelSize: root.itemSubtextSize
-                                elide: Text.ElideRight
-                            }
-                        }
-
-                        Text {
-                            Layout.alignment: Qt.AlignVCenter
-                            text: rowRoot.hasDevice
-                                ? rowRoot.device.connected
-                                    ? "Connected"
-                                    : rowRoot.isConnecting
-                                        ? "Connecting"
-                                        : rowRoot.isDisconnecting
-                                            ? "Disconnecting"
-                                            : rowRoot.device.pairing
-                                                ? "Pairing"
-                                                : rowRoot.device.paired
-                                                    ? "Paired"
-                                                    : "Available"
-                                : "Unavailable"
-                            color: rowRoot.hasDevice && rowRoot.device.connected
-                                ? Config.colors.blue
-                                : rowRoot.isConnecting || rowRoot.isDisconnecting || (rowRoot.hasDevice && rowRoot.device.pairing)
-                                    ? Config.colors.yellow
-                                    : Config.styling.text1
-                            font.pixelSize: 12
-                            font.bold: true
-                        }
-                    }
                 }
             }
 
@@ -488,6 +436,7 @@ DashboardPage {
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentSpacing: root.itemSpacing
+            tabSwipeTarget: root.tabSwipeTarget
 
             Repeater {
                 model: root.otherDevices

@@ -18,9 +18,6 @@ DashboardPage {
     readonly property var source: Pipewire.defaultAudioSource
     readonly property var adapter: Bluetooth.defaultAdapter
 
-    scrollable: false
-    fillHeight: false
-
     function nodeName(node, fallback) {
         if (!node)
             return fallback;
