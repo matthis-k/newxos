@@ -8,7 +8,6 @@ Item {
 
     property string iconName: "dialog-warning"
     property string fallbackIconName: "dialog-warning"
-    property var iconPath: Quickshell.iconPath(iconName, fallbackIconName)
     // Must be `var` with `undefined` sentinel — typed `color`/`url` can't be
     // undefined, breaking the presence check for ColorOverlay visibility
     property var color: undefined
@@ -16,6 +15,9 @@ Item {
     property var source: undefined
 
     readonly property bool hasImplicitSize: implicitSize >= 0
+    readonly property bool hasIconName: iconName !== "" || fallbackIconName !== ""
+    readonly property var iconPath: hasIconName ? Quickshell.iconPath(iconName, fallbackIconName) : undefined
+    readonly property var resolvedSource: root.source !== undefined ? root.source : root.iconPath
 
     property alias smooth: icon.smooth
     property alias mipmap: icon.mipmap
@@ -26,7 +28,8 @@ Item {
     IconImage {
         id: icon
         anchors.fill: parent
-        source: root.source !== undefined ? root.source : root.iconPath
+        visible: root.resolvedSource !== undefined && root.resolvedSource !== ""
+        source: root.resolvedSource
         scale: root.hasImplicitSize ? root.implicitSize / Math.max(parent.width, parent.height, 1) : 1.0
     }
 

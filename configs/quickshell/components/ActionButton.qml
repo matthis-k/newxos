@@ -40,8 +40,8 @@ InteractiveButton {
             thickness: control.highlightThickness
             color: control.accentColor
             bgOpacity: control.fillOpacity
-            bgActive: (control.fillOnHover && control.hovered) || control.active
-            active: control.active || (control.indicatorOnHover && control.hovered)
+            bgActive: (control.fillOnHover && control.hovered) || control.visualFocus || control.active
+            active: control.active || control.visualFocus || (control.indicatorOnHover && control.hovered)
         }
     }
 }

@@ -12,6 +12,7 @@ DashboardPage {
     id: root
 
     title: "Audio"
+    fillHeight: true
 
     readonly property int contentWidth: width > 0 ? width : 360
     readonly property int itemSpacing: 3
@@ -451,6 +452,7 @@ DashboardPage {
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentSpacing: root.itemSpacing
+            tabSwipeTarget: root.tabSwipeTarget
 
             Repeater {
                 model: root.sinksWithStreams
@@ -481,6 +483,7 @@ DashboardPage {
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentSpacing: root.itemSpacing
+            tabSwipeTarget: root.tabSwipeTarget
 
             Repeater {
                 model: root.sourcesWithStreams

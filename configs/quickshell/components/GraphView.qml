@@ -41,11 +41,11 @@ Item {
         })
 
     property bool relativeX: true
+    property var visibilityRevision: 0
 
     signal visibilityChanged
 
     property var _visibleOverrides: ({})
-    property int _revision: 0
     property int _batchDepth: 0
     property bool _renderQueued: false
     property bool _renderPending: false
@@ -74,13 +74,38 @@ Item {
         return Math.max(root.xWindow, 1);
     }
 
-    function _connectGraphs() {
-        const next = root._connectedGraphs.slice();
-        const graphs = root._graphs();
+    function _disconnectGraphs() {
+        const graphs = root._connectedGraphs.slice();
         for (let i = 0; i < graphs.length; i++) {
             const graph = graphs[i];
-            if (!graph || next.indexOf(graph) !== -1)
+            if (graph.dataChanged)
+                graph.dataChanged.disconnect(root._handleGraphChanged);
+            if (graph.configChanged)
+                graph.configChanged.disconnect(root._handleGraphChanged);
+        }
+        root._connectedGraphs = [];
+
+        const collectors = root._connectedCollectors.slice();
+        for (let i = 0; i < collectors.length; i++) {
+            const collector = collectors[i];
+            if (collector && collector.collected)
+                collector.collected.disconnect(root._handleGraphChanged);
+        }
+        root._connectedCollectors = [];
+    }
+
+    function _connectGraphs() {
+        root._disconnectGraphs();
+
+        const graphs = root._graphs();
+        const connectedGraphs = [];
+        const connectedCollectors = [];
+
+        for (let i = 0; i < graphs.length; i++) {
+            const graph = graphs[i];
+            if (!graph)
                 continue;
+
             let connected = false;
             if (graph.dataChanged) {
                 graph.dataChanged.connect(root._handleGraphChanged);
@@ -91,25 +116,16 @@ Item {
                 connected = true;
             }
             if (connected)
-                next.push(graph);
-        }
-        root._connectedGraphs = next;
+                connectedGraphs.push(graph);
 
-        const collectors = [];
-        for (let i = 0; i < graphs.length; i++) {
-            const graph = graphs[i];
-            if (graph && !graph.dataChanged && graph.collector && graph.collector.collected)
-                collectors.push(graph.collector);
+            if (!graph.dataChanged && graph.collector && graph.collector.collected) {
+                graph.collector.collected.connect(root._handleGraphChanged);
+                connectedCollectors.push(graph.collector);
+            }
         }
 
-        for (let i = 0; i < collectors.length; i++) {
-            const collector = collectors[i];
-            if (root._connectedCollectors.indexOf(collector) !== -1)
-                continue;
-
-            collector.collected.connect(root._handleGraphChanged);
-            root._connectedCollectors = root._connectedCollectors.concat([collector]);
-        }
+        root._connectedGraphs = connectedGraphs;
+        root._connectedCollectors = connectedCollectors;
     }
 
     function _validNumber(value) {
@@ -183,6 +199,11 @@ Item {
         renderScheduler.restart();
     }
 
+    function notifyVisibilityChanged() {
+        root.visibilityRevision = (root.visibilityRevision || 0) + 1;
+        root.visibilityChanged();
+    }
+
     function batch(fn) {
         root._batchDepth++;
         try {
@@ -192,7 +213,7 @@ Item {
             root._batchDepth--;
             if (root._batchDepth === 0 && root._visibilityChangedInBatch) {
                 root._visibilityChangedInBatch = false;
-                root.visibilityChanged();
+                root.notifyVisibilityChanged();
             }
             if (root._batchDepth === 0 && root._renderPending)
                 root.requestRender("", "batch");
@@ -226,7 +247,6 @@ Item {
     }
 
     function isSeriesVisible(nameOrIndex) {
-        const _ = root._revision;
         const name = root._resolveName(nameOrIndex);
         if (!name)
             return false;
@@ -249,11 +269,10 @@ Item {
         next[name] = enabled;
         root._visibleOverrides = next;
         item.visible = enabled;
-        root._revision++;
         if (root._batchDepth > 0)
             root._visibilityChangedInBatch = true;
         else
-            root.visibilityChanged();
+            root.notifyVisibilityChanged();
         root.requestRender(name, "visibility");
     }
 
@@ -415,7 +434,6 @@ Item {
 
     onGraphsChanged: {
         root._applyVisibleOverrides();
-        root._revision++;
         root._connectGraphs();
         root.requestRender("", "graphs");
         visibilityNotifier.restart();
@@ -637,7 +655,7 @@ Item {
         id: visibilityNotifier
         interval: 0
         repeat: false
-        onTriggered: root.visibilityChanged()
+        onTriggered: root.notifyVisibilityChanged()
     }
 
     onActiveChanged: root.requestRender("", "active")

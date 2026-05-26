@@ -5,7 +5,7 @@ import qs.services
 Item {
     id: root
 
-    property Item graphView: null
+    property var graphView: null
     property string seriesName: ""
     property var seriesFilter: null
     required property color color
@@ -14,7 +14,7 @@ Item {
 
     property var checked: true
     readonly property bool effectiveChecked: checked === undefined ? true : checked
-    readonly property int graphRevision: graphView ? graphView._revision : 0
+    readonly property var visibilityRevision: graphView && graphView.visibilityRevision !== undefined ? graphView.visibilityRevision : 0
 
     implicitHeight: 20
 
@@ -40,7 +40,7 @@ Item {
     Component.onCompleted: Qt.callLater(root.refreshChecked)
 
     onGraphViewChanged: Qt.callLater(root.refreshChecked)
-    onGraphRevisionChanged: Qt.callLater(root.refreshChecked)
+    onVisibilityRevisionChanged: Qt.callLater(root.refreshChecked)
     onSeriesNameChanged: Qt.callLater(root.refreshChecked)
     onSeriesFilterChanged: Qt.callLater(root.refreshChecked)
 

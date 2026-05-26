@@ -11,7 +11,7 @@ DashboardPage {
     id: root
 
     title: "Networking"
-    contentFillHeight: true
+    fillHeight: true
     headerAccessory: Component {
         DashboardToggleSwitch {
             checked: NetworkService.networkingEnabled
@@ -130,20 +130,49 @@ DashboardPage {
         return conn;
     }
 
+    function primaryNetworkInfo(network) {
+        if (!network)
+            return "Network unavailable";
+
+        return [
+            `Frequency: ${network.frequency || "unknown"} MHz`,
+            `Channel: ${wifiChannel(network.frequency)}`,
+            `Band: ${wifiBand(network.frequency)}`
+        ].join(" | ");
+    }
+
+    function wifiBand(frequency) {
+        const mhz = parseInt(frequency || "0", 10);
+        if (mhz >= 5925)
+            return "6 GHz";
+        if (mhz >= 5000)
+            return "5 GHz";
+        if (mhz >= 2400)
+            return "2.4 GHz";
+        return "unknown";
+    }
+
+    function wifiChannel(frequency) {
+        const mhz = parseInt(frequency || "0", 10);
+        if (mhz === 2484)
+            return 14;
+        if (mhz >= 2412 && mhz <= 2472)
+            return Math.floor((mhz - 2407) / 5);
+        if (mhz >= 5000 && mhz <= 5895)
+            return Math.floor((mhz - 5000) / 5);
+        if (mhz >= 5955 && mhz <= 7115)
+            return Math.floor((mhz - 5950) / 5);
+        return "unknown";
+    }
+
     function advancedNetworkInfo(network) {
         if (!network)
             return "Network unavailable";
 
-        const lines = [
+        return [
             `SSID: ${network.ssid || "unknown"}`,
-            `BSSID: ${network.bssid || "unknown"}`,
-            `Frequency: ${network.frequency || "unknown"} MHz`,
-            `Signal: ${Math.round((network.signalStrength || 0) * 100)}%`,
-            `Security: ${securityLabel(network)}`,
-            `Connected: ${network.connected ? "Yes" : "No"}`
-        ];
-
-        return lines.join("\n");
+            `BSSID: ${network.bssid || "unknown"}`
+        ].join("\n");
     }
 
     function nordVpnDestinationLabel(destination) {
@@ -264,93 +293,39 @@ DashboardPage {
             anchors.fill: parent
             spacing: root.itemSpacing
 
-            ActionButton {
+            DashboardListRow {
                 id: header
-                Layout.fillWidth: true
-                implicitHeight: root.rowHeight
+                minimumRowHeight: root.rowHeight
                 active: rowRoot.hasNetwork && rowRoot.network.connected
                 accentColor: rowRoot.hasNetwork && rowRoot.network.connected ? Config.colors.blue : Config.styling.activeIndicator
                 fillOpacity: rowRoot.hasNetwork && rowRoot.network.connected ? 0.28 : Config.behaviour.hoverBgOpacity
-                highlightSide: ActiveIndicator.Side.Left
-                highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAlong
-                highlightThickness: Config.spacing.xxs
+                iconName: root.wifiIconName(rowRoot.network)
+                iconColor: rowRoot.hasNetwork && rowRoot.network.connected ? Config.colors.blue : Config.styling.text0
+                title: rowRoot.hasNetwork ? (rowRoot.network.ssid || "Hidden network") : "Unavailable"
+                subtitle: rowRoot.hasNetwork
+                    ? `${root.securityLabel(rowRoot.network)} | ${Math.round((rowRoot.network.signalStrength || 0) * 100)}%`
+                    : "Network unavailable"
+                status: rowRoot.hasNetwork && rowRoot.network.connected
+                    ? "Connected"
+                    : rowRoot.hasNetwork && root.securityNeedsPsk(rowRoot.network.security) && !root.isOpenNetwork(rowRoot.network)
+                        ? "Secured"
+                        : "Available"
+                statusColor: rowRoot.hasNetwork && rowRoot.network.connected
+                    ? Config.colors.blue
+                    : Config.styling.text1
+                iconSlotWidth: root.iconSlotWidth
+                iconSize: root.itemIconSize
+                titleSize: root.itemTextSize
+                subtitleSize: root.itemSubtextSize
+                horizontalPadding: root.horizontalPadding
+                verticalPadding: root.verticalPadding
+                contentSpacing: root.iconTextGap
 
                 onClicked: {
                     if (rowRoot.expanded)
                         root.unlockInteraction();
                     else if (rowRoot.hasNetwork)
                         root.lockInteractionFor(rowRoot.network);
-                }
-
-                contentItem: Item {
-                    implicitWidth: root.contentWidth
-                    implicitHeight: Math.max(root.rowHeight, rowContent.implicitHeight + root.verticalPadding * 2)
-
-                    RowLayout {
-                        id: rowContent
-                        anchors {
-                            fill: parent
-                            leftMargin: root.horizontalPadding
-                            rightMargin: root.horizontalPadding
-                            topMargin: root.verticalPadding
-                            bottomMargin: root.verticalPadding
-                        }
-                        spacing: root.iconTextGap
-
-                        Item {
-                            Layout.preferredWidth: root.iconSlotWidth
-                            Layout.minimumWidth: root.iconSlotWidth
-                            Layout.maximumWidth: root.iconSlotWidth
-                            Layout.preferredHeight: root.itemIconSize
-                            Layout.alignment: Qt.AlignVCenter
-
-                            Icon {
-                                anchors.fill: parent
-                                iconName: root.wifiIconName(rowRoot.network)
-                                color: rowRoot.hasNetwork && rowRoot.network.connected ? Config.colors.blue : Config.styling.text0
-                                implicitSize: root.itemIconSize
-                            }
-                        }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 0
-
-                            Text {
-                                id: nameLabel
-                                Layout.fillWidth: true
-                                text: rowRoot.hasNetwork ? (rowRoot.network.ssid || "Hidden network") : "Unavailable"
-                                color: Config.styling.text0
-                                font.bold: true
-                                font.pixelSize: root.itemTextSize
-                                elide: Text.ElideRight
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: rowRoot.hasNetwork
-                                    ? `${root.securityLabel(rowRoot.network)}  |  ${Math.round((rowRoot.network.signalStrength || 0) * 100)}%`
-                                    : "Network unavailable"
-                                color: Config.styling.text2
-                                font.pixelSize: root.itemSubtextSize
-                                elide: Text.ElideRight
-                            }
-                        }
-
-                        Text {
-                            Layout.alignment: Qt.AlignVCenter
-                            text: rowRoot.hasNetwork && rowRoot.network.connected
-                                ? "Connected"
-                                : rowRoot.hasNetwork && root.securityNeedsPsk(rowRoot.network.security) && !root.isOpenNetwork(rowRoot.network)
-                                    ? "Secured"
-                                    : "Available"
-                            color: rowRoot.hasNetwork && rowRoot.network.connected
-                                ? Config.colors.blue
-                                : Config.styling.text1
-                            font.pixelSize: 12
-                            font.bold: true
-                        }
-                    }
                 }
             }
 
@@ -380,15 +355,7 @@ DashboardPage {
 
                     Text {
                         Layout.fillWidth: true
-                        text: `SSID: ${rowRoot.hasNetwork ? rowRoot.network.ssid : "Unknown"} | BSSID: ${rowRoot.hasNetwork ? rowRoot.network.bssid : "unknown"}`
-                        color: Config.styling.text1
-                        font.pixelSize: 12
-                        wrapMode: Text.Wrap
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        text: `Frequency: ${rowRoot.hasNetwork ? rowRoot.network.frequency : "unknown"} MHz | Signal: ${rowRoot.hasNetwork ? Math.round((rowRoot.network.signalStrength || 0) * 100) : 0}%`
+                        text: root.primaryNetworkInfo(rowRoot.network)
                         color: Config.styling.text1
                         font.pixelSize: 12
                         wrapMode: Text.Wrap
@@ -588,61 +555,26 @@ DashboardPage {
                 Layout.preferredHeight: 160
                 visible: !NordVPN.connecting && nordVpnSearchField.activeFocus
                 contentSpacing: root.itemSpacing
+                tabSwipeTarget: root.tabSwipeTarget
 
                 Repeater {
                     model: root.filteredNordVpnDestinations()
 
-                    delegate: ActionButton {
+                    delegate: DashboardListRow {
                         required property var modelData
 
-                        Layout.fillWidth: true
-                        implicitHeight: root.rowHeight
+                        minimumRowHeight: root.rowHeight
                         enabled: !NordVPN.connecting
                         active: NordVPN.connected && modelData.kind === "country" && modelData.name === NordVPN.country
                         accentColor: Config.styling.good
-                        highlightSide: ActiveIndicator.Side.Left
-                        highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAlong
-                        highlightThickness: Config.spacing.xxs
+                        title: root.nordVpnDestinationLabel(modelData)
+                        subtitle: root.nordVpnDestinationSubtext(modelData)
+                        titleSize: root.itemTextSize
+                        subtitleSize: root.itemSubtextSize
+                        horizontalPadding: root.horizontalPadding
+                        verticalPadding: root.verticalPadding
+                        contentSpacing: root.iconTextGap
                         onClicked: root.connectNordVpnDestination(modelData)
-
-                        contentItem: Item {
-                            implicitWidth: root.contentWidth
-                            implicitHeight: Math.max(root.rowHeight, content.implicitHeight + root.verticalPadding * 2)
-
-                            RowLayout {
-                                id: content
-                                anchors {
-                                    fill: parent
-                                    leftMargin: root.horizontalPadding
-                                    rightMargin: root.horizontalPadding
-                                    topMargin: root.verticalPadding
-                                    bottomMargin: root.verticalPadding
-                                }
-                                spacing: root.iconTextGap
-
-                                ColumnLayout {
-                                    Layout.fillWidth: true
-                                    spacing: 0
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: root.nordVpnDestinationLabel(modelData)
-                                        color: Config.styling.text0
-                                        font.pixelSize: root.itemTextSize
-                                        font.bold: true
-                                        elide: Text.ElideRight
-                                    }
-
-                                    Text {
-                                        Layout.fillWidth: true
-                                        text: root.nordVpnDestinationSubtext(modelData)
-                                        color: Config.styling.text2
-                                        font.pixelSize: root.itemSubtextSize
-                                        elide: Text.ElideRight
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
 
@@ -794,6 +726,7 @@ DashboardPage {
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentSpacing: root.itemSpacing
+            tabSwipeTarget: root.tabSwipeTarget
 
             Repeater {
                 model: disconnectedNetworks

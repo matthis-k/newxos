@@ -15,9 +15,7 @@ DashboardPage {
             onToggled: NotificationCenter.toastsEnabled = checked
         }
     }
-    scrollable: false
-    fillHeight: false
-    contentFillHeight: true
+    fillHeight: true
 
     DashboardSection {
         Layout.fillWidth: true

@@ -6,5 +6,4 @@ DataCollector {
     property var source: []
 
     onSourceChanged: root.replaceRawData(source || [])
-    Component.onCompleted: root.replaceRawData(source || [])
 }
