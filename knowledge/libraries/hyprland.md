@@ -56,3 +56,7 @@ Hyprland (0.55+) provides the graphical desktop session used by this repo. Since
 - Home Manager's Hyprland plugin option generates `hyprland.conf` entries, so it is not the right place for this repo's Lua-native root config.
 - If a value really needs to come from Nix, generate a small imported Lua file instead of rewriting the hand-written config style.
 - The `.luarc.json` in the repo root must point at the correct Hyprland stubs path for Lua LSP to work; this path varies by installation method.
+
+## Launcher Shortcut
+
+- [fact] `configs/hypr/keybinds.lua` binds `SUPER + A` to `newshell ipc call launcher toggle` for the Quickshell launcher.

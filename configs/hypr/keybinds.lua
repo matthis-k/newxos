@@ -1,6 +1,7 @@
 local keybinds = {
     keybinds = {
         { "SUPER + Return", hl.dsp.exec_cmd("kitty") },
+        { "SUPER + A", hl.dsp.exec_cmd("newshell ipc call launcher toggle") },
         { "SUPER + D", hl.dsp.exec_cmd("newshell ipc call applauncher toggle") },
         { "CTRL + ALT + W", hl.dsp.exec_cmd("zen-beta") },
         { "Print", hl.dsp.exec_cmd("screen-shot region") },
