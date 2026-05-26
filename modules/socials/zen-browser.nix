@@ -253,6 +253,35 @@
             "zen.urlbar.behavior" = "normal";
             "zen.view.use-single-toolbar" = false;
           };
+
+          pinsForce = true;
+          pinsForceAction = "demote";
+          pins = {
+            "ChatGPT" = {
+              id = "b2c3d4e5-f6a7-8901-bcde-f12345678901";
+              url = "https://chat.openai.com";
+              position = 101;
+              isEssential = true;
+            };
+            "Open WebUI" = {
+              id = "c3d4e5f6-a7b8-9012-cdef-123456789012";
+              url = openWebUIOrigin;
+              position = 102;
+              isEssential = true;
+            };
+            "GitHub" = {
+              id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+              url = "https://github.com";
+              position = 103;
+              isEssential = true;
+            };
+            "YouTube" = {
+              id = "d4e5f6a7-b8c9-0123-defa-234567890123";
+              url = "https://youtube.com";
+              position = 104;
+              isEssential = true;
+            };
+          };
         };
       };
 
