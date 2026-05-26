@@ -73,6 +73,7 @@ Rectangle {
                 active: root.summary !== null
                 sourceComponent: root.summary
                 Layout.preferredWidth: item ? item.implicitWidth : 0
+                Layout.maximumWidth: Math.max(root.width - 112, 0)
                 Layout.preferredHeight: item ? item.implicitHeight : 0
                 Layout.alignment: Qt.AlignVCenter
             }

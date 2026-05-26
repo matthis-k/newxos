@@ -6,6 +6,8 @@ StatusIcon {
     readonly property var battery: UPower.displayDevice
     readonly property bool hasBattery: battery?.isLaptopBattery === true
 
+    visible: hasBattery
+
     iconName: {
         if (hasBattery)
             return battery.iconName || "battery-missing-symbolic";

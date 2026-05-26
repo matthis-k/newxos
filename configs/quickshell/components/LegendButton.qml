@@ -5,14 +5,16 @@ import qs.services
 Item {
     id: root
 
-    required property var graphView
+    property Item graphView: null
     property string seriesName: ""
     property var seriesFilter: null
     required property color color
 
     default property alias content: contentRow.children
 
-    property bool checked: true
+    property var checked: true
+    readonly property bool effectiveChecked: checked === undefined ? true : checked
+    readonly property int graphRevision: graphView ? graphView._revision : 0
 
     implicitHeight: 20
 
@@ -38,16 +40,9 @@ Item {
     Component.onCompleted: Qt.callLater(root.refreshChecked)
 
     onGraphViewChanged: Qt.callLater(root.refreshChecked)
+    onGraphRevisionChanged: Qt.callLater(root.refreshChecked)
     onSeriesNameChanged: Qt.callLater(root.refreshChecked)
     onSeriesFilterChanged: Qt.callLater(root.refreshChecked)
-
-    Connections {
-        target: root.graphView || null
-
-        function onVisibilityChanged() {
-            root.refreshChecked();
-        }
-    }
 
     Rectangle {
         anchors.fill: parent
@@ -55,7 +50,7 @@ Item {
         anchors.bottomMargin: 2
         radius: 3
         color: root.color
-        opacity: root.checked ? 1.0 : 0.5
+        opacity: root.effectiveChecked ? 1.0 : 0.5
         Behavior on opacity {
             NumberAnimation {
                 duration: Config.behaviour.animation.enabled ? Config.behaviour.animation.calc(0.12) : 0

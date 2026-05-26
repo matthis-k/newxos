@@ -38,11 +38,13 @@ Item {
         }
 
         Text {
+            Layout.fillWidth: true
             text: root.value
             color: root.valueColor
             font.pixelSize: 13
             font.bold: true
             horizontalAlignment: Text.AlignRight
+            elide: Text.ElideRight
         }
     }
 }
