@@ -100,7 +100,7 @@
         runtimeInputs = [ self'.packages.newxos-hyprland ];
         text = ''
           set -euo pipefail
-          Hyprland-newxos --verify-config
+          "${self'.packages.newxos-hyprland}/bin/Hyprland" --verify-config
         '';
       };
 

@@ -8,6 +8,7 @@ import "../modules/bar" as Bar
 import "../modules/quickmenu" as Quickmenu
 import "../modules/hyprlandPreview" as HyprlandPreview
 import "../modules/background" as Background
+import "../launcher" as Launcher
 
 Singleton {
     id: root
@@ -146,6 +147,11 @@ Singleton {
         property HyprlandPreview.Window hyprlandPreview: HyprlandPreview.Window {
             screen: screenState.screen
         }
+
+        property Launcher.Launcher launcher: Launcher.Launcher {
+            screen: screenState.screen
+            shellScreenState: screenState
+        }
     }
 
     Variants {
@@ -168,6 +174,22 @@ Singleton {
         }
         function toggle() {
             forActiveScreens(screen => getScreenByName(screen.name).bar.toggle());
+        }
+    }
+
+    IpcHandler {
+        target: "launcher"
+        function open() {
+            forActiveScreens(screen => getScreenByName(screen.name).launcher.open());
+        }
+        function close() {
+            forActiveScreens(screen => getScreenByName(screen.name).launcher.close());
+        }
+        function toggle() {
+            forActiveScreens(screen => {
+                const launcher = getScreenByName(screen.name).launcher;
+                launcher.visible ? launcher.close() : launcher.open();
+            });
         }
     }
 
