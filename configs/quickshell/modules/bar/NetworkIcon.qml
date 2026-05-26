@@ -38,11 +38,11 @@ StatusIcon {
         Icon {
             anchors.bottom: statusIcon.bottom
             anchors.right: statusIcon.right
-            anchors.bottomMargin: -2
-            anchors.rightMargin: -3
+            anchors.bottomMargin: -3
+            anchors.rightMargin: -6
             iconName: "network-vpn-symbolic"
             color: NordVPN.connected ? Config.styling.good : Config.styling.critical
-            implicitSize: statusIcon.implicitSize * 0.55
+            implicitSize: statusIcon.implicitSize * 0.68
             visible: NordVPN.available
         }
 

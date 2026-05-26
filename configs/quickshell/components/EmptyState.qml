@@ -14,7 +14,10 @@ Item {
 
     ColumnLayout {
         id: layout
-        anchors.centerIn: parent
+        anchors {
+            top: parent.top
+            horizontalCenter: parent.horizontalCenter
+        }
         spacing: Config.spacing.xs
 
         Icon {

@@ -17,6 +17,7 @@ DashboardPage {
     }
     scrollable: false
     fillHeight: false
+    contentFillHeight: true
 
     DashboardSection {
         Layout.fillWidth: true

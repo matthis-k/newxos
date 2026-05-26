@@ -23,6 +23,7 @@
           self'.packages.quickshell
           self'.packages.newshell
           self'.packages.newshelldev
+          self'.packages.nordvpn-watch
           pkgs.kdePackages.qtdeclarative
           pkgs.kdePackages.qt3d
           pkgs.kdePackages.qt6ct

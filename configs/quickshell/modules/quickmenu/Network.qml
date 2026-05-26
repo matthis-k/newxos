@@ -40,6 +40,7 @@ DashboardPage {
     property bool interactiveShowPasswordInput: false
     property string interactivePasswordText: ""
     property string interactiveErrorText: ""
+    property string nordVpnSearchText: ""
     property var frozenNetworkOrder: []
 
     readonly property bool interactionLocked: interactiveNetworkKey !== ""
@@ -143,6 +144,48 @@ DashboardPage {
         ];
 
         return lines.join("\n");
+    }
+
+    function nordVpnDestinationLabel(destination) {
+        if (!destination)
+            return "Unknown";
+        if (destination.kind === "fastest")
+            return "Fastest server";
+        return destination.name;
+    }
+
+    function nordVpnDestinationSubtext(destination) {
+        if (!destination)
+            return "";
+        if (destination.kind === "fastest")
+            return "Automatic";
+        if (destination.kind === "country")
+            return "Country";
+        return "Group";
+    }
+
+    function filteredNordVpnDestinations() {
+        const query = nordVpnSearchText.trim().toLowerCase();
+        if (!query)
+            return NordVPN.destinations;
+        return NordVPN.destinations.filter(destination => {
+            const name = nordVpnDestinationLabel(destination).toLowerCase();
+            const kind = nordVpnDestinationSubtext(destination).toLowerCase();
+            return name.includes(query) || kind.includes(query);
+        });
+    }
+
+    function connectNordVpnDestination(destination) {
+        if (!destination || NordVPN.connecting)
+            return;
+        NordVPN.connect(destination.value);
+        nordVpnSearchText = "";
+    }
+
+    function connectTopNordVpnMatch() {
+        const matches = filteredNordVpnDestinations();
+        if (matches.length > 0)
+            connectNordVpnDestination(matches[0]);
     }
 
 
@@ -434,10 +477,261 @@ DashboardPage {
 
     DashboardSection {
         Layout.fillWidth: true
+        title: connectedNetworks.length === 1 ? "Connected network" : "Connected networks"
+
+        Repeater {
+            model: connectedNetworks
+
+            delegate: NetworkRow {
+                required property var modelData
+                Layout.fillWidth: true
+                network: modelData
+            }
+        }
+
+        Text {
+            visible: connectedNetworks.length === 0
+            text: "No connected Wi-Fi networks"
+            color: Config.styling.text2
+            font.pixelSize: 12
+        }
+    }
+
+    DashboardSection {
+        Layout.fillWidth: true
+        title: "NordVPN"
+        visible: NordVPN.available || NordVPN.connecting
+        collapsible: true
+        collapsed: true
+        summary: Component {
+            Text {
+                width: Math.min(implicitWidth, 220)
+                text: NordVPN.connected ? `${NordVPN.country} • ${NordVPN.server}` : NordVPN.status
+                color: NordVPN.connected ? Config.styling.good : Config.styling.text1
+                font.pixelSize: 12
+                elide: Text.ElideRight
+            }
+        }
+
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: Config.spacing.xs
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: root.itemSpacing
+
+                Icon {
+                    Layout.preferredWidth: root.itemIconSize
+                    Layout.preferredHeight: root.itemIconSize
+                    iconName: NordVPN.connected ? "network-vpn-symbolic" : "network-vpn-disconnected-symbolic"
+                    color: NordVPN.connected ? Config.styling.good : Config.styling.text1
+                    implicitSize: root.itemIconSize
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 0
+
+                    Text {
+                        text: NordVPN.connecting ? "Connecting" : NordVPN.connected ? "Connected" : "Disconnected"
+                        color: NordVPN.connected ? Config.styling.good : Config.styling.text0
+                        font.pixelSize: root.itemTextSize
+                        font.bold: true
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        visible: NordVPN.connected
+                        text: `${NordVPN.city}, ${NordVPN.country} (${NordVPN.server})`
+                        color: Config.styling.text2
+                        font.pixelSize: 12
+                        elide: Text.ElideRight
+                    }
+                }
+
+                SmallButton {
+                    enabled: !NordVPN.connecting
+                    text: NordVPN.connecting ? "Connecting" : NordVPN.connected ? "Disconnect" : "Connect"
+                    onClicked: NordVPN.connected ? NordVPN.disconnect() : NordVPN.connect()
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: Config.styling.bg3
+            }
+
+            TextField {
+                id: nordVpnSearchField
+                Layout.fillWidth: true
+                visible: !NordVPN.connecting
+                text: root.nordVpnSearchText
+                placeholderText: "Search countries or groups"
+                color: Config.styling.text0
+                placeholderTextColor: Config.styling.text2
+                selectedTextColor: Config.styling.selectionText
+                selectionColor: Config.styling.selectionBackgroundActive
+                onTextChanged: root.nordVpnSearchText = text
+                onAccepted: root.connectTopNordVpnMatch()
+
+                background: Rectangle {
+                    color: Config.styling.bg3
+                    border.width: 1
+                    border.color: Config.styling.bg5
+                }
+            }
+
+            DashboardScrollArea {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 160
+                visible: !NordVPN.connecting && nordVpnSearchField.activeFocus
+                contentSpacing: root.itemSpacing
+
+                Repeater {
+                    model: root.filteredNordVpnDestinations()
+
+                    delegate: ActionButton {
+                        required property var modelData
+
+                        Layout.fillWidth: true
+                        implicitHeight: root.rowHeight
+                        enabled: !NordVPN.connecting
+                        active: NordVPN.connected && modelData.kind === "country" && modelData.name === NordVPN.country
+                        accentColor: Config.styling.good
+                        highlightSide: ActiveIndicator.Side.Left
+                        highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAlong
+                        highlightThickness: Config.spacing.xxs
+                        onClicked: root.connectNordVpnDestination(modelData)
+
+                        contentItem: Item {
+                            implicitWidth: root.contentWidth
+                            implicitHeight: Math.max(root.rowHeight, content.implicitHeight + root.verticalPadding * 2)
+
+                            RowLayout {
+                                id: content
+                                anchors {
+                                    fill: parent
+                                    leftMargin: root.horizontalPadding
+                                    rightMargin: root.horizontalPadding
+                                    topMargin: root.verticalPadding
+                                    bottomMargin: root.verticalPadding
+                                }
+                                spacing: root.iconTextGap
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 0
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: root.nordVpnDestinationLabel(modelData)
+                                        color: Config.styling.text0
+                                        font.pixelSize: root.itemTextSize
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                    }
+
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: root.nordVpnDestinationSubtext(modelData)
+                                        color: Config.styling.text2
+                                        font.pixelSize: root.itemSubtextSize
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    visible: root.filteredNordVpnDestinations().length === 0
+                    text: "No NordVPN destinations found"
+                    color: Config.styling.text2
+                    font.pixelSize: 12
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 160
+                visible: NordVPN.connecting
+                spacing: root.iconTextGap
+
+                Icon {
+                    Layout.preferredWidth: root.itemIconSize
+                    Layout.preferredHeight: root.itemIconSize
+                    iconName: "view-refresh-symbolic"
+                    color: Config.styling.text1
+                    implicitSize: root.itemIconSize
+                    rotation: NordVPN.connecting ? 360 : 0
+
+                    RotationAnimation on rotation {
+                        running: NordVPN.connecting
+                        loops: Animation.Infinite
+                        from: 0
+                        to: 360
+                        duration: Config.behaviour.animation.enabled ? Config.behaviour.animation.calc(0.9) : 0
+                    }
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "Connecting, please wait..."
+                    color: Config.styling.text1
+                    font.pixelSize: root.itemTextSize
+                    font.bold: true
+                    elide: Text.ElideRight
+                }
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 1
+                color: Config.styling.bg3
+            }
+
+            InfoRow {
+                Layout.fillWidth: true
+                label: "Server"
+                value: NordVPN.server
+            }
+
+            InfoRow {
+                Layout.fillWidth: true
+                label: "Hostname"
+                value: NordVPN.hostname
+            }
+
+            InfoRow {
+                Layout.fillWidth: true
+                label: "IP"
+                value: NordVPN.ip
+            }
+
+            InfoRow {
+                Layout.fillWidth: true
+                label: "Technology"
+                value: NordVPN.technology
+            }
+
+            InfoRow {
+                Layout.fillWidth: true
+                label: "Protocol"
+                value: NordVPN.protocol
+            }
+
+        }
+    }
+
+    DashboardSection {
+        Layout.fillWidth: true
         title: "Wired connection"
+        visible: NetworkService.hasWiredConnection
 
         Rectangle {
-            visible: NetworkService.hasWiredConnection
             Layout.fillWidth: true
             color: Config.styling.bg3
             implicitHeight: root.rowHeight + root.horizontalPadding
@@ -479,35 +773,6 @@ DashboardPage {
                 }
             }
         }
-
-        Text {
-            visible: !NetworkService.hasWiredConnection
-            text: "No wired connection detected"
-            color: Config.styling.text2
-            font.pixelSize: 12
-        }
-    }
-
-    DashboardSection {
-        Layout.fillWidth: true
-        title: connectedNetworks.length === 1 ? "Connected network" : "Connected networks"
-
-        Repeater {
-            model: connectedNetworks
-
-            delegate: NetworkRow {
-                required property var modelData
-                Layout.fillWidth: true
-                network: modelData
-            }
-        }
-
-        Text {
-            visible: connectedNetworks.length === 0
-            text: "No connected Wi-Fi networks"
-            color: Config.styling.text2
-            font.pixelSize: 12
-        }
     }
 
     DashboardSection {
@@ -545,111 +810,6 @@ DashboardPage {
                 text: "No Wi-Fi networks found"
                 color: Config.styling.text2
                 font.pixelSize: 12
-            }
-        }
-    }
-
-    DashboardSection {
-        Layout.fillWidth: true
-        title: "NordVPN"
-        visible: NordVPN.available
-        collapsible: true
-        collapsed: true
-        summary: Component {
-            Text {
-                text: NordVPN.connected ? `${NordVPN.country} • ${NordVPN.server}` : NordVPN.status
-                color: NordVPN.connected ? Config.styling.good : Config.styling.text1
-                font.pixelSize: 12
-            }
-        }
-
-        ColumnLayout {
-            Layout.fillWidth: true
-            spacing: Config.spacing.xs
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: root.itemSpacing
-
-                Icon {
-                    Layout.preferredWidth: root.itemIconSize
-                    Layout.preferredHeight: root.itemIconSize
-                    iconName: NordVPN.connected ? "network-vpn-symbolic" : "network-vpn-disconnected-symbolic"
-                    color: NordVPN.connected ? Config.styling.good : Config.styling.text1
-                    implicitSize: root.itemIconSize
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-
-                    Text {
-                        text: NordVPN.connected ? "Connected" : "Disconnected"
-                        color: NordVPN.connected ? Config.styling.good : Config.styling.text0
-                        font.pixelSize: root.itemTextSize
-                        font.bold: true
-                    }
-
-                    Text {
-                        visible: NordVPN.connected
-                        text: `${NordVPN.city}, ${NordVPN.country} (${NordVPN.server})`
-                        color: Config.styling.text2
-                        font.pixelSize: 12
-                    }
-                }
-
-                SmallButton {
-                    text: NordVPN.connected ? "Disconnect" : "Connect"
-                    onClicked: NordVPN.connected ? NordVPN.disconnect() : NordVPN.connect()
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: 1
-                color: Config.styling.bg3
-            }
-
-            InfoRow {
-                Layout.fillWidth: true
-                label: "Server"
-                value: NordVPN.server
-            }
-
-            InfoRow {
-                Layout.fillWidth: true
-                label: "Hostname"
-                value: NordVPN.hostname
-            }
-
-            InfoRow {
-                Layout.fillWidth: true
-                label: "IP"
-                value: NordVPN.ip
-            }
-
-            InfoRow {
-                Layout.fillWidth: true
-                label: "Technology"
-                value: NordVPN.technology
-            }
-
-            InfoRow {
-                Layout.fillWidth: true
-                label: "Protocol"
-                value: NordVPN.protocol
-            }
-
-            InfoRow {
-                Layout.fillWidth: true
-                label: "Transfer"
-                value: NordVPN.transfer
-            }
-
-            InfoRow {
-                Layout.fillWidth: true
-                label: "Uptime"
-                value: NordVPN.uptime
             }
         }
     }
