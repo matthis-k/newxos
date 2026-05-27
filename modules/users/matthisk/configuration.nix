@@ -87,32 +87,32 @@ in
     programs.ssh = {
       enable = true;
       enableDefaultConfig = false;
-      matchBlocks = {
+      settings = {
         "*" = {
-          forwardAgent = false;
-          addKeysToAgent = "no";
-          compression = false;
-          serverAliveInterval = 0;
-          serverAliveCountMax = 3;
-          hashKnownHosts = false;
-          userKnownHostsFile = "~/.ssh/known_hosts";
-          controlMaster = "no";
-          controlPath = "~/.ssh/master-%r@%n:%p";
-          controlPersist = "no";
+          ForwardAgent = false;
+          AddKeysToAgent = "no";
+          Compression = false;
+          ServerAliveInterval = 0;
+          ServerAliveCountMax = 3;
+          HashKnownHosts = false;
+          UserKnownHostsFile = "~/.ssh/known_hosts";
+          ControlMaster = "no";
+          ControlPath = "~/.ssh/master-%r@%n:%p";
+          ControlPersist = "no";
         };
 
         "matthisk-desktop-newxos desktop" = {
-          hostname = "matthisk-desktop-newxos.local";
-          identitiesOnly = true;
-          identityFile = "/run/secrets/home_network_id";
-          user = "matthisk";
+          HostName = "matthisk-desktop-newxos.local";
+          IdentitiesOnly = true;
+          IdentityFile = "/run/secrets/home_network_id";
+          User = "matthisk";
         };
 
         "matthisk-laptop-newxos laptop" = {
-          hostname = "matthisk-laptop-newxos.local";
-          identitiesOnly = true;
-          identityFile = "/run/secrets/home_network_id";
-          user = "matthisk";
+          HostName = "matthisk-laptop-newxos.local";
+          IdentitiesOnly = true;
+          IdentityFile = "/run/secrets/home_network_id";
+          User = "matthisk";
         };
       };
     };
