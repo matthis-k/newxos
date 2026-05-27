@@ -220,25 +220,34 @@
 
           specs.plugins.data = map pluginPackage pluginManifest;
         };
+      nvimNix = commonConfig {
+        inherit pkgs;
+        binName = "nvim-nix";
+        configDirectory = ../../configs/nvim;
+      };
+      nvimDev = commonConfig {
+        inherit pkgs;
+        binName = "nvim-dev";
+        configDirectory = lib.generators.mkLuaInline (builtins.toJSON (toString ../../configs/nvim));
+        dontLink = true;
+      };
+      nvim =
+        pkgs.runCommand "nvim"
+          {
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            meta.description = "Neovim launcher that switches to live config when NEWXOS_DEV=1.";
+          }
+          ''
+            mkdir -p $out/bin
+            makeWrapper ${nvimNix}/bin/nvim-nix $out/bin/nvim \
+              --run 'if [ "''${NEWXOS_DEV:-0}" = 1 ]; then exec ${nvimDev}/bin/nvim-dev "$@"; fi'
+            ln -s nvim $out/bin/vi
+            ln -s nvim $out/bin/vim
+          '';
     in
     {
       packages = rec {
-        nvim = commonConfig {
-          inherit pkgs;
-          aliases = [
-            "vi"
-            "vim"
-          ];
-          configDirectory = ../../configs/nvim;
-        };
-
-        nvimdev = commonConfig {
-          inherit pkgs;
-          aliases = [ "nvd" ];
-          binName = "nvimdev";
-          configDirectory = lib.generators.mkLuaInline (builtins.toJSON (toString ../../configs/nvim));
-          dontLink = true;
-        };
+        inherit nvim;
 
         default = nvim;
 
@@ -251,19 +260,29 @@
     };
 
   flake.modules.homeManager.neovim =
-    { pkgs, ... }:
+    {
+      pkgs,
+      config,
+      lib,
+      ...
+    }:
+    let
+      useDevConfig = config.newxos.devMode or false;
+    in
     {
       home.packages = withSystem pkgs.stdenv.hostPlatform.system (
         { self', ... }:
         [
           self'.packages.nvim
-          self'.packages.nvimdev
         ]
       );
 
       home.sessionVariables = {
         EDITOR = "nvim";
         VISUAL = "nvim";
+      }
+      // lib.optionalAttrs useDevConfig {
+        NEWXOS_DEV = "1";
       };
     };
 }
