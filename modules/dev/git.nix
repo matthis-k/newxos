@@ -55,12 +55,12 @@
         end
       '';
 
-      programs.ssh.matchBlocks."github.com" = {
-        addKeysToAgent = "yes";
-        hostname = "github.com";
-        identitiesOnly = true;
-        identityFile = "/run/secrets/github_id";
-        user = "git";
+      programs.ssh.settings."github.com" = {
+        AddKeysToAgent = "yes";
+        HostName = "github.com";
+        IdentitiesOnly = true;
+        IdentityFile = "/run/secrets/github_id";
+        User = "git";
       };
     };
 }
