@@ -2,9 +2,10 @@
 import QtQuick
 import Quickshell
 import "./services"
+import "./utils"
 
 ShellRoot {
     property ShellState shellState: ShellState
     property Stats stats: Stats
-    // hi
+    property DevLogger devLogger: DevLogger {}
 }

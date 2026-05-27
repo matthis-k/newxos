@@ -15,6 +15,7 @@
       stylixEnabled = builtins.hasAttr "stylix" options;
       iconThemeName =
         if config.stylix.polarity == "light" then config.stylix.icons.light else config.stylix.icons.dark;
+      useDevConfig = config.newxos.devMode or false;
     in
     {
       home.packages = withSystem pkgs.stdenv.hostPlatform.system (
@@ -22,7 +23,6 @@
         [
           self'.packages.quickshell
           self'.packages.newshell
-          self'.packages.newshelldev
           self'.packages.nordvpn-watch
           pkgs.kdePackages.qtdeclarative
           pkgs.kdePackages.qt3d
@@ -57,7 +57,8 @@
             Environment = [
               "PATH=%h/.nix-profile/bin:/etc/profiles/per-user/%u/bin:/run/wrappers/bin:/run/current-system/sw/bin"
               "XDG_CURRENT_DESKTOP=Hyprland"
-            ];
+            ]
+            ++ lib.optional useDevConfig "NEWXOS_DEV=1";
           }
         );
       };

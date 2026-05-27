@@ -19,6 +19,7 @@ This folder covers Nix language, flake composition, and package management in th
 
 - [fact] Content not yet written
 - [decision] See [[flake-parts]] and [[Scope Boundaries And Per-System Access]] for current Nix guidance
+- [fact] [[Dev Specialization]] tracks the runtime dev-mode wrapper pattern
 
 ## Relations
 
@@ -32,3 +33,4 @@ Content not yet written. See [[flake-parts]] and [[Scope Boundaries And Per-Syst
 
 - [[architecture-index]]
 - [[sources-index]]
+- [[Dev Specialization]]

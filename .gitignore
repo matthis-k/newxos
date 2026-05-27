@@ -3,3 +3,6 @@
 
 # Local generated state
 /.cache/
+
+# Generated Hyprland Nix import
+/configs/hypr/nix-import.lua
