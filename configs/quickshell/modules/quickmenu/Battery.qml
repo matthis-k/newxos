@@ -5,6 +5,7 @@ import Quickshell.Services.UPower
 import qs.services
 import qs.services as Services
 import qs.components
+import qs.utils
 
 ColumnLayout {
     id: root
@@ -297,16 +298,20 @@ ColumnLayout {
     }
 
     Rectangle {
+        id: graphSeparator
+
         Layout.fillWidth: true
+        visible: root.showGraph && root.hasBattery
         implicitHeight: 1
         color: Config.styling.bg3
     }
 
     ColumnLayout {
+        id: graphSection
+
         Layout.fillWidth: true
         visible: root.showGraph && root.hasBattery
         spacing: Config.spacing.xs
-
         Text {
             Layout.fillWidth: true
             text: qsTr("Battery history (5h)")
