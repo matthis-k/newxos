@@ -20,6 +20,7 @@ in
       common-workstation
       matthisk
       llm-server
+      devSpecialization
     ];
 
     services.llm-server = {
