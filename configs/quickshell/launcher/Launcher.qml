@@ -40,11 +40,9 @@ PanelWindow {
     property int iconSize: 32
 
     function open(arg) {
-        console.warn("LAUNCHER open called with:", JSON.stringify(arg));
         if (arg === undefined) {
             root.backends = root.backendSets[root.backendSet] || root.backendSets.all;
         } else if (typeof arg === "string") {
-            console.warn("LAUNCHER resolving named set:", arg);
             root.backends = root.backendSets[arg] || root.backendSets.all;
         } else if (Array.isArray(arg)) {
             var first = arg[0];
@@ -53,8 +51,6 @@ PanelWindow {
             else
                 root.backends = arg;
         }
-        console.warn("LAUNCHER active backends:", root.backends.map(function(b) { return b ? b.backendId : "null"; }));
-        console.warn("LAUNCHER setting visible=true");
         visible = true;
         focusGrab.active = true;
         input.forceActiveFocus();
@@ -246,7 +242,7 @@ PanelWindow {
                 Layout.preferredHeight: visible ? listView.contentHeight : 0
                 Layout.maximumHeight: root.rowHeight * root.visibleResultRows
 
-                onVisibleChanged: console.warn("LAUNCHER resultsFrame visible:", visible, "results:", controller.results.length)
+                onVisibleChanged: { }
 
                 ListView {
                     id: listView
