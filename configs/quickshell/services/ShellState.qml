@@ -180,16 +180,66 @@ Singleton {
     IpcHandler {
         target: "launcher"
         function open() {
-            forActiveScreens(screen => getScreenByName(screen.name).launcher.open());
+            forActiveScreens(screen => {
+                const ss = getScreenByName(screen.name);
+                if (ss)
+                    ss.launcher.open();
+            });
+        }
+        function openWith(arg: string) {
+            try {
+                const parsed = JSON.parse(arg);
+                forActiveScreens(screen => getScreenByName(screen.name).launcher.open(parsed));
+            } catch (e) {
+                forActiveScreens(screen => getScreenByName(screen.name).launcher.open(arg));
+            }
         }
         function close() {
             forActiveScreens(screen => getScreenByName(screen.name).launcher.close());
         }
         function toggle() {
             forActiveScreens(screen => {
-                const launcher = getScreenByName(screen.name).launcher;
-                launcher.visible ? launcher.close() : launcher.open();
+                const ss = getScreenByName(screen.name);
+                if (ss) {
+                    const launcher = ss.launcher;
+                    if (launcher)
+                        launcher.visible ? launcher.close() : launcher.open();
+                }
             });
+        }
+        function toggleWith(arg: string) {
+            try {
+                const parsed = JSON.parse(arg);
+                forActiveScreens(screen => {
+                    const launcher = getScreenByName(screen.name).launcher;
+                    launcher.visible ? launcher.close() : launcher.open(parsed);
+                });
+            } catch (e) {
+                forActiveScreens(screen => {
+                    const launcher = getScreenByName(screen.name).launcher;
+                    launcher.visible ? launcher.close() : launcher.open(arg);
+                });
+            }
+        }
+        function debugComplete(query: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugComplete(query) : "[]";
+        }
+        function debugCompleteBackend(backend: string, query: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugCompleteBackend(backend, query) : "[]";
+        }
+        function debugRoutes(query: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugRoutes(query) : "[]";
+        }
+        function debugSearch(query: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugSearch(query) : "{}";
+        }
+        function debugEvidence(resultId: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugEvidence(resultId) : "{}";
         }
     }
 

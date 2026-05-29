@@ -118,8 +118,6 @@ QtObject {
 
     function collectResults(text, currentGeneration) {
         var parsed = QueryParsing.parse(text);
-        console.warn("SEARCH query:", text, "prefix:", parsed.prefix, "body:", parsed.text);
-
         var engineResults = SearchEngine.search(backends, parsed, {
             profile: "general",
             maxResults: maxResults * 2
@@ -129,7 +127,6 @@ QtObject {
             return;
 
         var normalized = engineResults.map(function(c) { return ResultUtils.searchCandidateToResult(c); }).filter(Boolean);
-        console.warn("SEARCH collected:", normalized.length, "results");
 
         setResults(normalized.slice(0, maxResults));
     }
