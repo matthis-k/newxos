@@ -11,6 +11,7 @@ let
         efiSupport = true;
         device = "nodev";
         useOSProber = true;
+        default = "saved";
       };
     };
   };

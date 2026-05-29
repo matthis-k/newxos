@@ -378,7 +378,7 @@
               "OPENVPN"
               "NORDWHISPER"
             ];
-            default = "NORDLYNX";
+            default = "OPENVPN";
             description = "NordVPN connection technology.";
           };
 

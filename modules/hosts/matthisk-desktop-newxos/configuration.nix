@@ -56,6 +56,7 @@ in
         group = "Dedicated_IP";
         target = [ ];
       };
+      settings.technology = "NORDLYNX";
       settings.allowlist = {
         ports = [
           {
