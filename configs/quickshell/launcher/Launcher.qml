@@ -7,13 +7,23 @@ import Quickshell.Wayland
 import qs.services
 import "backends" as Backends
 import "delegates" as Delegates
+import "logic/SearchEngine.js" as SearchEngine
+import "logic/EvidenceScorer.js" as EvidenceScorer
 
 PanelWindow {
     id: root
 
     property alias query: controller.query
     property var shellScreenState: null
-    property var backends: [backendsBackend, calculatorBackend, desktopBackend, filesBackend, webBackend]
+    property string backendSet: "all"
+    property var backendFilter: null
+    property var backendSets: ({
+        "all": [backendsBackend, desktopActionsBackend, calculatorBackend, desktopBackend, filesBackend, webBackend],
+        "desktop": [desktopBackend],
+        "dmenu": [desktopBackend, calculatorBackend, filesBackend]
+    })
+    readonly property var allBackends: [backendsBackend, desktopActionsBackend, calculatorBackend, desktopBackend, filesBackend, webBackend]
+    property var backends: root.backendSets[root.backendSet] || root.backendSets.all
     property Component resultDelegate: defaultResultDelegate
     property Component sectionHeaderDelegate: defaultSectionHeaderDelegate
     property Component actionDelegate
@@ -21,15 +31,30 @@ PanelWindow {
     property bool showSubtitles: true
     property bool showActionHint: true
     property bool showSourceBadge: false
+    property bool showTreeResults: true
+    property bool showEvidence: false
     property int maxResults: 512
     property int maxResultsPerBackend: 5
     property int visibleResultRows: 12
     property int rowHeight: 56
     property int iconSize: 32
 
-    signal closeRequested()
-
-    function open() {
+    function open(arg) {
+        console.warn("LAUNCHER open called with:", JSON.stringify(arg));
+        if (arg === undefined) {
+            root.backends = root.backendSets[root.backendSet] || root.backendSets.all;
+        } else if (typeof arg === "string") {
+            console.warn("LAUNCHER resolving named set:", arg);
+            root.backends = root.backendSets[arg] || root.backendSets.all;
+        } else if (Array.isArray(arg)) {
+            var first = arg[0];
+            if (typeof first === "string")
+                root.backends = root.allBackends.filter(function(backend) { return backend && arg.indexOf(backend.backendId) >= 0; });
+            else
+                root.backends = arg;
+        }
+        console.warn("LAUNCHER active backends:", root.backends.map(function(b) { return b ? b.backendId : "null"; }));
+        console.warn("LAUNCHER setting visible=true");
         visible = true;
         focusGrab.active = true;
         input.forceActiveFocus();
@@ -40,6 +65,26 @@ PanelWindow {
         visible = false;
         controller.reset();
         input.text = "";
+    }
+
+    function debugComplete(text) {
+        return controller.debugComplete(text || "");
+    }
+
+    function debugCompleteBackend(backendName, text) {
+        return controller.debugCompleteBackend(backendName || "", text || "");
+    }
+
+    function debugRoutes(text) {
+        return controller.debugRoutes(text || "");
+    }
+
+    function debugSearch(text) {
+        return controller.debugSearch(text || "");
+    }
+
+    function debugEvidence(resultId) {
+        return controller.debugEvidence(resultId || "");
     }
 
     anchors {
@@ -71,12 +116,20 @@ PanelWindow {
         id: desktopBackend
         backendId: "desktop"
         maxResults: root.maxResultsPerBackend
+        controller: controller
     }
 
     Backends.BackendsBackend {
         id: backendsBackend
         backendId: "backends"
-        describedBackends: root.backends
+        describedBackends: root.allBackends
+        controller: controller
+    }
+
+    Backends.DesktopActionsBackend {
+        id: desktopActionsBackend
+        shellScreenState: root.shellScreenState
+        controller: controller
     }
 
     Backends.CalculatorBackend {
@@ -87,6 +140,7 @@ PanelWindow {
     Backends.WebSearchBackend {
         id: webBackend
         backendId: "web"
+        controller: controller
     }
 
     Backends.FilesBackend {
@@ -99,11 +153,17 @@ PanelWindow {
         backends: root.backends
         maxResults: root.maxResults
 
-        onQueryReplacementRequested: text => {
+        onQueryReplacementRequested: function(text) {
             input.text = text;
             updateQuery(text);
             input.forceActiveFocus();
             input.cursorPosition = input.text.length;
+        }
+
+        onBackendsChangeRequested: function(backendIds) {
+            root.backends = root.allBackends.filter(function(b) {
+                return b && backendIds.indexOf(b.backendId) >= 0;
+            });
         }
     }
 
@@ -152,15 +212,19 @@ PanelWindow {
 
                 onTextEdited: controller.updateQuery(text)
 
-                Keys.onPressed: event => {
+                Keys.onPressed: function(event) {
                     if (event.key === Qt.Key_Down || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_N)) {
                         controller.moveSelection(1);
                         event.accepted = true;
                     } else if (event.key === Qt.Key_Up || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_P)) {
                         controller.moveSelection(-1);
                         event.accepted = true;
+                    } else if (event.key === Qt.Key_Tab) {
+                        if (!(event.modifiers & Qt.ShiftModifier))
+                            controller.completeSelected();
+                        event.accepted = true;
                     } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                        if (controller.activateSelected())
+                        if (controller.activateSelected(false))
                             root.close();
                         event.accepted = true;
                     } else if (event.key === Qt.Key_Escape) {
@@ -182,6 +246,8 @@ PanelWindow {
                 Layout.preferredHeight: visible ? listView.contentHeight : 0
                 Layout.maximumHeight: root.rowHeight * root.visibleResultRows
 
+                onVisibleChanged: console.warn("LAUNCHER resultsFrame visible:", visible, "results:", controller.results.length)
+
                 ListView {
                     id: listView
                     anchors.fill: parent
@@ -200,11 +266,13 @@ PanelWindow {
 
                         width: ListView.view.width
                         height: root.rowHeight
-                        sourceComponent: root.resultDelegate
+                        sourceComponent: modelData.children && modelData.children.length > 0 && root.showTreeResults
+                            ? root.treeResultDelegate
+                            : root.resultDelegate
 
                         onLoaded: {
                             item.result = modelData;
-                            item.selected = Qt.binding(() => controller.selectedIndex === index);
+                            item.selected = Qt.binding(function() { return controller.selectedIndex === index; });
                             item.iconSize = root.iconSize;
                             item.showSubtitle = root.showSubtitles;
                             item.showActionHint = root.showActionHint;
@@ -212,9 +280,9 @@ PanelWindow {
                             if ("controller" in item)
                                 item.controller = controller;
                             if (item.activated)
-                                item.activated.connect(result => {
+                                item.activated.connect(function(result) {
                                     controller.selectedIndex = index;
-                                    if (controller.activateSelected())
+                                    if (controller.activateSelected(false))
                                         root.close();
                                 });
                         }
@@ -232,5 +300,10 @@ PanelWindow {
     Component {
         id: defaultSectionHeaderDelegate
         Delegates.SectionHeader {}
+    }
+
+    Component {
+        id: treeResultDelegate
+        Delegates.TreeResultDelegate {}
     }
 }

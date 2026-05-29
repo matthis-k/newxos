@@ -1,4 +1,5 @@
 .pragma library
+Qt.include("QueryTokens.js")
 
 function normalize(text) {
     return (text || "").toString().toLowerCase().trim();
@@ -39,8 +40,12 @@ function score(result, query, backendPriority, parsedQuery) {
 
     const relevance = Number(result.relevance || 0) * 100;
     const priority = Number(backendPriority || 0);
-    const queryText = parsedQuery && parsedQuery.text ? parsedQuery.text : query;
+    const queryItems = parsedQuery && parsedQuery.prefix ? bodyTokens(query, parsedQuery.prefix) : tokens(query);
+    const queryText = parsedQuery && parsedQuery.text ? parsedQuery.text : textFromTokens(queryItems);
     let value = priority + relevance + fuzzyScore(queryText, result.title, result.subtitle);
+
+    for (const token of queryItems)
+        value += fuzzyScore(token, result.title, result.subtitle) * 0.35;
 
     if (parsedQuery && parsedQuery.explicit) {
         value += result.source === parsedQuery.targetBackend ? 300 : -100;

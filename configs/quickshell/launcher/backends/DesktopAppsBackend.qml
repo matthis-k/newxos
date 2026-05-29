@@ -1,112 +1,100 @@
 import QtQml
 import Quickshell
-import "../logic/QueryParsing.js" as QueryParsing
-import "../logic/Scoring.js" as Scoring
+import "../logic/CommandTree.js" as CommandTree
 
-LauncherBackendBase {
+CommandTreeBackendBase {
     id: root
 
-    property string category: qsTr("Applications")
+    property var controller: null
+
+    category: qsTr("Applications")
 
     backendId: "desktop"
     name: qsTr("Desktop Applications")
     helpTitle: qsTr("Applications")
     helpDescription: qsTr("Search desktop entries")
     helpIcon: "application-x-executable"
-    helpPrefixes: ["@app", "@apps", "@desktop", "app"]
+    helpPrefixes: ["@app", "@apps", "@desktop"]
     priority: 80
     maxResults: 6
+    routes: [
+        { pattern: "^@app\\s+(.*)", mode: "exclusive" },
+        { pattern: "^@app$", mode: "exclusive" },
+        { pattern: "^@apps\\s+(.*)", mode: "exclusive" },
+        { pattern: "^@apps$", mode: "exclusive" },
+        { pattern: "^@desktop\\s+(.*)", mode: "exclusive" },
+        { pattern: "^@desktop$", mode: "exclusive" },
+        { pattern: "^.*$", mode: "ambient" }
+    ]
 
-    function canHandle(query) {
-        const parsed = QueryParsing.parse(query);
-        if (!enabled)
-            return false;
-        if (parsed.explicit && parsed.targetBackend !== root.backendId)
-            return false;
-        if (parsed.explicit && parsed.targetBackend === root.backendId)
+    treePrefixes: ["@app", "@apps", "@desktop"]
+    treeRoots: appTree
+
+    readonly property var appTree: buildAppTree()
+
+    function skipEntry(entry) {
+        if (entry.noDisplay || !entry.name)
             return true;
-        return parsed.text.length > 0 || parsed.raw.length > 0;
+        const cats = (entry.categories || []).map(c => c.toLowerCase());
+        if (cats.indexOf("consoleonly") >= 0 || cats.indexOf("screensaver") >= 0)
+            return true;
+        return false;
     }
 
-    function searchableText(entry) {
-        return [entry.name, entry.genericName, entry.comment, (entry.keywords || []).join(" ")].join(" ");
-    }
-
-    function actionLabel(action) {
-        return action.name || action.id || qsTr("Run");
-    }
-
-    function resultForEntry(entry, queryText, score) {
-        const actions = [{ id: "open", label: qsTr("Open", "action: launch app"), icon: "document-open", default: true }];
-        for (const action of entry.actions || []) {
-            if (!action || !action.id)
+    function buildAppTree() {
+        const entries = DesktopEntries.applications.values || [];
+        const children = [];
+        for (const entry of entries) {
+            if (skipEntry(entry))
                 continue;
-
-            actions.push({
-                id: action.id,
-                label: actionLabel(action),
-                icon: action.icon || null,
-                default: false
-            });
+            children.push(entryNode(entry));
         }
+        return [{
+            id: "apps",
+            title: qsTr("Applications"),
+            subtitle: qsTr("%1 apps").arg(children.length),
+            icon: "application-x-executable",
+            result: false,
+            children: children
+        }];
+    }
 
-        return {
-            id: entry.id,
-            source: root.backendId,
-            category: root.category,
-            title: entry.name || entry.id,
+    function entryNode(entry) {
+        const actions = (entry.actions || []).filter(a => a && a.id);
+        const base = {
+            id: entry.id.replace(/\.desktop$/, "").toLowerCase().replace(/[\s-]/g, "_"),
+            title: entry.name,
             subtitle: entry.genericName || entry.comment || null,
             icon: entry.icon || "application-x-executable",
-            relevance: Math.min(1, Math.max(0.05, score / 50)),
-            actions: actions,
-            metadata: { desktopEntry: entry.id, query: queryText }
+            action: { entryId: entry.id }
         };
-    }
-
-    function search(query, context) {
-        const parsed = QueryParsing.parse(query);
-        const queryText = parsed.targetBackend === root.backendId ? parsed.text : parsed.raw;
-
-        const entries = DesktopEntries.applications.values || [];
-        const matches = [];
-
-        for (const entry of entries) {
-            if (!entry || entry.noDisplay || !entry.name)
-                continue;
-
-            if (!queryText) {
-                matches.push(resultForEntry(entry, queryText, 8));
-                continue;
-            }
-
-            const score = Math.max(
-                Scoring.fuzzyScore(queryText, entry.name, entry.genericName),
-                Scoring.fuzzyScore(queryText, searchableText(entry), "")
-            );
-
-            if (score <= 0)
-                continue;
-
-            matches.push(resultForEntry(entry, queryText, score));
+        if (actions.length > 0) {
+            base.children = actions.map(a => ({
+                id: a.id,
+                title: a.name || a.id,
+                subtitle: entry.name,
+                icon: a.icon || entry.icon || "application-x-executable",
+                action: { entryId: entry.id, actionId: a.id }
+            }));
         }
-
-        matches.sort((a, b) => b.relevance - a.relevance || a.title.localeCompare(b.title));
-        const limited = parsed.targetBackend === root.backendId ? matches : matches.slice(0, root.maxResults);
-        return limited;
+        return base;
     }
 
     function activate(result, action) {
-        const entryId = result && result.metadata ? result.metadata.desktopEntry : null;
+        const metadata = result ? result.metadata || {} : {};
+        const cmdAction = metadata.action || {};
+        const entryId = metadata.desktopEntry || cmdAction.entryId;
         const entry = entryId ? DesktopEntries.byId(entryId) : null;
         if (!entry)
             return;
 
-        if (!action || action.id === "open") {
+        const actionId = cmdAction.actionId || (action ? action.id : null);
+        if (!actionId || actionId === "open") {
             launchDesktopCommand(entry.command, entry.workingDirectory, entry.runInTerminal);
             return;
         }
 
-        const desktopAction = (entry.actions || []).find(item => item.id === action.id);
+        const desktopAction = (entry.actions || []).find(item => item.id === actionId);
         if (desktopAction)
             launchDesktopCommand(desktopAction.command, entry.workingDirectory, entry.runInTerminal);
     }
