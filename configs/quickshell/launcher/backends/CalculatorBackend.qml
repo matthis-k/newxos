@@ -1,6 +1,5 @@
 import QtQml
 import Quickshell
-import "../logic/QueryParsing.js" as QueryParsing
 
 LauncherBackendBase {
     id: root
@@ -15,14 +14,17 @@ LauncherBackendBase {
     helpPrefixes: ["@calc", "@calculator", "="]
     priority: 100
     maxResults: 1
+    routes: [
+        { pattern: "^@calc(ulator)?\\s+(.*)", mode: "exclusive" },
+        { pattern: "^=\\s?(.*)", mode: "exclusive" },
+        { pattern: "^.*$", mode: "ambient" }
+    ]
 
-    function canHandle(query) {
-        if (!enabled)
+    function isEnabled(query) {
+        if (!root.enabled)
             return false;
-
-        const parsed = QueryParsing.parse(query);
-        const expression = parsed.targetBackend === root.backendId ? parsed.text : parsed.raw;
-        return expression.length > 0 && (parsed.targetBackend === root.backendId || looksLikeMath(expression));
+        const expression = root.queryText(query);
+        return expression.length > 0 && looksLikeMath(expression);
     }
 
     function looksLikeMath(expression) {
@@ -194,18 +196,15 @@ LauncherBackendBase {
         return rounded.toString();
     }
 
-    function search(query, context) {
-        const parsed = QueryParsing.parse(query);
-        const expression = parsed.targetBackend === root.backendId ? parsed.text : parsed.raw;
+    function results(query) {
+        const expression = root.queryText(query);
         if (!expression)
             return [];
 
         try {
             const output = formatResult(evaluate(expression));
-            return [{
+            return [root.buildResult({
                 id: "calc:" + expression,
-                source: root.backendId,
-                category: root.category,
                 title: expression,
                 subtitle: output,
                 icon: "accessories-calculator",
@@ -215,7 +214,7 @@ LauncherBackendBase {
                     { id: "copy-expression", label: qsTr("Copy expression"), icon: "edit-copy", default: false }
                 ],
                 metadata: { expression: expression, result: output }
-            }];
+            })];
         } catch (error) {
             return [];
         }

@@ -1,46 +1,95 @@
 .pragma library
+Qt.include("QueryTokens.js")
 
-const prefixes = {
-    "=": { backend: "calculator", value: "=", explicit: true },
-    "?": { backend: "backends", value: "?", explicit: true },
-    "g": { backend: "web", engine: "g", value: "g", explicit: true },
-    "ddg": { backend: "web", engine: "ddg", value: "ddg", explicit: true },
-    "gh": { backend: "web", engine: "gh", value: "gh", explicit: true },
-    "yt": { backend: "web", engine: "yt", value: "yt", explicit: true },
-    "app": { backend: "desktop", value: "app", explicit: true },
-    "file": { backend: "files", value: "file", explicit: true },
-    "@app": { backend: "desktop", value: "@app", explicit: true },
-    "@apps": { backend: "desktop", value: "@apps", explicit: true },
-    "@desktop": { backend: "desktop", value: "@desktop", explicit: true },
-    "@calc": { backend: "calculator", value: "@calc", explicit: true },
-    "@calculator": { backend: "calculator", value: "@calculator", explicit: true },
-    "@web": { backend: "web", engine: "default", value: "@web", explicit: true },
-    "@file": { backend: "files", value: "@file", explicit: true },
-    "@files": { backend: "files", value: "@files", explicit: true }
+var namedPrefixes = ["@app", "@apps", "@desktop", "@calc", "@calculator", "@web", "@g", "@ddg", "@gh", "@yt", "@file", "@files"];
+var symbolicPrefixes = [":", "=", ">", "?"];
+
+var prefixToBackend = {
+  ":": "desktop-actions",
+  "!": "desktop-actions",
+  "=": "calculator",
+  ">": "shell",
+  "?": "backends",
+  "@app": "desktop",
+  "@apps": "desktop",
+  "@desktop": "desktop",
+  "@calc": "calculator",
+  "@calculator": "calculator",
+  "@web": "web",
+  "@g": "web",
+  "@ddg": "web",
+  "@gh": "web",
+  "@yt": "web",
+  "@file": "files",
+  "@files": "files"
 };
 
+var namedPrefixEngines = {
+  "@web": "default",
+  "@g": "g",
+  "@ddg": "ddg",
+  "@gh": "gh",
+  "@yt": "yt"
+};
+
+function parsePrefix(raw) {
+  var s = String(raw || "").replace(/^\s+/, "");
+
+  var sortedNamed = namedPrefixes.slice().sort(function(a, b) { return b.length - a.length; });
+  for (var i = 0; i < sortedNamed.length; i += 1) {
+    var p = sortedNamed[i];
+    if (s === p)
+      return { prefix: p, body: "" };
+
+    if (s.startsWith(p)) {
+      var next = s[p.length];
+      if (next === undefined || /\s/.test(next) || next === ":" || next === "/") {
+        return {
+          prefix: p,
+          body: s.slice(p.length).replace(/^[:\s]+/, "")
+        };
+      }
+    }
+  }
+
+  for (var j = 0; j < symbolicPrefixes.length; j += 1) {
+    var sp = symbolicPrefixes[j];
+    if (s.startsWith(sp)) {
+      return {
+        prefix: sp,
+        body: s.slice(sp.length).replace(/^\s+/, "")
+      };
+    }
+  }
+
+  return { prefix: undefined, body: raw };
+}
+
 function parse(query) {
-    const raw = (query || "").trim();
-    if (!raw)
-        return { raw: "", text: "", prefix: null, targetBackend: null, explicit: false };
+  var raw = String(query || "").trim();
+  if (!raw)
+    return { raw: "", text: "", body: "", prefix: null, targetBackend: null, explicit: false, engine: null, tokens: [], explicitPathMode: false };
 
-    const parts = raw.split(/\s+/);
-    const token = parts[0].toLowerCase();
-    const prefix = prefixes[token];
+  var parsed = parsePrefix(raw);
+  var body = parsed.body || "";
+  var prefix = parsed.prefix;
+  var toks = tokens(body);
 
-    if (!prefix)
-        return { raw: raw, text: raw, prefix: null, targetBackend: null, explicit: false };
+  var hasPathSep = body.indexOf("/") >= 0 || body.indexOf("\u203A") >= 0;
 
-    return {
-        raw: raw,
-        text: raw.slice(parts[0].length).trim(),
-        prefix: prefix.value,
-        engine: prefix.engine || null,
-        targetBackend: prefix.backend,
-        explicit: true
-    };
+  return {
+    raw: raw,
+    text: body,
+    body: body,
+    prefix: prefix || null,
+    targetBackend: prefix ? prefixToBackend[prefix] : null,
+    engine: prefix ? namedPrefixEngines[prefix] : null,
+    explicit: !!prefix,
+    tokens: toks,
+    explicitPathMode: hasPathSep
+  };
 }
 
 function isExplicitFor(parsed, backendId) {
-    return !!parsed && parsed.explicit && parsed.targetBackend === backendId;
+  return !!parsed && parsed.explicit && parsed.targetBackend === backendId;
 }
