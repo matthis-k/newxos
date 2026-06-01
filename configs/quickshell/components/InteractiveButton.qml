@@ -24,58 +24,28 @@ Button {
     background: null
     contentItem: defaultContent
 
-    function applyScale(target, animation, targetScale) {
+    function applyScale(target, targetScale) {
         if (!target)
             return;
 
-        animation.stop();
-
-        if (scaleAnimationDuration <= 0) {
-            target.scale = targetScale;
-            return;
-        }
-
-        animation.target = target;
-        animation.to = targetScale;
-        animation.start();
+        target.scale = targetScale;
     }
 
     function updateScale() {
         const hoverFactor = hovered ? hoveredScale : unhoveredScale;
         const targetScale = baseScale * hoverFactor;
 
-        applyScale(scaleTarget, scaleAnimation, targetScale);
+        applyScale(scaleTarget, targetScale);
 
         if (scaleIcon && iconScaleTarget)
-            applyScale(iconScaleTarget, iconScaleAnimation, targetScale);
+            applyScale(iconScaleTarget, targetScale);
 
         if (scaleText && textScaleTarget)
-            applyScale(textScaleTarget, textScaleAnimation, targetScale);
+            applyScale(textScaleTarget, targetScale);
     }
 
     Item {
         id: defaultContent
-    }
-
-    NumberAnimation {
-        id: scaleAnimation
-        property: "scale"
-        duration: root.scaleAnimationDuration
-        easing.type: root.scaleAnimationEasing
-    }
-
-    NumberAnimation {
-        id: iconScaleAnimation
-        property: "scale"
-        duration: root.scaleAnimationDuration
-        easing.type: root.scaleAnimationEasing
-    }
-
-    NumberAnimation {
-        id: textScaleAnimation
-        property: "scale"
-        duration: root.scaleAnimationDuration
-        easing.type: root.scaleAnimationEasing
     }
 
     HoverHandler {

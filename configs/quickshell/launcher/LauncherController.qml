@@ -331,10 +331,28 @@ QtObject {
             return false;
         var actions = result.actions || [];
         for (var i = 0; i < actions.length; i += 1) {
-            if (actions[i] && actions[i].id === actionId)
-                return activateResult(result, actions[i]);
+            if (actions[i] && actions[i].id === actionId) {
+                var activated = activateResult(result, actions[i]);
+                if (activated && result.switchActions)
+                    refreshSwitchResult(result, actions[i]);
+                return activated;
+            }
         }
         return false;
+    }
+
+    function refreshSwitchResult(result, action) {
+        var payload = action && action.payload || {};
+        var state = payload.state;
+        if (state === true || state === false) {
+            result.switchState = state;
+        } else if (state === null) {
+            result.switchState = result.switchState === true ? false : true;
+        }
+        results = results.slice();
+        Qt.callLater(function() {
+            collectResults(query, generation);
+        });
     }
 
     function moveSelection(delta) {

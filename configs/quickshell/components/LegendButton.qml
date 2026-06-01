@@ -51,12 +51,6 @@ Item {
         radius: 3
         color: root.color
         opacity: root.effectiveChecked ? 1.0 : 0.5
-        Behavior on opacity {
-            NumberAnimation {
-                duration: Config.behaviour.animation.enabled ? Config.behaviour.animation.calc(0.12) : 0
-                easing.type: Easing.OutCubic
-            }
-        }
     }
 
     MouseArea {

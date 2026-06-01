@@ -13,6 +13,8 @@ Rectangle {
     property bool showActionHint: true
     property bool showSourceBadge: false
     property var controller: null
+    readonly property int switchControlWidth: 132
+    readonly property int switchActionButtonWidth: 40
 
     readonly property var defaultAction: {
         var actions = result.actions || [];
@@ -127,20 +129,36 @@ Rectangle {
             visible: !!root.result.switchActions
             spacing: Config.spacing.xxs
             Layout.alignment: Qt.AlignVCenter
-            Layout.preferredWidth: 92
+            Layout.minimumWidth: root.switchControlWidth
+            Layout.preferredWidth: root.switchControlWidth
+            Layout.maximumWidth: root.switchControlWidth
 
-            DashboardToggleSwitch {
-                checked: root.result.switchState === true
+            Item {
                 Layout.alignment: Qt.AlignRight
-                onToggled: {
-                    if (root.controller)
-                        root.controller.activateResultAction(root.result, "toggle");
+                Layout.preferredWidth: switchControl.implicitWidth
+                Layout.preferredHeight: switchControl.implicitHeight
+
+                DashboardToggleSwitch {
+                    id: switchControl
+                    checked: root.result.switchState === true
+                    anchors.fill: parent
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: function(mouse) {
+                        mouse.accepted = true;
+                        if (root.controller)
+                            root.controller.activateResultAction(root.result, "toggle");
+                    }
                 }
             }
 
             RowLayout {
                 spacing: Config.spacing.xxs
                 Layout.alignment: Qt.AlignRight
+                Layout.fillWidth: true
 
                 Repeater {
                     model: ["on", "toggle", "off"]
@@ -155,7 +173,7 @@ Rectangle {
                             : Config.styling.bg4
                         border.width: 1
                         radius: Config.styling.radius
-                        Layout.preferredWidth: 38
+                        Layout.preferredWidth: root.switchActionButtonWidth
                         Layout.preferredHeight: 20
 
                         Text {
@@ -167,8 +185,11 @@ Rectangle {
                             font.bold: root.defaultAction && root.defaultAction.id === modelData
                         }
 
-                        TapHandler {
-                            onSingleTapped: {
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: function(mouse) {
+                                mouse.accepted = true;
                                 if (root.controller)
                                     root.controller.activateResultAction(root.result, modelData);
                             }

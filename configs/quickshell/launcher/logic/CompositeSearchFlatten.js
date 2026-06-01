@@ -68,7 +68,7 @@ function rangesForField(evidenceItems, fieldName, nodeId) {
     return ranges;
 }
 
-function defaultActionForNode(node, query) {
+function defaultActionForNode(node, query, ownScore) {
     var actions = node.actionList || [];
     if (!node.switchActions)
         return actions[0] || null;
@@ -90,7 +90,7 @@ function defaultActionForNode(node, query) {
             for (var ai = 0; ai < aliases[id].length; ai += 1) {
                 var alias = aliases[id][ai];
                 var token = tokens[ti];
-                var score = token === alias ? 1 : alias.indexOf(token) === 0 && token.length >= 2 ? 0.78 + token.length / Math.max(20, alias.length * 20) : 0;
+                var score = token === alias ? 1 : alias.indexOf(token) === 0 && token.length >= 2 ? 0.78 + token.length / Math.max(20, alias.length * 20) : alias.length > token.length && alias.lastIndexOf(token) === alias.length - token.length ? (token.length >= 2 ? 0.72 + token.length / Math.max(20, alias.length * 20) : 0.75) : 0;
                 if (score > best.score)
                     best = { id: id, score: score };
             }
@@ -105,7 +105,7 @@ function toResultRow(ev, depth, state, ctx, childRows) {
     var node = ev.node;
     var chain = collectParentChain(node);
     var breadcrumbs = chain.slice(0, -1).map(function(n) { return n.label; });
-    var action = defaultActionForNode(node, ctx.query);
+    var action = defaultActionForNode(node, ctx.query, ev.ownScore);
     if (childRows && childRows.length) {
         var bestChildRow = childRows.slice().sort(function(a, b) { return b.score - a.score; })[0];
         if (bestChildRow && bestChildRow.executable && bestChildRow.enter && bestChildRow.enter.action && (bestChildRow.score > ev.ownScore + 0.03 || (ctx.query.tokens.length > 1 && bestChildRow.score >= 0.9 && bestChildRow.score > ev.ownScore - 0.08)))

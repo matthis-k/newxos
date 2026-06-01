@@ -92,6 +92,8 @@ function evaluateNode(node, query, ctx) {
     if (profile.scorePolicy === "semantic-result")
         own.visible = evidenceItems.length > 0;
 
+    var actionAliasBoost = node.switchActions && own.value > 0 ? computeSwitchActionBoost(node, query) : 0;
+
     var groupDisplay = node.behavior && node.behavior.flattenPolicy && node.behavior.flattenPolicy.groupDisplay || {};
     var keepAllChildren = groupDisplay.showAllChildrenOnParentMatch && own.visible;
     var retained = evaluatedChildren.filter(function(c) { return keepAllChildren || c.candidate || c.visible || ctx.showHidden; });
@@ -102,6 +104,8 @@ function evaluateNode(node, query, ctx) {
     }
     var descendantBoost = bestChildScore > 0 ? bestChildScore * (node.switchActions ? own.value > 0 ? 1 : 0.82 : node.kind === "backend" ? 0.82 : 0.28) : 0;
     var finalScore = clamp(Math.max(own.value, descendantBoost));
+    if (actionAliasBoost > 0)
+        finalScore = clamp(finalScore + own.value * 0.15 * actionAliasBoost);
     return {
         node: node,
         allowed: selfAllowed,
@@ -134,6 +138,32 @@ function collectParentChain(node) {
         cur = cur.parent;
     }
     return chain;
+}
+
+function computeSwitchActionBoost(node, query) {
+    var aliasMap = {
+        on: ["on", "enable", "connect"],
+        off: ["off", "disable", "disconnect"],
+        toggle: ["toggle", "switch"]
+    };
+    var acronym = String(node.label || "").replace(/[^A-Za-z0-9]/g, "").charAt(0).toLowerCase();
+    if (acronym) {
+        aliasMap.on.push(acronym + "o");
+        aliasMap.off.push(acronym + "f");
+        aliasMap.toggle.push(acronym + "t");
+    }
+    var bestTokenScore = 0;
+    for (var ti = 0; ti < query.tokens.length; ti += 1) {
+        var token = query.tokens[ti].normalized;
+        for (var actionId in aliasMap) {
+            for (var ai = 0; ai < aliasMap[actionId].length; ai += 1) {
+                var alias = aliasMap[actionId][ai];
+                var score = token === alias ? 1.0 : alias.indexOf(token) === 0 && token.length >= 2 ? 0.78 : alias.length > token.length && alias.lastIndexOf(token) === alias.length - token.length ? 0.65 : 0;
+                bestTokenScore = Math.max(bestTokenScore, score);
+            }
+        }
+    }
+    return bestTokenScore;
 }
 
 function pathEvidenceFromAncestors(node, query, ctx) {

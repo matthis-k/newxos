@@ -151,7 +151,7 @@ PanelWindow {
     LauncherController {
         id: controller
         backends: root.backends
-        maxResults: root.maxResults
+        maxResults: root.visibleResultRows
 
         onQueryReplacementRequested: function(text) {
             input.text = text;
@@ -243,50 +243,53 @@ PanelWindow {
                 id: resultsFrame
                 visible: controller.results.length > 0
                 Layout.fillWidth: true
-                Layout.preferredHeight: visible ? listView.contentHeight : 0
+                Layout.preferredHeight: Math.min(resultsColumn.implicitHeight, root.rowHeight * root.visibleResultRows)
                 Layout.maximumHeight: root.rowHeight * root.visibleResultRows
+                clip: true
 
-                onVisibleChanged: { }
-
-                ListView {
-                    id: listView
+                ColumnLayout {
+                    id: resultsColumn
                     anchors.fill: parent
-                    model: controller.results
-                    currentIndex: controller.selectedIndex
-                    clip: true
                     spacing: Config.spacing.xxs
-                    interactive: contentHeight > height
 
-                    onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
+                    Repeater {
+                        id: resultRepeater
+                        model: root.visibleResultRows
 
-                    delegate: Loader {
-                        id: delegateLoader
-                        required property var modelData
-                        required property int index
+                        Loader {
+                            id: delegateLoader
+                            required property int index
 
-                        width: ListView.view.width
-                        height: item ? item.implicitHeight : root.rowHeight
-                        sourceComponent: modelData.switchActions
-                            ? root.resultDelegate
-                            : modelData.children && modelData.children.length > 0 && root.showTreeResults
-                            ? root.treeResultDelegate
-                            : root.resultDelegate
+                            readonly property var resultData: index < controller.results.length ? controller.results[index] : null
 
-                        onLoaded: {
-                            item.result = modelData;
-                            item.selected = Qt.binding(function() { return controller.selectedIndex === index; });
-                            item.iconSize = root.iconSize;
-                            item.showSubtitle = root.showSubtitles;
-                            item.showActionHint = root.showActionHint;
-                            item.showSourceBadge = root.showSourceBadge;
-                            if ("controller" in item)
-                                item.controller = controller;
-                            if (item.activated)
-                                item.activated.connect(function(result) {
-                                    controller.selectedIndex = index;
-                                    if (controller.activateSelected(false))
-                                        root.close();
-                                });
+                            sourceComponent: resultData ? (
+                                resultData.switchActions
+                                    ? root.resultDelegate
+                                    : resultData.children && resultData.children.length > 0 && root.showTreeResults
+                                    ? root.treeResultDelegate
+                                    : root.resultDelegate
+                            ) : null
+
+                            visible: !!resultData
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: visible && item ? item.implicitHeight : 0
+
+                            onLoaded: {
+                                item.result = Qt.binding(function() { return delegateLoader.resultData; });
+                                item.selected = Qt.binding(function() { return controller.selectedIndex === index; });
+                                item.iconSize = root.iconSize;
+                                item.showSubtitle = root.showSubtitles;
+                                item.showActionHint = root.showActionHint;
+                                item.showSourceBadge = root.showSourceBadge;
+                                if ("controller" in item)
+                                    item.controller = controller;
+                                if (item.activated)
+                                    item.activated.connect(function(result) {
+                                        controller.selectedIndex = index;
+                                        if (controller.activateSelected(false))
+                                            root.close();
+                                    });
+                            }
                         }
                     }
                 }

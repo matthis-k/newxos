@@ -26,15 +26,6 @@ Switch {
             radius: height / 2
             color: Config.colorWithOpacity(root.accentColor, 0.18)
             opacity: root.hovered && root.enabled ? 1 : 0
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: Config.behaviour.animation.enabled
-                        ? Config.behaviour.animation.calc(0.12)
-                        : 0
-                    easing.type: Easing.OutCubic
-                }
-            }
         }
 
         Rectangle {
@@ -45,15 +36,6 @@ Switch {
                 : root.checked
                     ? root.accentColor
                     : Config.styling.bg5
-
-            Behavior on color {
-                ColorAnimation {
-                    duration: Config.behaviour.animation.enabled
-                        ? Config.behaviour.animation.calc(0.12)
-                        : 0
-                    easing.type: Easing.OutCubic
-                }
-            }
         }
 
         Rectangle {
@@ -63,15 +45,6 @@ Switch {
             y: 2
             radius: width / 2
             color: root.knobColor
-
-            Behavior on x {
-                NumberAnimation {
-                    duration: Config.behaviour.animation.enabled
-                        ? Config.behaviour.animation.calc(0.14)
-                        : 0
-                    easing.type: Easing.OutCubic
-                }
-            }
         }
     }
 
