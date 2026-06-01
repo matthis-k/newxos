@@ -23,6 +23,7 @@ CommandTreeBackendBase {
     helpPrefixes: [":", "!"]
     priority: 120
     maxResults: 8
+    dynamicCompositeRoot: true
     routes: [
         { pattern: "^[:!]\\s?(.*)", mode: "participate" },
         { pattern: "^.*$", mode: "ambient" }
@@ -43,6 +44,7 @@ CommandTreeBackendBase {
                 aliases: ["db", "dashboard"],
                 title: qsTr("Dashboard"),
                 icon: "view-dashboard-symbolic",
+                behavior: categoryGroupBehavior(),
                 defaultAction: {
                     actionId: "dashboard", tab: "overview",
                     execute: function() {
@@ -59,27 +61,29 @@ CommandTreeBackendBase {
                 aliases: ["net", "network", "networking"],
                 title: qsTr("Networking"),
                 icon: "network-wireless-symbolic",
+                behavior: categoryGroupBehavior(),
                 children: [
-                    {
+                    booleanSwitchNode({
                         id: "networking",
                         aliases: ["networking"],
                         title: qsTr("Toggle Networking"),
                         subtitle: qsTr("Enable or disable all network interfaces"),
                         icon: "network-wireless-symbolic",
-                        children: stateNodes("networking", function(state) { setNetworking(state); })
-                    },
-                    {
+                        binding: networkingSwitch()
+                    }),
+                    booleanSwitchNode({
                         id: "wifi",
                         aliases: ["wifi", "wi-fi"],
                         title: qsTr("Wi-Fi"),
                         icon: "network-wireless-symbolic",
-                        children: stateNodes("wifi", function(state) { setWifi(state); })
-                    },
+                        binding: wifiSwitch()
+                    }),
                     {
                         id: "vpn",
                         aliases: ["vpn", "nordvpn"],
                         title: qsTr("VPN"),
                         icon: "network-vpn-symbolic",
+                        switchState: NordVPN.connected || NordVPN.connecting,
                         children: [
                             {
                                 id: "connect",
@@ -118,29 +122,31 @@ CommandTreeBackendBase {
                                     }
                                 }
                             },
-                            {
+                            booleanSwitchNode({
                                 id: "autoconnect",
                                 aliases: ["autoconnect", "auto-connect"],
                                 title: qsTr("Auto-connect"),
                                 icon: "network-vpn-symbolic",
-                                children: stateNodes("vpn-autoconnect", function(state) { setVpnAutoConnect(state); })
-                            },
-                            {
+                                actionId: "vpn-autoconnect",
+                                binding: vpnSettingSwitch("autoconnect", "Auto-connect")
+                            }),
+                            booleanSwitchNode({
                                 id: "killswitch",
                                 aliases: ["killswitch", "kill-switch"],
                                 title: qsTr("Kill Switch"),
                                 icon: "network-vpn-symbolic",
-                                children: stateNodes("vpn-killswitch", function(state) { setVpnKillSwitch(state); })
-                            }
+                                actionId: "vpn-killswitch",
+                                binding: vpnSettingSwitch("killswitch", "Kill Switch")
+                            })
                         ]
                     },
-                    {
+                    booleanSwitchNode({
                         id: "bluetooth",
                         aliases: ["bt", "bluetooth"],
                         title: qsTr("Bluetooth"),
                         icon: "bluetooth-symbolic",
-                        children: stateNodes("bluetooth", function(state) { setBluetooth(state); })
-                    }
+                        binding: bluetoothSwitch()
+                    })
                 ]
             },
 
@@ -150,6 +156,7 @@ CommandTreeBackendBase {
                 aliases: ["audio", "sound"],
                 title: qsTr("Audio"),
                 icon: "audio-volume-high-symbolic",
+                behavior: categoryGroupBehavior(),
                 children: [
                     {
                         id: "mute",
@@ -182,14 +189,15 @@ CommandTreeBackendBase {
                 aliases: ["notif", "notifications", "notification"],
                 title: qsTr("Notifications"),
                 icon: "bell-symbolic",
+                behavior: categoryGroupBehavior(),
                 children: [
-                    {
+                    booleanSwitchNode({
                         id: "dnd",
                         aliases: ["dnd"],
                         title: qsTr("Do Not Disturb"),
                         icon: "bell-disabled-symbolic",
-                        children: stateNodes("dnd", function(state) { setDnd(state); })
-                    },
+                        binding: dndSwitch()
+                    }),
                     {
                         id: "clear",
                         aliases: ["clear", "clear-all"],
@@ -210,6 +218,7 @@ CommandTreeBackendBase {
                 aliases: ["power", "energy"],
                 title: qsTr("Power"),
                 icon: "battery-symbolic",
+                behavior: categoryGroupBehavior(),
                 children: [
                     {
                         id: "powermode",
@@ -258,6 +267,7 @@ CommandTreeBackendBase {
                 aliases: ["ss", "screenshot"],
                 title: qsTr("Screenshot"),
                 icon: "camera-photo-symbolic",
+                behavior: categoryGroupBehavior(),
                 children: [
                     {
                         id: "area",
@@ -323,6 +333,7 @@ CommandTreeBackendBase {
                 aliases: ["session", "system"],
                 title: qsTr("Session"),
                 icon: "system-shutdown-symbolic",
+                behavior: categoryGroupBehavior(),
                 children: [
                     {
                         id: "lock",
@@ -379,40 +390,37 @@ CommandTreeBackendBase {
     function buildVpnConnectChildren() {
         var children = [];
 
-        children.push({
+        children.push(actionNode({
             id: "fastest",
             title: qsTr("Fastest server"),
             icon: "network-vpn-symbolic",
-            action: {
-                actionId: "vpn", state: "connect",
-                execute: function() { NordVPN.connect(null); }
-            }
-        });
+            actionId: "vpn",
+            actionProps: { state: "connect" },
+            execute: function() { NordVPN.connect(null); }
+        }));
 
         (NordVPN.countries || []).forEach(function(country) {
-            children.push({
+            children.push(actionNode({
                 id: "country-" + country,
                 title: country,
                 subtitle: qsTr("Country"),
                 icon: "network-vpn-symbolic",
-                action: {
-                    actionId: "vpn", state: "connect", destination: country,
-                    execute: function() { NordVPN.connect(country); }
-                }
-            });
+                actionId: "vpn",
+                actionProps: { state: "connect", destination: country },
+                execute: function() { NordVPN.connect(country); }
+            }));
         });
 
         (NordVPN.groups || []).forEach(function(group) {
-            children.push({
+            children.push(actionNode({
                 id: "group-" + group,
                 title: group,
                 subtitle: qsTr("Group"),
                 icon: "network-vpn-symbolic",
-                action: {
-                    actionId: "vpn", state: "connect", destination: group,
-                    execute: function() { NordVPN.connect(group); }
-                }
-            });
+                actionId: "vpn",
+                actionProps: { state: "connect", destination: group },
+                execute: function() { NordVPN.connect(group); }
+            }));
         });
 
         return children;
@@ -420,36 +428,37 @@ CommandTreeBackendBase {
 
     function dashboardTabNodes() {
         var tabs = shellScreenState ? shellScreenState.dashboardTabs : ["overview", "audio", "notifications", "bluetooth", "wifi", "energy", "stats"];
-        return tabs.map(function(tab) { return {
+        return tabs.map(function(tab) { return actionNode({
             id: tab,
             title: tab,
             icon: "view-dashboard-symbolic",
-            action: {
-                actionId: "dashboard", tab: tab,
-                execute: function() {
-                    if (shellScreenState)
-                        shellScreenState.openDashboard(tab);
-                }
+            actionId: "dashboard",
+            actionProps: { tab: tab },
+            execute: function() {
+                if (shellScreenState)
+                    shellScreenState.openDashboard(tab);
             }
-        }; });
+        }); });
     }
 
-    function stateNodes(actionId, executor) {
-        return [
-            {
-                id: "on", title: qsTr("Turn On"), icon: "object-select-symbolic",
-                action: { actionId: actionId, state: true, execute: function() { executor(true); } }
-            },
-            {
-                id: "off", title: qsTr("Turn Off"), icon: "window-close-symbolic",
-                action: { actionId: actionId, state: false, execute: function() { executor(false); } },
-                dangerous: actionId !== "dnd"
-            },
-            {
-                id: "toggle", title: qsTr("Toggle"), icon: "view-refresh-symbolic",
-                action: { actionId: actionId, state: null, execute: function() { executor(null); } }
-            }
-        ];
+    function networkingSwitch() {
+        return booleanBinding(function() { return NetworkService.networkingEnabled; }, function(enabled) { setNetworking(enabled); });
+    }
+
+    function wifiSwitch() {
+        return booleanBinding(function() { return NetworkService.wifiEnabled; }, function(enabled) { setWifi(enabled); });
+    }
+
+    function bluetoothSwitch() {
+        return booleanBinding(function() { return Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.enabled : null; }, function(enabled) { setBluetooth(enabled); });
+    }
+
+    function dndSwitch() {
+        return booleanBinding(function() { return NotificationCenter.doNotDisturbEnabled; }, function(enabled) { setDnd(enabled); });
+    }
+
+    function vpnSettingSwitch(settingKey, displayKey) {
+        return booleanBinding(function() { return NordVPN.settings && NordVPN.settings[displayKey]; }, function(enabled) { NordVPN.setSetting(settingKey, !!enabled); });
     }
 
     function setWifi(state) {
@@ -468,18 +477,6 @@ CommandTreeBackendBase {
         var adapter = Bluetooth.defaultAdapter;
         if (adapter)
             adapter.enabled = state === null ? !adapter.enabled : state;
-    }
-
-    function setVpnAutoConnect(state) {
-        var current = NordVPN.settings && NordVPN.settings["Auto-connect"];
-        var enabled = state === null ? !current : state;
-        NordVPN.setSetting("autoconnect", !!enabled);
-    }
-
-    function setVpnKillSwitch(state) {
-        var current = NordVPN.settings && NordVPN.settings["Kill Switch"];
-        var enabled = state === null ? !current : state;
-        NordVPN.setSetting("killswitch", !!enabled);
     }
 
     function setDnd(state) {

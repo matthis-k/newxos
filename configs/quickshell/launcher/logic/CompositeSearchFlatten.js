@@ -17,7 +17,7 @@ function groupDisplayPolicy(ev) {
     var groupPolicy = flattenPolicy.groupDisplay || {};
     if (flattenPolicy.modeHint !== "group-dominance" && !groupPolicy.enabled)
         return null;
-    return Object.assign({ enabled: true, parentWinsMargin: 0.08, childWinsMargin: 0.03, childDominatesMargin: 0.18, maxFlattenedChildren: 3, minChildScore: 0.25, showGroupHeaderInFilteredMode: true, committedTokenPrefersGroup: true, committedTokenMinParentScore: 0.25 }, groupPolicy);
+    return Object.assign({ enabled: true, parentWinsMargin: 0.08, childWinsMargin: 0.03, childDominatesMargin: 0.18, maxFlattenedChildren: 3, minChildScore: 0.25, showGroupHeaderInFilteredMode: true, committedTokenPrefersGroup: true, committedTokenMinParentScore: 0.25, showAllChildrenOnParentMatch: false, parentMatchMinScore: 0.25 }, groupPolicy);
 }
 
 function groupDominanceOwnScore(ev, ctx) {
@@ -32,7 +32,7 @@ function groupDominanceOwnScore(ev, ctx) {
     var overlaid = overlayEvidence(primary, ctx.query);
     for (var i = 0; i < overlaid.length; i += 1)
         score = 1 - (1 - score) * (1 - clamp(overlaid[i].effective));
-    return clamp(score);
+    return clamp(Math.min(score, ev.ownScore));
 }
 
 function decideGroupDisplay(ev, ctx) {
@@ -42,11 +42,13 @@ function decideGroupDisplay(ev, ctx) {
     var policy = groupDisplayPolicy(ev);
     if (!policy)
         return { mode: "normal", showParent: true, children: ev.children };
+    var parentScore = groupDominanceOwnScore(ev, ctx);
+    if (policy.showAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
+        return { mode: "nested-group", showParent: true, children: ev.children.slice(0, policy.maxNestedChildren || ev.children.length) };
     var visibleChildren = ev.children.filter(function(c) { return c.visible && c.score >= policy.minChildScore; }).sort(compareEvaluated);
     if (!visibleChildren.length)
         return { mode: "group", showParent: true, children: [] };
     var bestChild = visibleChildren[0];
-    var parentScore = groupDominanceOwnScore(ev, ctx);
     if (policy.committedTokenPrefersGroup && ctx.query.lastTokenEmpty && parentScore >= policy.committedTokenMinParentScore)
         return { mode: "filtered-group", showParent: true, children: visibleChildren.slice(0, policy.maxFlattenedChildren) };
     if (parentScore >= bestChild.score + policy.parentWinsMargin)
@@ -77,6 +79,12 @@ function defaultActionForNode(node, query) {
         off: ["off", "disable", "disconnect"],
         toggle: ["toggle", "switch"]
     };
+    var switchAcronym = String(node.label || "").replace(/[^A-Za-z0-9]/g, "").charAt(0).toLowerCase();
+    if (switchAcronym) {
+        aliases.on.push(switchAcronym + "o");
+        aliases.off.push(switchAcronym + "f");
+        aliases.toggle.push(switchAcronym + "t");
+    }
     for (var id in aliases) {
         for (var ti = 0; ti < tokens.length; ti += 1) {
             for (var ai = 0; ai < aliases[id].length; ai += 1) {
@@ -93,11 +101,16 @@ function defaultActionForNode(node, query) {
     return node.switchActions.toggle || actions[0] || null;
 }
 
-function toResultRow(ev, depth, state, ctx) {
+function toResultRow(ev, depth, state, ctx, childRows) {
     var node = ev.node;
     var chain = collectParentChain(node);
     var breadcrumbs = chain.slice(0, -1).map(function(n) { return n.label; });
     var action = defaultActionForNode(node, ctx.query);
+    if (childRows && childRows.length) {
+        var bestChildRow = childRows.slice().sort(function(a, b) { return b.score - a.score; })[0];
+        if (bestChildRow && bestChildRow.executable && bestChildRow.enter && bestChildRow.enter.action && (bestChildRow.score > ev.ownScore + 0.03 || (ctx.query.tokens.length > 1 && bestChildRow.score >= 0.9 && bestChildRow.score > ev.ownScore - 0.08)))
+            action = bestChildRow.enter.action;
+    }
     var actions = (node.actionList || []).slice();
     if (node.switchActions) {
         actions = [node.switchActions.toggle, node.switchActions.on, node.switchActions.off].filter(Boolean);
@@ -129,7 +142,7 @@ function toResultRow(ev, depth, state, ctx) {
         shiftEnter: { type: "noop" },
         executable: !!action,
         dangerous: !!node.dangerous,
-        children: [],
+        children: childRows || [],
         switchActions: node.switchActions || null,
         switchState: node.switchState === undefined ? null : node.switchState,
         metadata: Object.assign({}, node.meta || {}, { nodeId: node.id, action: action })
@@ -144,9 +157,9 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         if (ev.node.kind === "backend") return false;
         return true;
     }
-    function add(ev, depth, sortScore) {
+    function add(ev, depth, sortScore, childEvs) {
         if (ev.node.kind !== "root" && canInclude(ev))
-            collected.push({ ev: ev, depth: depth, sortScore: sortScore === undefined ? ev.score : sortScore });
+            collected.push({ ev: ev, depth: depth, sortScore: sortScore === undefined ? ev.score : sortScore, childEvs: childEvs || [] });
     }
     function collect(ev, depth) {
         if (ev.node.kind === "root") {
@@ -164,8 +177,13 @@ function flattenForUi(evaluatedRoot, state, ctx) {
             return;
         }
         if (decision.showParent) {
-            var score = decision.mode === "filtered-group" ? Math.max.apply(null, [ev.score].concat(decision.children.map(function(c) { return c.score; }))) + 0.001 : ev.score;
-            add(ev, depth, score);
+            var childMaxScore = decision.children.length ? Math.max.apply(null, decision.children.map(function(c) { return c.score; })) : 0;
+            var score = decision.mode === "filtered-group" || decision.mode === "nested-group" ? Math.max(ev.score, childMaxScore) + 0.04 : ev.score;
+            if (decision.mode === "nested-group") {
+                add(ev, depth, score, decision.children);
+                return;
+            }
+            add(ev, depth, score, decision.mode === "filtered-group" ? decision.children : []);
             if (decision.mode === "filtered-group") {
                 for (var ci = 0; ci < decision.children.length; ci += 1)
                     add(decision.children[ci], depth + 1, score - (ci + 1) * 0.0001);
@@ -185,5 +203,8 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         if (priorityDelta !== 0) return priorityDelta;
         return a.depth - b.depth;
     });
-    return collected.map(function(item) { return toResultRow(item.ev, item.depth, state, ctx); });
+    return collected.map(function(item) {
+        var childRows = (item.childEvs || []).filter(function(child) { return child.allowed && child.node.kind !== "backend"; }).map(function(child) { return toResultRow(child, item.depth + 1, state, ctx, []); });
+        return toResultRow(item.ev, item.depth, state, ctx, childRows);
+    });
 }

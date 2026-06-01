@@ -92,13 +92,15 @@ function evaluateNode(node, query, ctx) {
     if (profile.scorePolicy === "semantic-result")
         own.visible = evidenceItems.length > 0;
 
-    var retained = evaluatedChildren.filter(function(c) { return c.candidate || c.visible || ctx.showHidden; });
+    var groupDisplay = node.behavior && node.behavior.flattenPolicy && node.behavior.flattenPolicy.groupDisplay || {};
+    var keepAllChildren = groupDisplay.showAllChildrenOnParentMatch && own.visible;
+    var retained = evaluatedChildren.filter(function(c) { return keepAllChildren || c.candidate || c.visible || ctx.showHidden; });
     var bestChildScore = 0;
     for (var b = 0; b < retained.length; b += 1) {
         if (retained[b].visible || ctx.showHidden)
             bestChildScore = Math.max(bestChildScore, retained[b].score);
     }
-    var descendantBoost = bestChildScore > 0 ? bestChildScore * (node.switchActions ? own.value > 0 ? 1 : 0 : node.kind === "backend" ? 0.82 : 0.28) : 0;
+    var descendantBoost = bestChildScore > 0 ? bestChildScore * (node.switchActions ? own.value > 0 ? 1 : 0.82 : node.kind === "backend" ? 0.82 : 0.28) : 0;
     var finalScore = clamp(Math.max(own.value, descendantBoost));
     return {
         node: node,
@@ -110,7 +112,7 @@ function evaluateNode(node, query, ctx) {
         score: finalScore,
         visible: ctx.showHidden || own.visible || retained.some(function(c) { return c.visible || ctx.showHidden; }) || (ctx.query.isEmpty && node.kind === "backend" && !directiveActive),
         visibleReason: own.reason,
-        children: retained.sort(compareEvaluated)
+        children: keepAllChildren ? retained : retained.sort(compareEvaluated)
     };
 }
 
@@ -119,6 +121,8 @@ function compareEvaluated(a, b) {
     if (Math.abs(scoreDelta) > 0.0001) return scoreDelta;
     var backendDelta = (b.node.backendPriority || 0) - (a.node.backendPriority || 0);
     if (backendDelta !== 0) return backendDelta;
+    var lengthDelta = String(a.node.label || "").length - String(b.node.label || "").length;
+    if (lengthDelta !== 0) return lengthDelta;
     return String(a.node.label || "").localeCompare(String(b.node.label || ""));
 }
 
