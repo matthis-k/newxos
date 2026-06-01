@@ -12,7 +12,7 @@ import QtQuick
 QtObject {
     id: root
 
-    property bool isEnabled: Qt.application.environment["NEWXOS_DEV"] === "1"
+    property bool isEnabled: !!(Qt.application && Qt.application.environment && Qt.application.environment["NEWXOS_DEV"] === "1")
 
     function log() {
         if (!isEnabled) return

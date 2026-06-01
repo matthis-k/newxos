@@ -20,7 +20,7 @@ in
           quickshell_args=()
           if [ "''${NEWXOS_DEV:-0}" = 1 ]; then
             config_dir="''${NEWXOS_FLAKE:-$HOME/newxos}/configs/quickshell"
-            quickshell_args+=(--verbose --verbose)
+            quickshell_args+=(--verbose)
           fi
 
           exec quickshell -p "$config_dir" "''${quickshell_args[@]}" "$@"

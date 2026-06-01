@@ -1,11 +1,15 @@
 import QtQml
 import QtCore
 import Quickshell
+import "../logic/CompositeSearch.js" as CompositeSearch
 
 ProcessBackendBase {
     id: root
 
     property string searchRoot: StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "")
+    property var compositeResults: []
+    property string compositeQuery: ""
+    property string pendingCompositeQuery: ""
 
     category: qsTr("Files")
 
@@ -19,19 +23,92 @@ ProcessBackendBase {
     maxResults: 5
     routes: [
         { pattern: "^@files?\\s+(.*)", mode: "exclusive" },
+        { pattern: "^files?\\s+(.*)", mode: "exclusive" },
+        { pattern: "^file://.*$", mode: "ambient" },
         { pattern: "^[/~].*$", mode: "ambient" }
     ]
 
+    function shouldParticipate(rawQuery, directive, query) {
+        const raw = String(rawQuery || "").trim();
+        return raw[0] === "/" || raw[0] === "~" || raw.indexOf("file://") === 0 || /^@?files?(\s|$)/.test(raw);
+    }
+
+    function rootNode(query, context) {
+        const rawQuery = context && context.directive && context.directive.active ? context.directive.raw : (query ? query.raw : "");
+        if (!shouldParticipate(rawQuery, context ? context.directive : null, query))
+            return null;
+
+        const pathQuery = expandHome(fileQueryText(rawQuery));
+        const seenPaths = {};
+        const children = [];
+        if (pathQuery.length > 0) {
+            children.push(nodeForPath(pathQuery, 0));
+            seenPaths[pathQuery] = true;
+        }
+
+        (root.compositeResults || []).forEach(function(result, index) {
+            const metadata = result.metadata || {};
+            const path = metadata.path || result.subtitle || result.title || "";
+            if (!path || seenPaths[path])
+                return;
+            seenPaths[path] = true;
+            children.push(nodeForPath(path, index + 1, result.title, result.subtitle, result.icon));
+        });
+
+        return CompositeSearch.makeNode({
+            id: "backend." + root.backendId,
+            backendId: root.backendId,
+            backendPriority: root.priority,
+            kind: "backend",
+            label: root.helpTitle,
+            subtitle: root.compositeQuery ? qsTr("Results for %1").arg(root.compositeQuery) : root.helpDescription,
+            icon: root.helpIcon,
+            children: children,
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend" }
+        });
+    }
+
+    function nodeForPath(path, index, title, subtitle, icon) {
+        const parts = path.split("/");
+        const label = title || parts[parts.length - 1] || path;
+        return CompositeSearch.makeNode({
+            id: "file:" + path,
+            backendId: root.backendId,
+            kind: "file-result",
+            label: label,
+            subtitle: subtitle || displayPath(path),
+            icon: icon || iconForPath(path),
+            path: path,
+            keywords: [path, label],
+            showWhenQueryEmpty: true,
+            usageCount: Math.max(0, root.maxResults - index),
+            lastUsedDaysAgo: 9999,
+            actionList: [
+                CompositeSearch.makeAction("open", qsTr("Open", "action: open file"), { path: path, actionId: "open" }),
+                CompositeSearch.makeAction("open-folder", qsTr("Open Folder"), { path: path, actionId: "open-folder" }),
+                CompositeSearch.makeAction("copy-path", qsTr("Copy Path"), { path: path, actionId: "copy-path" })
+            ],
+            meta: { path: path }
+        });
+    }
+
     function buildCommand(queryText) {
-        const text = queryText || "";
+        const text = fileQueryText(queryText);
         if (!text)
             return [];
 
-        const path = text[0] === "/" || text[0] === "~" ? expandHome(text) : text;
+        const path = text[0] === "/" || text[0] === "~" ? expandHome(text) : root.searchRoot + "/" + text;
         const slash = path.lastIndexOf("/");
         const folder = slash > 0 ? path.slice(0, slash) : "/";
         const name = slash >= 0 ? path.slice(slash + 1) : path;
         return ["fd", "--absolute-path", "--max-results", root.maxResults.toString(), name || ".", folder];
+    }
+
+    function fileQueryText(queryText) {
+        const text = String(queryText || "").trim();
+        if (text.indexOf("file://") === 0)
+            return text.slice(7);
+        return text.replace(/^@?files?(\s+|$)/, "").trim();
     }
 
     function parseOutput(text, queryText) {
@@ -49,6 +126,8 @@ ProcessBackendBase {
 
     function displayPath(path) {
         const home = StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "");
+        if (path === home)
+            return "~";
         return path.indexOf(home + "/") === 0 ? "~" + path.slice(home.length) : path;
     }
 
@@ -84,10 +163,12 @@ ProcessBackendBase {
     }
 
     function activate(result, action) {
-        if (!result || !result.metadata || !result.metadata.path)
+        const payload = action && action.payload ? action.payload : null;
+        const metadata = result ? result.metadata || {} : {};
+        if (!result || !(metadata.path || payload && payload.path))
             return;
 
-        const path = result.metadata.path;
+        const path = metadata.path || payload.path;
         if (!action || action.id === "open") {
             Quickshell.execDetached({ command: ["xdg-open", path] });
         } else if (action.id === "open-folder") {

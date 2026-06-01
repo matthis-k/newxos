@@ -1,5 +1,6 @@
 import QtQml
 import Quickshell
+import "../logic/CompositeSearch.js" as CompositeSearch
 
 LauncherBackendBase {
     id: root
@@ -220,8 +221,47 @@ LauncherBackendBase {
         }
     }
 
+    function rootNode(query, context) {
+        const expression = query ? query.raw.trim() : "";
+        const children = [];
+        if (expression && looksLikeMath(expression)) {
+            try {
+                const output = formatResult(evaluate(expression));
+                children.push(CompositeSearch.makeNode({
+                    id: "calculator:result:" + expression,
+                    backendId: root.backendId,
+                    kind: "calculator-result",
+                    label: expression,
+                    subtitle: "= " + output,
+                    icon: root.helpIcon,
+                    actionList: [
+                        CompositeSearch.makeAction("copy", qsTr("Copy result"), { expression: expression, result: output, actionId: "copy" }),
+                        CompositeSearch.makeAction("copy-expression", qsTr("Copy expression"), { expression: expression, result: output, actionId: "copy-expression" })
+                    ],
+                    evaluationProfile: { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "semantic"], scorePolicy: "semantic-result" },
+                    semanticTerms: [{ triggers: [expression], matches: [expression], field: "semantic", score: 1, weight: 1.4 }],
+                    meta: { expression: expression, result: output }
+                }));
+            } catch (error) {
+            }
+        }
+
+        return CompositeSearch.makeNode({
+            id: "backend." + root.backendId,
+            backendId: root.backendId,
+            backendPriority: root.priority,
+            kind: "backend",
+            label: root.helpTitle,
+            subtitle: root.helpDescription,
+            icon: root.helpIcon,
+            children: children,
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend" }
+        });
+    }
+
     function activate(result, action) {
-        const value = action && action.id === "copy-expression" ? result.metadata.expression : result.metadata.result;
+        const metadata = result.metadata || {};
+        const value = action && action.id === "copy-expression" ? metadata.expression : metadata.result;
         Quickshell.execDetached({ command: ["wl-copy", value] });
     }
 }

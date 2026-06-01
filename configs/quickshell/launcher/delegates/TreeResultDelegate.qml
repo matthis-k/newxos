@@ -26,10 +26,14 @@ Rectangle {
 
     signal activated(var result)
 
-    color: selected ? Config.styling.selectionBackgroundActive : "transparent"
+    implicitHeight: Math.max(64, mainColumn.implicitHeight + Config.spacing.xs * 2)
+    color: selected ? Config.styling.selectionBackgroundActive : Config.styling.bg2
+    border.color: selected ? Config.styling.primaryAccent : Config.styling.bg4
+    border.width: 1
     radius: Config.styling.radius
 
     ColumnLayout {
+        id: mainColumn
         anchors.fill: parent
         anchors.margins: Config.spacing.xs
         spacing: Config.spacing.xxs
@@ -130,7 +134,9 @@ Rectangle {
                     model: root.result.children || []
 
                     Rectangle {
-                        color: root.selected && repeater.currentIndex === index ? Config.styling.selectionBackgroundActive : "transparent"
+                        color: Config.styling.bg3
+                        border.color: Config.styling.bg4
+                        border.width: 1
                         radius: Config.styling.radius
                         Layout.fillWidth: true
                         implicitHeight: 32

@@ -37,7 +37,7 @@ LauncherBackendBase {
         const callback = root.pendingCallback;
         root.pendingCallback = null;
         root.pendingQuery = "";
-        if (callback && results.length > 0)
+        if (callback)
             callback(results);
     }
 

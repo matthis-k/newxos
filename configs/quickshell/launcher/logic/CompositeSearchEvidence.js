@@ -1,0 +1,214 @@
+.pragma library
+.import "CompositeSearchText.js" as Text
+
+
+var clamp = Text.clamp;
+var normalizeText = Text.normalizeText;
+var compactWithMap = Text.compactWithMap;
+
+function evidence(strategy, field, kind, score, weight, ranges, reason) {
+    var s = clamp(score);
+    return { strategy: strategy, field: field.field, fieldText: field.text, nodeId: field.nodeId, kind: kind, score: s, weight: weight, effective: s * weight, ranges: ranges || [], reason: reason || "" };
+}
+
+function matchField(field, query, strategyIds) {
+    if (query.isEmpty)
+        return [];
+    var out = [];
+    var ids = strategyIds || ["exact", "prefix", "compact", "substring", "acronym"];
+    for (var ti = 0; ti < query.tokens.length; ti += 1) {
+        var token = query.tokens[ti];
+        if (ids.indexOf("exact") >= 0) {
+            if (field.normText.trim() === token.normalized)
+                out.push(evidence("exact", field, "exact-field", 0.96, field.weight, [{ start: 0, end: field.text.length, kind: "exact" }], "field equals token"));
+            for (var wi = 0; wi < field.words.length; wi += 1) {
+                var word = field.words[wi];
+                if (word.norm === token.normalized)
+                    out.push(evidence("exact", field, "exact-word", 0.96, field.weight, [{ start: word.start, end: word.end, kind: "exact" }], "word equals token"));
+            }
+        }
+        if (ids.indexOf("prefix") >= 0) {
+            var primary = /(^|-)label$/.test(field.field) || /(^|-)aliases$/.test(field.field);
+            if (token.normalized.length >= 2 || primary) {
+                for (var pwi = 0; pwi < field.words.length; pwi += 1) {
+                    var pword = field.words[pwi];
+                    if (pword.norm.indexOf(token.normalized) === 0 && pword.norm !== token.normalized) {
+                        var coverage = token.normalized.length / Math.max(1, pword.norm.length);
+                        out.push(evidence("prefix", field, "prefix", 0.75 + coverage * 0.18, field.weight, [{ start: pword.start, end: pword.start + token.raw.length, kind: "prefix" }], "token prefixes word"));
+                    }
+                }
+            }
+        }
+        if (ids.indexOf("substring") >= 0 && token.normalized.length >= 3) {
+            var start = 0;
+            while (true) {
+                var idx = field.normText.indexOf(token.normalized, start);
+                if (idx < 0) break;
+                var isWordStart = idx === 0 || /[^a-z0-9]/.test(field.normText[idx - 1]);
+                out.push(evidence("substring", field, "substring", isWordStart ? 0.66 : 0.52, field.weight * 0.75, [{ start: idx, end: idx + token.raw.length, kind: "substring" }], "token occurs inside field"));
+                start = idx + Math.max(1, token.normalized.length);
+            }
+        }
+        if (ids.indexOf("compact") >= 0 && token.normalized.length >= 3) {
+            var compactToken = compactWithMap(token.raw).compact || token.normalized;
+            var cidx = field.compact.compact.indexOf(compactToken);
+            if (cidx >= 0) {
+                var cstart = field.compact.map[cidx];
+                var cend = field.compact.map[cidx + compactToken.length - 1] + 1;
+                var full = field.compact.compact === compactToken;
+                out.push(evidence("compact", field, full ? "compact-exact" : cidx === 0 ? "compact-prefix" : "compact-substring", full ? 0.93 : cidx === 0 ? 0.84 : 0.66, field.weight * 0.95, [{ start: cstart, end: cend, kind: "compact" }], "token matches compacted field"));
+            }
+        }
+        if (ids.indexOf("acronym") >= 0 && token.normalized.length >= 2) {
+            var acronym = field.acronymLetters.map(function(x) { return x.char; }).join("");
+            if (acronym.length >= 2 && (acronym === token.normalized || acronym.indexOf(token.normalized) === 0)) {
+                out.push(evidence("acronym", field, acronym === token.normalized ? "acronym-exact" : "acronym-prefix", acronym === token.normalized ? 0.91 : 0.82, field.weight * 0.92, field.acronymLetters.slice(0, token.normalized.length).map(function(x) { return { start: x.start, end: x.end, kind: "acronym" }; }), "token matches acronym"));
+            }
+        }
+    }
+    return out;
+}
+
+function recencyScore(daysAgo) {
+    return 1 / (1 + Math.max(0, daysAgo) / 30);
+}
+
+function frequencyScore(count) {
+    return clamp(Math.log(1 + Math.max(0, count)) / Math.log(81));
+}
+
+function matchSemantic(node, query) {
+    if (query.isEmpty || !node.semanticTerms || !node.semanticTerms.length)
+        return [];
+    var required = node.semanticBoostRequiresAny || [];
+    if (required.length && !query.tokens.some(function(t) { return required.indexOf(t.normalized) >= 0; }))
+        return [];
+    var haystack = normalizeText([node.label, node.subtitle].concat(node.keywords || []).concat(node.aliases || []).join(" "));
+    var out = [];
+    for (var i = 0; i < node.semanticTerms.length; i += 1) {
+        var term = node.semanticTerms[i];
+        var triggers = term.triggers || term.tokens || [];
+        var matches = term.matches || term.tokens || triggers;
+        var queryHit = query.tokens.some(function(t) { return triggers.indexOf(t.normalized) >= 0; });
+        if (!queryHit)
+            continue;
+        var nodeHasTerm = matches.some(function(m) { return haystack.indexOf(normalizeText(m)) >= 0; });
+        if (!nodeHasTerm)
+            continue;
+        out.push({ strategy: "semantic", field: term.field || "semantic", fieldText: node.label, nodeId: node.id, kind: term.kind || "semantic-node-term", score: term.score || 0.74, weight: term.weight || 0.38, effective: (term.score || 0.74) * (term.weight || 0.38), ranges: [], reason: term.reason || "semantic node term" });
+    }
+    return out;
+}
+
+function claimMatchingTokens(query, tokens, options) {
+    var norm = tokens.map(normalizeText);
+    var claims = [];
+    for (var i = 0; i < query.tokens.length; i += 1) {
+        if (norm.indexOf(query.tokens[i].normalized) < 0)
+            continue;
+        claims.push({ tokenIndex: i, strength: options && options.strength || 1, weight: options && options.weight || 0.62, field: options && options.field || "token-claim", reason: options && options.reason || "node token claim" });
+    }
+    return claims;
+}
+
+function tokenClaimToEvidence(node, query, claim) {
+    return { strategy: "node-token-policy", field: claim.field || "token-claim", fieldText: query.tokens[claim.tokenIndex] ? query.tokens[claim.tokenIndex].raw : "", nodeId: node.id, kind: "token-claim", tokenIndex: claim.tokenIndex, score: clamp(claim.strength || 1), weight: claim.weight || 0.62, effective: clamp(claim.strength || 1) * (claim.weight || 0.62), ranges: [], reason: claim.reason || "node token claim" };
+}
+
+function evidenceFieldGroup(field) {
+    var f = String(field || "");
+    if (f === "usage" || f === "recency") return "boost:" + f;
+    if (f === "token-claim" || f.indexOf("ancestor-") === 0) return "path-text";
+    if (f === "label" || f === "aliases") return "primary-text";
+    if (f === "subtitle" || f === "keywords") return "secondary-text";
+    if (f === "command" || f === "path") return "technical-text";
+    if (f.indexOf("semantic") >= 0 || f === "connectivity" || f === "state" || f === "navigation-context" || f === "page") return "semantic-text";
+    return f;
+}
+
+function evidenceKindPriority(kind) {
+    var k = String(kind || "");
+    if (k.indexOf("exact") >= 0) return 100;
+    if (k.indexOf("prefix") >= 0) return 86;
+    if (k.indexOf("acronym") >= 0) return 80;
+    if (k.indexOf("compact") >= 0) return 76;
+    if (k.indexOf("semantic") >= 0) return 68;
+    if (k.indexOf("substring") >= 0) return 52;
+    if (k.indexOf("frequency") >= 0 || k.indexOf("recency") >= 0) return 20;
+    return 50;
+}
+
+function inferCoveredTokenIndexes(e, query) {
+    var covered = [];
+    for (var i = 0; i < query.tokens.length; i += 1) {
+        var token = query.tokens[i];
+        var haystack = normalizeText([e.fieldText, e.reason, e.field].join(" "));
+        if (haystack.indexOf(token.normalized) >= 0)
+            covered.push(i);
+    }
+    return covered;
+}
+
+function isBetterEvidence(a, b) {
+    var pa = evidenceKindPriority(a.kind);
+    var pb = evidenceKindPriority(b.kind);
+    if (pa !== pb) return pa > pb;
+    if (Math.abs(a.effective - b.effective) > 0.0001) return a.effective > b.effective;
+    return a.score > b.score;
+}
+
+function overlayEvidence(items, query) {
+    var buckets = {};
+    var out = [];
+    for (var i = 0; i < items.length; i += 1) {
+        var e = items[i];
+        var group = evidenceFieldGroup(e.field);
+        var tokenIndexes = e.tokenIndex !== undefined ? [e.tokenIndex] : inferCoveredTokenIndexes(e, query);
+        if (group.indexOf("boost:") === 0)
+            tokenIndexes = [group];
+        if (!tokenIndexes.length) {
+            out.push(e);
+            continue;
+        }
+        for (var ti = 0; ti < tokenIndexes.length; ti += 1) {
+            var key = tokenIndexes[ti] + ":" + group;
+            var withToken = Object.assign({}, e, { tokenIndex: tokenIndexes[ti] });
+            if (!buckets[key] || isBetterEvidence(withToken, buckets[key]))
+                buckets[key] = withToken;
+        }
+    }
+    for (var key in buckets)
+        out.push(buckets[key]);
+    return out;
+}
+
+function scoreEvidence(evidenceItems, node, ctx) {
+    if (!evidenceItems.length)
+        return { value: 0, visible: ctx.query.isEmpty && (node.kind === "backend" || node.showWhenQueryEmpty || node.backendId === "backends" && ctx.directive && ctx.directive.active), reason: "no evidence" };
+    var sorted = overlayEvidence(evidenceItems, ctx.query).sort(function(a, b) { return b.effective - a.effective; });
+    var combined = 0;
+    for (var i = 0; i < sorted.length; i += 1)
+        combined = 1 - (1 - combined) * (1 - clamp(sorted[i].effective, 0, 1.2));
+
+    if (ctx.query.tokens.length > 1) {
+        var covered = {};
+        for (var ei = 0; ei < sorted.length; ei += 1) {
+            var tokenIndexes = sorted[ei].tokenIndex !== undefined ? [sorted[ei].tokenIndex] : inferCoveredTokenIndexes(sorted[ei], ctx.query);
+            for (var ci = 0; ci < tokenIndexes.length; ci += 1) {
+                if (typeof tokenIndexes[ci] === "number")
+                    covered[tokenIndexes[ci]] = true;
+            }
+            if (String(sorted[ei].kind || "").indexOf("semantic") === 0) {
+                for (var qi = 0; qi < ctx.query.tokens.length; qi += 1)
+                    covered[qi] = true;
+            }
+        }
+        var coveredCount = Object.keys(covered).length;
+        var ratio = coveredCount / ctx.query.tokens.length;
+        var isActionLike = ["desktop-action", "dashboard-page", "action-group", "dashboard-group", "switch"].indexOf(node.kind) >= 0;
+        combined *= (isActionLike ? 0.45 : 0.62) + ((isActionLike ? 0.55 : 0.38) * ratio);
+        if (isActionLike && coveredCount < ctx.query.tokens.length && combined < 0.82)
+            combined *= 0.68;
+    }
+    return { value: clamp(combined), visible: combined >= ctx.visibilityThreshold, reason: "saturating weighted evidence" };
+}

@@ -79,6 +79,10 @@ PanelWindow {
         return controller.debugSearch(text || "");
     }
 
+    function debugBenchmark(arg) {
+        return controller.debugBenchmark(arg || "");
+    }
+
     function debugEvidence(resultId) {
         return controller.debugEvidence(resultId || "");
     }
@@ -261,8 +265,10 @@ PanelWindow {
                         required property int index
 
                         width: ListView.view.width
-                        height: root.rowHeight
-                        sourceComponent: modelData.children && modelData.children.length > 0 && root.showTreeResults
+                        height: item ? item.implicitHeight : root.rowHeight
+                        sourceComponent: modelData.switchActions
+                            ? root.resultDelegate
+                            : modelData.children && modelData.children.length > 0 && root.showTreeResults
                             ? root.treeResultDelegate
                             : root.resultDelegate
 

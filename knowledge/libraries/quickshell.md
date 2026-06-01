@@ -99,3 +99,49 @@ Quickshell provides the QtQuick/QML shell toolkit used for bars, panels, widgets
 ## Launcher Backend Metadata
 
 - [decision] Launcher backends can define help metadata such as `helpIcon`, `helpTitle`, `helpDescription`, and `helpPrefixes`; the `?` backend renders those values instead of owning a static list.
+
+## Launcher Composite Search
+
+- [decision] Launcher search now uses a prototype-derived composite node pipeline in `configs/quickshell/launcher/logic/CompositeSearch.js` instead of the older `CommandTree`/`EvidenceScorer` ranking path.
+- [fact] Launcher backends expose `rootNode(query, context)` trees that the controller evaluates, scores with evidence, and flattens for UI rows.
+- [technique] Switch-style actions are represented as one result with `on`, `off`, and `toggle` actions; query tokens choose the best default action, otherwise toggle is the default.
+- [fact] Launcher group clarity is handled in delegates with card-like result surfaces and switch controls for switch-capable results.
+
+## Launcher Search Optimizations
+
+- [decision] Static command-tree launcher backends cache their composite root nodes and prepared search indexes between queries.
+- [technique] `CompositeSearch.js` caches searchable fields on nodes and stores directive tag closures and per-tree search indexes for exact, prefix, compact, acronym, and term lookup.
+- [technique] Per-query evaluation uses index-derived candidate node families to skip direct field matching on nodes that cannot match, while still preserving ancestor/descendant scoring and group visibility.
+- [decision] The files backend only participates for raw path queries beginning with `/` or `~`; `@file` and `@files` are no longer file-search selectors.
+- [fact] File search results are integrated asynchronously into the composite result model after the gated process backend returns.
+
+## Launcher Performance Fix
+
+- [fact] A composite search optimization bug retained every allowed node as a candidate even without evidence, causing per-keystroke tree retention and high CPU.
+- [technique] Candidate retention must require an indexed candidate family, direct evidence, own visibility, or retained children; do not use `selfAllowed` alone as a candidate flag.
+- [decision] The launcher candidate index avoids whole-index substring scans on each keystroke; substring evidence only runs for indexed candidate families.
+
+## Launcher Timing IPC
+
+- [fact] Launcher debug timing is exposed through `newshell ipc call launcher debugBenchmark '<json>'`.
+- [technique] Benchmark IPC caps work internally and returns per-query timings for root construction, candidate collection, evaluation, path evidence, flattening, candidate counts, and row counts.
+- [decision] Composite search must collect candidates from cached backend indexes directly instead of rebuilding and merging a synthetic whole-root index on every keystroke.
+- [technique] Static command-tree roots can be prewarmed after startup, but `DesktopAppsBackend` must not prewarm before `DesktopEntries` is populated.
+
+## Launcher File Queries
+
+- [decision] Raw launcher queries beginning with `/` or `~` are reserved for the files backend; ambient web search skips those path-shaped queries unless an explicit web directive such as `@g` is used.
+- [technique] Files backend emits a synchronous direct-path row for the typed path and augments it with async `fd` results when available.
+- [requirement] Process-backed launcher searches must settle callbacks for both non-empty and empty results to avoid stale pending state.
+
+## Launcher Backend Visibility And File Prefixes
+
+- [decision] Composite backend root nodes are traversal containers only and must never be emitted as launcher result rows.
+- [decision] `?` help results are separate backend representation rows from `BackendsBackend`, not the live backend root nodes themselves.
+- [decision] Filesystem search only participates for file-shaped prefixes: `file://`, `@file`, `@files`, optional bare `file`/`files`, `~`, or `/`; ordinary ambient queries must not search files.
+
+## Launcher Composite Search Modules
+
+- [decision] Composite launcher search is split into topic modules under `configs/quickshell/launcher/logic/` with `CompositeSearch.js` kept as a small facade for existing QML imports.
+- [fact] Module responsibilities are separated into text/query helpers, index building/candidate collection, evidence scoring, tree evaluation/path evidence, UI flattening/result rows, and pipeline orchestration.
+- [requirement] Keep the facade API stable for backends and `LauncherController.qml`: `makeNode`, `makeAction`, `buildSearchIndex`, `parseDirective`, `tokenize`, and `search`.

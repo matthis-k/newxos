@@ -226,3 +226,41 @@ Relations:
 - Rule: when browser policy consumes a service-generated certificate, verify both TLS trust with `curl --cacert` and user-readable permissions on the policy path.
 - Context: `modules/desktop/llm-server.nix`, `modules/socials/zen-browser.nix`, Open WebUI HTTPS microphone access.
 - Related knowledge: [[Local LLM and TTS setup]], [[Workflow]]
+
+### 2026-06-01: Launcher composite search retained the whole tree per keystroke
+
+- Date: `2026-06-01`
+- Problem: launcher composite search treated every allowed node as a candidate even without evidence
+- Symptom: typing in the launcher hogged CPU and could almost freeze the desktop
+- Cause: `candidate: selfAllowed || retainedChildren` retained the whole tree, and candidate indexing also had a whole-index substring scan path
+- Fix: require indexed candidate membership, direct evidence, own visibility, or retained children; prune non-candidate subtrees early; remove whole-index substring scans from the hot path
+- Rule: launcher candidate retention must never use permission/allowance as proof of search relevance
+- Context: QuickShell launcher composite search optimization
+- Related knowledge: [[quickshell]]
+
+### 2026-06-01: Launcher result rows retained circular evaluated trees
+
+- Date: `2026-06-01`
+- Problem: composite launcher result rows included the raw evaluated node object
+- Symptom: IPC debug output failed with `TypeError: Cannot convert circular structure to JSON`, and the UI model retained large circular evaluated trees per row
+- Cause: `toResultRow` returned `raw: ev`; evaluated nodes contain parent/tree references and evidence/children state not needed by delegates
+- Fix: remove the raw evaluated object from normalized result rows; keep only primitive row fields, actions, evidence, and metadata needed by delegates/debugging
+- Rule: normalized launcher rows must not carry raw backend/evaluation tree objects into ListView models or IPC responses
+- Context: QuickShell launcher composite search performance and debug IPC
+- Related knowledge: [[quickshell]]
+
+### 2026-06-01: Launcher prewarm can cache desktop apps before DesktopEntries is ready
+
+- Date: `2026-06-01`
+- Problem: prewarming every command-tree composite root at component completion cached an empty desktop app tree
+- Symptom: `@app zen` and unprefixed `zen` lost application results after restart while action directives still worked
+- Cause: `DesktopAppsBackend` depends on `Quickshell.DesktopEntries`; prewarming ran before entries were populated, and the cached composite root then stayed empty
+- Fix: keep startup prewarm for static command trees but disable it for `DesktopAppsBackend`; let the app backend build its composite root lazily once queried
+- Rule: do not prewarm QuickShell backends whose source model is populated asynchronously unless the backend invalidates/rebuilds when the source model becomes ready
+- Context: QuickShell launcher composite root cache optimization
+- Related knowledge: [[quickshell]]
+
+- Context: QuickShell launcher async file backend
+  - Issue: `ProcessBackendBase.applySearchOutput()` only invoked callbacks when parsed results were non-empty, which can leave the launcher controller with stale pending/loading state and prevent empty async searches from settling.
+  - Fix: Always invoke the async callback with the parsed result array, including `[]`; file path queries also get an immediate direct-path composite row while process results catch up.
+  - Prevention: Async launcher backends must always settle their callback for every request, even on no-match or process failure paths.

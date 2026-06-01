@@ -21,6 +21,10 @@ CommandTreeBackendBase {
     treePrefixes: ["?"]
     treeRoots: backendTree
 
+    function shouldParticipate(rawQuery, directive, query) {
+        return !!(directive && directive.active && directive.prefix === "?");
+    }
+
     readonly property var backendTree: (root.describedBackends || []).filter(backend =>
         backend && backend.enabled && backend.helpPrefixes && backend.helpPrefixes.length > 0
     ).map(backend => ({
@@ -38,7 +42,7 @@ CommandTreeBackendBase {
         const metadata = result ? result.metadata || {} : {};
         if (metadata.kind === "completion" && metadata.replaceQuery)
             return false;
-        const cmdAction = metadata.action || {};
+        const cmdAction = (action && action.payload) || (metadata.action && metadata.action.payload) || metadata.action || {};
         if (cmdAction.replaceQuery) {
             if (controller)
                 controller.queryReplacementRequested(cmdAction.replaceQuery);

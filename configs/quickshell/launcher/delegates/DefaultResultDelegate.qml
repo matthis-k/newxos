@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import qs.components
 import qs.services
-import "../logic/EvidenceScorer.js" as EvidenceScorer
 
 Rectangle {
     id: root
@@ -25,10 +24,14 @@ Rectangle {
 
     signal activated(var result)
 
-    color: selected ? Config.styling.selectionBackgroundActive : "transparent"
+    implicitHeight: Math.max(56, row.implicitHeight + Config.spacing.xs * 2)
+    color: selected ? Config.styling.selectionBackgroundActive : Config.styling.bg2
+    border.color: selected ? Config.styling.primaryAccent : Config.styling.bg4
+    border.width: 1
     radius: Config.styling.radius
 
     RowLayout {
+        id: row
         anchors.fill: parent
         anchors.margins: Config.spacing.xs
         spacing: Config.spacing.sm
@@ -110,13 +113,69 @@ Rectangle {
 
         Text {
             text: root.showActionHint && root.defaultAction ? root.defaultAction.label : ""
-            visible: text.length > 0
+            visible: text.length > 0 && !switchColumn.visible
             color: Config.styling.text1
             font.pixelSize: 12
             elide: Text.ElideRight
             horizontalAlignment: Text.AlignRight
             Layout.preferredWidth: 92
             Layout.alignment: Qt.AlignVCenter
+        }
+
+        ColumnLayout {
+            id: switchColumn
+            visible: !!root.result.switchActions
+            spacing: Config.spacing.xxs
+            Layout.alignment: Qt.AlignVCenter
+            Layout.preferredWidth: 92
+
+            DashboardToggleSwitch {
+                checked: root.result.switchState === true
+                Layout.alignment: Qt.AlignRight
+                onToggled: {
+                    if (root.controller)
+                        root.controller.activateResultAction(root.result, "toggle");
+                }
+            }
+
+            RowLayout {
+                spacing: Config.spacing.xxs
+                Layout.alignment: Qt.AlignRight
+
+                Repeater {
+                    model: ["on", "toggle", "off"]
+
+                    Rectangle {
+                        visible: root.result.switchActions && root.result.switchActions[modelData]
+                        color: root.defaultAction && root.defaultAction.id === modelData
+                            ? Config.colorWithOpacity(Config.styling.primaryAccent, 0.25)
+                            : Config.styling.bg3
+                        border.color: root.defaultAction && root.defaultAction.id === modelData
+                            ? Config.styling.primaryAccent
+                            : Config.styling.bg4
+                        border.width: 1
+                        radius: Config.styling.radius
+                        Layout.preferredWidth: 38
+                        Layout.preferredHeight: 20
+
+                        Text {
+                            id: label
+                            anchors.centerIn: parent
+                            text: modelData
+                            color: Config.styling.text1
+                            font.pixelSize: 10
+                            font.bold: root.defaultAction && root.defaultAction.id === modelData
+                        }
+
+                        TapHandler {
+                            onSingleTapped: {
+                                if (root.controller)
+                                    root.controller.activateResultAction(root.result, modelData);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

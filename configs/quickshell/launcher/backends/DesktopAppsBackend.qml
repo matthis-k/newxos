@@ -17,6 +17,7 @@ CommandTreeBackendBase {
     helpPrefixes: ["@app", "@apps", "@desktop"]
     priority: 80
     maxResults: 6
+    prewarmCompositeRootCache: false
     routes: [
         { pattern: "^@app\\s+(.*)", mode: "exclusive" },
         { pattern: "^@app$", mode: "exclusive" },
@@ -82,7 +83,7 @@ CommandTreeBackendBase {
 
     function activate(result, action) {
         const metadata = result ? result.metadata || {} : {};
-        const cmdAction = metadata.action || {};
+        const cmdAction = (action && action.payload) || (metadata.action && metadata.action.payload) || metadata.action || {};
         const entryId = metadata.desktopEntry || cmdAction.entryId;
         const entry = entryId ? DesktopEntries.byId(entryId) : null;
         if (!entry)

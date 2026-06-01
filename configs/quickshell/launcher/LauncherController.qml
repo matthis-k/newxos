@@ -1,11 +1,7 @@
 import QtQml
-import "logic/QueryParsing.js" as QueryParsing
+import "logic/CompositeSearch.js" as CompositeSearch
 import "logic/ResultUtils.js" as ResultUtils
-import "logic/Router.js" as Router
-import "logic/Scoring.js" as Scoring
-import "logic/SearchEngine.js" as SearchEngine
 import "logic/DebugLogger.js" as DebugLogger
-import "logic/EvidenceScorer.js" as EvidenceScorer
 
 QtObject {
     id: root
@@ -18,167 +14,237 @@ QtObject {
     property bool loading: false
     property int generation: 0
     property int maxResults: 12
+    property real visibilityThreshold: 0.18
+    property bool includePath: true
+    property string flattenMode: "hybrid"
+    property bool showHidden: false
+    property var expandedNodeIds: ({})
+    property var lastQuery: null
+    property var lastDirective: null
+    property var lastEvaluatedRoot: null
+    property var asyncBackendQueries: ({})
 
     signal queryReplacementRequested(string text)
     signal backendsChangeRequested(var backendIds)
 
     function debugComplete(text) {
-        generation += 1;
-        var currentGeneration = generation;
-        var matches = Router.matches(text, backends);
-        var output = [];
+        updateQuery(text || "");
+        return JSON.stringify(results, null, 2);
+    }
 
-        for (var mi = 0; mi < matches.length; mi += 1) {
-            output.push({
-                backend: backendId(matches[mi].backend),
-                route: matches[mi].route ? matches[mi].route.mode : "",
-                prefix: matches[mi].prefix,
-                results: collectBackend(matches[mi], text, currentGeneration)
-            });
+    function debugCompleteBackend(backendName, text) {
+        var selected = [];
+        for (var i = 0; i < (backends || []).length; i += 1) {
+            if (backends[i] && backends[i].backendId === backendName)
+                selected.push(backends[i]);
+        }
+        var output = CompositeSearch.search(selected, text || "", stateForSearch(), searchOptions());
+        return JSON.stringify(output.rows, null, 2);
+    }
+
+    function debugRoutes(text) {
+        var directive = CompositeSearch.parseDirective(text || "", backends || []);
+        return JSON.stringify(directive, null, 2);
+    }
+
+    function debugSearch(text) {
+        var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), searchOptions());
+        return JSON.stringify({ directive: output.directive, query: output.query, rows: output.rows }, null, 2);
+    }
+
+    function debugBenchmark(arg) {
+        var config = parseBenchmarkConfig(arg);
+        var queries = config.queries.slice(0, 32);
+        var iterations = Math.max(1, Math.min(config.iterations, 20));
+        var warmups = Math.max(0, Math.min(config.warmups, 5));
+        var samples = [];
+        var totalMs = 0;
+        var maxMs = 0;
+
+        for (var wi = 0; wi < warmups; wi += 1) {
+            for (var wq = 0; wq < queries.length; wq += 1)
+                CompositeSearch.search(backends || [], queries[wq], stateForSearch(), Object.assign(searchOptions(), { trace: true }));
         }
 
-        if (output.length === 0) {
-            var fallbackMatches = Router.fallbacks(text, backends);
-            for (var fi2 = 0; fi2 < fallbackMatches.length; fi2 += 1) {
-                output.push({
-                    backend: backendId(fallbackMatches[fi2].backend),
-                    route: fallbackMatches[fi2].route ? fallbackMatches[fi2].route.mode : "",
-                    prefix: fallbackMatches[fi2].prefix,
-                    results: collectBackend(fallbackMatches[fi2], text, currentGeneration)
+        for (var i = 0; i < iterations; i += 1) {
+            for (var qi = 0; qi < queries.length; qi += 1) {
+                var start = Date.now();
+                var output = CompositeSearch.search(backends || [], queries[qi], stateForSearch(), Object.assign(searchOptions(), { trace: true }));
+                var elapsed = Date.now() - start;
+                totalMs += elapsed;
+                maxMs = Math.max(maxMs, elapsed);
+                samples.push({
+                    query: queries[qi],
+                    wallMs: elapsed,
+                    timings: output.timings || {},
+                    rows: output.rows.length,
+                    top: output.rows.length > 0 ? output.rows[0].title : ""
                 });
             }
         }
 
-        return JSON.stringify(output, null, 2);
+        var count = Math.max(1, iterations * queries.length);
+        var summary = {
+            iterations: iterations,
+            warmups: warmups,
+            queryCount: queries.length,
+            avgMs: totalMs / count,
+            maxMs: maxMs,
+            samples: samples
+        };
+        console.log("launcher benchmark " + JSON.stringify({ avgMs: summary.avgMs, maxMs: summary.maxMs, count: count }));
+        return JSON.stringify(summary, null, 2);
     }
 
-    function debugCompleteBackend(backendName, text) {
-        generation += 1;
-        var backend = null;
-        for (var bi = 0; bi < (backends || []).length; bi += 1) {
-            var item = backends[bi];
-            if (item && backendId(item) === backendName) {
-                backend = item;
-                break;
+    function parseBenchmarkConfig(arg) {
+        var defaults = {
+            iterations: 3,
+            warmups: 1,
+            queries: ["z", "ze", "zen", "zen ", "zen priv", "zen win", ":wifi", ":wifi ", ":wifi on", ":wifi off", ":db wifi", ":zen", "@app zen", "wifi", "db wifi"]
+        };
+        if (!arg)
+            return defaults;
+        try {
+            var parsed = JSON.parse(arg);
+            if (Array.isArray(parsed))
+                defaults.queries = parsed.map(function(x) { return String(x); });
+            else if (parsed && typeof parsed === "object") {
+                if (Array.isArray(parsed.queries))
+                    defaults.queries = parsed.queries.map(function(x) { return String(x); });
+                if (parsed.iterations !== undefined)
+                    defaults.iterations = Number(parsed.iterations);
+                if (parsed.warmups !== undefined)
+                    defaults.warmups = Number(parsed.warmups);
             }
+        } catch (error) {
+            defaults.queries = [String(arg)];
         }
-        if (!backend)
-            return JSON.stringify({ error: "backend not found", backend: backendName });
-
-        var route = (backend.routes || [])[0] || { prefixes: [""], mode: "ambient", stripPrefix: false };
-        var match = { backend: backend, route: route, prefix: "", routedText: text || "" };
-        return JSON.stringify(collectBackend(match, text || "", generation), null, 2);
-    }
-
-    function debugRoutes(text) {
-        var output = Router.matches(text, backends).map(function(match) {
-            return {
-                backend: backendId(match.backend),
-                mode: match.route ? match.route.mode : "",
-                prefix: match.prefix,
-                routedText: match.routedText
-            };
-        });
-        return JSON.stringify(output, null, 2);
-    }
-
-    function debugSearch(queryText) {
-        var parsed = SearchEngine.parseQuery(queryText);
-        var result = SearchEngine.debugSearch(backends, queryText, { maxResults: maxResults });
-        return JSON.stringify(result, null, 2);
+        return defaults;
     }
 
     function debugEvidence(resultId) {
-        for (var ri = 0; ri < results.length; ri += 1) {
-            if (results[ri].id === resultId) {
-                var ev = results[ri].evidence;
-                if (ev)
-                    return JSON.stringify(ev, null, 2);
-                return JSON.stringify({ error: "no evidence for result" });
-            }
+        for (var i = 0; i < results.length; i += 1) {
+            if (results[i].id === resultId || results[i].nodeId === resultId)
+                return JSON.stringify(results[i].evidence || [], null, 2);
         }
         return JSON.stringify({ error: "result not found", id: resultId });
     }
 
+    function stateForSearch() {
+        return {
+            selectedNodeId: selectedResult() ? selectedResult().nodeId : null,
+            expandedNodeIds: expandedNodeIds || {}
+        };
+    }
+
+    function searchOptions() {
+        return {
+            visibilityThreshold: visibilityThreshold,
+            includePath: includePath,
+            flattenMode: flattenMode,
+            showHidden: showHidden
+        };
+    }
+
     function updateQuery(text) {
         generation += 1;
-        var currentGeneration = generation;
-
         query = text;
-        results = [];
-        selectedIndex = -1;
         selectedActionIndex = 0;
         loading = false;
 
-        if (!text || text.trim().length === 0)
+        if (!text || text.trim().length === 0) {
+            results = [];
+            selectedIndex = -1;
+            lastQuery = null;
+            lastDirective = null;
+            lastEvaluatedRoot = null;
             return;
+        }
 
-        collectResults(text, currentGeneration);
+        collectResults(text, generation);
     }
 
     function collectResults(text, currentGeneration) {
-        var parsed = QueryParsing.parse(text);
-        var engineResults = SearchEngine.search(backends, parsed, {
-            profile: "general",
-            maxResults: maxResults * 2
-        });
-
+        triggerAsyncBackends(text, currentGeneration);
+        var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), searchOptions());
         if (currentGeneration !== generation)
             return;
 
-        var normalized = engineResults.map(function(c) { return ResultUtils.searchCandidateToResult(c); }).filter(Boolean);
-
-        setResults(normalized.slice(0, maxResults));
+        lastQuery = output.query;
+        lastDirective = output.directive;
+        lastEvaluatedRoot = output.evaluatedRoot;
+        setResults(output.rows.slice(0, maxResults));
     }
 
-    function collectBackend(match, text, currentGeneration) {
-        var backend = match.backend;
-        try {
-            if (backend.resultsAsync) {
-                backend.resultsAsync(text, function(newResults) {
-                    if (currentGeneration !== generation)
-                        return;
-                    mergeResults(newResults, backendId(backend));
-                });
-                return [];
-            }
+    function triggerAsyncBackends(text, currentGeneration) {
+        var directive = CompositeSearch.parseDirective(text || "", backends || []);
+        var parsedQuery = CompositeSearch.tokenize(directive.searchRaw || "");
 
-            var backendResults = backend.results ? backend.results(text) : [];
-            return ResultUtils.normalizeResults(backendResults, backendId(backend));
-        } catch (error) {
-            console.warn("launcher backend results failed", backendId(backend), error);
-            return [];
+        for (let i = 0; i < (backends || []).length; i += 1) {
+            let backend = backends[i];
+            if (!backend || !backend.enabled || typeof backend.resultsAsync !== "function")
+                continue;
+            if (typeof backend.shouldParticipate === "function" && !backend.shouldParticipate(text || "", directive, parsedQuery))
+                continue;
+            if (directive.active && directive.backendIds.indexOf(backend.backendId) < 0)
+                continue;
+
+            let key = backend.backendId || String(i);
+            let state = asyncBackendQueries[key] || {};
+            if (state.ready === text || state.pending === text)
+                continue;
+
+            state.pending = text;
+            state.ready = "";
+            asyncBackendQueries[key] = state;
+            backend.pendingCompositeQuery = text;
+            backend.compositeQuery = "";
+            backend.compositeResults = [];
+            loading = true;
+
+            backend.resultsAsync(text, function(newResults) {
+                if (currentGeneration !== generation)
+                    return;
+                let callbackKey = backend.backendId || String(i);
+                let callbackState = asyncBackendQueries[callbackKey] || {};
+                callbackState.pending = "";
+                callbackState.ready = text;
+                asyncBackendQueries[callbackKey] = callbackState;
+                backend.pendingCompositeQuery = "";
+                backend.compositeQuery = text;
+                backend.compositeResults = newResults || [];
+                loading = false;
+                collectResults(text, currentGeneration);
+            });
         }
     }
 
+    function collectBackend(match, text, currentGeneration) {
+        return [];
+    }
+
     function scoreAndSort(items, text) {
-        var parsed = QueryParsing.parse(text);
-        return Scoring.sortResults(items, text, getBackendPriority, parsed);
+        return items || [];
     }
 
     function getBackendPriority(source) {
-        for (var bi = 0; bi < (backends || []).length; bi += 1) {
-            var item = backends[bi];
-            if (item && backendId(item) === source)
-                return item.priority || 0;
+        for (var i = 0; i < (backends || []).length; i += 1) {
+            if (backends[i] && backends[i].backendId === source)
+                return backends[i].priority || 0;
         }
         return 0;
     }
 
     function setResults(newResults) {
         results = newResults || [];
-        selectedIndex = results.length === 1 ? 0 : -1;
+        selectedIndex = results.length > 0 ? Math.max(0, Math.min(selectedIndex, results.length - 1)) : -1;
+        if (results.length === 1)
+            selectedIndex = 0;
         selectedActionIndex = 0;
     }
 
     function mergeResults(newResults, fallbackSource) {
-        var merged = results.concat(ResultUtils.normalizeResults(newResults, fallbackSource));
-        var parsed = QueryParsing.parse(query);
-        var engineResults = SearchEngine.search(backends, parsed, {
-            profile: "general",
-            maxResults: maxResults * 2
-        });
-        setResults(engineResults.slice(0, maxResults));
+        collectResults(query, generation);
     }
 
     function backendId(backend) {
@@ -189,7 +255,6 @@ QtObject {
         var result = selectedResult();
         if (!result)
             return false;
-
         return applyIntent(result, shiftPressed ? result.shiftEnter : result.enter);
     }
 
@@ -197,7 +262,6 @@ QtObject {
         var result = selectedResult();
         if (!result)
             return false;
-
         if (typeof result.onComplete === "function") {
             var closeRequested = result.onComplete({
                 query: root.query,
@@ -211,7 +275,6 @@ QtObject {
             });
             return closeRequested === true;
         }
-
         return applyIntent(result, result.shiftEnter);
     }
 
@@ -223,22 +286,15 @@ QtObject {
         if (!result || !action)
             return false;
 
-        if (result.dangerous) {
-            var safe = EvidenceScorer.isSafeToExecute({ score: result.score, dangerous: true });
-            if (!safe)
-                return false;
-        }
-
         if (result.metadata && result.metadata.replaceQuery) {
             queryReplacementRequested(result.metadata.replaceQuery);
             return false;
         }
 
         var backend = null;
-        for (var bi = 0; bi < (backends || []).length; bi += 1) {
-            var item = backends[bi];
-            if (item && backendId(item) === result.source) {
-                backend = item;
+        for (var i = 0; i < (backends || []).length; i += 1) {
+            if (backends[i] && backendId(backends[i]) === result.source) {
+                backend = backends[i];
                 break;
             }
         }
@@ -258,7 +314,6 @@ QtObject {
     function applyIntent(result, intent) {
         if (!result || !intent)
             return false;
-
         switch (intent.type || "activate") {
         case "replace-query":
             queryReplacementRequested(intent.text || "");
@@ -271,12 +326,22 @@ QtObject {
         }
     }
 
+    function activateResultAction(result, actionId) {
+        if (!result)
+            return false;
+        var actions = result.actions || [];
+        for (var i = 0; i < actions.length; i += 1) {
+            if (actions[i] && actions[i].id === actionId)
+                return activateResult(result, actions[i]);
+        }
+        return false;
+    }
+
     function moveSelection(delta) {
         if (results.length === 0) {
             selectedIndex = -1;
             return;
         }
-
         var baseIndex = selectedIndex < 0 ? (delta > 0 ? -1 : results.length) : selectedIndex;
         selectedIndex = Math.max(0, Math.min(results.length - 1, baseIndex + delta));
         selectedActionIndex = 0;
@@ -289,5 +354,9 @@ QtObject {
         selectedActionIndex = 0;
         loading = false;
         generation += 1;
+        lastQuery = null;
+        lastDirective = null;
+        lastEvaluatedRoot = null;
+        asyncBackendQueries = {};
     }
 }
