@@ -1,4 +1,3 @@
-import QtQml
 import Quickshell
 import Quickshell.Bluetooth
 import Quickshell.Services.Pipewire
@@ -26,7 +25,6 @@ TreeBackendBase {
         { pattern: "^.*$", mode: "ambient" }
     ]
 
-    treePrefixes: [":", "!"]
     FlatActionGroupNode {
         name: "newxos"
         aliases: ["newxos", "nx", "repo"]
@@ -858,9 +856,6 @@ TreeBackendBase {
 
     function activate(result, action) {
         var metadata = result ? result.metadata || {} : {};
-        if (metadata.kind === "completion" && metadata.replaceQuery)
-            return;
-
         var cmdAction = actionPayloadForPath(metadata.commandPath || [], action ? action.id : metadata.actionId) || (action && action.payload) || {};
         if (typeof cmdAction.execute === "function")
             cmdAction.execute();

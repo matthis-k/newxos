@@ -1,5 +1,3 @@
-import QtQml
-
 ActionNode {
     id: root
 

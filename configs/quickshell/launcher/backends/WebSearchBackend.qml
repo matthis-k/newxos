@@ -1,4 +1,3 @@
-import QtQml
 import Quickshell
 
 ComputedBackendBase {

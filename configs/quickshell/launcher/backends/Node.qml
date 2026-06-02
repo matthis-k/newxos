@@ -44,15 +44,6 @@ QtObject {
         return entry || null;
     }
 
-    function childAction() {
-        for (var i = 0; i < root.entries.length; i += 1) {
-            var entry = root.entries[i];
-            if (entry && typeof entry.toActionPayload === "function")
-                return entry.toActionPayload(root.actionId || root.nodeId || root.name);
-        }
-        return null;
-    }
-
     function ownAction() {
         var id = root.actionId || root.nodeId || root.name || "run";
         if (typeof root.action === "function") {
@@ -62,7 +53,7 @@ QtObject {
         }
         if (root.action && typeof root.action === "object")
             return Object.assign({ actionId: id }, root.action);
-        return childAction();
+        return null;
     }
 
     function toTreeObject() {

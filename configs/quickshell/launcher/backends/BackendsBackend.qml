@@ -1,5 +1,3 @@
-import QtQml
-
 ModelTreeBackendBase {
     id: root
 
@@ -17,7 +15,6 @@ ModelTreeBackendBase {
     maxResults: 16
     routes: [{ pattern: "^\\?\\s?(.*)", mode: "exclusive" }]
 
-    treePrefixes: ["?"]
     treeRoots: backendTree
 
     function shouldParticipate(rawQuery, directive, query) {
@@ -39,13 +36,10 @@ ModelTreeBackendBase {
 
     function activate(result, action) {
         const metadata = result ? result.metadata || {} : {};
-        if (metadata.kind === "completion" && metadata.replaceQuery)
-            return false;
         const cmdAction = (action && action.payload) || (metadata.action && metadata.action.payload) || metadata.action || {};
         if (cmdAction.replaceQuery) {
             if (controller)
                 controller.queryReplacementRequested(cmdAction.replaceQuery);
-            return false;
         }
     }
 }

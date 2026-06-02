@@ -1,5 +1,3 @@
-import QtQml
-
 LauncherBackendBase {
     id: root
 
@@ -31,15 +29,6 @@ LauncherBackendBase {
             root.streamOrder = root.streamOrder.concat([id]);
     }
 
-    function removeStreamItem(id) {
-        if (!id || !root.streamItemsById[id])
-            return;
-        var byId = Object.assign({}, root.streamItemsById);
-        delete byId[id];
-        root.streamItemsById = byId;
-        root.streamOrder = root.streamOrder.filter(function(itemId) { return itemId !== id; });
-    }
-
     function applyStreamUpdate(update) {
         if (!update)
             return;
@@ -47,29 +36,11 @@ LauncherBackendBase {
             root.resetStream(update);
             return;
         }
-
-        const op = update.op || update.type || "upsert";
-        if (op === "reset")
-            root.resetStream(update.items || update.results || []);
-        else if (op === "remove")
-            root.removeStreamItem(update.id || streamItemId(update.item));
-        else if (op === "clear")
+        if (update.op === "clear")
             root.resetStream([]);
-        else if (update.items)
-            root.addStreamItems(update.items);
-        else
-            root.upsertStreamItem(update.item || update);
-    }
-
-    function streamSnapshot() {
-        return root.compositeResults;
     }
 
     function streamItemId(item) {
         return item && (item.id || item.key || (item.metadata && item.metadata.path) || item.title) || "";
-    }
-
-    function backendRoot(children) {
-        return root.backendRootDto(children);
     }
 }

@@ -1,4 +1,3 @@
-import QtQml
 import Quickshell
 
 ComputedBackendBase {
@@ -199,7 +198,7 @@ ComputedBackendBase {
                     id: "calculator:result:" + expression,
                     kind: "calculator-result",
                     label: expression,
-                    subtitle: "= " + output,
+                    subtitle: qsTr("= %1").arg(output),
                     icon: root.helpIcon,
                     actionList: [
                         root.action("copy", qsTr("Copy result"), { expression: expression, result: output, actionId: "copy" }),

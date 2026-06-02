@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
-import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.services
@@ -14,7 +13,6 @@ PanelWindow {
     property alias query: controller.query
     property var shellScreenState: null
     property string backendSet: "all"
-    property var backendFilter: null
     property var backendSets: ({
         "all": [backendsBackend, desktopActionsBackend, calculatorBackend, desktopBackend, filesBackend, webBackend],
         "desktop": [desktopBackend],
@@ -23,15 +21,9 @@ PanelWindow {
     readonly property var allBackends: [backendsBackend, desktopActionsBackend, calculatorBackend, desktopBackend, filesBackend, webBackend]
     property var backends: root.backendSets[root.backendSet] || root.backendSets.all
     property Component resultDelegate: defaultResultDelegate
-    property Component sectionHeaderDelegate: defaultSectionHeaderDelegate
-    property Component actionDelegate
-    property bool showSectionHeaders: true
     property bool showSubtitles: true
     property bool showActionHint: true
-    property bool showSourceBadge: false
-    property bool showTreeResults: true
     property bool showEvidence: false
-    property int maxResults: 512
     property int maxResultsPerBackend: 5
     property int visibleResultRows: 12
     property int rowHeight: 56
@@ -253,7 +245,7 @@ PanelWindow {
 
                 visible: controller.results.length > 0
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(Math.max(resultsColumn.implicitHeight, root.rowHeight * visibleRows), root.rowHeight * root.visibleResultRows)
+                Layout.preferredHeight: root.rowHeight * visibleRows
                 Layout.maximumHeight: root.rowHeight * root.visibleResultRows
                 clip: true
 
@@ -272,13 +264,7 @@ PanelWindow {
 
                             readonly property var resultData: index < controller.results.length ? controller.results[index] : null
 
-                            sourceComponent: resultData ? (
-                                resultData.switchActions
-                                    ? root.resultDelegate
-                                    : resultData.children && resultData.children.length > 0 && root.showTreeResults
-                                    ? root.treeResultDelegate
-                                    : root.resultDelegate
-                            ) : null
+                            sourceComponent: resultData ? root.resultDelegate : null
 
                             visible: !!resultData
                             Layout.fillWidth: true
@@ -292,7 +278,6 @@ PanelWindow {
                                 item.showActionHint = root.showActionHint;
                                 if ("showEvidence" in item)
                                     item.showEvidence = root.showEvidence;
-                                item.showSourceBadge = root.showSourceBadge;
                                 if ("controller" in item)
                                     item.controller = controller;
                                 if (item.activated)
@@ -312,15 +297,5 @@ PanelWindow {
     Component {
         id: defaultResultDelegate
         Delegates.DefaultResultDelegate {}
-    }
-
-    Component {
-        id: defaultSectionHeaderDelegate
-        Delegates.SectionHeader {}
-    }
-
-    Component {
-        id: treeResultDelegate
-        Delegates.TreeResultDelegate {}
     }
 }

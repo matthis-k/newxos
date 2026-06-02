@@ -162,12 +162,6 @@ function markNodeFamily(marked, node) {
     markNodeAndDescendants(marked, node);
 }
 
-function collectIndexHits(map, key, marked) {
-    var nodes = map[key] || [];
-    for (var i = 0; i < nodes.length; i += 1)
-        markNodeFamily(marked, nodes[i]);
-}
-
 function collectIndexHitsCapped(map, key, marked, capState) {
     var nodes = map[key] || [];
     for (var i = 0; i < nodes.length; i += 1) {

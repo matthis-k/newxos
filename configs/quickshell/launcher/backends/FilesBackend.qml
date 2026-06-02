@@ -1,4 +1,3 @@
-import QtQml
 import QtCore
 import Quickshell
 
@@ -6,8 +5,6 @@ ProcessBackendBase {
     id: root
 
     property string searchRoot: StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "")
-    property string compositeQuery: ""
-    property string pendingCompositeQuery: ""
 
     category: qsTr("Files")
 

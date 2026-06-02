@@ -2,7 +2,6 @@ import QtQml
 import "../logic/CompositeSearch.js" as CompositeSearch
 import "../logic/QueryParsing.js" as QueryParsing
 import "../logic/Router.js" as Router
-import "../logic/ResultUtils.js" as ResultUtils
 
 QtObject {
     id: root
@@ -22,9 +21,6 @@ QtObject {
     property string activeQuery: ""
     property int activeGeneration: 0
 
-    signal searchStarted(string query, int generation)
-    signal searchFinished(string query, int generation)
-    signal searchCancelled(string query, int generation)
     signal backendError(string message)
 
     function beginSearch(query, generation) {
@@ -32,33 +28,18 @@ QtObject {
             root.cancelSearch(root.activeQuery, root.activeGeneration);
         root.activeQuery = query || "";
         root.activeGeneration = generation || 0;
-        root.searchStarted(root.activeQuery, root.activeGeneration);
     }
 
     function finishSearch(query, generation) {
         if (generation !== undefined && generation !== root.activeGeneration)
             return;
-        root.searchFinished(query || root.activeQuery, generation || root.activeGeneration);
         root.activeQuery = "";
         root.activeGeneration = 0;
     }
 
     function cancelSearch(query, generation) {
-        root.searchCancelled(query || root.activeQuery, generation || root.activeGeneration);
         root.activeQuery = "";
         root.activeGeneration = 0;
-    }
-
-    function isEnabled(query) {
-        if (!root.enabled)
-            return false;
-        if (!root.routes || root.routes.length === 0)
-            return true;
-        for (const route of root.routes) {
-            if (Router.routeMatches(query, route))
-                return true;
-        }
-        return false;
     }
 
     function activate(result, action) {
@@ -105,21 +86,6 @@ QtObject {
             }
         }
         return query || "";
-    }
-
-    function matchQuery(query) {
-        const parsed = QueryParsing.parse(query);
-        for (const route of root.routes || []) {
-            if (Router.routeMatches(query, route)) {
-                const routed = Router.extractText(query, route);
-                if (route.pattern)
-                    return { text: routed, route: route };
-                if (parsed.explicit && parsed.targetBackend === root.backendId)
-                    return { text: parsed.text || "", route: route };
-                return { text: routed, route: route };
-            }
-        }
-        return { text: query || "", route: null };
     }
 
 }

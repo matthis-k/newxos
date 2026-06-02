@@ -1,5 +1,4 @@
 .pragma library
-Qt.include("QueryTokens.js")
 
 var namedPrefixes = ["@app", "@apps", "@desktop", "@calc", "@calculator", "@web", "@g", "@ddg", "@gh", "@yt", "@file", "@files"];
 var symbolicPrefixes = [":", "=", ">", "?"];
@@ -73,7 +72,7 @@ function parse(query) {
   var parsed = parsePrefix(raw);
   var body = parsed.body || "";
   var prefix = parsed.prefix;
-  var toks = tokens(body);
+  var toks = String(body || "").trim().split(/\s+/).filter(function(token) { return token.length > 0; });
 
   var hasPathSep = body.indexOf("/") >= 0 || body.indexOf("\u203A") >= 0;
 
@@ -90,6 +89,3 @@ function parse(query) {
   };
 }
 
-function isExplicitFor(parsed, backendId) {
-  return !!parsed && parsed.explicit && parsed.targetBackend === backendId;
-}

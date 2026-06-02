@@ -1,4 +1,3 @@
-import QtQml
 import Quickshell
 
 ModelTreeBackendBase {
@@ -24,7 +23,6 @@ ModelTreeBackendBase {
         { pattern: "^.*$", mode: "ambient" }
     ]
 
-    treePrefixes: ["@app", "@apps", "@desktop"]
     treeRoots: appTree
 
     readonly property var appTree: buildAppTree()

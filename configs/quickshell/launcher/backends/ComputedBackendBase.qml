@@ -1,5 +1,3 @@
-import QtQml
-
 LauncherBackendBase {
     id: root
 

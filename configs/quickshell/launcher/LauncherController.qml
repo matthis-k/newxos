@@ -1,7 +1,6 @@
 import QtQuick
 import QtQml
 import "logic/CompositeSearch.js" as CompositeSearch
-import "logic/ResultUtils.js" as ResultUtils
 import "logic/DebugLogger.js" as DebugLogger
 
 Item {
@@ -353,14 +352,6 @@ Item {
         return false;
     }
 
-    function getBackendPriority(source) {
-        for (var i = 0; i < (backends || []).length; i += 1) {
-            if (backends[i] && backends[i].backendId === source)
-                return backends[i].priority || 0;
-        }
-        return 0;
-    }
-
     function setResults(newResults) {
         results = newResults || [];
         selectedIndex = results.length > 0 ? Math.max(0, Math.min(selectedIndex, results.length - 1)) : -1;
@@ -443,8 +434,10 @@ Item {
         case "noop":
             return false;
         case "activate":
-        default:
-            return activateResult(result, intent.action || ResultUtils.defaultAction(result));
+        default: {
+            var actions = result && result.actions ? result.actions : [];
+            var defaultAction = actions.find(function(a) { return a.default; }) || actions[0] || null;
+            return activateResult(result, intent.action || defaultAction);
         }
     }
 

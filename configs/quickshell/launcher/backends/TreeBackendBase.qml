@@ -7,7 +7,6 @@ LauncherBackendBase {
     default property list<QtObject> nodes
 
     property var treeRoots: []
-    property var treePrefixes: []
     property var compositeRootCache: null
     property string compositeRootCacheKey: ""
     property bool prewarmCompositeRootCache: true
@@ -67,7 +66,7 @@ LauncherBackendBase {
         });
         const action = defaultAction(node);
         const switchActions = node.switchState === undefined ? null : switchActionMap(node, children);
-        const kind = switchActions ? "switch" : children.length > 0 ? (action ? "action-group" : "action-group") : "desktop-action";
+        const kind = switchActions ? "switch" : children.length > 0 ? "action-group" : "desktop-action";
         const actions = switchActions
             ? [switchActions.toggle, switchActions.on, switchActions.off].filter(Boolean)
             : action ? [root.actionDto(action.actionId || action.id || "run", action.title || qsTr("Run"), action)] : [];

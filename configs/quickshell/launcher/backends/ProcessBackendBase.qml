@@ -1,5 +1,3 @@
-import QtQml
-import Quickshell
 import Quickshell.Io
 
 StreamingBackendBase {
@@ -12,7 +10,6 @@ StreamingBackendBase {
         root.pendingCallback = null;
         root.pendingQuery = "";
         searchProcess.running = false;
-        root.searchCancelled(query || root.activeQuery, generation || root.activeGeneration);
         root.activeQuery = "";
         root.activeGeneration = 0;
     }
