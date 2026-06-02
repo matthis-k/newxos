@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 
 /**
  * Logging helper that only outputs when NEWXOS_DEV environment is set.
@@ -12,7 +13,7 @@ import QtQuick
 QtObject {
     id: root
 
-    property bool isEnabled: !!(Qt.application && Qt.application.environment && Qt.application.environment["NEWXOS_DEV"] === "1")
+    property bool isEnabled: Quickshell.env("NEWXOS_DEV") === "1"
 
     function log() {
         if (!isEnabled) return

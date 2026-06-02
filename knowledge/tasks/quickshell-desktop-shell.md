@@ -441,7 +441,7 @@ Keep row sizes, icon sizes, text sizes, and internal gaps tokenized instead of r
 
 - [decision] Launcher `@...` prefixes are reserved for backend-scoped search, such as `@app zen` or `@file notes`; bare `app`/`file` command words are not explicit source selectors.
 - [decision] Launcher `:` and `!` prefixes are reserved for predefined desktop action trees, not arbitrary app/file/web search.
-- [technique] Recursive action completion is implemented through `configs/quickshell/launcher/logic/CommandTree.js`; action backends define tree nodes that can be both executable and expandable.
+- [technique] Recursive action completion is implemented through composite node trees; action backends define tree nodes that can be both executable and expandable.
 - [fact] Desktop action nodes live in `configs/quickshell/launcher/backends/DesktopActionsBackend.qml` and include dashboard, Wi-Fi, Bluetooth, DND, mute, lock, logout, shutdown, and reboot actions.
 
 ## Launcher completion engine API
@@ -449,4 +449,10 @@ Keep row sizes, icon sizes, text sizes, and internal gaps tokenized instead of r
 - [decision] Launcher backends are completion engines exposing `complete(query, context)` rather than separate search/suggest concepts.
 - [decision] Routing is data-driven through backend `routes`, allowing multiple engines to participate in the same namespace such as `:` for base and host-specific actions.
 - [technique] Completion results carry `enter` and `shiftEnter` intents so the controller can execute, replace the query, or no-op without backend-specific key handling.
-- [fact] Router and result intent normalization live in `configs/quickshell/launcher/logic/Router.js` and `configs/quickshell/launcher/logic/ResultUtils.js`.
+- [fact] Route text extraction still lives in `configs/quickshell/launcher/logic/Router.js`, while result intent normalization lives in `configs/quickshell/launcher/logic/ResultUtils.js`.
+
+## Launcher backend model hierarchy
+
+- [decision] Backend abstractions are QML component bases rather than free JS helpers, matching QML object-oriented idioms.
+- [fact] Static action trees, model-derived app/help trees, computed calculator/web results, process snapshots, and streaming keyed sources each have a dedicated backend base.
+- [requirement] Streaming-style backends must support removals through keyed updates so live sources such as networks do not accumulate stale rows.

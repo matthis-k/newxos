@@ -56,7 +56,7 @@ function search(backends, rawQuery, state, options) {
     var pathMs = nowMs() - pathStart;
 
     var flattenStart = nowMs();
-    var rows = flattenForUi(evaluated, state, ctx);
+    var rows = suppressFallbackRows(flattenForUi(evaluated, state, ctx), ctx);
     var flattenMs = nowMs() - flattenStart;
     var timings = null;
     if (ctx.trace) {
@@ -74,4 +74,15 @@ function search(backends, rawQuery, state, options) {
         };
     }
     return { rows: rows, query: query, directive: directive, evaluatedRoot: evaluated, timings: timings };
+}
+
+function suppressFallbackRows(rows, ctx) {
+    if (!rows || !rows.length || ctx.directive.active)
+        return rows;
+
+    var hasNonFallback = rows.some(function(row) { return row.source !== "web"; });
+    if (!hasNonFallback)
+        return rows;
+
+    return rows.filter(function(row) { return row.source !== "web"; });
 }

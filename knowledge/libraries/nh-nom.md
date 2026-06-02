@@ -42,3 +42,10 @@ This repo uses `nh` and `nix-output-monitor` through repo-owned `newxos` wrapper
 - `newxos flake show` stays plain `nix flake show`; there is no useful `nom` wrapper for that output.
 - Host inference depends on wrapper-managed environment; read source for current fallback behavior.
 - `newxos flake run` targets runnable flake attrs like package or app names, not NixOS host names.
+
+## Newxos Utility Commands
+
+- [fact] `newxos switch` is a top-level alias for `newxos os switch` using the same host/default and `--git-only` handling.
+- [fact] `newxos git` opens the repo git graph using `git lg` when available, falling back to `git log --graph --decorate --oneline --all`.
+- [fact] `newxos reload_shell` restarts the user `newshell` service.
+- [fact] `newxos dev_mode` prints the current dev-mode environment value from `NEWXOS_DEV`, falling back to `DEVMODE` or `0`.

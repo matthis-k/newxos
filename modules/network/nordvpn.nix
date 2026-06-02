@@ -503,6 +503,8 @@
             ${pkgs.util-linux}/bin/runuser -u ${lib.escapeShellArg cliUser} -- ${configureNordvpn}
           '';
         };
+
+        systemd.services.nordvpn.path = [ pkgs.e2fsprogs ];
       };
     };
 }

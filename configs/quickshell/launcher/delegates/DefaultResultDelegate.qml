@@ -11,6 +11,7 @@ Rectangle {
     property int iconSize: 32
     property bool showSubtitle: true
     property bool showActionHint: true
+    property bool showEvidence: false
     property bool showSourceBadge: false
     property var controller: null
     readonly property int switchControlWidth: 132
@@ -42,6 +43,7 @@ Rectangle {
         Icon {
             iconName: root.result.icon || "application-x-executable"
             fallbackIconName: "application-x-executable"
+            color: root.result.iconColor || undefined
             implicitSize: root.iconSize
             Layout.preferredWidth: root.iconSize
             Layout.preferredHeight: root.iconSize
@@ -52,12 +54,22 @@ Rectangle {
             Layout.fillWidth: true
             Layout.alignment: Qt.AlignVCenter
 
+            Text {
+                text: root.result.breadcrumbText || ""
+                visible: text.length > 0
+                color: Config.styling.text2
+                font.pixelSize: 11
+                elide: Text.ElideRight
+                maximumLineCount: 1
+                Layout.fillWidth: true
+            }
+
             RowLayout {
                 spacing: Config.spacing.xxs
                 Layout.fillWidth: true
 
                 Repeater {
-                    model: root.result.breadcrumbs || root.result.path || []
+                    model: root.result.breadcrumbText ? [] : root.result.breadcrumbs || root.result.path || []
 
                     RowLayout {
                         spacing: Config.spacing.xxs
@@ -92,7 +104,7 @@ Rectangle {
 
                 Text {
                     text: root.result.score ? Math.round(root.result.score * 100) + "%" : ""
-                    visible: root.result.score > 0
+                    visible: root.showEvidence && root.result.score > 0
                     color: scoreColor(root.result.score)
                     font.pixelSize: 10
                     font.bold: true
@@ -201,10 +213,9 @@ Rectangle {
     }
 
     function scoreColor(score) {
-        if (score >= 0.90) return "#a6e3a1";
-        if (score >= 0.75) return "#a6e3a1";
-        if (score >= 0.55) return "#f9e2af";
-        if (score >= 0.35) return "#fab387";
+        if (score >= 0.75) return Config.palette.green || Config.styling.success || Config.styling.primaryAccent;
+        if (score >= 0.55) return Config.palette.yellow || Config.styling.warning || Config.styling.text1;
+        if (score >= 0.35) return Config.palette.peach || Config.styling.warning || Config.styling.text1;
         return Config.styling.text2;
     }
 

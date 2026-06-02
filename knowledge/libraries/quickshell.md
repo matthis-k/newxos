@@ -102,8 +102,8 @@ Quickshell provides the QtQuick/QML shell toolkit used for bars, panels, widgets
 
 ## Launcher Composite Search
 
-- [decision] Launcher search now uses a prototype-derived composite node pipeline in `configs/quickshell/launcher/logic/CompositeSearch.js` instead of the older `CommandTree`/`EvidenceScorer` ranking path.
-- [fact] Launcher backends expose `rootNode(query, context)` trees that the controller evaluates, scores with evidence, and flattens for UI rows.
+- [decision] Launcher search uses a composite node pipeline in `configs/quickshell/launcher/logic/CompositeSearch.js`; the older `CommandTree`/`EvidenceScorer` ranking path was removed so backends should implement composite `rootNode(query, context)` plus `activate(result, action)`.
+- [fact] `LauncherBackendBase.qml` keeps shared backend metadata and route text helpers; `CommandTreeBackendBase.qml` adapts static action trees into composite nodes for action-style backends.
 - [technique] Switch-style actions are represented as one result with `on`, `off`, and `toggle` actions; query tokens choose the best default action, otherwise toggle is the default.
 - [fact] Launcher group clarity is handled in delegates with card-like result surfaces and switch controls for switch-capable results.
 
@@ -163,3 +163,136 @@ Quickshell provides the QtQuick/QML shell toolkit used for bars, panels, widgets
 - [technique] Use `newshell ipc call launcher debugSearch '<query>'` after `systemctl --user restart newshell` to verify launcher ranking and default actions.
 - [fact] Core checklist: `zen`, `zen `, `zen priv`, `zen win`, `zen browser`, `zen new`, `wifi`, `wifi `, `wifi on`, `wifi off`, `wifi toggle`, `toggle wifi`, `wo`, `wt`, `:`, `:wifi`, `:wifi `, `:wifi on`, `:db wifi`, `@apps`, `@apps zen`, `@apps wifi`, `db wifi`, `dashboard wifi`, `en`, `screen`, `session`, `vpn of`, `notes`, `/tmp`.
 - [fact] Expected top/defaults: Zen collapsed for `zen`; Zen children visible for `zen `; private/window actions win for `zen priv`/`zen win`; Wi-Fi defaults to toggle/on/off as queried; `wo`/`wt` select Wi-Fi on/toggle; `:` gates to desktop actions; `@apps` gates to apps; `db wifi` and `dashboard wifi` select Dashboard tab `wifi`; `notes` does not activate files; `/tmp` activates files.
+
+## Launcher Result Collection
+
+- [fact] `configs/quickshell/launcher/tools/collect-debug-search.sh` reads one query per line and emits a single JSON object mapping each query to `newshell ipc call launcher debugSearch` output.
+- [technique] Use the helper to compare launcher ranking behavior across iterations with a stable query corpus.
+
+## Launcher Static Tree Backends
+
+- [fact] `configs/quickshell/launcher/backends/StaticTreeBackendBase.qml` adapts nested static action objects into composite launcher backend roots.
+- [technique] Static tree nodes can be groups, actions, or boolean switches; executable closures stay inside the backend tree and are resolved at activation through row `metadata.commandPath` plus action id.
+- [decision] Launcher debug IPC emits compact normalized row DTOs for diffable search baselines instead of full evidence/action object graphs.
+
+## Launcher Backend Model Hierarchy
+
+- [decision] Launcher backends now use QML base components for object-oriented backend models: `TreeBackendBase`, `ModelTreeBackendBase`, `ComputedBackendBase`, `StreamingBackendBase`, and `ProcessBackendBase`.
+- [fact] `TreeBackendBase.qml` adapts nested object trees into composite nodes; `ModelTreeBackendBase.qml` is for model-derived trees such as desktop apps and backend help.
+- [fact] `ComputedBackendBase.qml` is for synchronous query-derived results such as calculator and web search.
+- [fact] `StreamingBackendBase.qml` owns keyed stream state with add/upsert/remove/reset operations so changing sources can remove stale items instead of only appending.
+- [technique] `ProcessBackendBase.qml` derives from `StreamingBackendBase.qml` and resets keyed stream state from parsed process output snapshots.
+
+## Launcher Newxos Actions
+
+- [fact] `DesktopActionsBackend.qml` includes a `Newxos` group with actions for `newxos switch`, `newxos ai`, `newxos git`, `newxos reload_shell`, and a `devmode` switch.
+- [technique] Interactive launcher commands use `$TERMINAL` with `kitty` fallback; long-running non-interactive commands pause for Enter so the terminal closes only after review.
+- [fact] The `session` launcher group includes Lock, Log Out, Shut Down, Reboot, and Hibernate.
+
+## Launcher Web Fallback Suppression
+
+- [decision] Ambient web fallback rows are suppressed when any non-web backend produces visible rows for the same unprefixed query.
+- [technique] Explicit web directives such as `@web`, `@g`, `@ddg`, `@gh`, and `@yt` still bypass suppression and show web rows directly.
+- [fact] This keeps command groups like `session` and `newxos` from being crowded out by generic web search rows.
+
+## Relations
+
+- relates_to [[Launcher Web Fallback]]
+- relates_to [[Launcher Newxos Actions]]
+
+## Launcher Row Display Policy
+
+- [decision] Launcher frontend row representation is driven by backend/node `behavior.displayPolicy`, not hard-coded delegate special cases.
+- [technique] Breadcrumb arrays and breadcrumb notation are derived from the evaluated tree parent chain; display policy only decides whether that path is rendered.
+- [fact] `Session` and `Newxos` action groups request `breadcrumbMode: "always"`; other action groups can opt in or use score-dependent modes such as `when-parent-dominates`.
+- [requirement] Normalized rows must keep display policy as DTO data; executable backend payloads stay private to the backend.
+
+## Relations
+
+- relates_to [[Launcher Category Group Display]]
+- relates_to [[Launcher Newxos Actions]]
+
+## Launcher Row Icon Colors
+
+- [fact] Launcher result rows can carry optional `iconColor` values through the composite row DTO.
+- [technique] `DefaultResultDelegate.qml` and `TreeResultDelegate.qml` pass `result.iconColor` into the shared `Icon` component color overlay.
+- [decision] Desktop action backends should use theme-derived `Config.styling` colors for semantic action icons instead of hard-coded hex values.
+- [fact] Session action rows use colored icons for Lock, Log Out, Reboot, Shut Down, and Hibernate.
+
+## Relations
+
+- relates_to [[Launcher Row Display Policy]]
+- relates_to [[Launcher Category Group Display]]
+
+## Launcher Async Query Scheduling
+
+- [decision] Launcher UI query updates are coalesced through `LauncherController.searchTimer` instead of running composite search directly inside `onTextEdited`.
+- [technique] Each query update increments `generation`; queued searches and async backend callbacks check generation before applying results.
+- [fact] `debugSearch`, `debugComplete`, and benchmarks still run synchronous composite search for deterministic IPC output.
+- [technique] Process-backed launcher searches cancel the previous `Process` before starting a newer request.
+- [requirement] Long synchronous JavaScript search work cannot be preempted mid-function by a newer keystroke; cancellation happens before queued work starts and when async callbacks return.
+
+## Relations
+
+- relates_to [[Launcher Composite Search]]
+- relates_to [[Launcher File Queries]]
+
+## Launcher Declarative Backend Trees
+
+- [decision] Static launcher action trees can be authored as declarative QML `Node` and `Action` objects under one backend object.
+- [technique] `TreeBackendBase` materializes declarative QML nodes into plain JS tree DTOs before composite search, keeping scoring/indexing on serializable data rather than live QML objects.
+- [fact] `DesktopActionsBackend.qml` uses declarative nodes for the `Newxos` and `Session` groups while older object-tree helpers remain compatible for dynamic groups.
+- [decision] Do not skip the DTO materialization step; live QML objects in the hot search path create circular refs, slower property access, and harder debug serialization.
+- [technique] Base backend lifecycle signals (`searchStarted`, `searchFinished`, `searchCancelled`, `backendError`) provide the hook point for shared query/process management.
+
+## Relations
+
+- relates_to [[Launcher Backend Model Hierarchy]]
+- relates_to [[Launcher Composite Search]]
+
+## Launcher Backend DTO Factories
+
+- [decision] `LauncherBackendBase.qml` centralizes launcher DTO creation with `actionDto`, `nodeDto`, and `backendRootDto` so individual backends do not import or hand-roll composite search nodes.
+- [fact] Computed, streaming, process, tree, model-derived, desktop app, file, web, calculator, and help backends now route result construction through QML backend base factories.
+- [technique] Declarative static actions use `Node.qml`/`Action.qml`; dynamic backends keep normal QML/JS bindings but emit the same plain JS DTO shape.
+- [requirement] Keep `CompositeSearch*.js` as pure DTO processing; QML owns authoring, lifecycle, signals, and async/process cancellation.
+
+## Relations
+
+- relates_to [[Launcher Declarative Backend Trees]]
+- relates_to [[Launcher Backend Model Hierarchy]]
+
+## Launcher QML-First DTO Boundary
+
+- [decision] Static launcher action namespaces in `DesktopActionsBackend.qml` are authored as declarative `Node { ... }` trees and materialized by `TreeBackendBase` into plain DTOs before search.
+- [decision] Dynamic QML-owned child lists, such as dashboard tabs and VPN destinations, attach to a QML `Node` through `dynamicChildren`; they remain plain tree objects rather than live child QML objects when generated from data.
+- [decision] External/process backends should not round-trip process rows through live QML `Node` objects; QML owns process lifecycle and normalization, then emits DTOs through backend factories.
+- [technique] Switch rows require an explicit `switchState`; parent groups with switch children should not be inferred as switches.
+
+## Relations
+
+- relates_to [[QuickShell desktop shell requirements]]
+- relates_to [[Encountered Issues]]
+
+## Launcher Template Nodes
+
+- [decision] Static launcher action trees use QML template nodes for repeated defaults: `ActionNode`, `ActionGroupNode`, `FlatActionGroupNode`, `SwitchNode`, and `SwitchActionNode`.
+- [technique] `Node.qml` carries `template` and `groupOptions` metadata; `TreeBackendBase.qml` expands group templates into centralized category group behavior before DTO search.
+- [fact] `DesktopActionsBackend.qml` no longer calls `categoryGroupBehavior(...)` directly for static desktop action groups; group defaults can be changed through the template/base components.
+- [technique] `SwitchActionNode` centralizes default on/off/toggle names, titles, icons, state payloads, and dangerous-off behavior while preserving per-action executors.
+
+## Relations
+
+- relates_to [[Launcher Declarative Backend Trees]]
+- relates_to [[Launcher QML-First DTO Boundary]]
+
+## Launcher Category Group Flattening
+
+- [decision] `ActionGroupNode` defaults to flattening matching categories into actionable child rows so groups do not render as non-executable blank tree rows.
+- [technique] `CompositeSearchFlatten.flattenActionableChildren()` walks through non-action wrapper groups and emits executable leaves or switch rows, which keeps nested groups such as `Power > Power Mode > Performance` visible and actionable.
+- [requirement] Use nested tree group display only when the parent row is intentionally useful; command namespaces should prefer actionable flattened rows.
+
+## Relations
+
+- relates_to [[Launcher Template Nodes]]
+- relates_to [[Launcher Category Group Display]]

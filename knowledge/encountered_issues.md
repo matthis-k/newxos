@@ -264,3 +264,71 @@ Relations:
   - Issue: `ProcessBackendBase.applySearchOutput()` only invoked callbacks when parsed results were non-empty, which can leave the launcher controller with stale pending/loading state and prevent empty async searches from settling.
   - Fix: Always invoke the async callback with the parsed result array, including `[]`; file path queries also get an immediate direct-path composite row while process results catch up.
   - Prevention: Async launcher backends must always settle their callback for every request, even on no-match or process failure paths.
+
+### 2026-06-01: Launcher debugSearch can fail on circular debug rows
+
+- Date: `2026-06-01`
+- Problem: `newshell ipc call launcher debugSearch "zen n"` returned Quickshell IPC `PeerClosedError` text instead of JSON.
+- Symptom: the query worked in `debugBenchmark` and returned row counts, but `debugSearch`/`debugComplete` failed because JSON serialization of result rows hit circular or repeated object references.
+- Cause: debug IPC serialized rich row objects directly; selected/child actions can share nested objects in a way that is unsafe for plain `JSON.stringify`.
+- Fix: use `LauncherController.debugStringify()` with a circular-safe replacer for debug IPC responses, and let the result collection helper record per-query errors instead of aborting.
+- Rule: debug IPC must serialize sanitized/debug-safe values, not assume UI model rows are plain JSON trees.
+- Context: QuickShell launcher debug result collection baseline.
+- Related knowledge: [[quickshell]]
+
+### 2026-06-02: Launcher debug baselines should use compact row DTOs
+
+- Date: `2026-06-02`
+- Problem: Full launcher row debug output could exceed practical IPC/debug safety because rows carried rich action/evidence graphs and executable payload details.
+- Symptom: Combined `debugSearch "zen n"` failed while backend-isolated debug output and `debugBenchmark` worked.
+- Cause: The debug path serialized too much row internals; the UI needs normalized row fields, not full evidence and executable action closures.
+- Fix: Emit compact normalized debug rows and keep static backend executable closures backend-internal, resolved through `metadata.commandPath` and action id.
+- Rule: Launcher baselines should diff normalized public row fields, not private backend execution objects.
+- Context: QuickShell launcher result collection baseline.
+- Related knowledge: [[quickshell]]
+
+## Quickshell Environment Access
+
+- [issue] QML checks using `Qt.application.environment` can silently read as unset in Quickshell, causing state like launcher dev-mode toggles to drift from the actual service environment.
+- [root-cause] Quickshell exposes process environment through `Quickshell.env("VAR")`; `Qt.application.environment` is not the supported API here.
+- [fix] Use `Quickshell.env("NEWXOS_DEV") === "1"` (and fallback variables as needed) for live Quickshell environment checks.
+- [prevention] When reading environment variables from Quickshell QML, import `Quickshell` and use `Quickshell.env()`.
+
+## Relations
+
+- relates_to [[quickshell]]
+- relates_to [[Dev Specialization]]
+
+## Quickshell Launcher Tree Results Collapsed Frame
+
+- [issue] The launcher could have valid controller results while the visible results frame stayed collapsed, making queries like `session` appear blank.
+- [root-cause] The frame height depended only on `resultsColumn.implicitHeight`; tree delegates loaded through `Loader` can report no implicit height briefly, so the result area can collapse even when `controller.results.length > 0`.
+- [fix] Reserve at least `rowHeight * visibleRows` whenever results exist, while still allowing `resultsColumn.implicitHeight` to expand tree rows.
+- [prevention] For loader-backed result lists, size the viewport from model count as a floor and delegate implicit size as an expansion, not from delegate implicit size alone.
+
+## Relations
+
+- relates_to [[quickshell]]
+- relates_to [[Launcher Result Limits]]
+
+### 2026-06-02: Launcher action groups can look blank when only nested children are emitted
+
+- Date: `2026-06-02`
+- Problem: a matching launcher action group could be returned only as a non-executable parent with nested child rows.
+- Symptom: searching `newxos` produced valid debug rows, but the launcher could appear to show nothing useful or actionable.
+- Cause: the `Newxos` group used category group display defaults that favored the parent row and nested children, while the parent had no default action.
+- Fix: give the `Newxos` group a default `newxos switch` action and tune its group display margins so at least the primary child action is flattened into a normal visible row.
+- Rule: launcher groups intended as user-entered command namespaces should either be executable themselves or flatten at least one actionable child row for the namespace query.
+- Context: QuickShell launcher desktop actions.
+- Related knowledge: [[quickshell]]
+
+### 2026-06-03: Launcher category groups should flatten actionable descendants
+
+- Date: `2026-06-03`
+- Problem: normal launcher category groups emitted non-executable parent rows with nested children.
+- Symptom: searches such as `networking`, `audio`, `notifications`, and `power profile` produced valid debug DTOs but looked invisible or non-actionable in the launcher because the frontend selected the tree delegate for nested groups.
+- Cause: `ActionGroupNode` defaulted to nested group display, and flattening only considered immediate children, so wrapper groups like `Power Mode` could still become non-executable rows.
+- Fix: make `ActionGroupNode` default to flattening category matches and have `CompositeSearchFlatten.flattenActionableChildren()` walk through non-action wrapper groups to emit executable leaves or switch rows.
+- Rule: user-facing launcher category templates should flatten to actionable descendant rows unless the parent group is intentionally executable and visually useful.
+- Context: QuickShell launcher desktop actions.
+- Related knowledge: [[quickshell]]

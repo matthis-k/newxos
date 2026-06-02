@@ -237,6 +237,11 @@ Singleton {
             const state = root.instances[0];
             return state ? state.launcher.debugSearch(query) : "{}";
         }
+        function debugState(): string {
+            const states = root.instances.filter(state => state && state.launcher && state.launcher.visible);
+            const state = states[0] || root.instances[0];
+            return state ? state.launcher.debugState() : "{}";
+        }
         function debugBenchmark(arg: string): string {
             const state = root.instances[0];
             return state ? state.launcher.debugBenchmark(arg) : "{}";

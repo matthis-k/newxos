@@ -1,11 +1,8 @@
 import QtQml
 import Quickshell
-import "../logic/CommandTree.js" as CommandTree
 
-CommandTreeBackendBase {
+ModelTreeBackendBase {
     id: root
-
-    property var controller: null
 
     category: qsTr("Applications")
 
@@ -17,7 +14,6 @@ CommandTreeBackendBase {
     helpPrefixes: ["@app", "@apps", "@desktop"]
     priority: 80
     maxResults: 6
-    prewarmCompositeRootCache: false
     routes: [
         { pattern: "^@app\\s+(.*)", mode: "exclusive" },
         { pattern: "^@app$", mode: "exclusive" },

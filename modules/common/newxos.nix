@@ -418,6 +418,27 @@
                       (cd "$(repo_root)" && exec opencode)
                     }
 
+                    git_cmd() {
+                      [ "$#" -eq 0 ] || usage
+                      cd "$(repo_root)"
+
+                      if git lg >/dev/null 2>&1; then
+                        exec git lg
+                      fi
+
+                      exec git log --graph --decorate --oneline --all
+                    }
+
+                    reload_shell_cmd() {
+                      [ "$#" -eq 0 ] || usage
+                      systemctl --user restart newshell
+                    }
+
+                    dev_mode_cmd() {
+                      [ "$#" -eq 0 ] || usage
+                      printf '%s\n' "''${NEWXOS_DEV:-''${DEVMODE:-0}}"
+                    }
+
                     memory_cmd() {
                       local action
 
@@ -475,11 +496,15 @@
                       case "$group" in
                         build-iso) build_iso_cmd "$@" ;;
                         first-install) first_install_cmd "$@" ;;
+                        switch) os_cmd switch "$@" ;;
                         os) os_cmd "$@" ;;
                         home) home_cmd "$@" ;;
                         flake) flake_cmd "$@" ;;
                         memory) memory_cmd "$@" ;;
                         ai) ai_cmd "$@" ;;
+                        git) git_cmd "$@" ;;
+                        reload_shell) reload_shell_cmd "$@" ;;
+                        dev_mode) dev_mode_cmd "$@" ;;
                         clean) clean_cmd "$@" ;;
                         _complete) complete_cmd "$@" ;;
                         -h|--help|help) usage ;;
@@ -498,6 +523,11 @@
 
         function __fish_newxos_wants_nixos_host
           set -l words (__fish_newxos_words)
+          test (count $words) -ge 2; or return 1
+          if test "$words[2]" = switch
+            test (count $words) -eq 2; and return 0
+            return 1
+          end
           test (count $words) -eq 3; or return 1
           test "$words[2]" = os; or return 1
           contains -- "$words[3]" switch boot build
@@ -540,6 +570,10 @@
           set -l words (__fish_newxos_words)
           test (count $words) -ge 3; or return 1
 
+          if test "$words[2]" = switch
+            return 0
+          end
+
           switch "$words[2]:$words[3]"
             case 'os:switch' 'os:boot' 'os:build' 'home:switch' 'home:build' 'flake:build' 'flake:check' 'flake:show' 'flake:run'
               return 0
@@ -555,7 +589,7 @@
         end
 
         complete -c newxos -f
-        complete -c newxos -n 'not __fish_seen_subcommand_from build-iso first-install os home flake memory clean' -a 'build-iso first-install os home flake memory clean'
+        complete -c newxos -n 'not __fish_seen_subcommand_from build-iso first-install switch os home flake ai git reload_shell dev_mode memory clean' -a 'build-iso first-install switch os home flake ai git reload_shell dev_mode memory clean'
         complete -c newxos -n '__fish_seen_subcommand_from os; and not __fish_seen_subcommand_from switch boot build' -a 'switch boot build'
         complete -c newxos -n '__fish_seen_subcommand_from home; and not __fish_seen_subcommand_from switch build' -a 'switch build'
         complete -c newxos -n '__fish_seen_subcommand_from flake; and not __fish_seen_subcommand_from build check show run' -a 'build check show run'

@@ -126,6 +126,60 @@
           --output-filename "$output_file"
       '';
 
+      readImage = pkgs.writeShellScriptBin "read-image" ''
+        set -euo pipefail
+
+        if [ ''${1:-} = "--clipboard" ]; then
+          shift
+          img_type="$(${pkgs.wl-clipboard}/bin/wl-paste --list-types 2>/dev/null | ${pkgs.gnugrep}/bin/grep '^image/' | ${pkgs.coreutils}/bin/head -1)"
+          if [ -z "$img_type" ]; then
+            ${pkgs.libnotify}/bin/notify-send "read-image" "Clipboard has no image"
+            exit 1
+          fi
+          ${pkgs.wl-clipboard}/bin/wl-paste --type "$img_type" | "$0" "$@"
+          exit
+        fi
+
+        tmp="$(${pkgs.coreutils}/bin/mktemp --suffix .png)"
+        trap '${pkgs.coreutils}/bin/rm -f "$tmp"' EXIT
+
+        ${pkgs.coreutils}/bin/cat > "$tmp"
+
+        text="$(${pkgs.tesseract}/bin/tesseract "$tmp" stdout -l ''${OCR_LANG:-eng} 2>/dev/null | ${pkgs.gnused}/bin/sed '/^[[:space:]]*$/d')"
+
+        if [ -z "$text" ]; then
+          ${pkgs.libnotify}/bin/notify-send "read-image" "No text detected"
+          exit 1
+        fi
+
+        printf '%s\n' "$text"
+      '';
+
+      annotate = pkgs.writeShellScriptBin "annotate" ''
+        set -euo pipefail
+
+        if [ ''${1:-} = "--clipboard" ]; then
+          shift
+          img_type="$(${pkgs.wl-clipboard}/bin/wl-paste --list-types 2>/dev/null | ${pkgs.gnugrep}/bin/grep '^image/' | ${pkgs.coreutils}/bin/head -1)"
+          if [ -z "$img_type" ]; then
+            ${pkgs.libnotify}/bin/notify-send "annotate" "Clipboard has no image"
+            exit 1
+          fi
+          ${pkgs.wl-clipboard}/bin/wl-paste --type "$img_type" | "$0" "$@"
+          exit
+        fi
+
+        screenshots_dir="''${XDG_SCREENSHOTS_DIR:-$HOME/Pictures/Screenshots}"
+        output_file="$screenshots_dir/annotate-$(date +%Y%m%d-%H%M%S).png"
+
+        ${pkgs.coreutils}/bin/mkdir -p "$screenshots_dir"
+
+        ${pkgs.coreutils}/bin/cat | ${pkgs.satty}/bin/satty \
+          --filename - \
+          --fullscreen \
+          --output-filename "$output_file"
+      '';
+
       hyprctlFishCompletion = pkgs.runCommand "hyprctl-fish-completion" { } ''
         mkdir -p hyprctl $out/share/fish/vendor_completions.d
         cp ${hyprlandPackages.hyprland}/share/fish/vendor_completions.d/hyprctl.fish hyprctl/hyprctl.fish
@@ -150,6 +204,8 @@
           screenShot
           screenReadRegion
           screenEditClipboard
+          readImage
+          annotate
         ];
 
         environment.variables = {

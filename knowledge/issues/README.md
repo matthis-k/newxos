@@ -10,6 +10,7 @@ links:
 - issue-nixos-install-oom
 - issue-prefers-color-scheme-dark
 - fix-quickshell-networking-crash
+- issue-nordvpn-openvpn-chattr
 updated: 2026-05-15
 permalink: newxos/issues/readme
 ---
@@ -41,6 +42,7 @@ This folder tracks known issues and their workarounds.
 ## Resolved issues
 
 - [[fix-quickshell-networking-crash]]
+- [[NordVPN OpenVPN chattr runtime dependency]]
 
 ## Format
 

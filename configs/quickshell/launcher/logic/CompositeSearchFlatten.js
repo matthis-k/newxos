@@ -43,6 +43,8 @@ function decideGroupDisplay(ev, ctx) {
     if (!policy)
         return { mode: "normal", showParent: true, children: ev.children };
     var parentScore = groupDominanceOwnScore(ev, ctx);
+    if (policy.flattenAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
+        return { mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, policy.maxNestedChildren || ev.children.length) };
     if (policy.showAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
         return { mode: "nested-group", showParent: true, children: ev.children.slice(0, policy.maxNestedChildren || ev.children.length) };
     var visibleChildren = ev.children.filter(function(c) { return c.visible && c.score >= policy.minChildScore; }).sort(compareEvaluated);
@@ -58,6 +60,23 @@ function decideGroupDisplay(ev, ctx) {
     return { mode: "filtered-group", showParent: policy.showGroupHeaderInFilteredMode, children: visibleChildren.slice(0, policy.maxFlattenedChildren) };
 }
 
+function flattenActionableChildren(children, limit) {
+    var out = [];
+    function visit(child) {
+        if (!child || out.length >= limit)
+            return;
+        if ((child.node.actionList && child.node.actionList.length) || child.node.switchActions) {
+            out.push(child);
+            return;
+        }
+        for (var i = 0; i < (child.children || []).length && out.length < limit; i += 1)
+            visit(child.children[i]);
+    }
+    for (var i = 0; i < (children || []).length && out.length < limit; i += 1)
+        visit(children[i]);
+    return out;
+}
+
 function rangesForField(evidenceItems, fieldName, nodeId) {
     var ranges = [];
     for (var i = 0; i < (evidenceItems || []).length; i += 1) {
@@ -66,6 +85,120 @@ function rangesForField(evidenceItems, fieldName, nodeId) {
             ranges = ranges.concat(e.ranges || []);
     }
     return ranges;
+}
+
+function copyRange(range) {
+    if (!range)
+        return null;
+    return { start: Number(range.start || 0), end: Number(range.end || 0) };
+}
+
+function copyRanges(ranges) {
+    return (ranges || []).map(copyRange).filter(Boolean);
+}
+
+function copyEvidence(evidenceItems) {
+    return (evidenceItems || []).map(function(e) {
+        return {
+            strategy: e.strategy || "",
+            field: e.field || "",
+            fieldText: e.fieldText || "",
+            nodeId: e.nodeId || "",
+            kind: e.kind || "",
+            score: Number(e.score || 0),
+            weight: Number(e.weight || 0),
+            effective: Number(e.effective || 0),
+            ranges: copyRanges(e.ranges),
+            reason: e.reason || ""
+        };
+    });
+}
+
+function copyPayload(payload) {
+    if (!payload || typeof payload !== "object")
+        return payload || null;
+    var out = {};
+    for (var key in payload) {
+        var value = payload[key];
+        if (typeof value === "function")
+            continue;
+        else if (Array.isArray(value))
+            out[key] = value.slice();
+        else if (!value || typeof value !== "object")
+            out[key] = value;
+    }
+    return out;
+}
+
+function copyAction(action, isDefault) {
+    if (!action)
+        return null;
+    return {
+        id: action.id || "",
+        label: action.label || action.title || action.id || "",
+        icon: action.icon || null,
+        default: isDefault === undefined ? !!action.default : !!isDefault,
+        intent: action.intent || null,
+        payload: copyPayload(action.payload)
+    };
+}
+
+function copyActionList(actions, selectedAction) {
+    return (actions || []).map(function(action) {
+        return copyAction(action, selectedAction ? action.id === selectedAction.id : action.default);
+    }).filter(Boolean);
+}
+
+function copySwitchActions(switchActions, selectedAction) {
+    if (!switchActions)
+        return null;
+    var out = {};
+    for (var key in switchActions)
+        out[key] = copyAction(switchActions[key], selectedAction ? switchActions[key].id === selectedAction.id : switchActions[key].default);
+    return out;
+}
+
+function copyMetadata(meta, node, action) {
+    var out = {};
+    for (var key in meta || {}) {
+        if (key === "action")
+            continue;
+        var value = meta[key];
+        if (Array.isArray(value))
+            out[key] = value.slice();
+        else if (!value || typeof value !== "object")
+            out[key] = value;
+    }
+    out.nodeId = node.id;
+    if (action)
+        out.actionId = action.id || "";
+    return out;
+}
+
+function displayPolicyFor(node) {
+    var chain = collectParentChain(node);
+    for (var i = chain.length - 1; i >= 0; i -= 1) {
+        var behavior = chain[i].behavior || {};
+        if (behavior.displayPolicy)
+            return behavior.displayPolicy;
+    }
+    return {};
+}
+
+function breadcrumbTextFor(ev, breadcrumbs, policy, childRows) {
+    var mode = policy.breadcrumbMode || "default";
+    if (mode === "hidden" || !breadcrumbs.length)
+        return "";
+    if (mode === "when-parent-dominates") {
+        var childMax = 0;
+        for (var i = 0; i < (childRows || []).length; i += 1)
+            childMax = Math.max(childMax, Number(childRows[i].ownScore || childRows[i].score || 0));
+        if (childMax > 0 && childMax > Number(ev.ownScore || 0))
+            return "";
+    } else if (mode !== "always") {
+        return "";
+    }
+    return breadcrumbs.concat([ev.node.label]).join(" > ");
 }
 
 function defaultActionForNode(node, query, ownScore) {
@@ -105,18 +238,20 @@ function toResultRow(ev, depth, state, ctx, childRows) {
     var node = ev.node;
     var chain = collectParentChain(node);
     var breadcrumbs = chain.slice(0, -1).map(function(n) { return n.label; });
+    var displayPolicy = displayPolicyFor(node);
+    var breadcrumbText = breadcrumbTextFor(ev, breadcrumbs, displayPolicy, childRows);
     var action = defaultActionForNode(node, ctx.query, ev.ownScore);
     if (childRows && childRows.length) {
         var bestChildRow = childRows.slice().sort(function(a, b) { return b.score - a.score; })[0];
-        if (bestChildRow && bestChildRow.executable && bestChildRow.enter && bestChildRow.enter.action && (bestChildRow.score > ev.ownScore + 0.03 || (ctx.query.tokens.length > 1 && bestChildRow.score >= 0.9 && bestChildRow.score > ev.ownScore - 0.08)))
+        if (bestChildRow && bestChildRow.executable && bestChildRow.enter && bestChildRow.enter.action && ctx.query.tokens.length > 1 && (bestChildRow.score > ev.ownScore + 0.03 || (bestChildRow.score >= 0.9 && bestChildRow.score > ev.ownScore - 0.08)))
             action = bestChildRow.enter.action;
     }
-    var actions = (node.actionList || []).slice();
+    var sourceActions = (node.actionList || []).slice();
     if (node.switchActions) {
-        actions = [node.switchActions.toggle, node.switchActions.on, node.switchActions.off].filter(Boolean);
-        for (var ai = 0; ai < actions.length; ai += 1)
-            actions[ai].default = action && actions[ai].id === action.id;
+        sourceActions = [node.switchActions.toggle, node.switchActions.on, node.switchActions.off].filter(Boolean);
     }
+    var actions = copyActionList(sourceActions, action);
+    var enterAction = action ? copyAction(action, true) : null;
     return {
         id: "row:" + node.id,
         nodeId: node.id,
@@ -127,25 +262,28 @@ function toResultRow(ev, depth, state, ctx, childRows) {
         label: node.label,
         subtitle: node.subtitle,
         icon: node.icon,
+        iconColor: node.iconColor || null,
         depth: depth,
         score: ev.score,
         ownScore: ev.ownScore,
-        evidence: ev.evidence,
+        evidence: copyEvidence(ev.evidence),
         selected: state.selectedNodeId === node.id,
         expandable: ev.children.length > 0,
         expanded: state.expandedNodeIds[node.id] || node.kind === "backend",
         breadcrumbs: breadcrumbs,
-        labelMatches: rangesForField(ev.evidence, "label", node.id),
-        subtitleMatches: rangesForField(ev.evidence, "subtitle", node.id),
+        breadcrumbText: breadcrumbText,
+        display: Object.assign({ breadcrumbText: breadcrumbText }, displayPolicy),
+        labelMatches: copyRanges(rangesForField(ev.evidence, "label", node.id)),
+        subtitleMatches: copyRanges(rangesForField(ev.evidence, "subtitle", node.id)),
         actions: actions,
-        enter: action ? { type: "activate", action: action } : { type: "noop" },
+        enter: enterAction ? { type: "activate", action: enterAction } : { type: "noop" },
         shiftEnter: { type: "noop" },
         executable: !!action,
         dangerous: !!node.dangerous,
         children: childRows || [],
-        switchActions: node.switchActions || null,
+        switchActions: copySwitchActions(node.switchActions, action),
         switchState: node.switchState === undefined ? null : node.switchState,
-        metadata: Object.assign({}, node.meta || {}, { nodeId: node.id, action: action })
+        metadata: copyMetadata(node.meta, node, action)
     };
 }
 
@@ -157,8 +295,8 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         if (ev.node.kind === "backend") return false;
         return true;
     }
-    function add(ev, depth, sortScore, childEvs) {
-        if (ev.node.kind !== "root" && canInclude(ev))
+    function add(ev, depth, sortScore, childEvs, forceInclude) {
+        if (ev.node.kind !== "root" && (forceInclude || canInclude(ev)))
             collected.push({ ev: ev, depth: depth, sortScore: sortScore === undefined ? ev.score : sortScore, childEvs: childEvs || [] });
     }
     function collect(ev, depth) {
@@ -171,6 +309,11 @@ function flattenForUi(evaluatedRoot, state, ctx) {
             return;
         }
         var decision = decideGroupDisplay(ev, ctx);
+        if (decision.mode === "flatten-all-children") {
+            for (var ai = 0; ai < decision.children.length; ai += 1)
+                add(decision.children[ai], depth + 1, decision.children[ai].score, [], true);
+            return;
+        }
         if (decision.mode === "normal") {
             add(ev, depth);
             for (var n = 0; n < ev.children.length; n += 1) collect(ev.children[n], depth + 1);
@@ -186,7 +329,7 @@ function flattenForUi(evaluatedRoot, state, ctx) {
             add(ev, depth, score, decision.mode === "filtered-group" ? decision.children : []);
             if (decision.mode === "filtered-group") {
                 for (var ci = 0; ci < decision.children.length; ci += 1)
-                    add(decision.children[ci], depth + 1, score - (ci + 1) * 0.0001);
+                    add(decision.children[ci], depth + 1, decision.children[ci].score);
                 return;
             }
         }

@@ -1,8 +1,7 @@
 import QtQml
 import Quickshell
-import "../logic/CompositeSearch.js" as CompositeSearch
 
-LauncherBackendBase {
+ComputedBackendBase {
     id: root
 
     property string category: qsTr("Calculator")
@@ -20,13 +19,6 @@ LauncherBackendBase {
         { pattern: "^=\\s?(.*)", mode: "exclusive" },
         { pattern: "^.*$", mode: "ambient" }
     ]
-
-    function isEnabled(query) {
-        if (!root.enabled)
-            return false;
-        const expression = root.queryText(query);
-        return expression.length > 0 && looksLikeMath(expression);
-    }
 
     function looksLikeMath(expression) {
         const text = expression.trim().toLowerCase();
@@ -197,46 +189,21 @@ LauncherBackendBase {
         return rounded.toString();
     }
 
-    function results(query) {
-        const expression = root.queryText(query);
-        if (!expression)
-            return [];
-
-        try {
-            const output = formatResult(evaluate(expression));
-            return [root.buildResult({
-                id: "calc:" + expression,
-                title: expression,
-                subtitle: output,
-                icon: "accessories-calculator",
-                relevance: 1,
-                actions: [
-                    { id: "copy", label: qsTr("Copy result"), icon: "edit-copy", default: true },
-                    { id: "copy-expression", label: qsTr("Copy expression"), icon: "edit-copy", default: false }
-                ],
-                metadata: { expression: expression, result: output }
-            })];
-        } catch (error) {
-            return [];
-        }
-    }
-
-    function rootNode(query, context) {
+    function resultNodes(query, context) {
         const expression = query ? query.raw.trim() : "";
         const children = [];
         if (expression && looksLikeMath(expression)) {
             try {
                 const output = formatResult(evaluate(expression));
-                children.push(CompositeSearch.makeNode({
+                children.push(root.node({
                     id: "calculator:result:" + expression,
-                    backendId: root.backendId,
                     kind: "calculator-result",
                     label: expression,
                     subtitle: "= " + output,
                     icon: root.helpIcon,
                     actionList: [
-                        CompositeSearch.makeAction("copy", qsTr("Copy result"), { expression: expression, result: output, actionId: "copy" }),
-                        CompositeSearch.makeAction("copy-expression", qsTr("Copy expression"), { expression: expression, result: output, actionId: "copy-expression" })
+                        root.action("copy", qsTr("Copy result"), { expression: expression, result: output, actionId: "copy" }),
+                        root.action("copy-expression", qsTr("Copy expression"), { expression: expression, result: output, actionId: "copy-expression" })
                     ],
                     evaluationProfile: { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "semantic"], scorePolicy: "semantic-result" },
                     semanticTerms: [{ triggers: [expression], matches: [expression], field: "semantic", score: 1, weight: 1.4 }],
@@ -245,18 +212,7 @@ LauncherBackendBase {
             } catch (error) {
             }
         }
-
-        return CompositeSearch.makeNode({
-            id: "backend." + root.backendId,
-            backendId: root.backendId,
-            backendPriority: root.priority,
-            kind: "backend",
-            label: root.helpTitle,
-            subtitle: root.helpDescription,
-            icon: root.helpIcon,
-            children: children,
-            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend" }
-        });
+        return children;
     }
 
     function activate(result, action) {

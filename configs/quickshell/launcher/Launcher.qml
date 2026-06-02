@@ -7,8 +7,6 @@ import Quickshell.Wayland
 import qs.services
 import "backends" as Backends
 import "delegates" as Delegates
-import "logic/SearchEngine.js" as SearchEngine
-import "logic/EvidenceScorer.js" as EvidenceScorer
 
 PanelWindow {
     id: root
@@ -77,6 +75,16 @@ PanelWindow {
 
     function debugSearch(text) {
         return controller.debugSearch(text || "");
+    }
+
+    function debugState() {
+        return JSON.stringify({
+            visible: visible,
+            query: controller.query,
+            backendIds: (controller.backends || []).map(function(backend) { return backend ? backend.backendId : ""; }),
+            resultCount: controller.results.length,
+            results: controller.debugRows(controller.results)
+        }, null, 2);
     }
 
     function debugBenchmark(arg) {
@@ -241,9 +249,11 @@ PanelWindow {
 
             Item {
                 id: resultsFrame
+                readonly property int visibleRows: Math.min(controller.results.length, root.visibleResultRows)
+
                 visible: controller.results.length > 0
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(resultsColumn.implicitHeight, root.rowHeight * root.visibleResultRows)
+                Layout.preferredHeight: Math.min(Math.max(resultsColumn.implicitHeight, root.rowHeight * visibleRows), root.rowHeight * root.visibleResultRows)
                 Layout.maximumHeight: root.rowHeight * root.visibleResultRows
                 clip: true
 
@@ -280,6 +290,8 @@ PanelWindow {
                                 item.iconSize = root.iconSize;
                                 item.showSubtitle = root.showSubtitles;
                                 item.showActionHint = root.showActionHint;
+                                if ("showEvidence" in item)
+                                    item.showEvidence = root.showEvidence;
                                 item.showSourceBadge = root.showSourceBadge;
                                 if ("controller" in item)
                                     item.controller = controller;

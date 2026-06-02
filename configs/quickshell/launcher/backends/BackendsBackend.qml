@@ -1,7 +1,6 @@
 import QtQml
-import "../logic/CommandTree.js" as CommandTree
 
-CommandTreeBackendBase {
+ModelTreeBackendBase {
     id: root
 
     property var describedBackends: []

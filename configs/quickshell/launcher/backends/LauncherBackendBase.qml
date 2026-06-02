@@ -1,4 +1,5 @@
 import QtQml
+import "../logic/CompositeSearch.js" as CompositeSearch
 import "../logic/QueryParsing.js" as QueryParsing
 import "../logic/Router.js" as Router
 import "../logic/ResultUtils.js" as ResultUtils
@@ -17,6 +18,36 @@ QtObject {
     property int priority: 0
     property int maxResults: 5
     property var routes: []
+    property var controller: null
+    property string activeQuery: ""
+    property int activeGeneration: 0
+
+    signal searchStarted(string query, int generation)
+    signal searchFinished(string query, int generation)
+    signal searchCancelled(string query, int generation)
+    signal backendError(string message)
+
+    function beginSearch(query, generation) {
+        if (root.activeQuery && root.activeGeneration !== generation)
+            root.cancelSearch(root.activeQuery, root.activeGeneration);
+        root.activeQuery = query || "";
+        root.activeGeneration = generation || 0;
+        root.searchStarted(root.activeQuery, root.activeGeneration);
+    }
+
+    function finishSearch(query, generation) {
+        if (generation !== undefined && generation !== root.activeGeneration)
+            return;
+        root.searchFinished(query || root.activeQuery, generation || root.activeGeneration);
+        root.activeQuery = "";
+        root.activeGeneration = 0;
+    }
+
+    function cancelSearch(query, generation) {
+        root.searchCancelled(query || root.activeQuery, generation || root.activeGeneration);
+        root.activeQuery = "";
+        root.activeGeneration = 0;
+    }
 
     function isEnabled(query) {
         if (!root.enabled)
@@ -30,11 +61,35 @@ QtObject {
         return false;
     }
 
-    function results(query) {
-        return [];
+    function activate(result, action) {
     }
 
-    function activate(result, action) {
+    function actionDto(id, label, payload) {
+        return CompositeSearch.makeAction(id, label, payload || {});
+    }
+
+    function nodeDto(options) {
+        const opts = options || {};
+        return CompositeSearch.makeNode(Object.assign({
+            backendId: root.backendId,
+            kind: "backend-result",
+            icon: root.helpIcon || "system-search"
+        }, opts));
+    }
+
+    function backendRootDto(children, options) {
+        const opts = options || {};
+        return CompositeSearch.makeNode(Object.assign({
+            id: "backend." + root.backendId,
+            backendId: root.backendId,
+            backendPriority: root.priority,
+            kind: "backend",
+            label: root.helpTitle || root.name || root.backendId,
+            subtitle: root.helpDescription || "",
+            icon: root.helpIcon || "system-search",
+            children: children || [],
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend" }
+        }, opts));
     }
 
     function queryText(query) {
@@ -67,56 +122,4 @@ QtObject {
         return { text: query || "", route: null };
     }
 
-    function buildResult(opts) {
-        if (!opts || !opts.id || !opts.title)
-            return null;
-
-        const actions = (opts.actions || []).map((action, index) => {
-            if (!action || !action.id || !action.label)
-                return null;
-            return {
-                id: action.id,
-                label: action.label,
-                icon: action.icon || null,
-                default: !!action.default || index === 0,
-                intent: action.intent || null
-            };
-        }).filter(Boolean);
-
-        if (actions.length === 0)
-            return null;
-
-        if (!actions.some(action => action.default))
-            actions[0].default = true;
-
-        const result = {
-            id: opts.id,
-            source: root.backendId,
-            category: root.category || null,
-            title: opts.title,
-            subtitle: opts.subtitle || null,
-            icon: opts.icon || null,
-            relevance: Number(opts.relevance || 0),
-            actions: actions,
-            executable: opts.executable !== undefined ? !!opts.executable : true,
-            expandable: !!opts.expandable || !!opts.completionText || !!(opts.metadata && opts.metadata.replaceQuery),
-            metadata: opts.metadata || null
-        };
-
-        if (opts.enter)
-            result.enter = opts.enter;
-        else
-            result.enter = ResultUtils.defaultEnterIntent(result, actions);
-
-        if (opts.shiftEnter)
-            result.shiftEnter = opts.shiftEnter;
-        else if (opts.completionText)
-            result.shiftEnter = { type: "replace-query", text: opts.completionText };
-        else if (opts.metadata && opts.metadata.replaceQuery)
-            result.shiftEnter = { type: "replace-query", text: opts.metadata.replaceQuery };
-        else
-            result.shiftEnter = { type: "noop" };
-
-        return result;
-    }
 }

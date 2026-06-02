@@ -11,6 +11,7 @@ Rectangle {
     property int iconSize: 32
     property bool showSubtitle: true
     property bool showActionHint: true
+    property bool showEvidence: false
     property bool showSourceBadge: false
     property var controller: null
 
@@ -34,8 +35,9 @@ Rectangle {
 
     ColumnLayout {
         id: mainColumn
-        anchors.fill: parent
-        anchors.margins: Config.spacing.xs
+        anchors.centerIn: parent
+        width: parent.width - Config.spacing.xs * 2
+        height: implicitHeight
         spacing: Config.spacing.xxs
 
         RowLayout {
@@ -46,6 +48,7 @@ Rectangle {
             Icon {
                 iconName: root.result.icon || "application-x-executable"
                 fallbackIconName: "application-x-executable"
+                color: root.result.iconColor || undefined
                 implicitSize: root.iconSize
                 Layout.preferredWidth: root.iconSize
                 Layout.preferredHeight: root.iconSize
@@ -56,12 +59,22 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
 
+                Text {
+                    text: root.result.breadcrumbText || ""
+                    visible: text.length > 0
+                    color: Config.styling.text2
+                    font.pixelSize: 11
+                    elide: Text.ElideRight
+                    maximumLineCount: 1
+                    Layout.fillWidth: true
+                }
+
                 RowLayout {
                     spacing: Config.spacing.xxs
                     Layout.fillWidth: true
 
                     Repeater {
-                        model: root.result.breadcrumbs || root.result.path || []
+                        model: root.result.breadcrumbText ? [] : root.result.breadcrumbs || root.result.path || []
 
                         RowLayout {
                             spacing: Config.spacing.xxs
@@ -119,15 +132,16 @@ Rectangle {
         }
 
         Item {
+            id: childrenContainer
             visible: root.expanded && root.childCount > 0
             Layout.fillWidth: true
-            Layout.preferredHeight: childrenColumn.implicitHeight
+            Layout.preferredHeight: visible ? childrenColumn.implicitHeight : 0
+            implicitHeight: visible ? childrenColumn.implicitHeight : 0
 
             ColumnLayout {
                 id: childrenColumn
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.leftMargin: root.iconSize + Config.spacing.sm * 2
+                width: parent.width - root.iconSize - Config.spacing.sm * 2
+                x: root.iconSize + Config.spacing.sm * 2
                 spacing: Config.spacing.xxs
 
                 Repeater {
@@ -149,13 +163,14 @@ Rectangle {
                             Icon {
                                 iconName: modelData.icon || root.result.icon || "application-x-executable"
                                 fallbackIconName: "application-x-executable"
+                                color: modelData.iconColor || root.result.iconColor || undefined
                                 implicitSize: 20
                                 Layout.preferredWidth: 20
                                 Layout.preferredHeight: 20
                             }
 
                             Text {
-                                text: modelData.title || ""
+                                text: modelData.breadcrumbText || modelData.title || ""
                                 color: Config.styling.text1
                                 font.pixelSize: 13
                                 elide: Text.ElideRight
@@ -182,7 +197,7 @@ Rectangle {
                                         category: root.result.category,
                                         breadcrumbs: parentBreadcrumbs.concat([root.result.title || ""])
                                     });
-                                    controller.activateResult(childResult, childResult.actions ? childResult.actions[0] : null);
+                                    controller.applyIntent(childResult, childResult.enter);
                                 }
                             }
                         }

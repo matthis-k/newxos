@@ -1,9 +1,10 @@
+import QtQuick
 import QtQml
 import "logic/CompositeSearch.js" as CompositeSearch
 import "logic/ResultUtils.js" as ResultUtils
 import "logic/DebugLogger.js" as DebugLogger
 
-QtObject {
+Item {
     id: root
 
     property string query: ""
@@ -23,13 +24,49 @@ QtObject {
     property var lastDirective: null
     property var lastEvaluatedRoot: null
     property var asyncBackendQueries: ({})
+    property string pendingSearchText: ""
+    property int pendingSearchGeneration: 0
+    property int searchDelayMs: 25
 
     signal queryReplacementRequested(string text)
     signal backendsChangeRequested(var backendIds)
 
+    Timer {
+        id: searchTimer
+        interval: root.searchDelayMs
+        repeat: false
+        onTriggered: root.runPendingSearch()
+    }
+
+    function debugStringify(value) {
+        var seen = [];
+        try {
+            return JSON.stringify(value, function(key, item) {
+                if (typeof item === "function")
+                    return undefined;
+                if (item && typeof item === "object") {
+                    if (seen.indexOf(item) >= 0)
+                        return "[Circular]";
+                    seen.push(item);
+                }
+                return item;
+            }, 2);
+        } catch (error) {
+            return JSON.stringify({ error: String(error), summary: debugSummary(value) }, null, 2);
+        }
+    }
+
+    function debugSummary(value) {
+        if (Array.isArray(value))
+            return { rows: value.length, titles: value.slice(0, 12).map(function(row) { return row && row.title || ""; }) };
+        if (value && value.rows)
+            return { rows: value.rows.length, titles: value.rows.slice(0, 12).map(function(row) { return row && row.title || ""; }) };
+        return { type: typeof value };
+    }
+
     function debugComplete(text) {
-        updateQuery(text || "");
-        return JSON.stringify(results, null, 2);
+        var output = searchNow(text || "", generation, false);
+        return debugStringify(debugRows(output.rows.slice(0, maxResults)));
     }
 
     function debugCompleteBackend(backendName, text) {
@@ -39,17 +76,74 @@ QtObject {
                 selected.push(backends[i]);
         }
         var output = CompositeSearch.search(selected, text || "", stateForSearch(), searchOptions());
-        return JSON.stringify(output.rows, null, 2);
+        return debugStringify(debugRows(output.rows));
     }
 
     function debugRoutes(text) {
         var directive = CompositeSearch.parseDirective(text || "", backends || []);
-        return JSON.stringify(directive, null, 2);
+        return debugStringify(directive);
     }
 
     function debugSearch(text) {
         var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), searchOptions());
-        return JSON.stringify({ directive: output.directive, query: output.query, rows: output.rows }, null, 2);
+        return debugStringify({ directive: output.directive, query: output.query, rows: debugRows(output.rows) });
+    }
+
+    function debugRows(rows) {
+        return (rows || []).map(function(row) { return debugRow(row); });
+    }
+
+    function debugRow(row) {
+        return {
+            id: row.id || "",
+            nodeId: row.nodeId || "",
+            source: row.source || row.backendId || "",
+            kind: row.kind || "",
+            title: row.title || "",
+            subtitle: row.subtitle || "",
+            icon: row.icon || null,
+            iconColor: row.iconColor ? String(row.iconColor) : null,
+            depth: row.depth || 0,
+            score: row.score || 0,
+            ownScore: row.ownScore || 0,
+            executable: !!row.executable,
+            dangerous: !!row.dangerous,
+            switchState: row.switchState === undefined ? null : row.switchState,
+            breadcrumbs: row.breadcrumbs || [],
+            breadcrumbText: row.breadcrumbText || "",
+            display: row.display || {},
+            actions: debugActions(row.actions),
+            enter: debugIntent(row.enter),
+            shiftEnter: debugIntent(row.shiftEnter),
+            metadata: row.metadata || {},
+            children: debugRows(row.children || [])
+        };
+    }
+
+    function debugActions(actions) {
+        return (actions || []).map(function(action) { return debugAction(action); });
+    }
+
+    function debugAction(action) {
+        if (!action)
+            return null;
+        return {
+            id: action.id || "",
+            label: action.label || "",
+            icon: action.icon || null,
+            default: !!action.default,
+            payload: action.payload || null
+        };
+    }
+
+    function debugIntent(intent) {
+        if (!intent)
+            return { type: "noop" };
+        return {
+            type: intent.type || "noop",
+            text: intent.text || "",
+            action: intent.action ? debugAction(intent.action) : null
+        };
     }
 
     function debugBenchmark(arg) {
@@ -93,7 +187,7 @@ QtObject {
             samples: samples
         };
         console.log("launcher benchmark " + JSON.stringify({ avgMs: summary.avgMs, maxMs: summary.maxMs, count: count }));
-        return JSON.stringify(summary, null, 2);
+        return debugStringify(summary);
     }
 
     function parseBenchmarkConfig(arg) {
@@ -125,9 +219,9 @@ QtObject {
     function debugEvidence(resultId) {
         for (var i = 0; i < results.length; i += 1) {
             if (results[i].id === resultId || results[i].nodeId === resultId)
-                return JSON.stringify(results[i].evidence || [], null, 2);
+                return debugStringify(results[i].evidence || []);
         }
-        return JSON.stringify({ error: "result not found", id: resultId });
+        return debugStringify({ error: "result not found", id: resultId });
     }
 
     function stateForSearch() {
@@ -158,22 +252,47 @@ QtObject {
             lastQuery = null;
             lastDirective = null;
             lastEvaluatedRoot = null;
+            pendingSearchText = "";
+            pendingSearchGeneration = generation;
+            searchTimer.stop();
             return;
         }
 
-        collectResults(text, generation);
+        scheduleSearch(text, generation);
+    }
+
+    function scheduleSearch(text, currentGeneration) {
+        pendingSearchText = text || "";
+        pendingSearchGeneration = currentGeneration;
+        searchTimer.restart();
+    }
+
+    function runPendingSearch() {
+        var text = pendingSearchText;
+        var currentGeneration = pendingSearchGeneration;
+        pendingSearchText = "";
+        if (!text || currentGeneration !== generation)
+            return;
+
+        collectResults(text, currentGeneration);
+    }
+
+    function searchNow(text, currentGeneration, includeAsync) {
+        if (includeAsync)
+            triggerAsyncBackends(text, currentGeneration);
+        return CompositeSearch.search(backends || [], text || "", stateForSearch(), searchOptions());
     }
 
     function collectResults(text, currentGeneration) {
-        triggerAsyncBackends(text, currentGeneration);
-        var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), searchOptions());
+        var output = searchNow(text, currentGeneration, true);
         if (currentGeneration !== generation)
-            return;
+            return output;
 
         lastQuery = output.query;
         lastDirective = output.directive;
         lastEvaluatedRoot = output.evaluatedRoot;
         setResults(output.rows.slice(0, maxResults));
+        return output;
     }
 
     function triggerAsyncBackends(text, currentGeneration) {
@@ -199,8 +318,11 @@ QtObject {
             asyncBackendQueries[key] = state;
             backend.pendingCompositeQuery = text;
             backend.compositeQuery = "";
-            backend.compositeResults = [];
-            loading = true;
+            if (typeof backend.applyStreamUpdate === "function")
+                backend.applyStreamUpdate({ op: "clear" });
+            else
+                backend.compositeResults = [];
+            loading = hasPendingAsyncBackends();
 
             backend.resultsAsync(text, function(newResults) {
                 if (currentGeneration !== generation)
@@ -212,19 +334,23 @@ QtObject {
                 asyncBackendQueries[callbackKey] = callbackState;
                 backend.pendingCompositeQuery = "";
                 backend.compositeQuery = text;
-                backend.compositeResults = newResults || [];
-                loading = false;
-                collectResults(text, currentGeneration);
+                if (typeof backend.applyStreamUpdate === "function") {
+                    backend.applyStreamUpdate(newResults || []);
+                } else {
+                    backend.compositeResults = newResults || [];
+                }
+                loading = hasPendingAsyncBackends();
+                scheduleSearch(text, currentGeneration);
             });
         }
     }
 
-    function collectBackend(match, text, currentGeneration) {
-        return [];
-    }
-
-    function scoreAndSort(items, text) {
-        return items || [];
+    function hasPendingAsyncBackends() {
+        for (var key in asyncBackendQueries || {}) {
+            if (asyncBackendQueries[key] && asyncBackendQueries[key].pending)
+                return true;
+        }
+        return false;
     }
 
     function getBackendPriority(source) {
@@ -241,10 +367,6 @@ QtObject {
         if (results.length === 1)
             selectedIndex = 0;
         selectedActionIndex = 0;
-    }
-
-    function mergeResults(newResults, fallbackSource) {
-        collectResults(query, generation);
     }
 
     function backendId(backend) {
@@ -351,7 +473,7 @@ QtObject {
         }
         results = results.slice();
         Qt.callLater(function() {
-            collectResults(query, generation);
+            scheduleSearch(query, generation);
         });
     }
 
@@ -376,5 +498,8 @@ QtObject {
         lastDirective = null;
         lastEvaluatedRoot = null;
         asyncBackendQueries = {};
+        pendingSearchText = "";
+        pendingSearchGeneration = generation;
+        searchTimer.stop();
     }
 }

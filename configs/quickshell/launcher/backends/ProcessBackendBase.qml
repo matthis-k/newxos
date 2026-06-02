@@ -2,11 +2,20 @@ import QtQml
 import Quickshell
 import Quickshell.Io
 
-LauncherBackendBase {
+StreamingBackendBase {
     id: root
 
     property var pendingQuery: ""
     property var pendingCallback: null
+
+    function cancelSearch(query, generation) {
+        root.pendingCallback = null;
+        root.pendingQuery = "";
+        searchProcess.running = false;
+        root.searchCancelled(query || root.activeQuery, generation || root.activeGeneration);
+        root.activeQuery = "";
+        root.activeGeneration = 0;
+    }
 
     function buildCommand(queryText) {
         return [];
@@ -16,29 +25,15 @@ LauncherBackendBase {
         return [];
     }
 
-    function results(query) {
-        const text = root.queryText(query);
-        if (!text)
-            return [];
-
-        root.pendingQuery = text;
-        root.pendingCallback = null;
-
-        const command = root.buildCommand(text);
-        if (!command || command.length === 0)
-            return [];
-
-        searchProcess.exec({ command: command });
-        return [];
-    }
-
     function applySearchOutput(text) {
         const results = root.parseOutput(text, root.pendingQuery);
         const callback = root.pendingCallback;
+        const query = root.pendingQuery;
         root.pendingCallback = null;
         root.pendingQuery = "";
+        root.finishSearch(query, root.activeGeneration);
         if (callback)
-            callback(results);
+            callback({ op: "reset", items: results });
     }
 
     function resultsAsync(query, callback) {
@@ -49,6 +44,9 @@ LauncherBackendBase {
             return;
         }
 
+        if (root.pendingQuery || root.pendingCallback)
+            root.cancelSearch(root.pendingQuery, root.activeGeneration);
+        root.beginSearch(text, 0);
         root.pendingQuery = text;
         root.pendingCallback = callback;
 

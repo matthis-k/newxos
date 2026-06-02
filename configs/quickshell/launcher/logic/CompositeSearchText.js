@@ -87,7 +87,7 @@ function parseDirective(rawQuery, backends) {
         if (!d.prefix || trimmed.indexOf(d.prefix) !== 0)
             continue;
         var next = trimmed[d.prefix.length];
-        var compactPrefix = d.prefix.length === 1 && (d.prefix === ":" || d.prefix === "!");
+        var compactPrefix = d.prefix.length === 1 && (d.prefix === ":" || d.prefix === "!" || d.prefix === "=");
         if (!compactPrefix && next !== undefined && !/\s/.test(next) && next !== ":" && next !== "/")
             continue;
         return {
@@ -120,6 +120,7 @@ function makeNode(props) {
     node.title = node.label;
     node.subtitle = node.subtitle || "";
     node.icon = node.icon || null;
+    node.iconColor = node.iconColor || null;
     node.children = node.children || node._children || [];
     node.aliases = node.aliases || [];
     node.keywords = node.keywords || [];

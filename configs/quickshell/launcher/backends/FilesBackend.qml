@@ -1,13 +1,11 @@
 import QtQml
 import QtCore
 import Quickshell
-import "../logic/CompositeSearch.js" as CompositeSearch
 
 ProcessBackendBase {
     id: root
 
     property string searchRoot: StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "")
-    property var compositeResults: []
     property string compositeQuery: ""
     property string pendingCompositeQuery: ""
 
@@ -55,15 +53,8 @@ ProcessBackendBase {
             children.push(nodeForPath(path, index + 1, result.title, result.subtitle, result.icon));
         });
 
-        return CompositeSearch.makeNode({
-            id: "backend." + root.backendId,
-            backendId: root.backendId,
-            backendPriority: root.priority,
-            kind: "backend",
-            label: root.helpTitle,
+        return root.backendRootDto(children, {
             subtitle: root.compositeQuery ? qsTr("Results for %1").arg(root.compositeQuery) : root.helpDescription,
-            icon: root.helpIcon,
-            children: children,
             evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend" }
         });
     }
@@ -71,9 +62,8 @@ ProcessBackendBase {
     function nodeForPath(path, index, title, subtitle, icon) {
         const parts = path.split("/");
         const label = title || parts[parts.length - 1] || path;
-        return CompositeSearch.makeNode({
+        return root.nodeDto({
             id: "file:" + path,
-            backendId: root.backendId,
             kind: "file-result",
             label: label,
             subtitle: subtitle || displayPath(path),
@@ -84,9 +74,9 @@ ProcessBackendBase {
             usageCount: Math.max(0, root.maxResults - index),
             lastUsedDaysAgo: 9999,
             actionList: [
-                CompositeSearch.makeAction("open", qsTr("Open", "action: open file"), { path: path, actionId: "open" }),
-                CompositeSearch.makeAction("open-folder", qsTr("Open Folder"), { path: path, actionId: "open-folder" }),
-                CompositeSearch.makeAction("copy-path", qsTr("Copy Path"), { path: path, actionId: "copy-path" })
+                root.actionDto("open", qsTr("Open", "action: open file"), { path: path, actionId: "open" }),
+                root.actionDto("open-folder", qsTr("Open Folder"), { path: path, actionId: "open-folder" }),
+                root.actionDto("copy-path", qsTr("Copy Path"), { path: path, actionId: "copy-path" })
             ],
             meta: { path: path }
         });
@@ -147,19 +137,13 @@ ProcessBackendBase {
         const parts = path.split("/");
         const title = parts[parts.length - 1] || path;
 
-        return root.buildResult({
+        return {
             id: "file:" + path,
             title: title,
             subtitle: displayPath(path),
             icon: iconForPath(path),
-            relevance: Math.max(0.2, 0.9 - index * 0.08),
-            actions: [
-                { id: "open", label: qsTr("Open", "action: open file"), icon: "document-open", default: true },
-                { id: "open-folder", label: qsTr("Open Folder"), icon: "folder-open", default: false },
-                { id: "copy-path", label: qsTr("Copy Path"), icon: "edit-copy", default: false }
-            ],
             metadata: { path: path }
-        });
+        };
     }
 
     function activate(result, action) {
