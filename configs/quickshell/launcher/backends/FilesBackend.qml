@@ -1,5 +1,4 @@
 import QtCore
-import Quickshell
 
 ProcessBackendBase {
     id: root
@@ -10,7 +9,6 @@ ProcessBackendBase {
 
     backendId: "files"
     name: qsTr("Files")
-    helpTitle: qsTr("Files")
     helpDescription: qsTr("Search files from home")
     helpIcon: "folder"
     helpPrefixes: ["@file", "@files"]

@@ -1,13 +1,12 @@
 import Quickshell
 
-ComputedBackendBase {
+LauncherBackendBase {
     id: root
 
     property string category: qsTr("Calculator")
 
     backendId: "calculator"
     name: qsTr("Calculator")
-    helpTitle: qsTr("Calculator")
     helpDescription: qsTr("Evaluate math expressions")
     helpIcon: "accessories-calculator"
     helpPrefixes: ["@calc", "@calculator", "="]

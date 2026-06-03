@@ -9,11 +9,15 @@ TreeBackendBase {
     id: root
 
     property var shellScreenState: null
+    readonly property var defaultFlatGroupOptions: ({
+        breadcrumbMode: "always",
+        flattenAllChildrenOnParentMatch: true,
+        maxNestedChildren: 5
+    })
     category: qsTr("Desktop Actions")
 
     backendId: "desktop-actions"
     name: qsTr("Desktop Actions")
-    helpTitle: qsTr("Desktop Actions")
     helpDescription: qsTr("Run networking, session, system, and dashboard actions")
     helpIcon: "system-run"
     helpPrefixes: [":", "!"]
@@ -25,16 +29,12 @@ TreeBackendBase {
         { pattern: "^.*$", mode: "ambient" }
     ]
 
-    FlatActionGroupNode {
-        name: "newxos"
-        aliases: ["newxos", "nx", "repo"]
-        title: qsTr("Newxos")
-        icon: "nix-snowflake-symbolic"
-        groupOptions: ({
-            breadcrumbMode: "always",
-            flattenAllChildrenOnParentMatch: true,
-            maxNestedChildren: 5
-        })
+        FlatActionGroupNode {
+            name: "newxos"
+            aliases: ["newxos", "nx", "repo"]
+            title: qsTr("Newxos")
+            icon: "nix-snowflake-symbolic"
+            groupOptions: root.defaultFlatGroupOptions
         actionId: "newxos-switch"
         action: function() { launchTerminalPaused(qsTr("newxos switch"), "newxos switch"); }
 
@@ -83,47 +83,24 @@ TreeBackendBase {
         }
 
         SwitchNode {
-            name: "devmode"
-            aliases: ["dev", "devmode", "dev-mode"]
-            title: qsTr("Dev Mode")
+            name: "devmode"; aliases: ["dev", "devmode", "dev-mode"]; title: qsTr("Dev Mode")
             subtitle: qsTr("Switch between default and dev specialization")
-            icon: "applications-development-symbolic"
-            iconColor: Config.styling.urgent
+            icon: "applications-development-symbolic"; iconColor: Config.styling.urgent
             switchState: isDevMode()
-
-            SwitchActionNode {
-                aliases: ["no"]
-                state: true
-                actionId: "newxos-devmode"
-                action: function() { setDevMode(true); }
-            }
-
-            SwitchActionNode {
-                aliases: ["nf"]
-                state: false
-                actionId: "newxos-devmode"
-                action: function() { setDevMode(false); }
-            }
-
-            SwitchActionNode {
-                aliases: ["nt"]
-                state: null
-                actionId: "newxos-devmode"
-                action: function() { setDevMode(null); }
-            }
+            switchActionId: "newxos-devmode"
+            switchOnAliases: ["no"]; switchOffAliases: ["nf"]; switchToggleAliases: ["nt"]
+            onAction: function() { setDevMode(true); }
+            offAction: function() { setDevMode(false); }
+            toggleAction: function() { setDevMode(null); }
         }
     }
 
-    FlatActionGroupNode {
-        name: "session"
-        aliases: ["session", "system"]
-        title: qsTr("Session")
-        icon: "system-shutdown-symbolic"
-        groupOptions: ({
-            breadcrumbMode: "always",
-            flattenAllChildrenOnParentMatch: true,
-            maxNestedChildren: 5
-        })
+        FlatActionGroupNode {
+            name: "session"
+            aliases: ["session", "system"]
+            title: qsTr("Session")
+            icon: "system-shutdown-symbolic"
+            groupOptions: root.defaultFlatGroupOptions
 
         ActionNode {
             name: "lock"
@@ -278,33 +255,13 @@ TreeBackendBase {
         icon: "network-wireless-symbolic"
         iconColor: Config.styling.primaryAccent
         SwitchNode {
-            name: "wifi"
-            aliases: ["wifi", "wi-fi"]
-            title: qsTr("Wi-Fi")
+            name: "wifi"; aliases: ["wifi", "wi-fi"]; title: qsTr("Wi-Fi")
             icon: "network-wireless-symbolic"
             iconColor: NetworkService.wifiEnabled ? Config.styling.primaryAccent : Config.styling.text1
             switchState: NetworkService.wifiEnabled
-
-            SwitchActionNode {
-                aliases: ["wo"]
-                state: true
-                actionId: "wifi"
-                action: function() { setWifi(true); }
-            }
-
-            SwitchActionNode {
-                aliases: ["wf"]
-                state: false
-                actionId: "wifi"
-                action: function() { setWifi(false); }
-            }
-
-            SwitchActionNode {
-                aliases: ["wt"]
-                state: null
-                actionId: "wifi"
-                action: function() { setWifi(null); }
-            }
+            onAction: function() { setWifi(true); }
+            offAction: function() { setWifi(false); }
+            toggleAction: function() { setWifi(null); }
         }
 
         SwitchNode {
@@ -356,94 +313,37 @@ TreeBackendBase {
             }
 
             SwitchNode {
-                name: "autoconnect"
-                aliases: ["autoconnect", "auto-connect"]
-                title: qsTr("Auto-connect")
+                name: "autoconnect"; aliases: ["autoconnect", "auto-connect"]; title: qsTr("Auto-connect")
                 icon: "network-vpn-symbolic"
                 iconColor: NordVPN.settings && NordVPN.settings["Auto-connect"] ? Config.styling.good : Config.styling.text1
                 switchState: NordVPN.settings && NordVPN.settings["Auto-connect"]
-
-                SwitchActionNode {
-                    aliases: ["ao"]
-                    state: true
-                    actionId: "vpn-autoconnect"
-                    action: function() { NordVPN.setSetting("autoconnect", true); }
-                }
-
-                SwitchActionNode {
-                    aliases: ["af"]
-                    state: false
-                    actionId: "vpn-autoconnect"
-                    action: function() { NordVPN.setSetting("autoconnect", false); }
-                }
-
-                SwitchActionNode {
-                    aliases: ["at"]
-                    state: null
-                    actionId: "vpn-autoconnect"
-                    action: function() { NordVPN.setSetting("autoconnect", !(NordVPN.settings && NordVPN.settings["Auto-connect"])); }
-                }
+                switchActionId: "vpn-autoconnect"
+                onAction: function() { NordVPN.setSetting("autoconnect", true); }
+                offAction: function() { NordVPN.setSetting("autoconnect", false); }
+                toggleAction: function() { NordVPN.setSetting("autoconnect", !(NordVPN.settings && NordVPN.settings["Auto-connect"])); }
             }
 
             SwitchNode {
-                name: "killswitch"
-                aliases: ["killswitch", "kill-switch"]
-                title: qsTr("Kill Switch")
+                name: "killswitch"; aliases: ["killswitch", "kill-switch"]; title: qsTr("Kill Switch")
                 icon: "network-vpn-symbolic"
                 iconColor: NordVPN.settings && NordVPN.settings["Kill Switch"] ? Config.styling.critical : Config.styling.text1
                 switchState: NordVPN.settings && NordVPN.settings["Kill Switch"]
-
-                SwitchActionNode {
-                    aliases: ["ko"]
-                    state: true
-                    actionId: "vpn-killswitch"
-                    action: function() { NordVPN.setSetting("killswitch", true); }
-                }
-
-                SwitchActionNode {
-                    aliases: ["kf"]
-                    state: false
-                    actionId: "vpn-killswitch"
-                    action: function() { NordVPN.setSetting("killswitch", false); }
-                }
-
-                SwitchActionNode {
-                    aliases: ["kt"]
-                    state: null
-                    actionId: "vpn-killswitch"
-                    action: function() { NordVPN.setSetting("killswitch", !(NordVPN.settings && NordVPN.settings["Kill Switch"])); }
-                }
+                switchActionId: "vpn-killswitch"
+                onAction: function() { NordVPN.setSetting("killswitch", true); }
+                offAction: function() { NordVPN.setSetting("killswitch", false); }
+                toggleAction: function() { NordVPN.setSetting("killswitch", !(NordVPN.settings && NordVPN.settings["Kill Switch"])); }
             }
         }
 
         SwitchNode {
-            name: "bluetooth"
-            aliases: ["bt", "bluetooth"]
-            title: qsTr("Bluetooth")
+            name: "bluetooth"; aliases: ["bt", "bluetooth"]; title: qsTr("Bluetooth")
             icon: "bluetooth-symbolic"
             iconColor: Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled ? Config.styling.bluetooth : Config.styling.text1
             switchState: Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.enabled : null
-
-            SwitchActionNode {
-                aliases: ["bo"]
-                state: true
-                actionId: "bluetooth"
-                action: function() { setBluetooth(true); }
-            }
-
-            SwitchActionNode {
-                aliases: ["bf"]
-                state: false
-                actionId: "bluetooth"
-                action: function() { setBluetooth(false); }
-            }
-
-            SwitchActionNode {
-                aliases: ["btt"]
-                state: null
-                actionId: "bluetooth"
-                action: function() { setBluetooth(null); }
-            }
+            switchToggleAliases: ["btt"]
+            onAction: function() { setBluetooth(true); }
+            offAction: function() { setBluetooth(false); }
+            toggleAction: function() { setBluetooth(null); }
         }
     }
 
@@ -483,34 +383,14 @@ TreeBackendBase {
         icon: "bell-symbolic"
         iconColor: Config.styling.warning
         SwitchNode {
-            name: "dnd"
-            aliases: ["dnd"]
-            title: qsTr("Do Not Disturb")
+            name: "dnd"; aliases: ["dnd"]; title: qsTr("Do Not Disturb")
             icon: "bell-disabled-symbolic"
             iconColor: NotificationCenter.doNotDisturbEnabled ? Config.styling.warning : Config.styling.text1
             switchState: NotificationCenter.doNotDisturbEnabled
-
-            SwitchActionNode {
-                aliases: ["do"]
-                state: true
-                actionId: "dnd"
-                action: function() { setDnd(true); }
-            }
-
-            SwitchActionNode {
-                aliases: ["df"]
-                state: false
-                dangerousOff: false
-                actionId: "dnd"
-                action: function() { setDnd(false); }
-            }
-
-            SwitchActionNode {
-                aliases: ["dt"]
-                state: null
-                actionId: "dnd"
-                action: function() { setDnd(null); }
-            }
+            switchOffDangerous: false
+            onAction: function() { setDnd(true); }
+            offAction: function() { setDnd(false); }
+            toggleAction: function() { setDnd(null); }
         }
 
         ActionNode {

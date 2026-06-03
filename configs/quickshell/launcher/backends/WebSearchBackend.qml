@@ -1,13 +1,12 @@
 import Quickshell
 
-ComputedBackendBase {
+LauncherBackendBase {
     id: root
 
     category: qsTr("Web Search")
 
     backendId: "web"
     name: qsTr("Web Search")
-    helpTitle: qsTr("Web Search")
     helpDescription: qsTr("Search the web or a named engine")
     helpIcon: "internet-web-browser"
     helpPrefixes: ["@web", "@g", "@ddg", "@gh", "@yt"]

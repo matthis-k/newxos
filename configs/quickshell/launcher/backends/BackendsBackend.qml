@@ -7,7 +7,6 @@ ModelTreeBackendBase {
 
     backendId: "backends"
     name: qsTr("Launcher Backends")
-    helpTitle: qsTr("Launcher Backends")
     helpDescription: qsTr("Show available launcher sources")
     helpIcon: "help-about"
     helpPrefixes: ["?"]

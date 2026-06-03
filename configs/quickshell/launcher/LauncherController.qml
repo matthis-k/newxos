@@ -317,10 +317,7 @@ Item {
             asyncBackendQueries[key] = state;
             backend.pendingCompositeQuery = text;
             backend.compositeQuery = "";
-            if (typeof backend.applyStreamUpdate === "function")
-                backend.applyStreamUpdate({ op: "clear" });
-            else
-                backend.compositeResults = [];
+            backend.applyStreamUpdate({ op: "clear" });
             loading = hasPendingAsyncBackends();
 
             backend.resultsAsync(text, function(newResults) {
@@ -333,11 +330,7 @@ Item {
                 asyncBackendQueries[callbackKey] = callbackState;
                 backend.pendingCompositeQuery = "";
                 backend.compositeQuery = text;
-                if (typeof backend.applyStreamUpdate === "function") {
-                    backend.applyStreamUpdate(newResults || []);
-                } else {
-                    backend.compositeResults = newResults || [];
-                }
+                backend.applyStreamUpdate(newResults || []);
                 loading = hasPendingAsyncBackends();
                 scheduleSearch(text, currentGeneration);
             });
@@ -438,6 +431,7 @@ Item {
             var actions = result && result.actions ? result.actions : [];
             var defaultAction = actions.find(function(a) { return a.default; }) || actions[0] || null;
             return activateResult(result, intent.action || defaultAction);
+        }
         }
     }
 

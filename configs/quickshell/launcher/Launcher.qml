@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.services
