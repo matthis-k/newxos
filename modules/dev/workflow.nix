@@ -211,7 +211,7 @@
         description = "Reindex Basic Memory when knowledge files change.";
         entry = lib.getExe updateKnowledgeIndex;
         after = [ "repo-fmt" ];
-        files = "^knowledge/";
+        files = "^docs/";
         pass_filenames = false;
       };
 

@@ -56,7 +56,7 @@
 
         repo_root="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || pwd)"
 
-        memory_root="$repo_root/knowledge"
+        memory_root="$repo_root"
         state_root="$repo_root/.cache/basic-memory"
 
         mkdir -p "$memory_root" "$state_root"
@@ -66,7 +66,7 @@
           "default_project": "newxos",
           "projects": {
             "newxos": {
-              "path": "$memory_root",
+              "path": "$repo_root/docs",
               "mode": "local"
             }
           },
@@ -112,7 +112,7 @@
                 "~/.config/**" = "allow";
               };
 
-              skill.caveman = "allow";
+              skill = "allow";
             };
 
             skills = {
