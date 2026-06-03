@@ -246,7 +246,7 @@ PanelWindow {
 
                 visible: controller.results.length > 0
                 Layout.fillWidth: true
-                Layout.preferredHeight: root.rowHeight * visibleRows
+                Layout.preferredHeight: resultsColumn.implicitHeight
                 Layout.maximumHeight: root.rowHeight * root.visibleResultRows
                 clip: true
 

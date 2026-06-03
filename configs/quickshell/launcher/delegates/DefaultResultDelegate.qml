@@ -241,10 +241,13 @@ Rectangle {
                         border.width: 1
                         radius: Config.styling.radius
                         Layout.fillWidth: true
-                        implicitHeight: 32
+                        implicitHeight: childrenLayout.implicitHeight + Config.spacing.xs * 2
 
                         RowLayout {
-                            anchors.fill: parent
+                            id: childrenLayout
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
                             anchors.margins: Config.spacing.xs
                             spacing: Config.spacing.sm
 
