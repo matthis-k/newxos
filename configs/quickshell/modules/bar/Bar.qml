@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import qs.utils
 import qs.services
 import qs.components
 import qs.modules.quickmenu
@@ -12,28 +11,16 @@ Rectangle {
     color: Config.styling.bg0
 
     readonly property bool rightExpanded: !!screenState && screenState.barExpandedForDashboard
-
-    function fillFlag() {
-        return rightExpanded;
-    }
-
-    Rectangle {
-        id: sepline
-        color: Config.styling.primaryAccent
-        anchors {
-            left: root.left
-            right: root.right
-            bottom: root.bottom
-        }
-        implicitHeight: 1
-    }
+    readonly property int transitionMs: screenState
+        ? screenState.dashboardTransitionMs
+        : 0
 
     RowLayout {
         id: left
         anchors {
-            top: root.top
-            bottom: sepline.top
-            left: root.left
+            top: parent.top
+            bottom: parent.bottom
+            left: parent.left
         }
         HyprlandWidget {}
     }
@@ -41,66 +28,33 @@ Rectangle {
     RowLayout {
         id: center
         anchors {
-            top: root.top
-            bottom: sepline.top
-            horizontalCenter: root.horizontalCenter
+            top: parent.top
+            bottom: parent.bottom
+            horizontalCenter: parent.horizontalCenter
         }
-        Clock {
-            format: "HH:mm"
-        }
+        Clock { format: "HH:mm" }
     }
 
     RowLayout {
         id: right
         anchors {
-            top: root.top
-            bottom: sepline.top
-            right: root.right
+            top: parent.top
+            bottom: parent.bottom
+            right: parent.right
         }
         width: root.rightExpanded ? root.screenState.dashboardWidth : implicitWidth
         spacing: root.rightExpanded ? Config.spacing.xxs : 0
+        clip: true
 
-        Behavior on width {
-            NumberAnimation {
-                duration: root.screenState ? root.screenState.dashboardTransitionMs : 0
-                easing.type: Easing.OutCubic
-            }
-        }
+        Behavior on width { NumberAnimation { duration: root.transitionMs; easing.type: Easing.OutCubic } }
+        Behavior on spacing { NumberAnimation { duration: root.transitionMs; easing.type: Easing.OutCubic } }
 
-        Behavior on spacing {
-            NumberAnimation {
-                duration: root.screenState ? root.screenState.dashboardTransitionMs : 0
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        OverviewIcon {
-            screenState: root.screenState
-            Layout.fillWidth: root.fillFlag()
-        }
-        AudioIcon {
-            screenState: root.screenState
-            Layout.fillWidth: root.fillFlag()
-        }
-        NotificationIcon {
-            screenState: root.screenState
-            Layout.fillWidth: root.fillFlag()
-        }
-        BluetoothIcon {
-            screenState: root.screenState
-            Layout.fillWidth: root.fillFlag()
-        }
-        NetworkIcon {
-            screenState: root.screenState
-            Layout.fillWidth: root.fillFlag()
-        }
-        EnergyIcon {
-            screenState: root.screenState
-            Layout.fillWidth: root.fillFlag()
-        }
-        StatsIcon {
-            screenState: root.screenState
-            Layout.fillWidth: root.fillFlag()
-        }
+        OverviewIcon   { screenState: root.screenState; Layout.fillWidth: root.rightExpanded }
+        AudioIcon      { screenState: root.screenState; Layout.fillWidth: root.rightExpanded }
+        NotificationIcon { screenState: root.screenState; Layout.fillWidth: root.rightExpanded }
+        BluetoothIcon  { screenState: root.screenState; Layout.fillWidth: root.rightExpanded }
+        NetworkIcon    { screenState: root.screenState; Layout.fillWidth: root.rightExpanded }
+        EnergyIcon     { screenState: root.screenState; Layout.fillWidth: root.rightExpanded }
+        StatsIcon      { screenState: root.screenState; Layout.fillWidth: root.rightExpanded }
     }
 }

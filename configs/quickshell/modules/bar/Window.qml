@@ -21,14 +21,4 @@ PanelWindow {
     Bar {
         screenState: root.shellScreenState
     }
-
-    function open() {
-        visible = true;
-    }
-    function close() {
-        visible = false;
-    }
-    function toggle() {
-        visible = !visible;
-    }
 }

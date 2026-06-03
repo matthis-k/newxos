@@ -10,7 +10,7 @@ Item {
     property string iconName: ""
     property color iconColor: Config.styling.text0
     property bool checked: false
-    property int switchSlotWidth: 46
+    property int switchSlotWidth: 58
 
     signal toggled(bool checked)
 
@@ -28,7 +28,10 @@ Item {
         z: 2
         enabled: root.enabled
         cursorShape: Qt.PointingHandCursor
-        onClicked: root.toggled(!root.checked)
+        onClicked: {
+            root.checked = !root.checked;
+            root.toggled(root.checked);
+        }
     }
 
     RowLayout {

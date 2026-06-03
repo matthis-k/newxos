@@ -50,6 +50,7 @@ ModelTreeBackendBase {
             subtitle: qsTr("%1 apps").arg(children.length),
             icon: "application-x-executable",
             result: false,
+            behavior: { visualRoot: true },
             children: children
         }];
     }
@@ -61,7 +62,8 @@ ModelTreeBackendBase {
             title: entry.name,
             subtitle: entry.genericName || entry.comment || null,
             icon: entry.icon || "application-x-executable",
-            action: { entryId: entry.id }
+            action: { entryId: entry.id },
+            behavior: { filterable: true }
         };
         if (actions.length > 0) {
             base.children = actions.map(a => ({
@@ -100,14 +102,14 @@ ModelTreeBackendBase {
 
         if (runInTerminal) {
             Quickshell.execDetached({
-                command: ["sh", "-lc", "exec \"${TERMINAL:-kitty}\" -e \"$@\"", "launcher-terminal"].concat(command),
+                command: ["systemd-run", "--user", "--scope", "--collect", "--same-dir", "--", "setsid", "sh", "-lc", "exec \"${TERMINAL:-kitty}\" -e \"$@\"", "launcher-terminal"].concat(command),
                 workingDirectory: workingDirectory || ""
             });
             return;
         }
 
         Quickshell.execDetached({
-            command: command,
+            command: ["systemd-run", "--user", "--scope", "--collect", "--same-dir", "--"].concat(command),
             workingDirectory: workingDirectory || ""
         });
     }

@@ -40,24 +40,35 @@ function decideGroupDisplay(ev, ctx) {
         return { mode: "group", showParent: true, children: [] };
 
     var policy = groupDisplayPolicy(ev);
+
+    var hasActions = (ev.node.actionList && ev.node.actionList.length > 0);
+    if (!hasActions && ev.children.length > 0) {
+        var maxChildren = policy ? (policy.maxNestedChildren || ev.children.length) : ev.children.length;
+        return { mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, maxChildren) };
+    }
+
     if (!policy)
         return { mode: "normal", showParent: true, children: ev.children };
     var parentScore = groupDominanceOwnScore(ev, ctx);
-    if (policy.flattenAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
+
+    if (policy.committedTokenPrefersGroup && ctx.query.lastTokenEmpty && parentScore >= policy.committedTokenMinParentScore)
+        return { mode: "filtered-group", showParent: true, children: ev.children.slice(0, policy.maxFlattenedChildren) };
+
+    if (!hasActions && policy.flattenAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
         return { mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, policy.maxNestedChildren || ev.children.length) };
     if (policy.showAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
+        return { mode: "nested-group", showParent: true, children: ev.children.slice(0, policy.maxNestedChildren || ev.children.length) };
+    if (ev.node.behavior && ev.node.behavior.filterable)
         return { mode: "nested-group", showParent: true, children: ev.children.slice(0, policy.maxNestedChildren || ev.children.length) };
     var visibleChildren = ev.children.filter(function(c) { return c.visible && c.score >= policy.minChildScore; }).sort(compareEvaluated);
     if (!visibleChildren.length)
         return { mode: "group", showParent: true, children: [] };
     var bestChild = visibleChildren[0];
-    if (policy.committedTokenPrefersGroup && ctx.query.lastTokenEmpty && parentScore >= policy.committedTokenMinParentScore)
-        return { mode: "filtered-group", showParent: true, children: visibleChildren.slice(0, policy.maxFlattenedChildren) };
     if (parentScore >= bestChild.score + policy.parentWinsMargin)
         return { mode: "group", showParent: true, children: [] };
     if (bestChild.score >= parentScore + policy.childDominatesMargin)
         return { mode: "flatten-children", showParent: false, children: visibleChildren.slice(0, policy.maxFlattenedChildren) };
-    return { mode: "filtered-group", showParent: policy.showGroupHeaderInFilteredMode, children: visibleChildren.slice(0, policy.maxFlattenedChildren) };
+    return { mode: "group", showParent: true, children: [] };
 }
 
 function flattenActionableChildren(children, limit) {
@@ -104,6 +115,16 @@ function copyEvidence(evidenceItems) {
             field: e.field || "",
             fieldText: e.fieldText || "",
             nodeId: e.nodeId || "",
+            originNodeId: e.originNodeId || e.nodeId || "",
+            originKind: e.originKind || "self",
+            depth: e.depth === undefined ? 0 : Number(e.depth || 0),
+            tokenIndex: e.tokenIndex === undefined ? null : e.tokenIndex,
+            tokenIndexes: (e.tokenIndexes || []).slice(),
+            coverageCount: e.coverageCount || 0,
+            exactness: e.exactness || e.strategy || "",
+            actionId: e.actionId || null,
+            actionRole: e.actionRole || null,
+            isExecutable: !!e.isExecutable,
             kind: e.kind || "",
             score: Number(e.score || 0),
             weight: Number(e.weight || 0),
@@ -234,6 +255,12 @@ function defaultActionForNode(node, query, ownScore) {
     return node.switchActions.toggle || actions[0] || null;
 }
 
+function visibleFromChildrenOnly(ev) {
+    return (!ev.ownScore || ev.ownScore <= 0) && ev.children && ev.children.some(function(child) {
+        return child.visible || child.score > 0;
+    });
+}
+
 function toResultRow(ev, depth, state, ctx, childRows) {
     var node = ev.node;
     var chain = collectParentChain(node);
@@ -241,12 +268,10 @@ function toResultRow(ev, depth, state, ctx, childRows) {
     var displayPolicy = displayPolicyFor(node);
     var breadcrumbText = breadcrumbTextFor(ev, breadcrumbs, displayPolicy, childRows);
     var action = defaultActionForNode(node, ctx.query, ev.ownScore);
-    if (childRows && childRows.length) {
-        var bestChildRow = childRows.slice().sort(function(a, b) { return b.score - a.score; })[0];
-        if (bestChildRow && bestChildRow.executable && bestChildRow.enter && bestChildRow.enter.action && ctx.query.tokens.length > 1 && (bestChildRow.score > ev.ownScore + 0.03 || (bestChildRow.score >= 0.9 && bestChildRow.score > ev.ownScore - 0.08)))
-            action = bestChildRow.enter.action;
-    }
-    var sourceActions = (node.actionList || []).slice();
+    var suppressOwnActions = action && childRows && childRows.length && ctx.query.tokens.length > 1 && visibleFromChildrenOnly(ev);
+    if (suppressOwnActions)
+        action = null;
+    var sourceActions = suppressOwnActions ? [] : (node.actionList || []).slice();
     if (node.switchActions) {
         sourceActions = [node.switchActions.toggle, node.switchActions.on, node.switchActions.off].filter(Boolean);
     }
@@ -266,9 +291,10 @@ function toResultRow(ev, depth, state, ctx, childRows) {
         depth: depth,
         score: ev.score,
         ownScore: ev.ownScore,
+        matchDepth: ev.matchDepth === undefined ? depth : ev.matchDepth,
         evidence: copyEvidence(ev.evidence),
         selected: state.selectedNodeId === node.id,
-        expandable: ev.children.length > 0,
+        expandable: childRows ? childRows.length > 0 : (ev.children && ev.children.length > 0),
         expanded: state.expandedNodeIds[node.id] || node.kind === "backend",
         breadcrumbs: breadcrumbs,
         breadcrumbText: breadcrumbText,
@@ -280,6 +306,8 @@ function toResultRow(ev, depth, state, ctx, childRows) {
         shiftEnter: { type: "noop" },
         executable: !!action,
         dangerous: !!node.dangerous,
+        filterable: !!(node.behavior && node.behavior.filterable),
+        alwaysExpanded: node.behavior ? node.behavior.alwaysExpanded !== false : true,
         children: childRows || [],
         switchActions: copySwitchActions(node.switchActions, action),
         switchState: node.switchState === undefined ? null : node.switchState,
@@ -308,6 +336,11 @@ function flattenForUi(evaluatedRoot, state, ctx) {
             for (var bi = 0; bi < ev.children.length; bi += 1) collect(ev.children[bi], depth);
             return;
         }
+        var containerOnly = !(ev.node.actionList && ev.node.actionList.length) && !ev.node.switchActions && ev.children.length > 0;
+        if (containerOnly || ev.node.behavior && ev.node.behavior.visualRoot) {
+            for (var vi = 0; vi < ev.children.length; vi += 1) collect(ev.children[vi], depth);
+            return;
+        }
         var decision = decideGroupDisplay(ev, ctx);
         if (decision.mode === "flatten-all-children") {
             for (var ai = 0; ai < decision.children.length; ai += 1)
@@ -321,7 +354,7 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         }
         if (decision.showParent) {
             var childMaxScore = decision.children.length ? Math.max.apply(null, decision.children.map(function(c) { return c.score; })) : 0;
-            var score = decision.mode === "filtered-group" || decision.mode === "nested-group" ? Math.max(ev.score, childMaxScore) + 0.04 : ev.score;
+            var score = decision.mode === "filtered-group" || decision.mode === "nested-group" ? Math.max(0, Math.max(ev.score, childMaxScore) - 0.015) : ev.score;
             if (decision.mode === "nested-group") {
                 add(ev, depth, score, decision.children);
                 return;

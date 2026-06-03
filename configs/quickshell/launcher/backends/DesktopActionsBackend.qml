@@ -35,6 +35,7 @@ TreeBackendBase {
             title: qsTr("Newxos")
             icon: "nix-snowflake-symbolic"
             groupOptions: root.defaultFlatGroupOptions
+            behavior: ({ filterable: true })
         actionId: "newxos-switch"
         action: function() { launchTerminalPaused(qsTr("newxos switch"), "newxos switch"); }
 
@@ -100,7 +101,8 @@ TreeBackendBase {
             aliases: ["session", "system"]
             title: qsTr("Session")
             icon: "system-shutdown-symbolic"
-            groupOptions: root.defaultFlatGroupOptions
+            groupOptions: ({ flattenAllChildrenOnParentMatch: true, maxNestedChildren: 5, parentMatchMinScore: 0 })
+            behavior: ({ filterable: true })
 
         ActionNode {
             name: "lock"
@@ -168,6 +170,7 @@ TreeBackendBase {
         title: qsTr("Screenshot")
         icon: "camera-photo-symbolic"
         iconColor: Config.styling.secondaryAccent
+        behavior: ({ filterable: true })
         ActionNode {
             name: "area"
             aliases: ["area", "region"]
@@ -239,6 +242,7 @@ TreeBackendBase {
             flattenAllChildrenOnParentMatch: true,
             maxNestedChildren: 8
         })
+        behavior: ({ filterable: true })
         dynamicChildren: dashboardTabNodes()
         actionId: "dashboard"
         actionProps: ({ tab: "overview" })
@@ -248,12 +252,17 @@ TreeBackendBase {
         }
     }
 
-    ActionGroupNode {
+    FlatActionGroupNode {
         name: "network"
         aliases: ["net", "network", "networking"]
         title: qsTr("Networking")
         icon: "network-wireless-symbolic"
         iconColor: Config.styling.primaryAccent
+        groupOptions: ({
+            flattenAllChildrenOnParentMatch: true,
+            maxNestedChildren: 8
+        })
+        behavior: ({ filterable: true })
         SwitchNode {
             name: "wifi"; aliases: ["wifi", "wi-fi"]; title: qsTr("Wi-Fi")
             icon: "network-wireless-symbolic"
@@ -347,12 +356,17 @@ TreeBackendBase {
         }
     }
 
-    ActionGroupNode {
+    FlatActionGroupNode {
         name: "audio"
         aliases: ["audio", "sound"]
         title: qsTr("Audio")
         icon: "audio-volume-high-symbolic"
         iconColor: Config.styling.secondaryAccent
+        groupOptions: ({
+            flattenAllChildrenOnParentMatch: true,
+            maxNestedChildren: 8
+        })
+        behavior: ({ filterable: true })
         ActionNode {
             name: "mute"
             aliases: ["mute"]
@@ -376,12 +390,17 @@ TreeBackendBase {
         }
     }
 
-    ActionGroupNode {
+    FlatActionGroupNode {
         name: "notifications"
         aliases: ["notif", "notifications", "notification"]
         title: qsTr("Notifications")
         icon: "bell-symbolic"
         iconColor: Config.styling.warning
+        groupOptions: ({
+            flattenAllChildrenOnParentMatch: true,
+            maxNestedChildren: 8
+        })
+        behavior: ({ filterable: true })
         SwitchNode {
             name: "dnd"; aliases: ["dnd"]; title: qsTr("Do Not Disturb")
             icon: "bell-disabled-symbolic"
@@ -405,18 +424,27 @@ TreeBackendBase {
         }
     }
 
-    ActionGroupNode {
+    FlatActionGroupNode {
         name: "power"
         aliases: ["power", "energy"]
         title: qsTr("Power")
         icon: "battery-symbolic"
         iconColor: Config.styling.good
-        ActionGroupNode {
+        groupOptions: ({
+            flattenAllChildrenOnParentMatch: true,
+            maxNestedChildren: 8
+        })
+        behavior: ({ filterable: true })
+        FlatActionGroupNode {
             name: "powermode"
             aliases: ["powermode", "power-mode", "profile"]
             title: qsTr("Power Mode")
             icon: "power-profile-balanced-symbolic"
             iconColor: Config.styling.urgent
+            groupOptions: ({
+                flattenAllChildrenOnParentMatch: true,
+                maxNestedChildren: 8
+            })
 
             ActionNode {
                 name: "powersaver"
@@ -496,7 +524,7 @@ TreeBackendBase {
     }
 
     function dashboardTabNodes() {
-        var tabs = shellScreenState ? shellScreenState.dashboardTabs : ["overview", "audio", "notifications", "bluetooth", "wifi", "energy", "stats"];
+        var tabs = (shellScreenState && shellScreenState.dashboardTabs) || ["overview", "audio", "notifications", "bluetooth", "wifi", "energy", "stats"];
         return tabs.map(function(tab) { return actionNode({
             id: tab,
             title: tab,
@@ -722,7 +750,7 @@ TreeBackendBase {
     }
 
     function launchTerminal(command) {
-        Quickshell.execDetached({ command: ["sh", "-lc", "exec \"${TERMINAL:-kitty}\" -e sh -lc \"$1\"", "launcher-terminal", command] });
+        Quickshell.execDetached({ command: ["systemd-run", "--user", "--scope", "--collect", "--same-dir", "--", "setsid", "sh", "-lc", "exec \"${TERMINAL:-kitty}\" -e sh -lc \"$1\"", "launcher-terminal", command] });
     }
 
     function launchTerminalPaused(title, command) {

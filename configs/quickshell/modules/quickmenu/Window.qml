@@ -107,14 +107,18 @@ PanelWindow {
 
         Behavior on x {
             NumberAnimation {
-                duration: Config.behaviour.animation.calc(0.2)
+                duration: Config.behaviour.animation.enabled
+                    ? Config.behaviour.animation.calc(0.2)
+                    : 0
                 easing.type: Easing.OutCubic
             }
         }
 
         Behavior on opacity {
             NumberAnimation {
-                duration: Config.behaviour.animation.calc(0.12)
+                duration: Config.behaviour.animation.enabled
+                    ? Config.behaviour.animation.calc(0.12)
+                    : 0
                 easing.type: Easing.OutCubic
             }
         }
@@ -123,7 +127,9 @@ PanelWindow {
 
         Behavior on width {
             NumberAnimation {
-                duration: Config.behaviour.animation.calc(0.2)
+                duration: Config.behaviour.animation.enabled
+                    ? Config.behaviour.animation.calc(0.2)
+                    : 0
                 easing.type: Easing.InOutCubic
             }
         }

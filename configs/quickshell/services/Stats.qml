@@ -10,6 +10,14 @@ import qs.components
 Singleton {
     id: root
 
+    Component.onDestruction: {
+        cpuTimer.running = false;
+        memoryTimer.running = false;
+        diskTimer.running = false;
+        networkTimer.running = false;
+        gpuTimer.running = false;
+    }
+
     property UPowerDevice battery: UPower.displayDevice
     readonly property bool hasBattery: battery?.isLaptopBattery === true
     property real cpuPercent: 0
@@ -33,7 +41,11 @@ Singleton {
     property string gpuName: ""
     property bool gpuAvailable: false
 
-    property string _statsCacheDir: StandardPaths.writableLocation(StandardPaths.CacheLocation).toString().replace("file://", "") + "/newshell/stats"
+    property string _statsCacheDir: _localPath(StandardPaths.writableLocation(StandardPaths.CacheLocation)) + "/newshell/stats"
+
+    function _localPath(location) {
+        return String(location).replace(/^file:(\/\/)?/, "");
+    }
 
     Process {
         id: _persistProcess
@@ -221,11 +233,11 @@ Singleton {
             if (!root.battery || root.battery.isLaptopBattery !== true)
                 return null;
 
-            return {
+            return [{
                 x: Date.now(),
                 y: Math.round((root.battery.percentage || 0) * 100),
                 series: "Battery"
-            };
+            }];
         }
 
         onCollected: {

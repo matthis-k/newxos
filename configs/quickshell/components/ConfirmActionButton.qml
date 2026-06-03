@@ -11,18 +11,18 @@ ActionButton {
     onClicked: {
         if (confirming) {
             confirming = false;
-            confirmTimer.stop();
             confirmed();
             return;
         }
 
         confirming = true;
-        confirmTimer.restart();
     }
 
     Timer {
         id: confirmTimer
         interval: root.confirmTimeoutMs
+        running: root.confirming
+        repeat: false
         onTriggered: root.confirming = false
     }
 }

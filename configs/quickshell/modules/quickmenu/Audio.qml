@@ -7,6 +7,7 @@ import Quickshell.Services.Pipewire
 
 import qs.services
 import qs.components
+import qs.utils
 
 DashboardPage {
     id: root
@@ -116,13 +117,6 @@ DashboardPage {
         return null;
     }
 
-    function humanName(node) {
-        if (!node) return "Unknown";
-        if (node.nickname) return node.nickname;
-        if (node.description) return node.description;
-        return node.name || "Unknown";
-    }
-
     function streamName(stream) {
         if (!stream) return "Unknown";
         const props = stream.properties || {};
@@ -140,42 +134,6 @@ DashboardPage {
         return props["application.icon-name"] || "audio-x-generic-symbolic";
     }
 
-    function volumePercent(node) {
-        if (!node || !node.audio) return 0;
-        return Math.round((node.audio.volume || 0) * 100);
-    }
-
-    function setVolume(node, percent) {
-        if (!node || !node.audio) return;
-        node.audio.volume = Math.max(0, Math.min(1.5, percent / 100));
-    }
-
-    function toggleMute(node) {
-        if (!node || !node.audio) return;
-        node.audio.muted = !node.audio.muted;
-    }
-
-    function isMuted(node) {
-        return node && node.audio && node.audio.muted;
-    }
-
-    function volumeIconName(node, inputNode) {
-        if (!node || !node.audio)
-            return inputNode ? "audio-input-microphone-symbolic" : "audio-volume-muted-symbolic";
-        if (node.audio.muted)
-            return inputNode ? "microphone-sensitivity-muted-symbolic" : "audio-volume-muted-symbolic";
-        const vol = node.audio.volume || 0;
-        if (inputNode)
-            return vol <= 0.001 ? "microphone-sensitivity-muted-symbolic" : "audio-input-microphone-symbolic";
-        if (vol <= 0.001)
-            return "audio-volume-muted-symbolic";
-        if (vol < 0.34)
-            return "audio-volume-low-symbolic";
-        if (vol < 0.67)
-            return "audio-volume-medium-symbolic";
-        return "audio-volume-high-symbolic";
-    }
-
     function setDefaultSink(sink) {
         if (!sink) return;
         Pipewire.preferredDefaultAudioSink = sink;
@@ -184,6 +142,38 @@ DashboardPage {
     function setDefaultSource(source) {
         if (!source) return;
         Pipewire.preferredDefaultAudioSource = source;
+    }
+
+    function humanName(node) {
+        return node ? (node.description || node.name || "") : "";
+    }
+
+    function volumePercent(node) {
+        return node ? Math.round((node.audio?.volume || 0) * 100) : 0;
+    }
+
+    function volumeIconName(node, isInput) {
+        if (!node) return "audio-volume-high-symbolic";
+        if (node.audio?.muted) return "audio-volume-muted-symbolic";
+        const vol = node.audio?.volume || 0;
+        if (vol <= 0) return "audio-volume-muted-symbolic";
+        if (vol < 0.34) return isInput ? "audio-input-microphone-low-symbolic" : "audio-volume-low-symbolic";
+        if (vol < 0.67) return isInput ? "audio-input-microphone-medium-symbolic" : "audio-volume-medium-symbolic";
+        return isInput ? "audio-input-microphone-high-symbolic" : "audio-volume-high-symbolic";
+    }
+
+    function isMuted(node) {
+        return node?.audio?.muted || false;
+    }
+
+    function toggleMute(node) {
+        if (node?.audio)
+            node.audio.muted = !node.audio.muted;
+    }
+
+    function setVolume(node, value) {
+        if (node?.audio)
+            node.audio.volume = value / 100;
     }
 
     function moveStreamTo(stream, sink) {

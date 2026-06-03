@@ -38,7 +38,7 @@ ScrollView {
 
     ColumnLayout {
         id: contentColumn
-        width: root.availableWidth > 0 ? root.availableWidth : root.width
+        width: root.availableWidth
         spacing: root.contentSpacing
     }
 }

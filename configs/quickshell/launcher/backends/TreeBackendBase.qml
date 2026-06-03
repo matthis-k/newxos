@@ -81,7 +81,9 @@ LauncherBackendBase {
                 childDominatesMargin: 0.18,
                 maxFlattenedChildren: 3,
                 minChildScore: 0.25,
-                showGroupHeaderInFilteredMode: true
+                showGroupHeaderInFilteredMode: true,
+                showAllChildrenOnParentMatch: true,
+                parentMatchMinScore: 0.15
             }
         } : null);
 
@@ -103,11 +105,11 @@ LauncherBackendBase {
             showWhenQueryEmpty: path.length === 0,
             usageCount: node.usageCount || 0,
             lastUsedDaysAgo: node.lastUsedDaysAgo === undefined ? 9999 : node.lastUsedDaysAgo,
-            behavior: {
+            behavior: Object.assign({
                 tokenPolicy: node.tokenPolicy ? node.tokenPolicy : node.aliases && node.aliases.length ? { tokens: node.aliases, weight: 0.62 } : null,
                 flattenPolicy: flattenPolicy,
                 displayPolicy: nodeBehavior.displayPolicy || null
-            },
+            }, node.behavior || {}),
             semanticTerms: semanticTermsForNode(node),
             evaluationProfile: { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "semantic", "usage", "recency"], scorePolicy: "default" },
             meta: {
@@ -123,11 +125,12 @@ LauncherBackendBase {
     }
 
     function behaviorForNode(node, children) {
-        if (node.behavior)
-            return node.behavior;
+        var extra = {};
         if (node.template === "action-group" || node.template === "flat-action-group")
-            return categoryGroupBehavior(node.groupOptions || {});
-        return {};
+            extra = categoryGroupBehavior(node.groupOptions || {});
+        if (node.behavior)
+            return Object.assign({}, extra, node.behavior);
+        return extra;
     }
 
     function switchActionMap(node, children) {

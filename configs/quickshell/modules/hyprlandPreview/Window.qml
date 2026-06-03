@@ -58,8 +58,8 @@ PanelWindow {
     }
 
     property int externalHovers: 0
-    readonly property bool _deferredClose: !(hoverHandler.hovered || externalHovers > 0)
-    on_DeferredCloseChanged: _deferredClose ? closeTimer.start() : closeTimer.stop()
+    readonly property bool deferredClose: !(hoverHandler.hovered || externalHovers > 0)
+    onDeferredCloseChanged: deferredClose ? closeTimer.start() : closeTimer.stop()
 
     HoverHandler {
         id: hoverHandler

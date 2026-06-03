@@ -13,6 +13,9 @@ ActionButton {
     property color badgeColor: Config.styling.primaryAccent
     property alias smooth: statusIcon.smooth
     property alias mipmap: statusIcon.mipmap
+    property string overlayIconName: ""
+    property color overlayIconColor: Config.styling.text0
+    property real overlayIconScale: 0.68
 
     readonly property bool expanded: !!screenState && screenState.barExpandedForDashboard
     readonly property int transitionMs: screenState
@@ -48,6 +51,17 @@ ActionButton {
             anchors.rightMargin: -Config.spacing.xxs
             text: root.badgeText
             badgeColor: root.badgeColor
+        }
+
+        Icon {
+            anchors.bottom: statusIcon.bottom
+            anchors.right: statusIcon.right
+            anchors.bottomMargin: -3
+            anchors.rightMargin: -6
+            iconName: root.overlayIconName
+            color: root.overlayIconColor
+            implicitSize: statusIcon.implicitSize * root.overlayIconScale
+            visible: root.overlayIconName !== ""
         }
     }
 

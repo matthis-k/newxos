@@ -34,10 +34,14 @@ Rectangle {
             Text {
                 Layout.fillWidth: true
                 text: root.title
-                color: root.navigable ? Config.styling.primaryAccent : Config.styling.text0
+                color: root.navigable
+                    ? (hoverHighlight ? Config.styling.secondaryAccent : Config.styling.primaryAccent)
+                    : Config.styling.text0
                 font.pixelSize: 16
                 font.bold: true
                 elide: Text.ElideRight
+
+                property bool hoverHighlight: false
 
                 MouseArea {
                     anchors.fill: parent
@@ -53,14 +57,12 @@ Rectangle {
                     }
 
                     onEntered: {
-                        if (root.navigable) {
-                            parent.color = Config.styling.secondaryAccent;
-                        }
+                        if (root.navigable)
+                            parent.hoverHighlight = true;
                     }
                     onExited: {
-                        if (root.navigable) {
-                            parent.color = Config.styling.primaryAccent;
-                        }
+                        if (root.navigable)
+                            parent.hoverHighlight = false;
                     }
                 }
             }

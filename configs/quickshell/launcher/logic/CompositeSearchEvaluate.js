@@ -14,6 +14,7 @@ var tokenClaimToEvidence = Evidence.tokenClaimToEvidence;
 var scoreEvidence = Evidence.scoreEvidence;
 var recencyScore = Evidence.recencyScore;
 var frequencyScore = Evidence.frequencyScore;
+var inferCoveredTokenIndexes = Evidence.inferCoveredTokenIndexes;
 
 function nodeMatchesDirective(node, ctx) {
     var directive = ctx.directive;
@@ -67,6 +68,7 @@ function evaluateNode(node, query, ctx) {
             evidenceItems = evidenceItems.concat(matchField(fields[fi], query, strategyIds));
         if (strategyIds.indexOf("semantic") >= 0 || strategyIds.indexOf("desktop-action") >= 0)
             evidenceItems = evidenceItems.concat(matchSemantic(node, query));
+        evidenceItems = evidenceItems.concat(switchActionEvidence(node, query));
         var hasBase = evidenceItems.some(function(e) { return e.field !== "usage" && e.field !== "recency"; });
         if (hasBase && strategyIds.indexOf("usage") >= 0 && node.usageCount > 0) {
             var usage = frequencyScore(node.usageCount);
@@ -98,11 +100,19 @@ function evaluateNode(node, query, ctx) {
     var keepAllChildren = groupDisplay.showAllChildrenOnParentMatch && own.visible;
     var retained = evaluatedChildren.filter(function(c) { return keepAllChildren || c.candidate || c.visible || ctx.showHidden; });
     var bestChildScore = 0;
+    var bestChildMatchDepth = 9999;
     for (var b = 0; b < retained.length; b += 1) {
-        if (retained[b].visible || ctx.showHidden)
-            bestChildScore = Math.max(bestChildScore, retained[b].score);
+        if (retained[b].visible || ctx.showHidden) {
+            if (retained[b].score > bestChildScore + 0.0001) {
+                bestChildScore = retained[b].score;
+                bestChildMatchDepth = (retained[b].matchDepth === undefined ? 0 : retained[b].matchDepth) + 1;
+            } else if (Math.abs(retained[b].score - bestChildScore) <= 0.0001) {
+                bestChildMatchDepth = Math.min(bestChildMatchDepth, (retained[b].matchDepth === undefined ? 0 : retained[b].matchDepth) + 1);
+            }
+        }
     }
-    var descendantBoost = bestChildScore > 0 ? bestChildScore * (node.switchActions ? own.value > 0 ? 1 : 0.82 : node.kind === "backend" ? 0.82 : 0.28) : 0;
+    var depthPenalty = bestChildMatchDepth < 9999 ? Math.pow(0.92, bestChildMatchDepth) : 1;
+    var descendantBoost = bestChildScore > 0 ? bestChildScore * depthPenalty * (node.switchActions ? own.value > 0 ? 1 : 0.82 : node.kind === "backend" ? 0.82 : node.behavior && node.behavior.filterable ? 1.0 : 0.28) : 0;
     var finalScore = clamp(Math.max(own.value, descendantBoost));
     if (actionAliasBoost > 0)
         finalScore = clamp(finalScore + own.value * 0.15 * actionAliasBoost);
@@ -114,6 +124,7 @@ function evaluateNode(node, query, ctx) {
         evidence: evidenceItems,
         ownScore: own.value,
         score: finalScore,
+        matchDepth: own.visible ? 0 : bestChildMatchDepth < 9999 ? bestChildMatchDepth : 9999,
         visible: ctx.showHidden || own.visible || retained.some(function(c) { return c.visible || ctx.showHidden; }) || (ctx.query.isEmpty && node.kind === "backend" && !directiveActive),
         visibleReason: own.reason,
         children: keepAllChildren ? retained : retained.sort(compareEvaluated)
@@ -166,6 +177,37 @@ function computeSwitchActionBoost(node, query) {
     return bestTokenScore;
 }
 
+function switchActionEvidence(node, query) {
+    if (!node.switchActions)
+        return [];
+    var aliasMap = {
+        on: ["on", "enable", "connect"],
+        off: ["off", "disable", "disconnect"],
+        toggle: ["toggle", "switch"]
+    };
+    var acronym = String(node.label || "").replace(/[^A-Za-z0-9]/g, "").charAt(0).toLowerCase();
+    if (acronym) {
+        aliasMap.on.push(acronym + "o");
+        aliasMap.off.push(acronym + "f");
+        aliasMap.toggle.push(acronym + "t");
+    }
+    var out = [];
+    for (var ti = 0; ti < query.tokens.length; ti += 1) {
+        var token = query.tokens[ti].normalized;
+        for (var actionId in aliasMap) {
+            if (!node.switchActions[actionId])
+                continue;
+            for (var ai = 0; ai < aliasMap[actionId].length; ai += 1) {
+                var alias = aliasMap[actionId][ai];
+                var score = token === alias ? 1.0 : alias.indexOf(token) === 0 && token.length >= 2 ? 0.78 : alias.length > token.length && alias.lastIndexOf(token) === alias.length - token.length ? 0.65 : 0;
+                if (score > 0)
+                    out.push({ strategy: "switch-action", field: "action", fieldText: alias, nodeId: node.id, originNodeId: node.id, originKind: "action", depth: 0, tokenIndex: ti, tokenIndexes: [ti], coverageCount: 1, exactness: score >= 1 ? "exact" : "prefix", actionId: actionId, actionRole: "switch-" + actionId, isExecutable: true, kind: score >= 1 ? "action-exact" : "action-prefix", score: score, weight: 0.64, effective: score * 0.64, ranges: [], reason: "switch action alias" });
+            }
+        }
+    }
+    return out;
+}
+
 function pathEvidenceFromAncestors(node, query, ctx) {
     if (!ctx.includePath || query.isEmpty)
         return [];
@@ -191,7 +233,28 @@ function injectPathEvidence(ev, query, ctx) {
     var inherited = pathEvidenceFromAncestors(ev.node, query, ctx);
     if (!inherited.length)
         return;
-    ev.evidence = ev.evidence.concat(inherited.map(function(e) { return Object.assign({}, e, { kind: "path-" + e.kind, weight: e.weight * 0.7, effective: e.score * e.weight * 0.7 }); }));
+
+    var directTokens = {};
+    for (var ei = 0; ei < (ev.evidence || []).length; ei += 1) {
+        var covered = inferCoveredTokenIndexes(ev.evidence[ei], query);
+        for (var ci = 0; ci < covered.length; ci += 1) {
+            if (typeof covered[ci] === "number")
+                directTokens[covered[ci]] = true;
+        }
+    }
+
+    var filtered = inherited.filter(function(e) {
+        var covered = inferCoveredTokenIndexes(e, query);
+        for (var ci = 0; ci < covered.length; ci += 1) {
+            if (typeof covered[ci] === "number" && directTokens[covered[ci]])
+                return false;
+        }
+        return true;
+    });
+
+    if (!filtered.length)
+        return;
+    ev.evidence = ev.evidence.concat(filtered.map(function(e) { return Object.assign({}, e, { kind: "path-" + e.kind, originKind: "ancestor", depth: -1, weight: e.weight * 0.7, effective: e.score * e.weight * 0.7 }); }));
     var own = scoreEvidence(ev.evidence, ev.node, ctx);
     ev.ownScore = own.value;
     ev.score = clamp(Math.max(ev.score, own.value));

@@ -13,7 +13,7 @@ Slider {
     property real grooveRadius: grooveHeight / 2
     property real handleSize: 14
 
-    implicitHeight: Math.max(handleSize, implicitBackgroundHeight, implicitHandleHeight)
+    implicitHeight: handleSize
 
     background: Rectangle {
         x: root.leftPadding

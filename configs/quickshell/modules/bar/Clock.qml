@@ -8,7 +8,6 @@ Item {
     implicitWidth: txt.implicitWidth
     Text {
         id: txt
-        anchors.verticalCenter: parent.verticalCenter
         anchors.fill: parent
         text: Time.formatted(format)
         color: Config.styling.text0

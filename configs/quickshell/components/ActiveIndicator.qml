@@ -24,7 +24,7 @@ Item {
     property int side: ActiveIndicator.Side.Top
     property int animationMode: ActiveIndicator.AnimationMode.GrowAll
 
-    property real duration: 200
+    property real duration: Config.behaviour.animation.calc(0.2)
     property real bgOpacity: 0.3
     property color color: Config.styling.activeIndicator
 

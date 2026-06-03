@@ -6,33 +6,16 @@ import qs.services
 StatusIcon {
     id: root
     property UPowerDevice bat: UPower.displayDevice
-    visible: bat.isLaptopBattery === true
+    visible: bat?.isLaptopBattery === true
 
     iconColor: {
-        let percentage = Math.floor(root.bat.percentage * 100);
-        return [
-            {
-                max: 10,
-                col: Config.styling.critical
-            },
-            {
-                max: 20,
-                col: Config.colors.yellow
-            },
-            {
-                max: 60,
-                col: Config.styling.text0
-            },
-            {
-                max: 100,
-                col: Config.styling.good
-            }
-        ].find(({
-                max,
-                col
-            }) => percentage <= max).col;
+        const percentage = Math.floor((bat?.percentage || 0) * 100);
+        percentage <= 10 ? Config.styling.critical :
+        percentage <= 20 ? Config.colors.yellow :
+        percentage <= 60 ? Config.styling.text0 :
+        Config.styling.good;
     }
 
-    iconName: root.bat.iconName
+    iconName: bat?.iconName || "battery-missing-symbolic"
     tabName: "energy"
 }

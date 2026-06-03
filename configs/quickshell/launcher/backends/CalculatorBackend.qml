@@ -208,6 +208,7 @@ LauncherBackendBase {
                     meta: { expression: expression, result: output }
                 }));
             } catch (error) {
+                console.warn("Calculator evaluation failed:", error);
             }
         }
         return children;

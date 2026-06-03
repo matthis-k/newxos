@@ -30,27 +30,11 @@ ColumnLayout {
     readonly property int buttonIconSlotWidth: 28
 
     readonly property color stateColor: {
-        let percentage = Math.floor((bat?.percentage || 0) * 100);
-        return [
-            {
-                max: 10,
-                col: Config.styling.critical
-            },
-            {
-                max: 20,
-                col: Config.colors.yellow
-            },
-            {
-                max: 60,
-                col: Config.styling.text0
-            },
-            {
-                max: 100,
-                col: Config.styling.good
-            }
-        ].find(({
-                max
-            }) => percentage <= max).col;
+        const percentage = Math.floor((bat?.percentage || 0) * 100);
+        percentage <= 10 ? Config.styling.critical :
+        percentage <= 20 ? Config.colors.yellow :
+        percentage <= 60 ? Config.styling.text0 :
+        Config.styling.good;
     }
 
     function formatDuration(seconds, prefix) {

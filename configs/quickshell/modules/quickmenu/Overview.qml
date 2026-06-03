@@ -6,6 +6,7 @@ import Quickshell.Services.Pipewire
 
 import qs.services
 import qs.components
+import qs.utils
 
 DashboardPage {
     id: root
@@ -17,45 +18,6 @@ DashboardPage {
     readonly property var sink: Pipewire.defaultAudioSink
     readonly property var source: Pipewire.defaultAudioSource
     readonly property var adapter: Bluetooth.defaultAdapter
-
-    function nodeName(node, fallback) {
-        if (!node)
-            return fallback;
-        return node.nickname || node.description || node.name || fallback;
-    }
-
-    function volumePercent(node) {
-        return node && node.audio ? Math.round((node.audio.volume || 0) * 100) : 0;
-    }
-
-    function setVolume(node, percent) {
-        if (!node || !node.audio)
-            return;
-        node.audio.volume = Math.max(0, Math.min(1.5, percent / 100));
-    }
-
-    function toggleMute(node) {
-        if (!node || !node.audio)
-            return;
-        node.audio.muted = !node.audio.muted;
-    }
-
-    function volumeIconName(node, inputNode) {
-        if (!node || !node.audio)
-            return inputNode ? "audio-input-microphone-symbolic" : "audio-volume-muted-symbolic";
-        if (node.audio.muted)
-            return inputNode ? "microphone-sensitivity-muted-symbolic" : "audio-volume-muted-symbolic";
-        const vol = node.audio.volume || 0;
-        if (inputNode)
-            return vol <= 0.001 ? "microphone-sensitivity-muted-symbolic" : "audio-input-microphone-symbolic";
-        if (vol <= 0.001)
-            return "audio-volume-muted-symbolic";
-        if (vol < 0.34)
-            return "audio-volume-low-symbolic";
-        if (vol < 0.67)
-            return "audio-volume-medium-symbolic";
-        return "audio-volume-high-symbolic";
-    }
 
     function connectedBluetoothCount() {
         if (!root.adapter)
@@ -139,35 +101,33 @@ DashboardPage {
         title: "Audio"
 
         AudioDeviceCard {
-            title: root.nodeName(root.sink, "No output device")
-            iconName: root.volumeIconName(root.sink, false)
-            iconColor: root.sink?.audio?.muted ? Config.styling.critical : Config.styling.text0
-            valueText: root.sink ? `${root.volumePercent(root.sink)}%` : ""
-            from: 0
-            to: 150
-            value: root.volumePercent(root.sink)
+            title: Utils.nodeName(root.sink, "No output device")
+            iconName: Utils.volumeIconName(root.sink, false)
+            iconColor: Utils.isMuted(root.sink) ? Config.styling.critical : Config.styling.text0
+            valueText: root.sink ? `${Utils.volumePercent(root.sink)}%` : ""
+            from: 0; to: 150
+            value: Utils.volumePercent(root.sink)
             stepSize: 1
             iconEnabled: !!root.sink
-            sliderEnabled: !!root.sink && !root.sink?.audio?.muted
-            accentColor: root.sink?.audio?.muted ? Config.styling.critical : Config.colors.blue
-            onIconClicked: root.toggleMute(root.sink)
-            onValueModified: value => root.setVolume(root.sink, value)
+            sliderEnabled: !!root.sink && !Utils.isMuted(root.sink)
+            accentColor: Utils.isMuted(root.sink) ? Config.styling.critical : Config.colors.blue
+            onIconClicked: Utils.toggleMute(root.sink)
+            onValueModified: value => Utils.setVolume(root.sink, value)
         }
 
         AudioDeviceCard {
-            title: root.nodeName(root.source, "No input device")
-            iconName: root.volumeIconName(root.source, true)
-            iconColor: root.source?.audio?.muted ? Config.styling.critical : Config.styling.text0
-            valueText: root.source ? `${root.volumePercent(root.source)}%` : ""
-            from: 0
-            to: 150
-            value: root.volumePercent(root.source)
+            title: Utils.nodeName(root.source, "No input device")
+            iconName: Utils.volumeIconName(root.source, true)
+            iconColor: Utils.isMuted(root.source) ? Config.styling.critical : Config.styling.text0
+            valueText: root.source ? `${Utils.volumePercent(root.source)}%` : ""
+            from: 0; to: 150
+            value: Utils.volumePercent(root.source)
             stepSize: 1
             iconEnabled: !!root.source
-            sliderEnabled: !!root.source && !root.source?.audio?.muted
-            accentColor: root.source?.audio?.muted ? Config.styling.critical : Config.colors.blue
-            onIconClicked: root.toggleMute(root.source)
-            onValueModified: value => root.setVolume(root.source, value)
+            sliderEnabled: !!root.source && !Utils.isMuted(root.source)
+            accentColor: Utils.isMuted(root.source) ? Config.styling.critical : Config.colors.blue
+            onIconClicked: Utils.toggleMute(root.source)
+            onValueModified: value => Utils.setVolume(root.source, value)
         }
     }
 
@@ -211,7 +171,7 @@ DashboardPage {
             Layout.fillWidth: true
             iconName: "bell-symbolic"
             label: "Status"
-            value: NotificationCenter.doNotDisturbEnabled ? "Do Not Disturb" : `${NotificationCenter.unreadCount} unread`
+            value: NotificationCenter.doNotDisturbEnabled ? "Do Not Disturb" : `${NotificationCenter.count} unread`
         }
     }
 

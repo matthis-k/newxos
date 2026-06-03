@@ -102,6 +102,8 @@ Singleton {
         root.connected = newConnected;
         if (newConnected)
             root.connecting = false;
+        else if (root.connecting && newStatus === "Disconnected")
+            root.connecting = false;
         root.status = newStatus;
         root.server = newServer;
         root.hostname = newHostname;

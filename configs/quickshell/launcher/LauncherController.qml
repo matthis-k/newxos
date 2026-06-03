@@ -11,6 +11,7 @@ Item {
     property var results: []
     property int selectedIndex: 0
     property int selectedActionIndex: 0
+    property int childIndex: -1
     property bool loading: false
     property int generation: 0
     property int maxResults: 12
@@ -22,10 +23,12 @@ Item {
     property var lastQuery: null
     property var lastDirective: null
     property var lastEvaluatedRoot: null
+    property var childIndexMap: ({})
     property var asyncBackendQueries: ({})
     property string pendingSearchText: ""
     property int pendingSearchGeneration: 0
     property int searchDelayMs: 25
+    property bool debugEnabled: false
 
     signal queryReplacementRequested(string text)
     signal backendsChangeRequested(var backendIds)
@@ -37,112 +40,345 @@ Item {
         onTriggered: root.runPendingSearch()
     }
 
-    function debugStringify(value) {
-        var seen = [];
-        try {
-            return JSON.stringify(value, function(key, item) {
-                if (typeof item === "function")
-                    return undefined;
-                if (item && typeof item === "object") {
-                    if (seen.indexOf(item) >= 0)
-                        return "[Circular]";
-                    seen.push(item);
-                }
-                return item;
-            }, 2);
-        } catch (error) {
-            return JSON.stringify({ error: String(error), summary: debugSummary(value) }, null, 2);
-        }
+
+    function isSelectable(row) {
+        return !!(row && (row.actions && row.actions.length > 0 || row.executable || row.switchActions));
     }
 
-    function debugSummary(value) {
-        if (Array.isArray(value))
-            return { rows: value.length, titles: value.slice(0, 12).map(function(row) { return row && row.title || ""; }) };
-        if (value && value.rows)
-            return { rows: value.rows.length, titles: value.rows.slice(0, 12).map(function(row) { return row && row.title || ""; }) };
-        return { type: typeof value };
-    }
-
-    function debugComplete(text) {
-        var output = searchNow(text || "", generation, false);
-        return debugStringify(debugRows(output.rows.slice(0, maxResults)));
-    }
-
-    function debugCompleteBackend(backendName, text) {
-        var selected = [];
-        for (var i = 0; i < (backends || []).length; i += 1) {
-            if (backends[i] && backends[i].backendId === backendName)
-                selected.push(backends[i]);
-        }
-        var output = CompositeSearch.search(selected, text || "", stateForSearch(), searchOptions());
-        return debugStringify(debugRows(output.rows));
-    }
-
-    function debugRoutes(text) {
-        var directive = CompositeSearch.parseDirective(text || "", backends || []);
-        return debugStringify(directive);
-    }
-
-    function debugSearch(text) {
-        var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), searchOptions());
-        return debugStringify({ directive: output.directive, query: output.query, rows: debugRows(output.rows) });
-    }
-
-    function debugRows(rows) {
-        return (rows || []).map(function(row) { return debugRow(row); });
-    }
-
-    function debugRow(row) {
-        return {
+    function serializeRow(row) {
+        if (!row) return null;
+        var out = {
             id: row.id || "",
-            nodeId: row.nodeId || "",
-            source: row.source || row.backendId || "",
-            kind: row.kind || "",
             title: row.title || "",
             subtitle: row.subtitle || "",
             icon: row.icon || null,
             iconColor: row.iconColor ? String(row.iconColor) : null,
             depth: row.depth || 0,
+            matchDepth: row.matchDepth === undefined ? row.depth || 0 : row.matchDepth,
             score: row.score || 0,
             ownScore: row.ownScore || 0,
+            source: row.source || row.backendId || "",
+            kind: row.kind || "",
             executable: !!row.executable,
             dangerous: !!row.dangerous,
-            switchState: row.switchState === undefined ? null : row.switchState,
+            selectable: root.isSelectable(row),
             breadcrumbs: row.breadcrumbs || [],
             breadcrumbText: row.breadcrumbText || "",
-            display: row.display || {},
-            actions: debugActions(row.actions),
-            enter: debugIntent(row.enter),
-            shiftEnter: debugIntent(row.shiftEnter),
-            metadata: row.metadata || {},
-            children: debugRows(row.children || [])
+            filterable: !!row.filterable,
+            alwaysExpanded: row.alwaysExpanded !== false,
+            expandable: !!(row.children && row.children.length > 0),
+            switchState: row.switchState === undefined ? null : row.switchState,
+            actions: (row.actions || []).map(function(a) {
+                return { id: a.id || "", label: a.label || "", icon: a.icon || null, default: !!a.default };
+            }),
+            evidence: (row.evidence || []).map(function(e) {
+                return {
+                    strategy: e.strategy || "",
+                    field: e.field || "",
+                    fieldText: e.fieldText || "",
+                    originNodeId: e.originNodeId || e.nodeId || "",
+                    originKind: e.originKind || "self",
+                    depth: e.depth === undefined ? 0 : e.depth,
+                    tokenIndex: e.tokenIndex === undefined ? null : e.tokenIndex,
+                    tokenIndexes: e.tokenIndexes || [],
+                    coverageCount: e.coverageCount || 0,
+                    exactness: e.exactness || e.strategy || "",
+                    actionId: e.actionId || null,
+                    actionRole: e.actionRole || null,
+                    isExecutable: !!e.isExecutable,
+                    score: e.score || 0,
+                    weight: e.weight || 0,
+                    effective: e.effective || 0,
+                    kind: e.kind || "",
+                    reason: e.reason || ""
+                };
+            })
         };
+        if (row.children && row.children.length)
+            out.children = row.children.map(root.serializeRow);
+        if (row.switchActions) {
+            out.switchActions = {};
+            for (var k in row.switchActions)
+                out.switchActions[k] = { id: row.switchActions[k].id, label: row.switchActions[k].label };
+        }
+        return out;
     }
 
-    function debugActions(actions) {
-        return (actions || []).map(function(action) { return debugAction(action); });
+    function findWordBoundaryMatch(text, token, startFrom) {
+        if (startFrom === undefined) startFrom = 0;
+        var idx = startFrom;
+        while ((idx = text.indexOf(token, idx)) >= 0) {
+            if (idx === 0) return idx;
+            var prev = text[idx - 1];
+            if (prev === " " || prev === "-" || prev === "_") return idx;
+            idx += 1;
+        }
+        return -1;
     }
 
-    function debugAction(action) {
-        if (!action)
-            return null;
-        return {
-            id: action.id || "",
-            label: action.label || "",
-            icon: action.icon || null,
-            default: !!action.default,
-            payload: action.payload || null
-        };
+    function filterRowChildren(row, queryTokens) {
+        if (!row || !row.filterable || !row.children || !queryTokens || queryTokens.length === 0)
+            return;
+        var parentTitle = (row.title || "").toLowerCase();
+        var consumedParentPos = {};
+        var consumedChildIdx = {};
+
+        for (var ti = 0; ti < queryTokens.length; ti += 1) {
+            var t = queryTokens[ti];
+            var matched = false;
+
+            // 1. Try parent word-boundary regions (depth 0)
+            var searchPos = 0;
+            while (!matched) {
+                var pos = root.findWordBoundaryMatch(parentTitle, t, searchPos);
+                if (pos < 0) break;
+                if (!consumedParentPos[pos]) {
+                    consumedParentPos[pos] = true;
+                    matched = true;
+                    break;
+                }
+                searchPos = pos + 1;
+            }
+            if (matched) continue;
+
+            // 2. Try child word-boundary regions (depth 1). Siblings are separate paths,
+            // so multiple children may consume the same token.
+            for (var ci = 0; ci < row.children.length; ci += 1) {
+                var childText = ((row.children[ci].title || "") + " " + (row.children[ci].subtitle || "")).toLowerCase();
+                if (root.findWordBoundaryMatch(childText, t) >= 0) {
+                    consumedChildIdx[String(ci)] = true;
+                    matched = true;
+                }
+            }
+            // 3. If still unmatched, token consumed by parent via substring (no child effect)
+        }
+
+        // If any child received a direct token match, show only those children
+        var hasChildMatch = false;
+        for (var ck in consumedChildIdx) { hasChildMatch = true; break; }
+        if (hasChildMatch) {
+            var keep = consumedChildIdx;
+            row.children = row.children.filter(function(c, idx) { return keep[String(idx)]; });
+        }
     }
 
-    function debugIntent(intent) {
-        if (!intent)
-            return { type: "noop" };
-        return {
-            type: intent.type || "noop",
-            text: intent.text || "",
-            action: intent.action ? debugAction(intent.action) : null
-        };
+    function hasSelectableDescendant(row) {
+        return (row.children || []).some(function(c) { return root.isSelectable(c) || root.hasSelectableDescendant(c); });
+    }
+
+    function selectableRows(rows) {
+        return (rows || []).filter(function(r) { return root.isSelectable(r) || root.hasSelectableDescendant(r); });
+    }
+
+    function shiftRowDepth(row, delta) {
+        var out = Object.assign({}, row, { depth: Math.max(0, (row.depth || 0) + delta) });
+        if (row.children && row.children.length)
+            out.children = row.children.map(function(child) { return root.shiftRowDepth(child, delta); });
+        return out;
+    }
+
+    function promoteContainerRows(rows) {
+        var out = [];
+        for (var i = 0; i < (rows || []).length; i += 1) {
+            var row = rows[i];
+            var children = row && row.children || [];
+            if (row && !root.isSelectable(row) && children.length > 0) {
+                var promoted = root.promoteContainerRows(children);
+                for (var pi = 0; pi < promoted.length; pi += 1)
+                    out.push(root.shiftRowDepth(promoted[pi], (row.depth || 0) - (promoted[pi].depth || 0)));
+                continue;
+            }
+            if (row && children.length > 0)
+                row = Object.assign({}, row, { children: root.promoteContainerRows(children) });
+            if (row)
+                out.push(row);
+        }
+        return out;
+    }
+
+    function sortRows(rows) {
+        return (rows || []).slice().sort(function(a, b) {
+            var scoreDelta = (b.score || 0) - (a.score || 0);
+            if (Math.abs(scoreDelta) > 0.0001) return scoreDelta;
+            var switchDelta = (b.switchState !== null && b.switchState !== undefined ? 1 : 0) - (a.switchState !== null && a.switchState !== undefined ? 1 : 0);
+            if (switchDelta !== 0) return switchDelta;
+            return effectiveMatchDepth(a) - effectiveMatchDepth(b);
+        });
+    }
+
+    function effectiveMatchDepth(row) {
+        if (!row)
+            return 0;
+        if (row.matchDepth !== undefined && row.matchDepth < 9999)
+            return (row.depth || 0) + row.matchDepth;
+        var ownScore = row.ownScore || 0;
+        var children = row.children || [];
+        var bestChildScore = 0;
+        for (var i = 0; i < children.length; i += 1)
+            bestChildScore = Math.max(bestChildScore, children[i].score || 0);
+        if (bestChildScore > 0 && bestChildScore >= ownScore) {
+            var bestDepth = 9999;
+            for (var ci = 0; ci < children.length; ci += 1) {
+                if (Math.abs((children[ci].score || 0) - bestChildScore) <= 0.0001)
+                    bestDepth = Math.min(bestDepth, effectiveMatchDepth(children[ci]));
+            }
+            if (bestDepth < 9999)
+                return bestDepth;
+        }
+        return row.depth || 0;
+    }
+
+    function querySearch(text) {
+        var directive = CompositeSearch.parseDirective(text || "", backends || []);
+        var query = CompositeSearch.tokenize(directive.searchRaw);
+        var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: true }));
+        var tokenStrs = (query.tokens || []).map(function(t) { return t.normalized; }).filter(Boolean);
+        for (var ri = 0; ri < (output.rows || []).length; ri += 1)
+            root.filterRowChildren(output.rows[ri], tokenStrs);
+        var rows = sortRows(selectableRows(promoteContainerRows(output.rows)));
+        return JSON.stringify({
+            version: 1,
+            type: "search",
+            query: {
+                raw: query.raw,
+                tokens: query.tokens.map(function(t) { return { raw: t.raw, normalized: t.normalized }; }),
+                isEmpty: query.isEmpty,
+                lastTokenEmpty: query.lastTokenEmpty
+            },
+            directive: {
+                active: directive.active,
+                prefix: directive.prefix || "",
+                label: directive.label || "",
+                backendIds: directive.backendIds || []
+            },
+            totalResults: rows.length,
+            results: rows.map(root.serializeRow)
+        });
+    }
+
+    function queryComplete(text) {
+        var output = searchNow(text || "", generation, true);
+        var tokenStrs = (output.query && output.query.tokens || []).map(function(t) { return t.normalized; }).filter(Boolean);
+        for (var ri = 0; ri < (output.rows || []).length; ri += 1)
+            root.filterRowChildren(output.rows[ri], tokenStrs);
+        var rows = sortRows(selectableRows(promoteContainerRows(output.rows)));
+        return JSON.stringify({
+            version: 1,
+            type: "complete",
+            totalResults: rows.length,
+            results: rows.slice(0, maxResults).map(root.serializeRow)
+        });
+    }
+
+    function queryBackends() {
+        var entries = (backends || []).filter(function(b) { return !!b; }).map(function(b) {
+            var routes = [];
+            if (typeof b.routes !== "undefined")
+                routes = b.routes || [];
+            var helpPrefixes = [];
+            if (typeof b.helpPrefixes !== "undefined")
+                helpPrefixes = b.helpPrefixes || [];
+            return {
+                id: b.backendId || "",
+                name: b.name || "",
+                description: b.description || "",
+                enabled: !!b.enabled,
+                priority: b.priority || 0,
+                routes: routes,
+                helpPrefixes: helpPrefixes,
+                hasAsyncResults: typeof b.resultsAsync === "function",
+                hasRootNode: typeof b.rootNode === "function",
+                hasStreamUpdates: typeof b.applyStreamUpdate === "function"
+            };
+        });
+        return JSON.stringify({
+            version: 1,
+            type: "backends",
+            total: entries.length,
+            backends: entries
+        });
+    }
+
+    function queryRoutes(text) {
+        var directive = CompositeSearch.parseDirective(text || "", backends || []);
+        var rawQuery = text || "";
+        var query = CompositeSearch.tokenize(directive.searchRaw);
+        var participants = (backends || []).filter(function(b) {
+            if (!b || !b.enabled)
+                return false;
+            if (typeof b.shouldParticipate === "function" && !b.shouldParticipate(rawQuery, directive, query))
+                return false;
+            return !directive.active || directive.backendIds.indexOf(b.backendId) >= 0;
+        }).sort(function(a, b) { return (b.priority || 0) - (a.priority || 0); });
+        return JSON.stringify({
+            version: 1,
+            type: "routes",
+            query: text || "",
+            directive: {
+                active: directive.active,
+                prefix: directive.prefix || "",
+                label: directive.label || "",
+                backendIds: directive.backendIds || []
+            },
+            participants: (participants || []).map(function(b) {
+                return {
+                    id: b.backendId || "",
+                    name: b.name || "",
+                    priority: b.priority || 0
+                };
+            })
+        });
+    }
+
+    function queryEvidence(resultId) {
+        var allResults = results || [];
+        for (var i = 0; i < allResults.length; i += 1) {
+            if (allResults[i].id === resultId || allResults[i].nodeId === resultId)
+                return JSON.stringify({
+                    version: 1,
+                    type: "evidence",
+                    resultId: resultId,
+                    evidence: allResults[i].evidence || []
+                });
+        }
+        return JSON.stringify({
+            version: 1,
+            type: "evidence",
+            resultId: resultId,
+            found: false,
+            evidence: []
+        });
+    }
+
+    function queryResult(resultId) {
+        var allResults = results || [];
+        for (var i = 0; i < allResults.length; i += 1) {
+            if (allResults[i].id === resultId || allResults[i].nodeId === resultId)
+                return JSON.stringify({
+                    version: 1,
+                    type: "result",
+                    result: root.serializeRow(allResults[i])
+                });
+        }
+        return JSON.stringify({
+            version: 1,
+            type: "result",
+            found: false,
+            result: null
+        });
+    }
+
+    function queryState() {
+        return JSON.stringify({
+            version: 1,
+            type: "state",
+            query: query,
+            selectedIndex: selectedIndex,
+            childIndex: childIndex,
+            resultCount: results.length,
+            loading: loading,
+            backends: (backends || []).map(function(b) { return { id: b.backendId || "", name: b.name || "", enabled: !!b.enabled }; })
+        });
     }
 
     function debugBenchmark(arg) {
@@ -186,7 +422,7 @@ Item {
             samples: samples
         };
         console.log("launcher benchmark " + JSON.stringify({ avgMs: summary.avgMs, maxMs: summary.maxMs, count: count }));
-        return debugStringify(summary);
+        return JSON.stringify(summary, null, 2);
     }
 
     function parseBenchmarkConfig(arg) {
@@ -215,14 +451,6 @@ Item {
         return defaults;
     }
 
-    function debugEvidence(resultId) {
-        for (var i = 0; i < results.length; i += 1) {
-            if (results[i].id === resultId || results[i].nodeId === resultId)
-                return debugStringify(results[i].evidence || []);
-        }
-        return debugStringify({ error: "result not found", id: resultId });
-    }
-
     function stateForSearch() {
         return {
             selectedNodeId: selectedResult() ? selectedResult().nodeId : null,
@@ -244,6 +472,15 @@ Item {
         query = text;
         selectedActionIndex = 0;
         loading = false;
+
+        if (childIndex >= 0) {
+            var cur = results[selectedIndex];
+            if (cur && cur.filterable) {
+                var filtered = effectiveChildren(cur);
+                if (childIndex >= filtered.length)
+                    childIndex = filtered.length > 0 ? filtered.length - 1 : -1;
+            }
+        }
 
         if (!text || text.trim().length === 0) {
             results = [];
@@ -290,7 +527,7 @@ Item {
         lastQuery = output.query;
         lastDirective = output.directive;
         lastEvaluatedRoot = output.evaluatedRoot;
-        setResults(output.rows.slice(0, maxResults));
+        setResults(sortRows(promoteContainerRows(output.rows)).slice(0, maxResults));
         return output;
     }
 
@@ -345,12 +582,42 @@ Item {
         return false;
     }
 
+    function selectBestChild(row) {
+        if (!row || !row.filterable) return false;
+        var children = effectiveChildren(row);
+        if (children.length === 0) return false;
+
+        var rowId = row.id || row.nodeId || "";
+        var remembered = childIndexMap[rowId];
+        if (remembered !== undefined && remembered >= 0 && remembered < children.length) {
+            childIndex = remembered;
+            return true;
+        }
+
+        var bestIdx = 0;
+        var bestScore = children[0].score || children[0].ownScore || 0;
+        for (var i = 1; i < children.length; i++) {
+            var s = children[i].score || children[i].ownScore || 0;
+            if (s > bestScore) {
+                bestScore = s;
+                bestIdx = i;
+            }
+        }
+        if (bestScore <= 0)
+            return false;
+        childIndex = bestIdx;
+        childIndexMap[rowId] = bestIdx;
+        return true;
+    }
+
     function setResults(newResults) {
         results = newResults || [];
         selectedIndex = results.length > 0 ? Math.max(0, Math.min(selectedIndex, results.length - 1)) : -1;
-        if (results.length === 1)
-            selectedIndex = 0;
         selectedActionIndex = 0;
+        childIndex = -1;
+        childIndexMap = {};
+        if (selectedIndex >= 0)
+            selectBestChild(results[selectedIndex]);
     }
 
     function backendId(backend) {
@@ -358,6 +625,21 @@ Item {
     }
 
     function activateSelected(shiftPressed) {
+        if (childIndex >= 0) {
+            var parent = results[selectedIndex];
+            var children = effectiveChildren(parent);
+            var child = children[childIndex];
+            if (child) {
+                childIndex = -1;
+                var parentBreadcrumbs = Array.isArray(parent.breadcrumbs) ? parent.breadcrumbs : (parent.path || []);
+                var childResult = Object.assign({}, child, {
+                    source: parent.source || parent.backendId,
+                    category: parent.category,
+                    breadcrumbs: parentBreadcrumbs.concat([parent.title || ""])
+                });
+                return applyIntent(childResult, childResult.enter);
+            }
+        }
         var result = selectedResult();
         if (!result)
             return false;
@@ -409,10 +691,12 @@ Item {
 
         try {
             backend.activate(result, action);
-            DebugLogger.logExecute(result.id, action ? action.id : "", false, true);
+            if (root.debugEnabled)
+                DebugLogger.logExecute(result.id, action ? action.id : "", false, true);
             return true;
         } catch (error) {
-            DebugLogger.logError("Activation failed for " + result.id, error);
+            if (root.debugEnabled)
+                DebugLogger.logError("Activation failed for " + result.id, error);
             return false;
         }
     }
@@ -464,14 +748,107 @@ Item {
         });
     }
 
+    function effectiveChildren(result) {
+        if (result && result.filterable && root.query) {
+            var q = root.query.trim().toLowerCase();
+            if (q) {
+                var tokens = q.split(/\s+/).filter(Boolean);
+                var parentTitle = (result.title || "").toLowerCase();
+                var consumedParentPos = {};
+                var consumedChildIdx = {};
+                var children = result.children || [];
+
+                for (var ti = 0; ti < tokens.length; ti += 1) {
+                    var t = tokens[ti];
+                    var matched = false;
+
+                    // 1. Try parent word-boundary regions (depth 0)
+                    var searchPos = 0;
+                    while (!matched) {
+                        var pos = root.findWordBoundaryMatch(parentTitle, t, searchPos);
+                        if (pos < 0) break;
+                        if (!consumedParentPos[pos]) {
+                            consumedParentPos[pos] = true;
+                            matched = true;
+                            break;
+                        }
+                        searchPos = pos + 1;
+                    }
+                    if (matched) continue;
+
+                    // 2. Try child word-boundary regions (depth 1). Siblings are separate paths,
+                    // so multiple children may consume the same token.
+                    for (var ci = 0; ci < children.length; ci += 1) {
+                        var childText = ((children[ci].title || "") + " " + (children[ci].subtitle || "")).toLowerCase();
+                        if (root.findWordBoundaryMatch(childText, t) >= 0) {
+                            consumedChildIdx[String(ci)] = true;
+                            matched = true;
+                        }
+                    }
+                }
+
+                var hasChildMatch = false;
+                for (var ck in consumedChildIdx) { hasChildMatch = true; break; }
+                if (hasChildMatch) {
+                    var keep = consumedChildIdx;
+                    return children.filter(function(c, idx) { return keep[String(idx)]; });
+                }
+                return children;
+            }
+        }
+        return result ? (result.children || []) : [];
+    }
+
+    function isRowSelectable(row) {
+        if (!row) return false;
+        return row.actions && row.actions.length > 0 || row.executable || row.switchActions;
+    }
+
     function moveSelection(delta) {
         if (results.length === 0) {
             selectedIndex = -1;
+            childIndex = -1;
             return;
         }
-        var baseIndex = selectedIndex < 0 ? (delta > 0 ? -1 : results.length) : selectedIndex;
-        selectedIndex = Math.max(0, Math.min(results.length - 1, baseIndex + delta));
-        selectedActionIndex = 0;
+        if (selectedIndex < 0) {
+            var start = delta > 0 ? 0 : results.length - 1;
+            selectedIndex = start;
+            selectedActionIndex = 0;
+            childIndex = -1;
+        } else {
+            var current = results[selectedIndex] || {};
+            var children = effectiveChildren(current);
+            if (childIndex >= 0) {
+                var nextChild = childIndex + delta;
+                if (nextChild >= 0 && nextChild < children.length) {
+                    childIndex = nextChild;
+                    childIndexMap[current.id || current.nodeId || ""] = nextChild;
+                    return;
+                }
+                childIndex = -1;
+                selectedIndex = Math.max(0, Math.min(results.length - 1, selectedIndex + delta));
+            } else if (children.length > 0 && delta > 0 && root.isRowSelectable(current)) {
+                selectBestChild(current);
+                selectedActionIndex = 0;
+                return;
+            } else {
+                selectedIndex = Math.max(0, Math.min(results.length - 1, selectedIndex + delta));
+            }
+            selectedActionIndex = 0;
+        }
+        while (selectedIndex >= 0 && selectedIndex < results.length && !root.isRowSelectable(results[selectedIndex]))
+            selectedIndex += delta;
+        if (selectedIndex < 0 || selectedIndex >= results.length)
+            selectedIndex = delta > 0 ? results.length - 1 : 0;
+
+        if (childIndex < 0 && selectedIndex >= 0) {
+            var target = results[selectedIndex];
+            if (target) {
+                var targetChildren = effectiveChildren(target);
+                if (targetChildren.length > 0 && root.isRowSelectable(target))
+                    selectBestChild(target);
+            }
+        }
     }
 
     function reset() {
@@ -479,6 +856,8 @@ Item {
         results = [];
         selectedIndex = -1;
         selectedActionIndex = 0;
+        childIndex = -1;
+        childIndexMap = {};
         loading = false;
         generation += 1;
         lastQuery = null;

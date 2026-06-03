@@ -1,7 +1,4 @@
-import QtQuick
-import QtQuick.Layouts
 import qs.services
-import qs.components
 
 StatusIcon {
     id: root
@@ -21,38 +18,6 @@ StatusIcon {
         return NetworkService.wifiEnabled ? "network-wireless-offline-symbolic" : "network-wireless-disabled-symbolic";
     }
     tabName: "wifi"
-
-    contentItem: Item {
-        implicitWidth: root.implicitWidth
-        implicitHeight: root.implicitHeight
-
-        Icon {
-            id: statusIcon
-            anchors.centerIn: parent
-            iconName: root.iconName
-            fallbackIconName: root.fallbackIconName
-            color: root.iconColor
-            implicitSize: (parent ? parent.height : root.implicitHeight) * 0.7
-        }
-
-        Icon {
-            anchors.bottom: statusIcon.bottom
-            anchors.right: statusIcon.right
-            anchors.bottomMargin: -3
-            anchors.rightMargin: -6
-            iconName: "network-vpn-symbolic"
-            color: NordVPN.connected ? Config.styling.good : Config.styling.critical
-            implicitSize: statusIcon.implicitSize * 0.68
-            visible: NordVPN.available
-        }
-
-        Badge {
-            anchors.top: statusIcon.top
-            anchors.right: statusIcon.right
-            anchors.topMargin: -Config.spacing.xxs
-            anchors.rightMargin: -Config.spacing.xxs
-            text: root.badgeText
-            badgeColor: root.badgeColor
-        }
-    }
+    overlayIconName: NordVPN.available ? "network-vpn-symbolic" : ""
+    overlayIconColor: NordVPN.connected ? Config.styling.good : Config.styling.critical
 }

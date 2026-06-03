@@ -16,7 +16,9 @@ InteractiveButton {
     property int highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAll
     property real highlightThickness: (highlightSide === ActiveIndicator.Side.Top || highlightSide === ActiveIndicator.Side.Bottom) ? height * 0.1 : width * 0.1
     property real fillOpacity: Config.behaviour.hoverBgOpacity
-    property int scaleAnimationDuration: Config.behaviour.animation.calc(0.1)
+    property int scaleAnimationDuration: Config.behaviour.animation.enabled
+        ? Config.behaviour.animation.calc(0.1)
+        : 0
 
     padding: 0
     leftPadding: 0
@@ -37,6 +39,7 @@ InteractiveButton {
             anchors.fill: parent
             side: control.highlightSide
             animationMode: control.highlightAnimationMode
+            duration: control.scaleAnimationDuration
             thickness: control.highlightThickness
             color: control.accentColor
             bgOpacity: control.fillOpacity

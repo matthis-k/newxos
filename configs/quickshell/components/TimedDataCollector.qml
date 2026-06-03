@@ -13,7 +13,6 @@ DataCollector {
     }
 
     property Timer _timer: Timer {
-        interval: Math.max(100, root.sampleInterval)
         running: root.running && !!root.collect
         repeat: true
         triggeredOnStart: true
@@ -24,4 +23,7 @@ DataCollector {
             Array.isArray(data) ? root.appendRawPoints(data) : root.appendRaw(data);
         }
     }
+
+    onSampleIntervalChanged: _timer.interval = Math.max(100, root.sampleInterval)
+    Component.onCompleted: _timer.interval = Math.max(100, root.sampleInterval)
 }

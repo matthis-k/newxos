@@ -23,14 +23,15 @@ StreamingBackendBase {
     }
 
     function applySearchOutput(text) {
-        const results = root.parseOutput(text, root.pendingQuery);
         const callback = root.pendingCallback;
+        if (!callback)
+            return;
+        const results = root.parseOutput(text, root.pendingQuery);
         const query = root.pendingQuery;
         root.pendingCallback = null;
         root.pendingQuery = "";
         root.finishSearch(query, root.activeGeneration);
-        if (callback)
-            callback({ op: "reset", items: results });
+        callback({ op: "reset", items: results });
     }
 
     function resultsAsync(query, callback) {

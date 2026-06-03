@@ -12,7 +12,7 @@ Item {
 
     default property alias content: contentRow.children
 
-    property var checked: true
+    property bool checked: true
     readonly property bool effectiveChecked: checked === undefined ? true : checked
     readonly property var visibilityRevision: graphView && graphView.visibilityRevision !== undefined ? graphView.visibilityRevision : 0
 

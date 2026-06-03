@@ -221,34 +221,39 @@ Singleton {
                 });
             }
         }
-        function debugComplete(query: string): string {
+
+    }
+
+    IpcHandler {
+        target: "query"
+        function search(query: string): string {
             const state = root.instances[0];
-            return state ? state.launcher.debugComplete(query) : "[]";
+            return state ? state.launcher.querySearch(query) : "{}";
         }
-        function debugCompleteBackend(backend: string, query: string): string {
+        function complete(query: string): string {
             const state = root.instances[0];
-            return state ? state.launcher.debugCompleteBackend(backend, query) : "[]";
+            return state ? state.launcher.queryComplete(query) : "{}";
         }
-        function debugRoutes(query: string): string {
+        function backends(): string {
             const state = root.instances[0];
-            return state ? state.launcher.debugRoutes(query) : "[]";
+            return state ? state.launcher.queryBackends() : "{}";
         }
-        function debugSearch(query: string): string {
+        function routes(query: string): string {
             const state = root.instances[0];
-            return state ? state.launcher.debugSearch(query) : "{}";
+            return state ? state.launcher.queryRoutes(query) : "{}";
         }
-        function debugState(): string {
-            const states = root.instances.filter(state => state && state.launcher && state.launcher.visible);
-            const state = states[0] || root.instances[0];
-            return state ? state.launcher.debugState() : "{}";
-        }
-        function debugBenchmark(arg: string): string {
+        function evidence(resultId: string): string {
             const state = root.instances[0];
-            return state ? state.launcher.debugBenchmark(arg) : "{}";
+            return state ? state.launcher.queryEvidence(resultId) : "{}";
         }
-        function debugEvidence(resultId: string): string {
+        function result(resultId: string): string {
             const state = root.instances[0];
-            return state ? state.launcher.debugEvidence(resultId) : "{}";
+            return state ? state.launcher.queryResult(resultId) : "{}";
+        }
+        function state(): string {
+            const states = root.instances.filter(s => s && s.launcher && s.launcher.visible);
+            const s = states[0] || root.instances[0];
+            return s ? s.launcher.queryState() : "{}";
         }
     }
 

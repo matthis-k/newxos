@@ -54,38 +54,36 @@ PanelWindow {
         input.text = "";
     }
 
-    function debugComplete(text) {
-        return controller.debugComplete(text || "");
+    function querySearch(text) {
+        return controller.querySearch(text || "");
     }
 
-    function debugCompleteBackend(backendName, text) {
-        return controller.debugCompleteBackend(backendName || "", text || "");
+    function queryComplete(text) {
+        return controller.queryComplete(text || "");
     }
 
-    function debugRoutes(text) {
-        return controller.debugRoutes(text || "");
+    function queryBackends() {
+        return controller.queryBackends();
     }
 
-    function debugSearch(text) {
-        return controller.debugSearch(text || "");
+    function queryRoutes(text) {
+        return controller.queryRoutes(text || "");
     }
 
-    function debugState() {
-        return JSON.stringify({
-            visible: visible,
-            query: controller.query,
-            backendIds: (controller.backends || []).map(function(backend) { return backend ? backend.backendId : ""; }),
-            resultCount: controller.results.length,
-            results: controller.debugRows(controller.results)
-        }, null, 2);
+    function queryEvidence(resultId) {
+        return controller.queryEvidence(resultId || "");
+    }
+
+    function queryResult(resultId) {
+        return controller.queryResult(resultId || "");
+    }
+
+    function queryState() {
+        return controller.queryState();
     }
 
     function debugBenchmark(arg) {
         return controller.debugBenchmark(arg || "");
-    }
-
-    function debugEvidence(resultId) {
-        return controller.debugEvidence(resultId || "");
     }
 
     anchors {
@@ -274,8 +272,8 @@ PanelWindow {
                             onLoaded: {
                                 item.result = Qt.binding(function() { return delegateLoader.resultData; });
                                 item.selected = Qt.binding(function() { return controller.selectedIndex === index; });
-                                item.iconSize = root.iconSize;
-                                item.showSubtitle = root.showSubtitles;
+                                item.iconSize = Qt.binding(function() { return root.iconSize; });
+                                item.showSubtitle = Qt.binding(function() { return root.showSubtitles; });
                                 item.showActionHint = root.showActionHint;
                                 if ("showEvidence" in item)
                                     item.showEvidence = root.showEvidence;

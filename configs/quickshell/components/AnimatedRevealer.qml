@@ -13,7 +13,9 @@ Item {
 
     Behavior on implicitHeight {
         NumberAnimation {
-            duration: root.duration
+            duration: Config.behaviour.animation.enabled
+                ? root.duration
+                : 0
             easing.type: Easing.InOutCubic
         }
     }

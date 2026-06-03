@@ -6,9 +6,10 @@ var clamp = Text.clamp;
 var normalizeText = Text.normalizeText;
 var compactWithMap = Text.compactWithMap;
 
-function evidence(strategy, field, kind, score, weight, ranges, reason) {
+function evidence(strategy, field, kind, score, weight, ranges, reason, meta) {
     var s = clamp(score);
-    return { strategy: strategy, field: field.field, fieldText: field.text, nodeId: field.nodeId, kind: kind, score: s, weight: weight, effective: s * weight, ranges: ranges || [], reason: reason || "" };
+    meta = meta || {};
+    return { strategy: strategy, field: field.field, fieldText: field.text, nodeId: field.nodeId, originNodeId: meta.originNodeId || field.nodeId, originKind: meta.originKind || field.originKind || "self", depth: meta.depth === undefined ? field.depth || 0 : meta.depth, tokenIndex: meta.tokenIndex, tokenIndexes: meta.tokenIndex === undefined ? meta.tokenIndexes || [] : [meta.tokenIndex], coverageCount: meta.tokenIndex === undefined ? (meta.tokenIndexes || []).length : 1, exactness: meta.exactness || strategy, actionId: meta.actionId || null, actionRole: meta.actionRole || null, isExecutable: !!meta.isExecutable, kind: kind, score: s, weight: weight, effective: s * weight, ranges: ranges || [], reason: reason || "" };
 }
 
 function matchField(field, query, strategyIds) {
@@ -20,11 +21,11 @@ function matchField(field, query, strategyIds) {
         var token = query.tokens[ti];
         if (ids.indexOf("exact") >= 0) {
             if (field.normText.trim() === token.normalized)
-                out.push(evidence("exact", field, "exact-field", 0.96, field.weight, [{ start: 0, end: field.text.length, kind: "exact" }], "field equals token"));
+                out.push(evidence("exact", field, "exact-field", 0.96, field.weight, [{ start: 0, end: field.text.length, kind: "exact" }], "field equals token", { tokenIndex: ti, exactness: "exact" }));
             for (var wi = 0; wi < field.words.length; wi += 1) {
                 var word = field.words[wi];
                 if (word.norm === token.normalized)
-                    out.push(evidence("exact", field, "exact-word", 0.96, field.weight, [{ start: word.start, end: word.end, kind: "exact" }], "word equals token"));
+                    out.push(evidence("exact", field, "exact-word", 0.96, field.weight, [{ start: word.start, end: word.end, kind: "exact" }], "word equals token", { tokenIndex: ti, exactness: "exact" }));
             }
         }
         if (ids.indexOf("prefix") >= 0) {
@@ -34,7 +35,7 @@ function matchField(field, query, strategyIds) {
                     var pword = field.words[pwi];
                     if (pword.norm.indexOf(token.normalized) === 0 && pword.norm !== token.normalized) {
                         var coverage = token.normalized.length / Math.max(1, pword.norm.length);
-                        out.push(evidence("prefix", field, "prefix", 0.75 + coverage * 0.18, field.weight, [{ start: pword.start, end: pword.start + token.raw.length, kind: "prefix" }], "token prefixes word"));
+                        out.push(evidence("prefix", field, "prefix", 0.75 + coverage * 0.18, field.weight, [{ start: pword.start, end: pword.start + token.raw.length, kind: "prefix" }], "token prefixes word", { tokenIndex: ti, exactness: "prefix" }));
                     }
                 }
             }
@@ -45,7 +46,7 @@ function matchField(field, query, strategyIds) {
                 var idx = field.normText.indexOf(token.normalized, start);
                 if (idx < 0) break;
                 var isWordStart = idx === 0 || /[^a-z0-9]/.test(field.normText[idx - 1]);
-                out.push(evidence("substring", field, "substring", isWordStart ? 0.66 : 0.52, field.weight * 0.75, [{ start: idx, end: idx + token.raw.length, kind: "substring" }], "token occurs inside field"));
+                out.push(evidence("substring", field, "substring", isWordStart ? 0.66 : 0.52, field.weight * 0.75, [{ start: idx, end: idx + token.raw.length, kind: "substring" }], "token occurs inside field", { tokenIndex: ti, exactness: "substring" }));
                 start = idx + Math.max(1, token.normalized.length);
             }
         }
@@ -56,13 +57,16 @@ function matchField(field, query, strategyIds) {
                 var cstart = field.compact.map[cidx];
                 var cend = field.compact.map[cidx + compactToken.length - 1] + 1;
                 var full = field.compact.compact === compactToken;
-                out.push(evidence("compact", field, full ? "compact-exact" : cidx === 0 ? "compact-prefix" : "compact-substring", full ? 0.93 : cidx === 0 ? 0.84 : 0.66, field.weight * 0.95, [{ start: cstart, end: cend, kind: "compact" }], "token matches compacted field"));
+                var compactCoverage = compactToken.length / Math.max(1, field.compact.compact.length);
+                var compactScore = full ? 0.93 : cidx === 0 ? 0.75 + compactCoverage * 0.18 : 0.66;
+                var compactWeight = field.weight * (full ? 0.95 : cidx === 0 ? 1.0 : 0.75);
+                out.push(evidence("compact", field, full ? "compact-exact" : cidx === 0 ? "compact-prefix" : "compact-substring", compactScore, compactWeight, [{ start: cstart, end: cend, kind: "compact" }], "token matches compacted field", { tokenIndex: ti, exactness: full ? "exact" : cidx === 0 ? "prefix" : "substring" }));
             }
         }
         if (ids.indexOf("acronym") >= 0 && token.normalized.length >= 2) {
             var acronym = field.acronymLetters.map(function(x) { return x.char; }).join("");
             if (acronym.length >= 2 && (acronym === token.normalized || acronym.indexOf(token.normalized) === 0)) {
-                out.push(evidence("acronym", field, acronym === token.normalized ? "acronym-exact" : "acronym-prefix", acronym === token.normalized ? 0.91 : 0.82, field.weight * 0.92, field.acronymLetters.slice(0, token.normalized.length).map(function(x) { return { start: x.start, end: x.end, kind: "acronym" }; }), "token matches acronym"));
+                out.push(evidence("acronym", field, acronym === token.normalized ? "acronym-exact" : "acronym-prefix", acronym === token.normalized ? 0.91 : 0.82, field.weight * 0.92, field.acronymLetters.slice(0, token.normalized.length).map(function(x) { return { start: x.start, end: x.end, kind: "acronym" }; }), "token matches acronym", { tokenIndex: ti, exactness: acronym === token.normalized ? "exact" : "prefix" }));
             }
         }
     }
@@ -95,7 +99,7 @@ function matchSemantic(node, query) {
         var nodeHasTerm = matches.some(function(m) { return haystack.indexOf(normalizeText(m)) >= 0; });
         if (!nodeHasTerm)
             continue;
-        out.push({ strategy: "semantic", field: term.field || "semantic", fieldText: node.label, nodeId: node.id, kind: term.kind || "semantic-node-term", score: term.score || 0.74, weight: term.weight || 0.38, effective: (term.score || 0.74) * (term.weight || 0.38), ranges: [], reason: term.reason || "semantic node term" });
+        out.push({ strategy: "semantic", field: term.field || "semantic", fieldText: node.label, nodeId: node.id, originNodeId: node.id, originKind: "self", depth: 0, tokenIndexes: [], coverageCount: 0, exactness: "semantic", actionId: null, actionRole: null, isExecutable: false, kind: term.kind || "semantic-node-term", score: term.score || 0.74, weight: term.weight || 0.38, effective: (term.score || 0.74) * (term.weight || 0.38), ranges: [], reason: term.reason || "semantic node term" });
     }
     return out;
 }
@@ -112,7 +116,7 @@ function claimMatchingTokens(query, tokens, options) {
 }
 
 function tokenClaimToEvidence(node, query, claim) {
-    return { strategy: "node-token-policy", field: claim.field || "token-claim", fieldText: query.tokens[claim.tokenIndex] ? query.tokens[claim.tokenIndex].raw : "", nodeId: node.id, kind: "token-claim", tokenIndex: claim.tokenIndex, score: clamp(claim.strength || 1), weight: claim.weight || 0.62, effective: clamp(claim.strength || 1) * (claim.weight || 0.62), ranges: [], reason: claim.reason || "node token claim" };
+    return { strategy: "node-token-policy", field: claim.field || "token-claim", fieldText: query.tokens[claim.tokenIndex] ? query.tokens[claim.tokenIndex].raw : "", nodeId: node.id, originNodeId: node.id, originKind: "self", depth: 0, kind: "token-claim", tokenIndex: claim.tokenIndex, tokenIndexes: [claim.tokenIndex], coverageCount: 1, exactness: "exact", actionId: null, actionRole: null, isExecutable: false, score: clamp(claim.strength || 1), weight: claim.weight || 0.62, effective: clamp(claim.strength || 1) * (claim.weight || 0.62), ranges: [], reason: claim.reason || "node token claim" };
 }
 
 function evidenceFieldGroup(field) {

@@ -1,0 +1,165 @@
+z
+ze
+zen
+zen 
+zen b
+zen browser
+zen n
+zen new
+zen p
+zen priv
+zen w
+zen win
+fire
+term
+kitty
+code
+notes
+nix
+opencode
+app
+apps
+@app
+@app z
+@app zen
+@apps
+@apps z
+@apps zen
+@apps wifi
+@desktop
+=1+1
+=2*8
+=sqrt(9)
+=10/3
+1+1
+2*8
+sqrt(9)
+?
+? a
+? app
+? calc
+? web
+? file
+@calc
+@calc 1+1
+@calculator sqrt(9)
+web
+search
+@web
+@web nixos
+@g nixos
+@ddg nix flakes
+@gh newxos
+@yt quickshell
+file
+files
+@file
+@file notes
+@files
+@files notes
+file://
+file:///tmp
+/
+/tmp
+~
+~/
+~/Downloads
+wifi
+wifi 
+wifi o
+wifi on
+wifi of
+wifi off
+wifi t
+wifi toggle
+toggle wifi
+wo
+wf
+wt
+network
+networking
+net
+bluetooth
+bt
+bt on
+bt off
+bt toggle
+vpn
+vpn c
+vpn connect
+vpn d
+vpn disconnect
+vpn of
+vpn toggle
+nord
+nordvpn
+auto
+autoconnect
+kill
+killswitch
+audio
+sound
+mute
+mic
+microphone
+notifications
+notif
+dnd
+clear notifications
+dashboard
+db
+db wifi
+dashboard wifi
+db audio
+db notifications
+db bluetooth
+db energy
+db stats
+overview
+energy
+power
+powermode
+power saver
+balanced
+performance
+screenshot
+screen
+ss
+area
+window
+read
+ocr
+annotate
+newxos
+nx
+repo
+newxos switch
+newxos ai
+newxos git
+newxos reload
+newxos shell
+newxos dev
+newxos dev on
+newxos dev off
+newxos dev toggle
+session
+system
+lock
+logout
+shutdown
+reboot
+:
+:w
+:wifi
+:wifi 
+:wifi on
+:wifi off
+:wifi toggle
+:db
+:db wifi
+:screen
+:session
+:vpn
+:vpn off
+!lock
+!shutdown

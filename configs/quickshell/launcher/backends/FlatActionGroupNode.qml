@@ -1,3 +1,3 @@
 ActionGroupNode {
-    groupOptions: ({ flattenAllChildrenOnParentMatch: true, maxNestedChildren: 5 })
+    groupOptions: ({ maxNestedChildren: 5 })
 }
