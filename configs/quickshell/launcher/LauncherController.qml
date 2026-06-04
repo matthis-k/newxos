@@ -653,6 +653,11 @@ Item {
         selectedActionIndex = 0;
         childIndex = -1;
         childIndexMap = {};
+        if (selectedIndex >= 0) {
+            var row = results[selectedIndex];
+            if (row && row.filterable && (row.ownScore || 0) <= 0)
+                root.selectBestChild(row);
+        }
     }
 
     function backendId(backend) {
@@ -877,6 +882,8 @@ Item {
     }
 
     function isParentSelectable(row, children) {
+        if (row && row.filterable && (row.ownScore || 0) <= 0 && children.length > 0)
+            return false;
         return children.length === 0 ? root.isRowSelectable(row) : root.hasDefaultAction(row);
     }
 
@@ -923,6 +930,8 @@ Item {
                 }
                 if (delta < 0) {
                     childIndex = -1;
+                    if (current.filterable && (current.ownScore || 0) <= 0)
+                        selectedIndex = wrapIndex(selectedIndex - 1);
                 } else {
                     childIndex = -1;
                     selectedIndex = wrapIndex(selectedIndex + 1);
