@@ -7,6 +7,7 @@
       homeManager
       hyprland
       locales
+      localsend
       networking
       nix
       newxos

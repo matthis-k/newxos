@@ -99,7 +99,7 @@ in
       packages.hyprland = inputs'.hyprland.packages.hyprland;
 
       packages.newxos-hyprland = hyprland.wrap {
-        inherit pkgs;
+        pkgs = inputs.nixpkgs.legacyPackages.${pkgs.stdenv.hostPlatform.system};
         configDirectory = configDir;
         package = inputs'.hyprland.packages.hyprland;
         luaVariables = {

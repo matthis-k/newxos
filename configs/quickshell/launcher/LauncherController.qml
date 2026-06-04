@@ -653,8 +653,6 @@ Item {
         selectedActionIndex = 0;
         childIndex = -1;
         childIndexMap = {};
-        if (selectedIndex >= 0)
-            selectBestChild(results[selectedIndex]);
     }
 
     function backendId(backend) {
@@ -770,6 +768,36 @@ Item {
         return false;
     }
 
+    function selectedActionTarget() {
+        if (childIndex >= 0) {
+            var parent = results[selectedIndex];
+            var children = effectiveChildren(parent);
+            var child = children[childIndex];
+            if (!child)
+                return null;
+            return Object.assign({}, child, {
+                source: child.source || parent.source || parent.backendId,
+                category: child.category || parent.category
+            });
+        }
+        return selectedResult();
+    }
+
+    function adjustSelectedValue(delta) {
+        var result = selectedActionTarget();
+        if (!result)
+            return false;
+
+        var preferredIds = delta < 0
+            ? ["off", "decrease", "decrement", "left"]
+            : ["on", "increase", "increment", "right"];
+        for (var i = 0; i < preferredIds.length; i += 1) {
+            if (activateResultAction(result, preferredIds[i]))
+                return true;
+        }
+        return false;
+    }
+
     function refreshSwitchResult(result, action) {
         var payload = action && action.payload || {};
         var state = payload.state;
@@ -840,17 +868,50 @@ Item {
         return row.actions && row.actions.length > 0 || row.executable || row.switchActions;
     }
 
+    function hasDefaultAction(row) {
+        if (!row) return false;
+        if (row.executable || row.switchActions)
+            return true;
+        var actions = row.actions || [];
+        return actions.some(function(action) { return action && action.default; });
+    }
+
+    function isParentSelectable(row, children) {
+        return children.length === 0 ? root.isRowSelectable(row) : root.hasDefaultAction(row);
+    }
+
     function moveSelection(delta) {
         if (results.length === 0) {
             selectedIndex = -1;
             childIndex = -1;
             return;
         }
+
+        function wrapIndex(index) {
+            if (index < 0)
+                return results.length - 1;
+            if (index >= results.length)
+                return 0;
+            return index;
+        }
+
+        function previousVisibleInRow(index) {
+            selectedIndex = wrapIndex(index);
+            var previous = results[selectedIndex] || {};
+            var previousChildren = effectiveChildren(previous);
+            childIndex = previousChildren.length > 0
+                ? previousChildren.length - 1
+                : -1;
+        }
+
         if (selectedIndex < 0) {
-            var start = delta > 0 ? 0 : results.length - 1;
-            selectedIndex = start;
+            if (delta < 0)
+                previousVisibleInRow(results.length - 1);
+            else {
+                selectedIndex = 0;
+                childIndex = -1;
+            }
             selectedActionIndex = 0;
-            childIndex = -1;
         } else {
             var current = results[selectedIndex] || {};
             var children = effectiveChildren(current);
@@ -858,33 +919,41 @@ Item {
                 var nextChild = childIndex + delta;
                 if (nextChild >= 0 && nextChild < children.length) {
                     childIndex = nextChild;
-                    childIndexMap[current.id || current.nodeId || ""] = nextChild;
                     return;
                 }
-                childIndex = -1;
-                selectedIndex = Math.max(0, Math.min(results.length - 1, selectedIndex + delta));
-            } else if (children.length > 0 && delta > 0 && root.isRowSelectable(current)) {
-                selectBestChild(current);
+                if (delta < 0) {
+                    childIndex = -1;
+                } else {
+                    childIndex = -1;
+                    selectedIndex = wrapIndex(selectedIndex + 1);
+                }
+            } else if (children.length > 0 && delta > 0) {
+                childIndex = 0;
                 selectedActionIndex = 0;
                 return;
+            } else if (delta < 0) {
+                previousVisibleInRow(selectedIndex - 1);
             } else {
-                selectedIndex = Math.max(0, Math.min(results.length - 1, selectedIndex + delta));
+                selectedIndex = wrapIndex(selectedIndex + 1);
+                childIndex = -1;
             }
             selectedActionIndex = 0;
         }
-        while (selectedIndex >= 0 && selectedIndex < results.length && !root.isRowSelectable(results[selectedIndex]))
-            selectedIndex += delta;
-        if (selectedIndex < 0 || selectedIndex >= results.length)
-            selectedIndex = delta > 0 ? results.length - 1 : 0;
-
-        if (childIndex < 0 && selectedIndex >= 0) {
-            var target = results[selectedIndex];
-            if (target) {
-                var targetChildren = effectiveChildren(target);
-                if (targetChildren.length > 0 && root.isRowSelectable(target))
-                    selectBestChild(target);
+        for (var attempts = 0; attempts < results.length; attempts += 1) {
+            selectedIndex = wrapIndex(selectedIndex);
+            var row = results[selectedIndex] || {};
+            var rowChildren = effectiveChildren(row);
+            if (root.isParentSelectable(row, rowChildren))
+                return;
+            if (rowChildren.length > 0) {
+                childIndex = delta > 0 ? 0 : rowChildren.length - 1;
+                return;
             }
+            selectedIndex += delta;
         }
+        selectedIndex = -1;
+        childIndex = -1;
+
     }
 
     function reset() {

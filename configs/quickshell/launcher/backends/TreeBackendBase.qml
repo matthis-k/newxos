@@ -65,11 +65,14 @@ LauncherBackendBase {
             return compositeNode(child, path.concat([node]));
         });
         const action = defaultAction(node);
-        const switchActions = node.switchState === undefined ? null : switchActionMap(node, children);
+        const rawSwitchActions = node.switchActions || (node.switchState === undefined ? null : switchActionMap(node, children));
+        const switchActions = actionDtosForSwitchActions(rawSwitchActions);
         const kind = switchActions ? "switch" : children.length > 0 ? "action-group" : "desktop-action";
         const actions = switchActions
             ? [switchActions.toggle, switchActions.on, switchActions.off].filter(Boolean)
             : action ? [root.actionDto(action.actionId || action.id || "run", action.title || qsTr("Run"), action)] : [];
+        if (switchActions && actions.length > 0)
+            actions[0].default = true;
 
         const nodeBehavior = behaviorForNode(node, children);
         const flattenPolicy = nodeBehavior.flattenPolicy || (children.length > 0 ? {
@@ -149,6 +152,19 @@ LauncherBackendBase {
                 byState.on = root.actionDto("on", qsTr("On"), leafAction.payload || leafAction);
         }
         return byState.on && byState.off && byState.toggle ? byState : null;
+    }
+
+    function actionDtosForSwitchActions(switchActions) {
+        if (!switchActions)
+            return null;
+        var out = {};
+        for (var key in switchActions) {
+            var action = switchActions[key];
+            if (!action)
+                continue;
+            out[key] = root.actionDto(action.id || key, action.title || action.label || key, action.payload || action);
+        }
+        return out;
     }
 
     function semanticTermsForNode(node) {
@@ -233,6 +249,9 @@ LauncherBackendBase {
         var ownAction = node.defaultAction || node.action || null;
         if (ownAction && (!actionId || ownAction.actionId === actionId || ownAction.id === actionId))
             return ownAction;
+
+        if (node.switchActions && node.switchActions[actionId])
+            return node.switchActions[actionId];
 
         for (var i = 0; i < (node.children || []).length; i += 1) {
             var child = node.children[i];

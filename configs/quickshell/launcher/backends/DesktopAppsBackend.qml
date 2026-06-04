@@ -1,4 +1,5 @@
 import Quickshell
+import "../logic/DebugLogger.js" as DebugLogger
 
 ModelTreeBackendBase {
     id: root
@@ -62,7 +63,7 @@ ModelTreeBackendBase {
             title: entry.name,
             subtitle: entry.genericName || entry.comment || null,
             icon: entry.icon || "application-x-executable",
-            action: { entryId: entry.id },
+            action: { actionId: "open", entryId: entry.id },
             behavior: { filterable: true }
         };
         if (actions.length > 0) {
@@ -82,35 +83,90 @@ ModelTreeBackendBase {
         const cmdAction = (action && action.payload) || (metadata.action && metadata.action.payload) || metadata.action || {};
         const entryId = metadata.desktopEntry || cmdAction.entryId;
         const entry = entryId ? DesktopEntries.byId(entryId) : null;
-        if (!entry)
+        if (!entry) {
+            DebugLogger.log("desktop-launch", "Desktop entry not found", {
+                resultId: result ? result.id : null,
+                entryId: entryId || null,
+                actionId: cmdAction.actionId || null
+            });
             return;
+        }
 
         const actionId = cmdAction.actionId || (action ? action.id : null);
-        if (!actionId || actionId === "open") {
+        DebugLogger.log("desktop-launch", "Activating desktop entry", {
+            resultId: result ? result.id : null,
+            entryId: entry.id,
+            name: entry.name || null,
+            actionId: actionId || "open",
+            command: entry.command || [],
+            workingDirectory: entry.workingDirectory || "",
+            runInTerminal: !!entry.runInTerminal
+        });
+        if (!actionId || actionId === "open" || actionId === "run") {
             launchDesktopCommand(entry.command, entry.workingDirectory, entry.runInTerminal);
             return;
         }
 
         const desktopAction = (entry.actions || []).find(item => item.id === actionId);
-        if (desktopAction)
+        if (desktopAction) {
+            DebugLogger.log("desktop-launch", "Activating desktop action", {
+                entryId: entry.id,
+                actionId: actionId,
+                command: desktopAction.command || []
+            });
             launchDesktopCommand(desktopAction.command, entry.workingDirectory, entry.runInTerminal);
+        } else {
+            DebugLogger.log("desktop-launch", "Desktop action not found", {
+                entryId: entry.id,
+                actionId: actionId,
+                availableActions: (entry.actions || []).map(item => item.id || "")
+            });
+        }
     }
 
     function launchDesktopCommand(command, workingDirectory, runInTerminal) {
-        if (!command || command.length === 0)
+        if (!command || command.length === 0) {
+            DebugLogger.log("desktop-launch", "Empty desktop command", {});
             return;
+        }
+
+        const launchCommand = stripDesktopFieldCodes(command);
+        if (launchCommand.length === 0) {
+            DebugLogger.log("desktop-launch", "Desktop command only contained field codes", {
+                originalCommand: command || []
+            });
+            return;
+        }
 
         if (runInTerminal) {
+            const terminalCommand = ["systemd-run", "--user", "--scope", "--collect", "--same-dir", "--", "setsid", "sh", "-lc", "exec \"${TERMINAL:-kitty}\" -e \"$@\"", "launcher-terminal"].concat(launchCommand);
+            DebugLogger.log("desktop-launch", "Executing terminal desktop command", {
+                originalCommand: command,
+                launchCommand: launchCommand,
+                systemdCommand: terminalCommand,
+                workingDirectory: workingDirectory || ""
+            });
             Quickshell.execDetached({
-                command: ["systemd-run", "--user", "--scope", "--collect", "--same-dir", "--", "setsid", "sh", "-lc", "exec \"${TERMINAL:-kitty}\" -e \"$@\"", "launcher-terminal"].concat(command),
+                command: terminalCommand,
                 workingDirectory: workingDirectory || ""
             });
             return;
         }
 
-        Quickshell.execDetached({
-            command: ["systemd-run", "--user", "--scope", "--collect", "--same-dir", "--"].concat(command),
+        const systemdCommand = ["systemd-run", "--user", "--scope", "--collect", "--same-dir", "--"].concat(launchCommand);
+        DebugLogger.log("desktop-launch", "Executing desktop command", {
+            originalCommand: command,
+            launchCommand: launchCommand,
+            systemdCommand: systemdCommand,
             workingDirectory: workingDirectory || ""
         });
+        Quickshell.execDetached({
+            command: systemdCommand,
+            workingDirectory: workingDirectory || ""
+        });
+    }
+
+    function stripDesktopFieldCodes(command) {
+        return (command || []).filter(arg => !/^%[fFuUdDnNickvm]$/.test(arg || ""));
     }
 }

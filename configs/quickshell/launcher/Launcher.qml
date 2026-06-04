@@ -212,11 +212,17 @@ PanelWindow {
                 onTextEdited: controller.updateQuery(text)
 
                 Keys.onPressed: function(event) {
-                    if (event.key === Qt.Key_Down || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_N)) {
+                    if (event.key === Qt.Key_Down || (event.modifiers & Qt.ControlModifier && (event.key === Qt.Key_N || event.key === Qt.Key_J))) {
                         controller.moveSelection(1);
                         event.accepted = true;
-                    } else if (event.key === Qt.Key_Up || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_P)) {
+                    } else if (event.key === Qt.Key_Up || (event.modifiers & Qt.ControlModifier && (event.key === Qt.Key_P || event.key === Qt.Key_K))) {
                         controller.moveSelection(-1);
+                        event.accepted = true;
+                    } else if (event.modifiers & Qt.ControlModifier && (event.key === Qt.Key_H || event.key === Qt.Key_Backspace)) {
+                        controller.adjustSelectedValue(-1);
+                        event.accepted = true;
+                    } else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_L) {
+                        controller.adjustSelectedValue(1);
                         event.accepted = true;
                     } else if (event.key === Qt.Key_Tab) {
                         if (!(event.modifiers & Qt.ShiftModifier))

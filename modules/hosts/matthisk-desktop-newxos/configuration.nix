@@ -32,7 +32,7 @@ in
       withSystem "x86_64-linux" (
         { pkgs, inputs', ... }:
         hyprlandWrapper.wrap {
-          inherit pkgs;
+          pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
           configDirectory = ../../../configs/hypr;
           package = inputs'.hyprland.packages.hyprland;
           luaVariables = {

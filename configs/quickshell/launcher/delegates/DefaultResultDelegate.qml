@@ -240,51 +240,6 @@ Rectangle {
                     }
                 }
 
-                RowLayout {
-                    spacing: Config.spacing.xxs
-                    Layout.alignment: Qt.AlignRight
-                    Layout.fillWidth: true
-
-                    Repeater {
-                        model: [
-                            { id: "on", label: qsTr("On") },
-                            { id: "toggle", label: qsTr("Toggle") },
-                            { id: "off", label: qsTr("Off") }
-                        ]
-
-                        Rectangle {
-                            visible: root.hasSwitchAction(root.result, modelData.id)
-                            color: root.defaultAction && root.defaultAction.id === modelData.id
-                                ? Config.colorWithOpacity(Config.styling.primaryAccent, 0.25)
-                                : Config.styling.bg3
-                            border.color: root.defaultAction && root.defaultAction.id === modelData.id
-                                ? Config.styling.primaryAccent
-                                : Config.styling.bg4
-                            border.width: 1
-                            radius: Config.styling.radius
-                            Layout.preferredWidth: root.switchActionButtonWidth
-                            Layout.preferredHeight: 20
-
-                            Text {
-                                anchors.centerIn: parent
-                                text: modelData.label
-                                color: Config.styling.text1
-                                font.pixelSize: 10
-                                font.bold: root.defaultAction && root.defaultAction.id === modelData.id
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: function(mouse) {
-                                    mouse.accepted = true;
-                                    if (root.controller)
-                                        root.controller.activateResultAction(root.result, modelData.id);
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -396,47 +351,6 @@ Rectangle {
                                 }
                             }
 
-                            RowLayout {
-                                spacing: Config.spacing.xxs
-                                Layout.alignment: Qt.AlignRight
-                                Layout.fillWidth: true
-
-                                Repeater {
-                                    model: [
-                                        { id: "on", label: qsTr("On") },
-                                        { id: "toggle", label: qsTr("Toggle") },
-                                        { id: "off", label: qsTr("Off") }
-                                    ]
-
-                                    Rectangle {
-                                        visible: root.hasSwitchAction(childRow, modelData.id)
-                                        color: childDefaultAction && childDefaultAction.id === modelData.id ? Config.colorWithOpacity(Config.styling.primaryAccent, 0.25) : Config.styling.bg3
-                                        border.color: childDefaultAction && childDefaultAction.id === modelData.id ? Config.styling.primaryAccent : Config.styling.bg4
-                                        border.width: 1
-                                        radius: Config.styling.radius
-                                        Layout.preferredWidth: root.switchActionButtonWidth
-                                        Layout.preferredHeight: 20
-
-                                        Text {
-                                            anchors.centerIn: parent
-                                            text: modelData.label
-                                            color: Config.styling.text1
-                                            font.pixelSize: 10
-                                            font.bold: childDefaultAction && childDefaultAction.id === modelData.id
-                                        }
-
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: function(mouse) {
-                                                mouse.accepted = true;
-                                                if (root.controller)
-                                                    root.controller.activateResultAction(childRow, modelData.id);
-                                            }
-                                        }
-                                    }
-                                }
-                            }
                         }
                     }
 

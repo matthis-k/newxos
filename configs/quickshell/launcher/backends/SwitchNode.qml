@@ -1,4 +1,4 @@
-ActionGroupNode {
+Node {
     id: root
     template: "switch"
 
@@ -11,48 +11,51 @@ ActionGroupNode {
     property var switchToggleAliases: []
     property bool switchOffDangerous: true
 
-    dynamicChildren: root.buildSwitchChildren()
-
-    function buildSwitchChildren() {
-        var out = [];
-        var id = root.switchActionId || root.actionId || root.name || "run";
-        var onAliases = root.switchOnAliases.length > 0 ? root.switchOnAliases : root.defaultSwitchAlias("on");
-        var offAliases = root.switchOffAliases.length > 0 ? root.switchOffAliases : root.defaultSwitchAlias("off");
-        var toggleAliases = root.switchToggleAliases.length > 0 ? root.switchToggleAliases : root.defaultSwitchAlias("toggle");
-        var child = root.switchChild("on", true, onAliases, id, root.onAction, false);
-        if (child) out.push(child);
-        child = root.switchChild("off", false, offAliases, id, root.offAction, root.switchOffDangerous);
-        if (child) out.push(child);
-        child = root.switchChild("toggle", null, toggleAliases, id, root.toggleAction, false);
-        if (child) out.push(child);
-        return out;
-    }
-
-    function defaultSwitchAlias(kind) {
-        var letter = (root.aliases && root.aliases.length > 0 ? String(root.aliases[0]) : root.name || "x").charAt(0).toLowerCase();
-        var suffix = kind === "on" ? "o" : kind === "off" ? "f" : "t";
-        return [letter + suffix];
-    }
-
-    function switchChild(kind, state, aliases, actionId, actionFn, dangerous) {
+    function switchAction(kind, state, actionFn, dangerous) {
         if (typeof actionFn !== "function")
             return null;
         return {
-            id: actionId + ":" + kind,
-            title: kind === "on" ? qsTr("Turn On") : kind === "off" ? qsTr("Turn Off") : qsTr("Toggle"),
-            subtitle: "",
-            icon: kind === "on" ? "object-select-symbolic" : kind === "off" ? "window-close-symbolic" : "view-refresh-symbolic",
-            iconColor: null,
-            aliases: aliases || [],
-            template: "action",
-            keywords: [],
-            dangerous: dangerous,
-            children: [],
-            behavior: null,
-            groupOptions: ({}),
-            tokenPolicy: null,
-            replaceQuery: null,
-            action: { actionId: actionId, state: state, execute: actionFn }
+            id: kind,
+            actionId: root.switchActionId || root.actionId || root.name || "run",
+            title: kind === "on" ? qsTr("On") : kind === "off" ? qsTr("Off") : qsTr("Toggle"),
+            state: state,
+            execute: actionFn,
+            dangerous: !!dangerous
         };
+    }
+
+    function ownSwitchActions() {
+        var actions = {};
+        var toggle = root.switchAction("toggle", null, root.toggleAction, false);
+        var on = root.switchAction("on", true, root.onAction, false);
+        var off = root.switchAction("off", false, root.offAction, root.switchOffDangerous);
+        if (toggle) actions.toggle = toggle;
+        if (on) actions.on = on;
+        if (off) actions.off = off;
+        return actions;
+    }
+
+    function toTreeObject() {
+        var id = root.nodeId || root.name || root.title;
+        var out = {
+            id: id,
+            aliases: root.aliases || [],
+            keywords: root.keywords || [],
+            title: root.title || root.name || id,
+            template: root.template,
+            subtitle: root.subtitle || "",
+            icon: root.icon || "",
+            iconColor: root.iconColor,
+            dangerous: root.dangerous,
+            behavior: root.behavior,
+            groupOptions: root.groupOptions || {},
+            tokenPolicy: root.tokenPolicy,
+            children: [],
+            replaceQuery: root.replaceQuery,
+            switchActions: root.ownSwitchActions()
+        };
+        if (root.switchState !== undefined)
+            out.switchState = root.switchState;
+        return out;
     }
 }
