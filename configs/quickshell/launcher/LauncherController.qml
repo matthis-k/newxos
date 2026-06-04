@@ -25,21 +25,128 @@ Item {
     property var lastEvaluatedRoot: null
     property var childIndexMap: ({})
     property var asyncBackendQueries: ({})
-    property string pendingSearchText: ""
-    property int pendingSearchGeneration: 0
-    property int searchDelayMs: 25
+    property string resultsQuery: ""
     property bool debugEnabled: false
 
     signal queryReplacementRequested(string text)
     signal backendsChangeRequested(var backendIds)
+    signal queryUpdateRequested(string text)
+    signal resetRequested()
+    signal resultsClearRequested()
+    signal resultsRefreshRequested()
+    signal selectionResetRequested()
+    signal asyncLoadingRefreshRequested()
+    signal asyncBackendSearchStarted(var backend, string key, string text)
+    signal asyncBackendResultsReceived(var backend, string key, string text, int generation, var update)
+    signal searchRequested(string text, int generation)
+    signal searchCompleted(string text, int generation, var output)
+    signal resultsAvailable(string text, int generation, var rows, var output)
 
-    Timer {
-        id: searchTimer
-        interval: root.searchDelayMs
-        repeat: false
-        onTriggered: root.runPendingSearch()
+    onQueryUpdateRequested: function(text) {
+        generation += 1;
+        query = text;
+        selectedActionIndex = 0;
+        loading = false;
+
+        if (childIndex >= 0) {
+            var cur = results[selectedIndex];
+            if (cur && cur.filterable) {
+                var filtered = effectiveChildren(cur);
+                if (childIndex >= filtered.length)
+                    childIndex = filtered.length > 0 ? filtered.length - 1 : -1;
+            }
+        }
+
+        if (!text || text.trim().length === 0) {
+            resultsClearRequested();
+            lastQuery = null;
+            lastDirective = null;
+            lastEvaluatedRoot = null;
+            return;
+        }
+
+        searchRequested(text, generation);
     }
 
+    onResetRequested: function() {
+        query = "";
+        resultsClearRequested();
+        loading = false;
+        generation += 1;
+        lastQuery = null;
+        lastDirective = null;
+        lastEvaluatedRoot = null;
+        asyncBackendQueries = {};
+    }
+
+    onResultsClearRequested: function() {
+        results = [];
+        resultsQuery = "";
+        selectionResetRequested();
+    }
+
+    onResultsRefreshRequested: function() {
+        results = results.slice();
+    }
+
+    onSelectionResetRequested: function() {
+        selectedIndex = -1;
+        selectedActionIndex = 0;
+        childIndex = -1;
+        childIndexMap = {};
+    }
+
+    onAsyncLoadingRefreshRequested: function() {
+        loading = hasPendingAsyncBackends();
+    }
+
+    onAsyncBackendSearchStarted: function(backend, key, text) {
+        var state = asyncBackendQueries[key] || {};
+        state.pending = text;
+        state.ready = "";
+        asyncBackendQueries[key] = state;
+        backend.pendingCompositeQuery = text;
+        backend.compositeQuery = "";
+        backend.applyStreamUpdate({ op: "clear" });
+        asyncLoadingRefreshRequested();
+    }
+
+    onAsyncBackendResultsReceived: function(backend, key, text, requestGeneration, update) {
+        if (requestGeneration !== root.generation || text !== root.query)
+            return;
+
+        var state = asyncBackendQueries[key] || {};
+        state.pending = "";
+        state.ready = text;
+        asyncBackendQueries[key] = state;
+        backend.pendingCompositeQuery = "";
+        backend.compositeQuery = text;
+        backend.applyStreamUpdate(update || []);
+        asyncLoadingRefreshRequested();
+        searchRequested(text, requestGeneration);
+    }
+
+    onSearchRequested: function(text, requestGeneration) {
+        var output = searchNow(text, requestGeneration, true);
+        searchCompleted(text, requestGeneration, output);
+    }
+
+    onSearchCompleted: function(text, requestGeneration, output) {
+        if (!output || requestGeneration !== root.generation || text !== root.query)
+            return;
+
+        resultsAvailable(text, requestGeneration, sortRows(promoteContainerRows(output.rows)).slice(0, maxResults), output);
+    }
+
+    onResultsAvailable: function(text, requestGeneration, rows, output) {
+        if (!output || requestGeneration !== root.generation || text !== root.query)
+            return;
+
+        lastQuery = output.query;
+        lastDirective = output.directive;
+        lastEvaluatedRoot = output.evaluatedRoot;
+        setResults(rows, text);
+    }
 
     function isSelectable(row) {
         return !!(row && (row.actions && row.actions.length > 0 || row.executable || row.switchActions));
@@ -468,67 +575,13 @@ Item {
     }
 
     function updateQuery(text) {
-        generation += 1;
-        query = text;
-        selectedActionIndex = 0;
-        loading = false;
-
-        if (childIndex >= 0) {
-            var cur = results[selectedIndex];
-            if (cur && cur.filterable) {
-                var filtered = effectiveChildren(cur);
-                if (childIndex >= filtered.length)
-                    childIndex = filtered.length > 0 ? filtered.length - 1 : -1;
-            }
-        }
-
-        if (!text || text.trim().length === 0) {
-            results = [];
-            selectedIndex = -1;
-            lastQuery = null;
-            lastDirective = null;
-            lastEvaluatedRoot = null;
-            pendingSearchText = "";
-            pendingSearchGeneration = generation;
-            searchTimer.stop();
-            return;
-        }
-
-        scheduleSearch(text, generation);
-    }
-
-    function scheduleSearch(text, currentGeneration) {
-        pendingSearchText = text || "";
-        pendingSearchGeneration = currentGeneration;
-        searchTimer.restart();
-    }
-
-    function runPendingSearch() {
-        var text = pendingSearchText;
-        var currentGeneration = pendingSearchGeneration;
-        pendingSearchText = "";
-        if (!text || currentGeneration !== generation)
-            return;
-
-        collectResults(text, currentGeneration);
+        queryUpdateRequested(text || "");
     }
 
     function searchNow(text, currentGeneration, includeAsync) {
         if (includeAsync)
             triggerAsyncBackends(text, currentGeneration);
         return CompositeSearch.search(backends || [], text || "", stateForSearch(), searchOptions());
-    }
-
-    function collectResults(text, currentGeneration) {
-        var output = searchNow(text, currentGeneration, true);
-        if (currentGeneration !== generation)
-            return output;
-
-        lastQuery = output.query;
-        lastDirective = output.directive;
-        lastEvaluatedRoot = output.evaluatedRoot;
-        setResults(sortRows(promoteContainerRows(output.rows)).slice(0, maxResults));
-        return output;
     }
 
     function triggerAsyncBackends(text, currentGeneration) {
@@ -549,27 +602,10 @@ Item {
             if (state.ready === text || state.pending === text)
                 continue;
 
-            state.pending = text;
-            state.ready = "";
-            asyncBackendQueries[key] = state;
-            backend.pendingCompositeQuery = text;
-            backend.compositeQuery = "";
-            backend.applyStreamUpdate({ op: "clear" });
-            loading = hasPendingAsyncBackends();
+            asyncBackendSearchStarted(backend, key, text);
 
             backend.resultsAsync(text, function(newResults) {
-                if (currentGeneration !== generation)
-                    return;
-                let callbackKey = backend.backendId || String(i);
-                let callbackState = asyncBackendQueries[callbackKey] || {};
-                callbackState.pending = "";
-                callbackState.ready = text;
-                asyncBackendQueries[callbackKey] = callbackState;
-                backend.pendingCompositeQuery = "";
-                backend.compositeQuery = text;
-                backend.applyStreamUpdate(newResults || []);
-                loading = hasPendingAsyncBackends();
-                scheduleSearch(text, currentGeneration);
+                asyncBackendResultsReceived(backend, key, text, currentGeneration, newResults || []);
             });
         }
     }
@@ -610,8 +646,9 @@ Item {
         return true;
     }
 
-    function setResults(newResults) {
+    function setResults(newResults, sourceQuery) {
         results = newResults || [];
+        resultsQuery = sourceQuery || "";
         selectedIndex = results.length > 0 ? Math.max(0, Math.min(selectedIndex, results.length - 1)) : -1;
         selectedActionIndex = 0;
         childIndex = -1;
@@ -654,7 +691,6 @@ Item {
             var closeRequested = result.onComplete({
                 query: root.query,
                 replaceQuery: function(text) {
-                    root.query = text;
                     root.updateQuery(text);
                 },
                 setBackends: function(backendIds) {
@@ -742,9 +778,9 @@ Item {
         } else if (state === null) {
             result.switchState = result.switchState === true ? false : true;
         }
-        results = results.slice();
+        resultsRefreshRequested();
         Qt.callLater(function() {
-            scheduleSearch(query, generation);
+            searchRequested(query, generation);
         });
     }
 
@@ -852,20 +888,6 @@ Item {
     }
 
     function reset() {
-        query = "";
-        results = [];
-        selectedIndex = -1;
-        selectedActionIndex = 0;
-        childIndex = -1;
-        childIndexMap = {};
-        loading = false;
-        generation += 1;
-        lastQuery = null;
-        lastDirective = null;
-        lastEvaluatedRoot = null;
-        asyncBackendQueries = {};
-        pendingSearchText = "";
-        pendingSearchGeneration = generation;
-        searchTimer.stop();
+        resetRequested();
     }
 }

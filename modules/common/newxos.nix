@@ -3,6 +3,8 @@
   flake.modules.nixos.newxos =
     { config, pkgs, ... }:
     {
+      boot.zfs.forceImportRoot = false;
+
       environment.sessionVariables.NEWXOS_HOST = config.networking.hostName;
 
       environment.systemPackages = withSystem pkgs.stdenv.hostPlatform.system (

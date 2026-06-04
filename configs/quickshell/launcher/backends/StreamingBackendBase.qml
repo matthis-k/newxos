@@ -36,6 +36,10 @@ LauncherBackendBase {
             root.resetStream(update);
             return;
         }
+        if (update.op === "reset") {
+            root.resetStream(update.items || []);
+            return;
+        }
         if (update.op === "clear")
             root.resetStream([]);
     }
