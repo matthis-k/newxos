@@ -122,6 +122,13 @@
               ];
             };
 
+            lsp = {
+              qmlls = {
+                command = [ "qmlls" ];
+                extensions = [ ".qml" ];
+              };
+            };
+
             provider = {
               ollama = {
                 npm = "@ai-sdk/openai-compatible";
@@ -163,6 +170,12 @@
                 url = "https://qt-docs-mcp.qt.io/mcp";
                 enabled = true;
               };
+
+              context7 = {
+                type = "remote";
+                url = "https://mcp.context7.com/mcp";
+                enabled = true;
+              };
             };
           };
 
@@ -178,7 +191,10 @@
 
       opencodeWithEnv = pkgs.writeShellApplication {
         name = "opencode";
-        runtimeInputs = [ pkgs.coreutils ];
+        runtimeInputs = [
+          pkgs.coreutils
+          config.packages.dev-tools
+        ];
         text = ''
           if [ -r /run/secrets/github_token ] && [ -z "''${GITHUB_PERSONAL_ACCESS_TOKEN:-}" ]; then
             github_token="$(tr -d '[:space:]' < /run/secrets/github_token)"

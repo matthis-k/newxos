@@ -10,7 +10,7 @@ Basic Memory needs generated local state for search and semantic retrieval (SQLi
 
 ## Decision
 
-Commit only Markdown memory files under `knowledge/` (now `docs/`). Store generated Basic Memory state under `.cache/basic-memory/` which is gitignored.
+Commit only Markdown memory files under `docs/`. Store generated Basic Memory state under `.cache/basic-memory/` which is gitignored.
 
 ## Consequences
 

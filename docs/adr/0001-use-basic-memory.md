@@ -6,11 +6,11 @@ Accepted
 
 ## Context
 
-The repo's `knowledge/` directory was growing and becoming harder to navigate through static file lists in `opencode.json`. Relying on prompt-loaded files to give agents context was fragile and did not scale.
+The repo's agent knowledge base was growing and becoming harder to navigate through static file lists in `opencode.json`. Relying on prompt-loaded files to give agents context was fragile and did not scale.
 
 ## Decision
 
-Adopt Basic Memory as the primary semantic search layer over `knowledge/`. Point Basic Memory at the whole `knowledge/` directory. Keep `opencode.json` instructions minimal (stable entrypoints only). Use Basic Memory MCP for hybrid text/vector search during agent sessions.
+Adopt Basic Memory as the primary semantic search layer over `docs/`. Point Basic Memory at the whole `docs/` directory. Keep `opencode.json` instructions minimal (stable entrypoints only). Use Basic Memory MCP for hybrid text/vector search during agent sessions.
 
 ## Consequences
 

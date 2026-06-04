@@ -7,6 +7,7 @@ This repo exposes OpenCode through Nix so agent tooling is reproducible.
 - Wrapper and generated settings: `modules/dev/opencode.nix`.
 - Repo-owned skill sources and config fragments: `configs/opencode/`.
 - Skill paths scan `configs/opencode/skills/` and the upstream Qt agent skills input.
+- Stable always-loaded instructions: `AGENTS.md`, `docs/agent-index.md`.
 - Secret provisioning: `modules/common/sops.nix`, host/user wiring.
 
 ## Configuration
@@ -14,11 +15,13 @@ This repo exposes OpenCode through Nix so agent tooling is reproducible.
 - `opencode.json` controls stable instruction entrypoints.
 - `modules/dev/opencode.nix` is the source of truth for generated settings.
 - `configs/opencode/` is for repo-owned OpenCode assets.
+- Keep broad docs searchable through Basic Memory instead of preloading them in `opencode.json`.
 
 ## MCP servers
 
 - Server definitions are in `modules/dev/opencode.nix`.
-- Current servers: GitHub MCP, nixos MCP, Basic Memory MCP, Qt Documentation MCP.
+- Current servers: GitHub MCP, nixos MCP, Basic Memory MCP, Qt Documentation MCP, Context7 MCP.
+- Use Context7 for current external library/API docs only; prefer NixOS MCP for Nix options, Qt Documentation MCP for Qt/QML APIs, and Basic Memory for repo facts.
 
 ## Rules
 
@@ -37,3 +40,4 @@ This repo exposes OpenCode through Nix so agent tooling is reproducible.
 - OpenCode upstream: <https://github.com/anomalyco/opencode>
 - mcp-nixos: <https://github.com/utensils/mcp-nixos>
 - GitHub MCP server: <https://github.com/github/github-mcp-server>
+- Context7: <https://github.com/upstash/context7>
