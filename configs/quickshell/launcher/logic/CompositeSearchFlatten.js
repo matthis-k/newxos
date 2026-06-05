@@ -41,6 +41,9 @@ function decideGroupDisplay(ev, ctx) {
 
     var policy = groupDisplayPolicy(ev);
 
+    if (ev.node.behavior && ev.node.behavior.filterable)
+        return { mode: "nested-group", showParent: true, children: ev.children.slice() };
+
     var hasActions = (ev.node.actionList && ev.node.actionList.length > 0);
     if (!hasActions && ev.children.length > 0) {
         var maxChildren = policy ? (policy.maxNestedChildren || ev.children.length) : ev.children.length;
@@ -57,8 +60,6 @@ function decideGroupDisplay(ev, ctx) {
     if (!hasActions && policy.flattenAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
         return { mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, policy.maxNestedChildren || ev.children.length) };
     if (policy.showAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
-        return { mode: "nested-group", showParent: true, children: ev.children.slice(0, policy.maxNestedChildren || ev.children.length) };
-    if (ev.node.behavior && ev.node.behavior.filterable)
         return { mode: "nested-group", showParent: true, children: ev.children.slice(0, policy.maxNestedChildren || ev.children.length) };
     var visibleChildren = ev.children.filter(function(c) { return c.visible && c.score >= policy.minChildScore; }).sort(compareEvaluated);
     if (!visibleChildren.length)
@@ -261,6 +262,19 @@ function visibleFromChildrenOnly(ev) {
     });
 }
 
+function hasExplicitAlwaysExpanded(node) {
+    return !!(node && node.behavior && Object.prototype.hasOwnProperty.call(node.behavior, "alwaysExpanded"));
+}
+
+function childHasGoodMatch(childRows) {
+    for (var i = 0; i < (childRows || []).length; i += 1) {
+        var child = childRows[i];
+        if (child && ((child.ownVisible && (child.ownScore || child.score || 0) > 0) || (child.ownScore || child.score || 0) >= 0.25))
+            return true;
+    }
+    return false;
+}
+
 function toResultRow(ev, depth, state, ctx, childRows) {
     var node = ev.node;
     var chain = collectParentChain(node);
@@ -304,13 +318,13 @@ function toResultRow(ev, depth, state, ctx, childRows) {
         labelMatches: copyRanges(rangesForField(ev.evidence, "label", node.id)),
         subtitleMatches: copyRanges(rangesForField(ev.evidence, "subtitle", node.id)),
         actions: actions,
-        enter: enterAction ? { type: "activate", action: enterAction } : { type: "noop" },
+        enter: enterAction ? { type: "sequence", steps: [{ type: "activate", action: enterAction }, { type: "close" }] } : { type: "noop" },
         shiftEnter: { type: "noop" },
         executable: !!action,
         dangerous: !!node.dangerous,
         filterable: !!(node.behavior && node.behavior.filterable),
         lazy: !!node.lazy,
-        alwaysExpanded: node.behavior ? node.behavior.alwaysExpanded !== false : true,
+        alwaysExpanded: hasExplicitAlwaysExpanded(node) ? node.behavior.alwaysExpanded !== false : childHasGoodMatch(childRows),
         children: childRows || [],
         switchActions: copySwitchActions(node.switchActions, action),
         switchState: node.switchState === undefined ? null : node.switchState,
@@ -330,18 +344,13 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         if (ev.node.kind !== "root" && (forceInclude || canInclude(ev)))
             collected.push({ ev: ev, depth: depth, sortScore: sortScore === undefined ? ev.score : sortScore, childEvs: childEvs || [] });
     }
-    function collect(ev, depth) {
+    function collect(ev, depth, forceInclude) {
         if (ev.node.kind === "root") {
-            for (var i = 0; i < ev.children.length; i += 1) collect(ev.children[i], depth + 1);
+            for (var i = 0; i < ev.children.length; i += 1) collect(ev.children[i], depth + 1, forceInclude);
             return;
         }
         if (ev.node.kind === "backend") {
-            for (var bi = 0; bi < ev.children.length; bi += 1) collect(ev.children[bi], depth);
-            return;
-        }
-        var containerOnly = !(ev.node.actionList && ev.node.actionList.length) && !ev.node.switchActions && ev.children.length > 0;
-        if (containerOnly || ev.node.behavior && ev.node.behavior.visualRoot) {
-            for (var vi = 0; vi < ev.children.length; vi += 1) collect(ev.children[vi], depth);
+            for (var bi = 0; bi < ev.children.length; bi += 1) collect(ev.children[bi], depth, forceInclude);
             return;
         }
         var decision = decideGroupDisplay(ev, ctx);
@@ -351,18 +360,18 @@ function flattenForUi(evaluatedRoot, state, ctx) {
             return;
         }
         if (decision.mode === "normal") {
-            add(ev, depth);
-            for (var n = 0; n < ev.children.length; n += 1) collect(ev.children[n], depth + 1);
+            add(ev, depth, undefined, [], forceInclude);
+            for (var n = 0; n < ev.children.length; n += 1) collect(ev.children[n], depth + 1, forceInclude);
             return;
         }
         if (decision.showParent) {
             var childMaxScore = decision.children.length ? Math.max.apply(null, decision.children.map(function(c) { return c.score; })) : 0;
             var score = decision.mode === "filtered-group" || decision.mode === "nested-group" ? Math.max(0, Math.max(ev.score, childMaxScore) - 0.015) : ev.score;
             if (decision.mode === "nested-group") {
-                add(ev, depth, score, decision.children);
+                add(ev, depth, score, decision.children, forceInclude);
                 return;
             }
-            add(ev, depth, score, decision.mode === "filtered-group" ? decision.children : []);
+            add(ev, depth, score, decision.mode === "filtered-group" ? decision.children : [], forceInclude);
             if (decision.mode === "filtered-group") {
                 for (var ci = 0; ci < decision.children.length; ci += 1)
                     add(decision.children[ci], depth + 1, decision.children[ci].score);
@@ -372,9 +381,9 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         if (decision.mode === "group")
             return;
         for (var di = 0; di < decision.children.length; di += 1)
-            collect(decision.children[di], decision.mode === "flatten-children" ? depth : depth + 1);
+            collect(decision.children[di], decision.mode === "flatten-children" ? depth : depth + 1, forceInclude);
     }
-    collect(evaluatedRoot, -1);
+    collect(evaluatedRoot, -1, false);
     collected.sort(function(a, b) {
         var delta = b.sortScore - a.sortScore;
         if (Math.abs(delta) > 0.0001) return delta;

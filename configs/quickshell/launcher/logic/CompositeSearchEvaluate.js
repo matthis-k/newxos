@@ -49,14 +49,15 @@ function evaluateNode(node, query, ctx) {
     if (directiveActive && !selfAllowed && !nodeTreeMayContainDirective(node, ctx))
         return { node: node, allowed: false, candidate: false, pruned: true, evidence: [], ownScore: 0, score: 0, visible: false, children: [] };
 
-    if (ctx.candidateIds && !ctx.candidateIds[node.id] && node.kind !== "root" && node.kind !== "backend" && !node.showWhenQueryEmpty && !(query.isEmpty && node.backendId === "backends" && directiveActive) && !ctx.showHidden)
+    var directiveBrowse = directiveActive && query.isEmpty;
+    if (ctx.candidateIds && !ctx.candidateIds[node.id] && node.kind !== "root" && node.kind !== "backend" && !node.showWhenQueryEmpty && !(query.isEmpty && node.backendId === "backends" && directiveActive) && !directiveBrowse && !ctx.showHidden)
         return { node: node, allowed: selfAllowed, candidate: false, pruned: true, evidence: [], ownScore: 0, score: 0, visible: false, children: [] };
 
     var profile = node.evaluationProfile || {};
     var strategyIds = profile.strategies || ["exact", "prefix", "compact", "substring", "acronym", "semantic", "usage", "recency"];
     var evidenceItems = [];
 
-    var directCandidate = !ctx.candidateIds || !!ctx.candidateIds[node.id] || node.kind === "root" || node.kind === "backend" || node.showWhenQueryEmpty;
+    var directCandidate = !ctx.candidateIds || !!ctx.candidateIds[node.id] || node.kind === "root" || node.kind === "backend" || node.showWhenQueryEmpty || directiveBrowse;
 
     if (selfAllowed && directCandidate) {
         if (node.behavior && node.behavior.tokenPolicy && node.behavior.tokenPolicy.tokens) {

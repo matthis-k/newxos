@@ -58,6 +58,10 @@ PanelWindow {
         return controller.querySearch(text || "");
     }
 
+    function queryVisual(text) {
+        return controller.queryVisual(text || "");
+    }
+
     function queryComplete(text) {
         return controller.queryComplete(text || "");
     }
@@ -223,15 +227,17 @@ PanelWindow {
                             controller.completeSelected();
                         event.accepted = true;
                     } else if (event.modifiers & Qt.ControlModifier && (event.key === Qt.Key_H || event.key === Qt.Key_Backspace)) {
-                        if (controller.isInTree())
-                            controller.treeCollapseSelected();
-                        else
+                        if (controller.isInTree()) {
+                            if (!controller.treeCollapseSelected())
+                                controller.adjustSelectedValue(-1);
+                        } else if (!controller.toggleCollapseResultTree())
                             controller.adjustSelectedValue(-1);
                         event.accepted = true;
                     } else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_L) {
-                        if (controller.isInTree())
-                            controller.treeExpandSelected();
-                        else
+                        if (controller.isInTree()) {
+                            if (!controller.treeExpandSelected())
+                                controller.adjustSelectedValue(1);
+                        } else if (!controller.toggleExpandResultTree())
                             controller.adjustSelectedValue(1);
                         event.accepted = true;
                     } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
@@ -255,56 +261,92 @@ PanelWindow {
 
             Item {
                 id: resultsFrame
-                readonly property int visibleRows: Math.min(controller.results.length, root.visibleResultRows)
 
                 visible: controller.results.length > 0
                 Layout.fillWidth: true
-                Layout.preferredHeight: resultsColumn.implicitHeight
+                Layout.preferredHeight: Math.min(resultsColumn.implicitHeight, root.rowHeight * root.visibleResultRows)
                 Layout.maximumHeight: root.rowHeight * root.visibleResultRows
                 clip: true
 
-                ColumnLayout {
-                    id: resultsColumn
+                function ensureActiveVisible() {
+                    if (controller.selectedIndex < 0 || controller.selectedIndex >= resultRepeater.count)
+                        return;
+                    var y = 0;
+                    for (var i = 0; i < controller.selectedIndex; i += 1) {
+                        var previous = resultRepeater.itemAt(i);
+                        if (previous && previous.visible)
+                            y += previous.height + resultsColumn.spacing;
+                    }
+                    var current = resultRepeater.itemAt(controller.selectedIndex);
+                    var height = current ? current.height : root.rowHeight;
+                    if (controller.isInTree()) {
+                        y += root.rowHeight + Config.spacing.xs + Math.max(0, controller.treeVisualRow) * root.rowHeight;
+                        height = root.rowHeight;
+                    }
+                    if (y < resultsFlickable.contentY)
+                        resultsFlickable.contentY = y;
+                    else if (y + height > resultsFlickable.contentY + resultsFlickable.height)
+                        resultsFlickable.contentY = Math.max(0, y + height - resultsFlickable.height);
+                }
+
+                Connections {
+                    target: controller
+                    function onActiveNodeKeyChanged() { Qt.callLater(resultsFrame.ensureActiveVisible); }
+                    function onTreeVisualRowChanged() { Qt.callLater(resultsFrame.ensureActiveVisible); }
+                    function onResultsChanged() { Qt.callLater(resultsFrame.ensureActiveVisible); }
+                }
+
+                Flickable {
+                    id: resultsFlickable
                     anchors.fill: parent
-                    spacing: Config.spacing.xxs
+                    boundsBehavior: Flickable.StopAtBounds
+                    clip: true
+                    contentWidth: width
+                    contentHeight: resultsColumn.implicitHeight
 
-                    Repeater {
-                        id: resultRepeater
-                        model: root.visibleResultRows
+                    ColumnLayout {
+                        id: resultsColumn
+                        width: resultsFlickable.width
+                        spacing: Config.spacing.xxs
 
-                        Loader {
-                            id: delegateLoader
-                            required property int index
+                        Repeater {
+                            id: resultRepeater
+                            model: controller.results.length
 
-                            readonly property var resultData: index < controller.results.length ? controller.results[index] : null
+                            Loader {
+                                id: delegateLoader
+                                required property int index
 
-                            sourceComponent: resultData ? root.resultDelegate : null
+                                readonly property var resultData: index < controller.results.length ? controller.results[index] : null
 
-                            visible: !!resultData
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: visible && item ? item.implicitHeight : 0
+                                sourceComponent: resultData ? root.resultDelegate : null
 
-                            onLoaded: {
-                                item.result = Qt.binding(function() { return delegateLoader.resultData; });
-                                if ("resultIndex" in item)
-                                    item.resultIndex = Qt.binding(function() { return index; });
-                                item.selected = Qt.binding(function() {
-                                    var result = delegateLoader.resultData || {};
-                                    return controller.activeNodeKey === (result.id || result.nodeId || "");
-                                });
-                                item.iconSize = Qt.binding(function() { return root.iconSize; });
-                                item.showSubtitle = Qt.binding(function() { return root.showSubtitles; });
-                                item.showActionHint = root.showActionHint;
-                                if ("showEvidence" in item)
-                                    item.showEvidence = root.showEvidence;
-                                if ("controller" in item)
-                                    item.controller = controller;
-                                if (item.activated)
-                                    item.activated.connect(function(result) {
-                                        controller.selectedIndex = index;
-                                        if (controller.activateSelected(false))
-                                            root.close();
+                                visible: !!resultData
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: visible && item ? item.implicitHeight : 0
+
+                                onLoaded: {
+                                    item.result = Qt.binding(function() { return delegateLoader.resultData; });
+                                    if ("resultIndex" in item)
+                                        item.resultIndex = Qt.binding(function() { return index; });
+                                    item.selected = Qt.binding(function() {
+                                        var result = delegateLoader.resultData || {};
+                                        return controller.activeNodeKey === (result.id || result.nodeId || "");
                                     });
+                                    item.iconSize = Qt.binding(function() { return root.iconSize; });
+                                    item.showSubtitle = Qt.binding(function() { return root.showSubtitles; });
+                                    item.showActionHint = root.showActionHint;
+                                    if ("showEvidence" in item)
+                                        item.showEvidence = root.showEvidence;
+                                    if ("controller" in item)
+                                        item.controller = controller;
+                                    if (item.activated)
+                                        item.activated.connect(function(result) {
+                                            controller.selectedIndex = index;
+                                            if (controller.activateSelected(false))
+                                                root.close();
+                                        });
+                                }
                             }
                         }
                     }

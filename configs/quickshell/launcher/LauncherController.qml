@@ -20,6 +20,7 @@ Item {
     property bool showHidden: false
     property int maxTreeDepth: 4
     property var expandedNodeIds: ({})
+    property var collapsedResultIndices: ({})
     property var lastQuery: null
     property var lastDirective: null
     property var lastEvaluatedRoot: null
@@ -41,6 +42,8 @@ Item {
     signal resetRequested()
     signal resultsClearRequested()
     signal resultsRefreshRequested()
+    signal collapseResultExpanded(int resultIndex)
+    signal expandResultExpanded(int resultIndex)
     signal selectionResetRequested()
     signal asyncLoadingRefreshRequested()
     signal asyncBackendSearchStarted(var backend, string key, string text)
@@ -48,6 +51,7 @@ Item {
     signal searchRequested(string text, int generation)
     signal searchCompleted(string text, int generation, var output)
     signal resultsAvailable(string text, int generation, var rows, var output)
+    signal treeSwitchRefreshRequested(int resultIndex)
 
     onQueryUpdateRequested: function(text) {
         generation += 1;
@@ -132,7 +136,7 @@ Item {
         if (!output || requestGeneration !== root.generation || text !== root.query)
             return;
 
-        resultsAvailable(text, requestGeneration, sortRows(promoteContainerRows(output.rows)).slice(0, maxResults), output);
+        resultsAvailable(text, requestGeneration, sortRows(promoteContainerRows(output.rows), output.query, output.directive).slice(0, maxResults), output);
     }
 
     onResultsAvailable: function(text, requestGeneration, rows, output) {
@@ -146,11 +150,13 @@ Item {
     }
 
     function queryIsEmptyForSelection() {
+        if (lastQuery && lastQuery.isEmpty !== undefined)
+            return !!lastQuery.isEmpty;
         return !root.query || root.query.trim().length === 0;
     }
 
     function hasActivation(row) {
-        return !!(row && (row.actions && row.actions.length > 0 || row.executable || row.switchActions));
+        return !!(row && (row.actions && row.actions.length > 0 || row.executable || row.switchActions || (row.filterable && row.children && row.children.length > 0)));
     }
 
     function isSelectable(row) {
@@ -297,7 +303,7 @@ Item {
         for (var i = 0; i < (rows || []).length; i += 1) {
             var row = rows[i];
             var children = row && row.children || [];
-            if (row && !root.isSelectable(row) && children.length > 0) {
+            if (row && !root.isSelectable(row) && children.length > 0 && !row.filterable) {
                 var promoted = root.promoteContainerRows(children);
                 for (var pi = 0; pi < promoted.length; pi += 1)
                     out.push(root.shiftRowDepth(promoted[pi], (row.depth || 0) - (promoted[pi].depth || 0)));
@@ -311,7 +317,9 @@ Item {
         return out;
     }
 
-    function sortRows(rows) {
+    function sortRows(rows, queryInfo, directiveInfo) {
+        if (directiveInfo && directiveInfo.active && queryInfo && queryInfo.isEmpty)
+            return (rows || []).slice();
         return (rows || []).slice().sort(function(a, b) {
             var scoreDelta = (b.score || 0) - (a.score || 0);
             if (Math.abs(scoreDelta) > 0.0001) return scoreDelta;
@@ -350,7 +358,7 @@ Item {
         var tokenStrs = (query.tokens || []).map(function(t) { return t.normalized; }).filter(Boolean);
         for (var ri = 0; ri < (output.rows || []).length; ri += 1)
             root.filterRowChildren(output.rows[ri], tokenStrs);
-        var rows = sortRows(selectableRows(promoteContainerRows(output.rows)));
+        var rows = sortRows(selectableRows(promoteContainerRows(output.rows)), query, directive);
         return JSON.stringify({
             version: 1,
             type: "search",
@@ -371,12 +379,55 @@ Item {
         });
     }
 
+    function queryVisual(text) {
+        var output = searchNow(text || "", generation, true);
+        var rows = sortRows(promoteContainerRows(output.rows), output.query, output.directive).slice(0, maxResults);
+        var previousResults = results;
+        var previousQuery = query;
+        var previousLastQuery = lastQuery;
+        results = rows;
+        query = text || "";
+        lastQuery = output.query;
+        var targets = root.navigationTargets().map(function(target) {
+            return {
+                key: target.key,
+                title: target.row ? target.row.title || "" : "",
+                parentIndex: target.parentIndex,
+                treeDepth: target.treeDepth,
+                selectable: target.row ? root.isSelectable(target.row) : false
+            };
+        });
+        results = previousResults;
+        query = previousQuery;
+        lastQuery = previousLastQuery;
+        return JSON.stringify({
+            version: 1,
+            type: "visual",
+            query: {
+                raw: output.query.raw,
+                tokens: output.query.tokens.map(function(t) { return { raw: t.raw, normalized: t.normalized }; }),
+                isEmpty: output.query.isEmpty,
+                lastTokenEmpty: output.query.lastTokenEmpty
+            },
+            directive: {
+                active: output.directive.active,
+                prefix: output.directive.prefix || "",
+                label: output.directive.label || "",
+                backendIds: output.directive.backendIds || []
+            },
+            totalResults: rows.length,
+            maxResults: maxResults,
+            results: rows.map(root.serializeRow),
+            navigationTargets: targets
+        });
+    }
+
     function queryComplete(text) {
         var output = searchNow(text || "", generation, true);
         var tokenStrs = (output.query && output.query.tokens || []).map(function(t) { return t.normalized; }).filter(Boolean);
         for (var ri = 0; ri < (output.rows || []).length; ri += 1)
             root.filterRowChildren(output.rows[ri], tokenStrs);
-        var rows = sortRows(selectableRows(promoteContainerRows(output.rows)));
+        var rows = sortRows(selectableRows(promoteContainerRows(output.rows)), output.query, output.directive);
         return JSON.stringify({
             version: 1,
             type: "complete",
@@ -637,13 +688,31 @@ Item {
     }
 
     function setResults(newResults, sourceQuery) {
+        var previousActiveNodeKey = activeNodeKey;
+        var previousCollapsedByKey = {};
+        for (var previousIndex = 0; previousIndex < results.length; previousIndex += 1) {
+            var previousKey = root.rowKey(results[previousIndex]);
+            if (previousKey)
+                previousCollapsedByKey[previousKey] = !!collapsedResultIndices[previousIndex];
+        }
         resultTreeViews = {};
         results = newResults || [];
         resultsQuery = sourceQuery || "";
         selectedActionIndex = 0;
         root.resetTreeNavigation();
+        collapsedResultIndices = {};
+        for (var i = 0; i < results.length; i += 1) {
+            var key = root.rowKey(results[i]);
+            if (key && previousCollapsedByKey[key] !== undefined) {
+                if (previousCollapsedByKey[key])
+                    collapsedResultIndices[i] = true;
+            } else if (results[i].alwaysExpanded === false) {
+                collapsedResultIndices[i] = true;
+            }
+        }
         var targets = root.navigationTargets();
-        root.applyNavigationTarget(targets.length > 0 ? targets[0] : null);
+        var preservedTarget = previousActiveNodeKey ? targets.find(function(target) { return target.key === previousActiveNodeKey; }) : null;
+        root.applyNavigationTarget(preservedTarget || (targets.length > 0 ? targets[0] : null));
     }
 
     function registerResultTreeView(index, treeView) {
@@ -742,6 +811,17 @@ Item {
         if (!result || !intent)
             return false;
         switch (intent.type || "activate") {
+        case "sequence": {
+            var closeRequested = false;
+            var steps = intent.steps || intent.actions || [];
+            for (var si = 0; si < steps.length; si += 1) {
+                if (root.applyIntent(result, steps[si]))
+                    closeRequested = true;
+            }
+            return closeRequested;
+        }
+        case "close":
+            return true;
         case "replace-query":
             queryReplacementRequested(intent.text || "");
             return false;
@@ -751,49 +831,134 @@ Item {
         default: {
             var actions = result && result.actions ? result.actions : [];
             var defaultAction = actions.find(function(a) { return a.default; }) || actions[0] || null;
-            return activateResult(result, intent.action || defaultAction);
+            var selectedAction = intent.action || defaultAction;
+            if (selectedAction && selectedAction.intent)
+                return root.applyIntent(result, selectedAction.intent);
+            activateResult(result, selectedAction);
+            return false;
         }
         }
     }
 
     function activateResultAction(result, actionId) {
-        if (!result)
+        if (!result) {
+            if (root.debugEnabled)
+                DebugLogger.log("switch", "activateResultAction without result", { actionId: actionId || "" });
             return false;
+        }
         var actions = result.actions || [];
+        if (root.debugEnabled)
+            DebugLogger.log("switch", "activateResultAction", {
+                resultId: result.id || result.nodeId || "",
+                title: result.title || "",
+                source: result.source || result.backendId || "",
+                actionId: actionId || "",
+                actionIds: actions.map(function(action) { return action ? action.id || "" : ""; }),
+                hasSwitchActions: !!result.switchActions,
+                switchActionIds: result.switchActions ? Object.keys(result.switchActions) : [],
+                switchState: result.switchState
+            });
         for (var i = 0; i < actions.length; i += 1) {
             if (actions[i] && actions[i].id === actionId) {
                 var activated = activateResult(result, actions[i]);
+                if (root.debugEnabled)
+                    DebugLogger.log("switch", "activateResultAction matched action list", {
+                        resultId: result.id || result.nodeId || "",
+                        actionId: actionId || "",
+                        activated: activated,
+                        payloadState: actions[i].payload ? actions[i].payload.state : undefined
+                    });
                 if (activated && result.switchActions)
                     refreshSwitchResult(result, actions[i]);
                 return activated;
             }
         }
+        if (result.switchActions && result.switchActions[actionId]) {
+            var switchActivated = activateResult(result, result.switchActions[actionId]);
+            if (root.debugEnabled)
+                DebugLogger.log("switch", "activateResultAction matched switchActions", {
+                    resultId: result.id || result.nodeId || "",
+                    actionId: actionId || "",
+                    activated: switchActivated,
+                    payloadState: result.switchActions[actionId].payload ? result.switchActions[actionId].payload.state : undefined
+                });
+            if (switchActivated)
+                refreshSwitchResult(result, result.switchActions[actionId]);
+            return switchActivated;
+        }
+        if (root.debugEnabled)
+            DebugLogger.log("switch", "activateResultAction no matching action", {
+                resultId: result.id || result.nodeId || "",
+                actionId: actionId || ""
+            });
         return false;
     }
 
     function adjustSelectedValue(delta) {
         var result = selectedActionTarget();
-        if (!result)
+        if (!result) {
+            if (root.debugEnabled)
+                DebugLogger.log("switch", "adjustSelectedValue without target", { delta: delta });
             return false;
+        }
 
         var preferredIds = delta < 0
             ? ["off", "decrease", "decrement", "left"]
             : ["on", "increase", "increment", "right"];
+        if (root.debugEnabled)
+            DebugLogger.log("switch", "adjustSelectedValue", {
+                delta: delta,
+                preferredIds: preferredIds,
+                inTree: root.isInTree(),
+                activeNodeKey: root.activeNodeKey,
+                targetId: result.id || result.nodeId || "",
+                title: result.title || "",
+                source: result.source || result.backendId || "",
+                hasSwitchActions: !!result.switchActions,
+                switchState: result.switchState
+            });
         for (var i = 0; i < preferredIds.length; i += 1) {
-            if (activateResultAction(result, preferredIds[i]))
+            if (activateResultAction(result, preferredIds[i])) {
+                if (root.isInTree() && root.currentTreeKey && result.switchActions && selectedIndex >= 0) {
+                    var treeRow = root.findTreeRowData(root.currentTreeKey);
+                    if (treeRow)
+                        treeRow.switchState = result.switchState;
+                    treeSwitchRefreshRequested(selectedIndex);
+                    if (root.debugEnabled)
+                        DebugLogger.log("switch", "adjustSelectedValue refreshed tree switch", {
+                            rowKey: root.currentTreeKey,
+                            switchState: result.switchState
+                        });
+                }
                 return true;
+            }
         }
+        if (root.debugEnabled)
+            DebugLogger.log("switch", "adjustSelectedValue no action activated", {
+                delta: delta,
+                targetId: result.id || result.nodeId || "",
+                preferredIds: preferredIds
+            });
         return false;
     }
 
     function refreshSwitchResult(result, action) {
         var payload = action && action.payload || {};
         var state = payload.state;
+        var previous = result ? result.switchState : undefined;
         if (state === true || state === false) {
             result.switchState = state;
         } else if (state === null) {
             result.switchState = result.switchState === true ? false : true;
         }
+        if (root.debugEnabled)
+            DebugLogger.log("switch", "refreshSwitchResult", {
+                resultId: result ? result.id || result.nodeId || "" : "",
+                actionId: action ? action.id || "" : "",
+                payloadState: state,
+                previousState: previous,
+                nextState: result ? result.switchState : undefined
+            });
         resultsRefreshRequested();
         Qt.callLater(function() {
             searchRequested(query, generation);
@@ -823,6 +988,8 @@ Item {
             var children = row.children || [];
             if (root.isRowSelectable(row))
                 out.push({ key: root.rowKey(row), row: row, parentIndex: parentIndex, treeDepth: treeDepth });
+            if (root.collapsedResultIndices[parentIndex])
+                return;
             for (var i = 0; i < children.length; i += 1)
                 visit(children[i], parentIndex, treeDepth + 1);
         }
@@ -882,6 +1049,38 @@ Item {
         return true;
     }
 
+    function toggleCollapseResultTree() {
+        if (selectedIndex >= 0) {
+            if (root.isInTree()) {
+                return root.treeCollapseSelected();
+            } else {
+                var collapseResult = results[selectedIndex];
+                if (!collapseResult || !collapseResult.children || collapseResult.children.length === 0)
+                    return false;
+                collapsedResultIndices[selectedIndex] = true;
+                collapseResultExpanded(selectedIndex);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    function toggleExpandResultTree() {
+        if (selectedIndex >= 0) {
+            if (root.isInTree()) {
+                return root.treeExpandSelected();
+            } else {
+                var expandResult = results[selectedIndex];
+                if (!expandResult || !expandResult.children || expandResult.children.length === 0)
+                    return false;
+                delete collapsedResultIndices[selectedIndex];
+                expandResultExpanded(selectedIndex);
+            }
+            return true;
+        }
+        return false;
+    }
+
     function exitTree() {
         if (currentTreeView && currentTreeView.selectionModel)
             currentTreeView.selectionModel.clearCurrentIndex();
@@ -914,18 +1113,89 @@ Item {
     }
 
     function treeCollapseSelected() {
-        if (!currentTreeView || treeVisualRow < 0) return;
-        currentTreeView.collapse(treeVisualRow);
+        if (!currentTreeView) {
+            if (root.debugEnabled)
+                DebugLogger.log("switch", "treeCollapseSelected without tree", {});
+            return false;
+        }
+        if (treeVisualRow >= 0) {
+            if (currentTreeView.isExpanded(treeVisualRow)) {
+                currentTreeView.collapse(treeVisualRow);
+                if (root.debugEnabled)
+                    DebugLogger.log("switch", "treeCollapseSelected collapsed current row", {
+                        row: treeVisualRow,
+                        key: currentTreeKey
+                });
+                return true;
+            }
+            var selectedTreeRow = root.findTreeRowData(currentTreeKey);
+            if (selectedTreeRow && selectedTreeRow.switchActions) {
+                if (root.debugEnabled)
+                    DebugLogger.log("switch", "treeCollapseSelected switch leaf not handled", {
+                        row: treeVisualRow,
+                        key: currentTreeKey
+                    });
+                return false;
+            }
+            var idx = currentTreeView.index(treeVisualRow, 0);
+            var parentIdx = currentTreeView.model.parent(idx);
+            if (parentIdx.valid) {
+                currentTreeView.collapse(parentIdx.row);
+                currentTreeView.selectionModel.setCurrentIndex(parentIdx, ItemSelectionModel.SelectCurrent);
+                treeVisualRow = parentIdx.row;
+                currentTreeKey = currentTreeView.model.data(parentIdx, "display");
+                if (root.debugEnabled)
+                    DebugLogger.log("switch", "treeCollapseSelected collapsed parent row", {
+                        row: treeVisualRow,
+                        key: currentTreeKey
+                    });
+                return true;
+            }
+        }
+        if (root.debugEnabled)
+            DebugLogger.log("switch", "treeCollapseSelected not handled", {
+                row: treeVisualRow,
+                key: currentTreeKey
+            });
+        return false;
     }
 
     function treeExpandSelected() {
-        if (!currentTreeView || treeVisualRow < 0) return;
+        if (!currentTreeView || treeVisualRow < 0) {
+            if (root.debugEnabled)
+                DebugLogger.log("switch", "treeExpandSelected without row", {
+                    row: treeVisualRow,
+                    key: currentTreeKey
+                });
+            return false;
+        }
+        var idx = currentTreeView.index(treeVisualRow, 0);
+        var hasChildren = typeof currentTreeView.model.hasChildren === "function"
+            ? currentTreeView.model.hasChildren(idx)
+            : false;
+        if (!hasChildren) {
+            if (root.debugEnabled)
+                DebugLogger.log("switch", "treeExpandSelected leaf not handled", {
+                    row: treeVisualRow,
+                    key: currentTreeKey
+                });
+            return false;
+        }
         currentTreeView.expand(treeVisualRow);
+        if (root.debugEnabled)
+            DebugLogger.log("switch", "treeExpandSelected expanded current row", {
+                row: treeVisualRow,
+                key: currentTreeKey
+            });
+        return true;
     }
 
     function treeToggleSelected() {
         if (!currentTreeView || treeVisualRow < 0) return;
-        currentTreeView.toggleExpanded(treeVisualRow);
+        if (currentTreeView.isExpanded(treeVisualRow))
+            treeCollapseSelected();
+        else
+            treeExpandSelected();
     }
 
     function findTreeRowData(key) {
@@ -985,9 +1255,20 @@ Item {
     function activateTreeRowByKey(key, actionId) {
         var row = root.findTreeRowData(key);
         if (!row) return false;
-        if (actionId)
-            return root.activateResultAction(row, actionId);
-        return root.applyIntent(row, row.enter);
+        var parent = root.findParentResultByKey(key);
+        var target = Object.assign({}, row, {
+            source: row.source || (parent ? parent.source || parent.backendId : ""),
+            category: row.category || (parent ? parent.category : "")
+        });
+        if (actionId) {
+            var activated = root.activateResultAction(target, actionId);
+            if (activated && target.switchActions && selectedIndex >= 0) {
+                row.switchState = target.switchState;
+                treeSwitchRefreshRequested(selectedIndex);
+            }
+            return activated;
+        }
+        return root.applyIntent(target, target.enter);
     }
 
     function treeActivateCurrent() {

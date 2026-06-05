@@ -29,15 +29,26 @@ Rectangle {
     }
     readonly property int childCount: (result.children || []).length
     readonly property bool hasTreeChildren: childCount > 0
-    property bool expanded: result.alwaysExpanded !== false ? hasTreeChildren : (selected && hasTreeChildren)
+    property int _expandedOverride: 0 // 0=use policy, 1=force collapse, 2=force expand
+    property bool expanded: _expandedOverride === 1 ? false : (_expandedOverride === 2 ? true : (result.alwaysExpanded !== false && hasTreeChildren))
     signal activated(var result)
 
     Component.onCompleted: syncControllerTreeView()
 
     onControllerChanged: syncControllerTreeView()
-    onResultChanged: syncControllerTreeView()
+    onResultChanged: { _expandedOverride = 0; syncControllerTreeView(); }
     onSelectedChanged: syncControllerTreeView()
     onTreeModelDataChanged: reloadTreeModel()
+
+    function collapseTree() { _expandedOverride = 1; }
+    function expandTree() { _expandedOverride = 2; }
+
+    Connections {
+        target: root.controller
+        function onCollapseResultExpanded(index) { if (index === root.resultIndex) root.collapseTree(); }
+        function onExpandResultExpanded(index) { if (index === root.resultIndex) root.expandTree(); }
+        function onTreeSwitchRefreshRequested(index) { if (index === root.resultIndex) root.reloadTreeModel(); }
+    }
 
     function syncControllerTreeView() {
         if (controller && root.resultIndex >= 0 && root.treeView)
@@ -107,7 +118,7 @@ Rectangle {
 
                             Text {
                                 text: modelData
-                                color: Config.styling.text1
+                                color: Config.styling.text2
                                 font.pixelSize: 12
                                 elide: Text.ElideRight
                                 maximumLineCount: 1

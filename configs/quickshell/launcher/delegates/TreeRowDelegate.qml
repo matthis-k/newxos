@@ -97,7 +97,7 @@ Rectangle {
 
             Text {
                 text: root.title
-                color: Config.styling.text1
+                color: Config.styling.text0
                 font.pixelSize: 13
                 font.bold: root.active
                 elide: Text.ElideRight
