@@ -67,7 +67,7 @@ LauncherBackendBase {
         const action = defaultAction(node);
         const rawSwitchActions = node.switchActions || (node.switchState === undefined ? null : switchActionMap(node, children));
         const switchActions = actionDtosForSwitchActions(rawSwitchActions);
-        const kind = switchActions ? "switch" : children.length > 0 ? "action-group" : "desktop-action";
+        const kind = switchActions && children.length === 0 ? "switch" : (children.length > 0 || node.template === "action-group" || node.template === "flat-action-group") ? "action-group" : "desktop-action";
         const actions = switchActions
             ? [switchActions.toggle, switchActions.on, switchActions.off].filter(Boolean)
             : action ? [root.actionDto(action.actionId || action.id || "run", action.title || qsTr("Run"), action)] : [];
@@ -103,6 +103,8 @@ LauncherBackendBase {
             actionList: actions,
             switchActions: switchActions,
             switchState: node.switchState === undefined ? null : node.switchState,
+            control: node.control || null,
+            presentation: node.presentation || null,
             dangerous: !!node.dangerous,
             children: children,
             showWhenQueryEmpty: path.length === 0,

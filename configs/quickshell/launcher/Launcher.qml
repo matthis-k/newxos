@@ -227,18 +227,25 @@ PanelWindow {
                             controller.completeSelected();
                         event.accepted = true;
                     } else if (event.modifiers & Qt.ControlModifier && (event.key === Qt.Key_H || event.key === Qt.Key_Backspace)) {
-                        if (controller.isInTree()) {
-                            if (!controller.treeCollapseSelected())
-                                controller.adjustSelectedValue(-1);
-                        } else if (!controller.toggleCollapseResultTree())
-                            controller.adjustSelectedValue(-1);
+                        if (controller.isInTree())
+                            controller.treeCollapseSelected();
+                        else
+                            controller.toggleCollapseResultTree();
                         event.accepted = true;
                     } else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_L) {
-                        if (controller.isInTree()) {
-                            if (!controller.treeExpandSelected())
-                                controller.adjustSelectedValue(1);
-                        } else if (!controller.toggleExpandResultTree())
-                            controller.adjustSelectedValue(1);
+                        if (controller.isInTree())
+                            controller.treeExpandSelected();
+                        else
+                            controller.toggleExpandResultTree();
+                        event.accepted = true;
+                    } else if (event.modifiers & Qt.AltModifier && event.key === Qt.Key_H) {
+                        controller.adjustSelectedValue(-1);
+                        event.accepted = true;
+                    } else if (event.modifiers & Qt.AltModifier && event.key === Qt.Key_L) {
+                        controller.adjustSelectedValue(1);
+                        event.accepted = true;
+                    } else if (event.modifiers & Qt.AltModifier && event.key === Qt.Key_M) {
+                        controller.toggleSelectedMute();
                         event.accepted = true;
                     } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                         if (event.modifiers & Qt.ShiftModifier && controller.isInTree()) {

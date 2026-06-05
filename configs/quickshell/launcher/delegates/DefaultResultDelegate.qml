@@ -1,5 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls.Basic
+import Quickshell.Services.Pipewire
 import Qt.labs.qmlmodels
 import qs.components
 import qs.services
@@ -18,7 +20,11 @@ Rectangle {
     property alias treeView: childTreeView
     readonly property int switchControlWidth: 132
     readonly property int switchActionButtonWidth: 40
-    property int treeRowHeight: 40
+    property int treeRowHeight: 44
+    readonly property bool hasSlider: !!result.control && result.control.kind === "slider"
+    readonly property var sliderNode: sliderNodeFor(result.control)
+    readonly property real sliderValue: sliderValueFor(result.control, sliderNode)
+    readonly property bool liveSwitchState: switchStateFor(result.control, sliderNode)
 
     readonly property var defaultAction: {
         var actions = result.actions || [];
@@ -127,9 +133,10 @@ Rectangle {
                             Icon {
                                 iconName: "pan-end-symbolic"
                                 fallbackIconName: "pan-end-symbolic"
-                                implicitSize: 10
-                                Layout.preferredWidth: 10
-                                Layout.preferredHeight: 10
+                                color: Config.styling.text2
+                                implicitSize: 12
+                                Layout.preferredWidth: 12
+                                Layout.preferredHeight: 12
                             }
                         }
                     }
@@ -169,7 +176,7 @@ Rectangle {
 
             Text {
                 text: root.showActionHint && root.defaultAction ? root.defaultAction.label : ""
-                visible: text.length > 0 && !switchColumn.visible
+                visible: text.length > 0 && !switchColumn.visible && !sliderColumn.visible
                 color: Config.styling.text1
                 font.pixelSize: 12
                 elide: Text.ElideRight
@@ -180,7 +187,7 @@ Rectangle {
 
             ColumnLayout {
                 id: switchColumn
-                visible: root.hasSwitchActions(root.result)
+                visible: root.hasSwitchActions(root.result) && !sliderColumn.visible
                 spacing: Config.spacing.xxs
                 Layout.alignment: Qt.AlignVCenter
                 Layout.minimumWidth: root.switchControlWidth
@@ -194,7 +201,7 @@ Rectangle {
 
                     DashboardToggleSwitch {
                         id: switchControl
-                        checked: root.result.switchState === true
+                        checked: root.liveSwitchState
                         anchors.fill: parent
                         onToggled: {
                             if (root.controller)
@@ -203,6 +210,38 @@ Rectangle {
                     }
                 }
 
+            }
+
+            RowLayout {
+                id: sliderColumn
+                visible: root.hasSlider
+                spacing: Config.spacing.xs
+                Layout.alignment: Qt.AlignVCenter
+                Layout.minimumWidth: 180
+                Layout.preferredWidth: 180
+                Layout.maximumWidth: 180
+
+                AudioLevelSlider {
+                    id: resultSliderControl
+                    from: root.result.control ? root.result.control.from || 0 : 0
+                    to: root.result.control ? root.result.control.to || 100 : 100
+                    stepSize: root.result.control ? root.result.control.step || 1 : 1
+                    value: root.sliderValue
+                    valueText: Math.round(root.sliderValue) + "%"
+                    showIcon: false
+                    iconName: root.sliderIconName()
+                    iconColor: root.sliderNode && root.sliderNode.audio && root.sliderNode.audio.muted ? Config.styling.critical : Config.styling.text0
+                    accentColor: root.sliderNode && root.sliderNode.audio && root.sliderNode.audio.muted ? Config.styling.critical : Config.colors.blue
+                    valueTextWidth: 34
+                    iconSize: 18
+                    enabled: root.sliderEnabled()
+                    Layout.fillWidth: true
+                    onIconClicked: {
+                        if (root.sliderNode && root.sliderNode.audio)
+                            root.sliderNode.audio.muted = !root.sliderNode.audio.muted;
+                    }
+                    onValueModified: root.applySliderValue(value)
+                }
             }
         }
 
@@ -219,7 +258,7 @@ Rectangle {
                     clip: false
                     selectionModel: ItemSelectionModel {}
                     Layout.fillWidth: true
-                    implicitHeight: rows * root.treeRowHeight
+                    implicitHeight: rows * root.treeRowHeight + Config.spacing.xs
                     columnWidthProvider: function(column) { return column === 0 ? width : 0; }
 
                     onWidthChanged: forceLayout()
@@ -239,6 +278,9 @@ Rectangle {
                         TableModelColumn { display: "key" }
                         TableModelColumn { display: "filterable" }
                         TableModelColumn { display: "lazy" }
+                        TableModelColumn { display: "control" }
+                        TableModelColumn { display: "alwaysExpanded" }
+                        TableModelColumn { display: "presentation" }
 
                         rows: []
 
@@ -274,10 +316,27 @@ Rectangle {
     function reloadTreeModel() {
         if (!treeModel)
             return;
-        treeModel.clear();
-        var rows = root.treeModelData || [];
-        for (var i = 0; i < rows.length; i += 1)
-            treeModel.appendRow(rows[i]);
+        treeModel.rows = root.treeModelData || [];
+        Qt.callLater(root.expandDefaultTreeRows);
+    }
+
+    function expandDefaultTreeRows() {
+        if (!childTreeView || !treeModel)
+            return;
+        var changed = true;
+        while (changed) {
+            changed = false;
+            for (var row = 0; row < childTreeView.rows; row += 1) {
+                var idx = childTreeView.index(row, 0);
+                if (!idx.valid || childTreeView.isExpanded(row))
+                    continue;
+                var policyIdx = childTreeView.index(row, 13);
+                if (treeModel.data(policyIdx, "display") && treeModel.hasChildren(idx)) {
+                    childTreeView.expand(row);
+                    changed = true;
+                }
+            }
+        }
     }
 
     function defaultActionLabelFor(row) {
@@ -298,15 +357,20 @@ Rectangle {
                 subtitle: child.subtitle || "",
                 icon: child.icon || "",
                 iconColor: child.iconColor || "",
-                switchState: child.switchState === undefined ? null : child.switchState,
+                switchState: child.switchState === true,
                 hasActions: !!(child.actions && child.actions.length > 0),
                 hasSwitchActions: !!root.hasSwitchActions(child),
                 defaultActionLabel: root.defaultActionLabelFor(child),
                 executable: !!child.executable,
                 key: child.id || child.nodeId || String(i),
                 filterable: !!child.filterable,
-                lazy: !!child.lazy
+                lazy: !!child.lazy,
+                control: null,
+                alwaysExpanded: child.alwaysExpanded === true,
+                presentation: child.presentation || null
             };
+            if (child.control)
+                treeRow.control = child.control;
             if (child.children && child.children.length > 0)
                 treeRow.rows = root.buildTreeRows(child.children);
             else if (child.lazy)
@@ -325,6 +389,67 @@ Rectangle {
             return false;
         var actions = row.actions || [];
         return actions.some(function(action) { return action && (action.id === "on" || action.id === "off" || action.id === "toggle"); });
+    }
+
+    function sliderNodeFor(control) {
+        if (!control || (control.target !== "pipewire" && control.target !== "pipewire-mute"))
+            return null;
+        for (const node of Pipewire.nodes.values || []) {
+            if (String(node.id) === String(control.nodeId))
+                return node;
+        }
+        return null;
+    }
+
+    function switchStateFor(control, node) {
+        if (control && control.kind === "switch" && control.target === "pipewire-mute" && node && node.audio)
+            return node.audio.muted === true;
+        return root.result.switchState === true;
+    }
+
+    function sliderIconName() {
+        if (!root.sliderNode || !root.sliderNode.audio)
+            return "audio-volume-muted-symbolic";
+        if (root.sliderNode.audio.muted)
+            return "audio-volume-muted-symbolic";
+        var vol = root.sliderNode.audio.volume || 0;
+        if (vol <= 0.001)
+            return "audio-volume-muted-symbolic";
+        if (vol < 0.34)
+            return "audio-volume-low-symbolic";
+        if (vol < 0.67)
+            return "audio-volume-medium-symbolic";
+        return "audio-volume-high-symbolic";
+    }
+
+    function sliderValueFor(control, node) {
+        if (!control || control.kind !== "slider")
+            return 0;
+        if (control.target === "brightness")
+            return Brightness.percent;
+        if (control.target === "pipewire" && node && node.audio)
+            return Math.round((node.audio.volume || 0) * 100);
+        return control.value || 0;
+    }
+
+    function sliderEnabled() {
+        if (!root.result.control || root.result.control.kind !== "slider")
+            return false;
+        if (root.result.control.target === "brightness")
+            return Brightness.available;
+        return !!(root.sliderNode && root.sliderNode.audio);
+    }
+
+    function applySliderValue(value) {
+        var control = root.result.control;
+        if (!control || control.kind !== "slider")
+            return;
+        if (control.target === "brightness") {
+            Brightness.setPercent(value);
+            return;
+        }
+        if (control.target === "pipewire" && root.sliderNode && root.sliderNode.audio)
+            root.sliderNode.audio.volume = Math.max(0, Math.min((control.to || 100) / 100, value / 100));
     }
 
     function hasSwitchAction(row, actionId) {

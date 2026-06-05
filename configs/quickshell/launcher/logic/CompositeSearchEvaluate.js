@@ -94,7 +94,7 @@ function evaluateNode(node, query, ctx) {
     var actionAliasBoost = node.switchActions && own.value > 0 ? computeSwitchActionBoost(node, query) : 0;
 
     var groupDisplay = node.behavior && node.behavior.flattenPolicy && node.behavior.flattenPolicy.groupDisplay || {};
-    var keepAllChildren = groupDisplay.showAllChildrenOnParentMatch && own.visible;
+    var keepAllChildren = (groupDisplay.showAllChildrenOnParentMatch || groupDisplay.flattenAllChildrenOnParentMatch) && own.visible;
     var retained = evaluatedChildren.filter(function(c) { return keepAllChildren || c.candidate || c.visible || ctx.showHidden; });
     var bestChildScore = 0;
     var bestChildMatchDepth = 9999;

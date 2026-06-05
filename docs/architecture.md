@@ -112,3 +112,11 @@ The Quickshell launcher uses a composite search pipeline:
 - **Update coalescing** (`LauncherController.searchTimer`) prevents per-keystroke re-entrance. Async backends check generation counters before applying results.
 - **Prefix gating**: backends declare `canHandle(query)` to opt in. Non-matching backends do not compete.
 - **Web fallback**: web rows appear only for explicit web prefixes or when no non-web backend produces visible rows.
+
+Launcher visual intent:
+- A row that directly matches the query should explain itself first. If it is a meaningful group, keep the group row visible instead of replacing it with unrelated-looking descendants.
+- Groups can opt into showing direct children on a parent match. Use this for command categories such as `newxos`, `session`, dashboard tabs, and desktop action groups where the children are the useful next choices.
+- Child rows should take over only when the query names the child intent more specifically than the parent, such as `wifi on`, `zen priv`, or `vpn off`.
+- Switch rows represent stateful choices visually as switches. Slider rows represent adjustable values visually as sliders; their rows still remain plain normalized launcher rows.
+- Slider rows render through a shared `AudioLevelSlider` component keyed on the `control` field; mute state is reflected via accent color and Alt-M interaction, not via a visible switch.
+- Result rows must communicate intent through title, subtitle, icon, action hint, switch, slider, and direct children. Delegates render those fields; scoring and tree-flattening decide which fields appear.

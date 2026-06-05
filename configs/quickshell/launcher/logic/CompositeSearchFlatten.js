@@ -41,8 +41,11 @@ function decideGroupDisplay(ev, ctx) {
 
     var policy = groupDisplayPolicy(ev);
 
-    if (ev.node.behavior && ev.node.behavior.filterable)
-        return { mode: "nested-group", showParent: true, children: ev.children.slice() };
+    if (ev.node.behavior && ev.node.behavior.filterable) {
+        if (ev.ownVisible)
+            return { mode: "nested-group", showParent: true, children: ev.children.slice() };
+        // parent has no direct match; fall through so matching children surface directly
+    }
 
     var hasActions = (ev.node.actionList && ev.node.actionList.length > 0);
     if (!hasActions && ev.children.length > 0) {
@@ -275,6 +278,16 @@ function childHasGoodMatch(childRows) {
     return false;
 }
 
+function parentMatchShowsChildren(ev, ctx) {
+    var behavior = ev && ev.node && ev.node.behavior || {};
+    var flattenPolicy = behavior.flattenPolicy || {};
+    var groupDisplay = flattenPolicy.groupDisplay || {};
+    if (!groupDisplay.showAllChildrenOnParentMatch && !groupDisplay.flattenAllChildrenOnParentMatch)
+        return false;
+    var minScore = groupDisplay.parentMatchMinScore === undefined ? 0.25 : groupDisplay.parentMatchMinScore;
+    return ev.ownVisible && groupDominanceOwnScore(ev, ctx) >= minScore;
+}
+
 function toResultRow(ev, depth, state, ctx, childRows) {
     var node = ev.node;
     var chain = collectParentChain(node);
@@ -324,10 +337,12 @@ function toResultRow(ev, depth, state, ctx, childRows) {
         dangerous: !!node.dangerous,
         filterable: !!(node.behavior && node.behavior.filterable),
         lazy: !!node.lazy,
-        alwaysExpanded: hasExplicitAlwaysExpanded(node) ? node.behavior.alwaysExpanded !== false : childHasGoodMatch(childRows),
+        alwaysExpanded: hasExplicitAlwaysExpanded(node) ? node.behavior.alwaysExpanded !== false : (parentMatchShowsChildren(ev, ctx) || childHasGoodMatch(childRows)),
         children: childRows || [],
         switchActions: copySwitchActions(node.switchActions, action),
         switchState: node.switchState === undefined ? null : node.switchState,
+        control: node.control || null,
+        presentation: node.presentation || null,
         metadata: copyMetadata(node.meta, node, action)
     };
 }

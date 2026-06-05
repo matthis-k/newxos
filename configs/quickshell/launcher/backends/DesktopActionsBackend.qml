@@ -29,6 +29,16 @@ TreeBackendBase {
         { pattern: "^.*$", mode: "ambient" }
     ]
 
+    function effectiveTreeRoots() {
+        var roots = [audioTree(), brightnessTree()];
+        for (var ni = 0; ni < root.nodes.length; ni += 1) {
+            var node = root.nodes[ni];
+            if (node && typeof node.toTreeObject === "function")
+                roots.push(node.toTreeObject());
+        }
+        return roots.filter(Boolean);
+    }
+
         FlatActionGroupNode {
             name: "newxos"
             aliases: ["newxos", "nx", "repo"]
@@ -357,40 +367,6 @@ TreeBackendBase {
     }
 
     FlatActionGroupNode {
-        name: "audio"
-        aliases: ["audio", "sound"]
-        title: qsTr("Audio")
-        icon: "audio-volume-high-symbolic"
-        iconColor: Config.styling.secondaryAccent
-        groupOptions: ({
-            flattenAllChildrenOnParentMatch: true,
-            maxNestedChildren: 8
-        })
-        behavior: ({ filterable: true })
-        ActionNode {
-            name: "mute"
-            aliases: ["mute"]
-            title: qsTr("Toggle Mute")
-            subtitle: qsTr("Mute or unmute the default output")
-            icon: "audio-volume-muted-symbolic"
-            iconColor: Pipewire.defaultAudioSink && Pipewire.defaultAudioSink.audio && Pipewire.defaultAudioSink.audio.muted ? Config.styling.critical : Config.styling.secondaryAccent
-            actionId: "mute"
-            action: function() { toggleMute(Pipewire.defaultAudioSink); }
-        }
-
-        ActionNode {
-            name: "mic"
-            aliases: ["mic", "microphone"]
-            title: qsTr("Toggle Microphone Mute")
-            subtitle: qsTr("Mute or unmute the default input")
-            icon: "microphone-sensitivity-muted-symbolic"
-            iconColor: Pipewire.defaultAudioSource && Pipewire.defaultAudioSource.audio && Pipewire.defaultAudioSource.audio.muted ? Config.styling.critical : Config.styling.secondaryAccent
-            actionId: "mic"
-            action: function() { toggleMute(Pipewire.defaultAudioSource); }
-        }
-    }
-
-    FlatActionGroupNode {
         name: "notifications"
         aliases: ["notif", "notifications", "notification"]
         title: qsTr("Notifications")
@@ -521,6 +497,166 @@ TreeBackendBase {
         });
 
         return children;
+    }
+
+    function audioTree() {
+        return {
+            id: "audio",
+            aliases: ["audio", "sound", "volume", "mute"],
+            title: qsTr("Audio"),
+            icon: audioIconName(),
+            iconColor: audioIconColor(),
+            template: "flat-action-group",
+            groupOptions: { flattenAllChildrenOnParentMatch: true, maxNestedChildren: 10 },
+            behavior: { filterable: true },
+            children: audioSinkNodes()
+        };
+    }
+
+    function brightnessTree() {
+        return {
+            id: "brightness",
+            aliases: ["brightness", "backlight", "screen"],
+            title: qsTr("Brightness"),
+            subtitle: Brightness.available ? qsTr("Screen brightness") : qsTr("Backlight unavailable"),
+            icon: Brightness.iconName,
+            iconColor: Brightness.available ? Config.styling.primaryAccent : Config.styling.text2,
+            template: "flat-action-group",
+            groupOptions: { flattenAllChildrenOnParentMatch: true, maxNestedChildren: 3 },
+            behavior: { filterable: true },
+            children: [{
+                id: "brightness-volume",
+                aliases: ["brightness", "level", "slider"],
+                title: qsTr("Brightness"),
+                subtitle: Brightness.available ? (Brightness.percent + "%") : qsTr("Unavailable"),
+                icon: Brightness.iconName,
+                iconColor: Brightness.available ? Config.styling.primaryAccent : Config.styling.text2,
+                control: { kind: "slider", target: "brightness", from: 0, to: 100, step: 5, value: Brightness.percent }
+            }]
+        };
+    }
+
+    function audioSinkNodes() {
+        var sinks = audioNodes(PwNodeType.AudioSink);
+        if (sinks.length === 0 && Pipewire.defaultAudioSink)
+            sinks.push(Pipewire.defaultAudioSink);
+        sinks.sort(function(a, b) {
+            var aDefault = Pipewire.defaultAudioSink && a.id === Pipewire.defaultAudioSink.id;
+            var bDefault = Pipewire.defaultAudioSink && b.id === Pipewire.defaultAudioSink.id;
+            if (aDefault !== bDefault)
+                return aDefault ? -1 : 1;
+            return nodeTitle(a).localeCompare(nodeTitle(b));
+        });
+        return sinks.map(function(sink) {
+            var streams = outputStreamsForSink(sink);
+            return {
+                id: "sink-" + sink.id,
+                aliases: ["sink", "output", "speaker", nodeTitle(sink)],
+                title: nodeTitle(sink),
+                subtitle: Pipewire.defaultAudioSink && sink.id === Pipewire.defaultAudioSink.id ? qsTr("Default output") : qsTr("Output"),
+                icon: volumeIconName(sink),
+                iconColor: sink.audio && sink.audio.muted ? Config.styling.critical : Config.styling.secondaryAccent,
+                template: "flat-action-group",
+                groupOptions: { flattenAllChildrenOnParentMatch: true, maxNestedChildren: 8 },
+                behavior: { filterable: true },
+                switchState: !!(sink.audio && sink.audio.muted),
+                control: { kind: "slider", target: "pipewire", nodeId: sink.id, from: 0, to: 150, step: 5, value: sink.audio ? Math.round((sink.audio.volume || 0) * 100) : 0 },
+                switchActions: muteSwitchActions(sink),
+                children: [streamGroupNode(sink, streams)]
+            };
+        });
+    }
+
+    function streamGroupNode(sink, streams) {
+        return {
+            id: "sink-" + sink.id + "-streams",
+            aliases: ["streams", "apps", "applications"],
+            title: qsTr("Streams"),
+            subtitle: streams.length + " " + qsTr("active"),
+            icon: "audio-x-generic-symbolic",
+            iconColor: Config.styling.text1,
+            template: "flat-action-group",
+            groupOptions: { flattenAllChildrenOnParentMatch: true, maxNestedChildren: 8 },
+            behavior: { filterable: true },
+            children: streams.map(function(stream) { return volumeSliderNode(stream, true); })
+        };
+    }
+
+    function muteSwitchActions(node) {
+        return {
+            toggle: { id: "toggle", title: qsTr("Toggle"), state: null, execute: function() { toggleMute(node); } },
+            on: { id: "on", title: qsTr("On"), state: true, execute: function() { setMuted(node, true); } },
+            off: { id: "off", title: qsTr("Off"), state: false, execute: function() { setMuted(node, false); } }
+        };
+    }
+
+    function muteSwitchNode(node) {
+        var muted = !!(node && node.audio && node.audio.muted);
+        return {
+            id: "mute",
+            aliases: ["mute", "unmute", "toggle"],
+            title: qsTr("Mute"),
+            subtitle: muted ? qsTr("Muted") : qsTr("Unmuted"),
+            icon: "audio-volume-muted-symbolic",
+            iconColor: muted ? Config.styling.critical : Config.styling.text1,
+            switchState: muted,
+            control: { kind: "switch", target: "pipewire-mute", nodeId: node ? node.id : "" },
+            switchActions: muteSwitchActions(node)
+        };
+    }
+
+    function volumeSliderNode(node, stream) {
+        var percent = node && node.audio ? Math.round((node.audio.volume || 0) * 100) : 0;
+        return {
+            id: stream ? "stream-" + node.id : "volume",
+            aliases: stream ? ["stream", "volume", streamName(node)] : ["volume", "level", "slider"],
+            title: stream ? streamName(node) : qsTr("Volume"),
+            subtitle: percent + "%",
+            icon: volumeIconName(node),
+            iconColor: node && node.audio && node.audio.muted ? Config.styling.critical : Config.styling.secondaryAccent,
+            control: { kind: "slider", target: "pipewire", nodeId: node ? node.id : "", from: 0, to: 150, step: 5, value: percent }
+        };
+    }
+
+    function audioNodes(type) {
+        var out = [];
+        for (const node of Pipewire.nodes.values || []) {
+            if ((node.type & type) === type)
+                out.push(node);
+        }
+        return out;
+    }
+
+    function outputStreamsForSink(sink) {
+        return audioNodes(PwNodeType.AudioOutStream).filter(function(stream) {
+            for (const link of Pipewire.linkGroups.values || []) {
+                if (link.source && link.target && link.source.id === stream.id && link.target.id === sink.id)
+                    return true;
+            }
+            return false;
+        });
+    }
+
+    function nodeTitle(node) {
+        return node ? (node.description || node.name || qsTr("Unknown output")) : qsTr("Unknown output");
+    }
+
+    function volumeIconName(node) {
+        var vol = node && node.audio ? node.audio.volume || 0.0 : 0.0;
+        var muted = node && node.audio ? node.audio.muted || false : false;
+
+        if (muted || vol <= 0.001)
+            return "audio-volume-muted-symbolic";
+        if (vol < 0.34)
+            return "audio-volume-low-symbolic";
+        if (vol < 0.67)
+            return "audio-volume-medium-symbolic";
+        return "audio-volume-high-symbolic";
+    }
+
+    function streamName(stream) {
+        var props = stream && stream.properties || {};
+        return props["media.name"] || props["application.name"] || nodeTitle(stream);
     }
 
     function dashboardTabNodes() {
@@ -710,6 +846,11 @@ TreeBackendBase {
     function setDnd(state) {
         var enabled = state === null ? !NotificationCenter.doNotDisturbEnabled : state;
         NotificationCenter.toastsEnabled = !enabled;
+    }
+
+    function setMuted(node, muted) {
+        if (node && node.audio)
+            node.audio.muted = muted;
     }
 
     function isDevMode() {

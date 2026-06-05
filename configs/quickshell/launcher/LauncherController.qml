@@ -1,5 +1,7 @@
 import QtQuick
 import QtQml
+import Quickshell.Services.Pipewire
+import qs.services
 import "logic/CompositeSearch.js" as CompositeSearch
 import "logic/DebugLogger.js" as DebugLogger
 
@@ -156,7 +158,7 @@ Item {
     }
 
     function hasActivation(row) {
-        return !!(row && (row.actions && row.actions.length > 0 || row.executable || row.switchActions || (row.filterable && row.children && row.children.length > 0)));
+        return !!(row && (row.actions && row.actions.length > 0 || row.executable || row.switchActions || row.control || (row.filterable && row.children && row.children.length > 0)));
     }
 
     function isSelectable(row) {
@@ -189,6 +191,8 @@ Item {
             alwaysExpanded: row.alwaysExpanded !== false,
             expandable: !!(row.children && row.children.length > 0) || !!row.lazy,
             switchState: row.switchState === undefined ? null : row.switchState,
+            control: row.control || null,
+            presentation: row.presentation || null,
             actions: (row.actions || []).map(function(a) {
                 return { id: a.id || "", label: a.label || "", icon: a.icon || null, default: !!a.default };
             }),
@@ -902,6 +906,9 @@ Item {
             return false;
         }
 
+        if (result.control && adjustControlValue(result.control, delta))
+            return true;
+
         var preferredIds = delta < 0
             ? ["off", "decrease", "decrement", "left"]
             : ["on", "increase", "increment", "right"];
@@ -940,6 +947,53 @@ Item {
                 preferredIds: preferredIds
             });
         return false;
+    }
+
+    function toggleSelectedMute() {
+        var result = selectedActionTarget();
+        if (!result)
+            return false;
+        if (result.switchActions && (result.switchActions.toggle || result.switchActions.on || result.switchActions.off))
+            return activateResultAction(result, "toggle");
+        return false;
+    }
+
+    function adjustControlValue(control, delta) {
+        if (!control || control.kind !== "slider")
+            return false;
+
+        var step = control.step || 5;
+        if (control.target === "brightness") {
+            Brightness.setPercent(alignedControlValue(Brightness.percent, delta, step, control.from || 0, control.to || 100));
+            return true;
+        }
+
+        if (control.target === "pipewire") {
+            var node = pipewireNodeById(control.nodeId);
+            if (!node || !node.audio)
+                return false;
+            var current = Math.round((node.audio.volume || 0) * 100);
+            var next = alignedControlValue(current, delta, step, control.from || 0, control.to || 150);
+            node.audio.volume = next / 100;
+            return true;
+        }
+
+        return false;
+    }
+
+    function alignedControlValue(current, delta, step, from, to) {
+        var base = delta < 0 ? Math.floor(current / step) * step : Math.ceil(current / step) * step;
+        if (Math.abs(base - current) < 0.0001)
+            base += delta * step;
+        return Math.max(from, Math.min(to, base));
+    }
+
+    function pipewireNodeById(nodeId) {
+        for (const node of Pipewire.nodes.values || []) {
+            if (String(node.id) === String(nodeId))
+                return node;
+        }
+        return null;
     }
 
     function refreshSwitchResult(result, action) {
@@ -1143,7 +1197,7 @@ Item {
                 currentTreeView.collapse(parentIdx.row);
                 currentTreeView.selectionModel.setCurrentIndex(parentIdx, ItemSelectionModel.SelectCurrent);
                 treeVisualRow = parentIdx.row;
-                currentTreeKey = currentTreeView.model.data(parentIdx, "display");
+                currentTreeKey = currentTreeView.model.data(currentTreeView.index(parentIdx.row, 9), "display");
                 if (root.debugEnabled)
                     DebugLogger.log("switch", "treeCollapseSelected collapsed parent row", {
                         row: treeVisualRow,
