@@ -349,6 +349,9 @@ function toResultRow(ev, depth, state, ctx, childRows) {
 
 function flattenForUi(evaluatedRoot, state, ctx) {
     var collected = [];
+    function structuralDepth(ev) {
+        return Math.max(0, collectParentChain(ev.node).length - 2);
+    }
     function canInclude(ev) {
         if (ctx.directive && ctx.directive.active && !ev.allowed) return false;
         if (!(ev.visible || ctx.showHidden)) return false;
@@ -404,6 +407,8 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         if (Math.abs(delta) > 0.0001) return delta;
         var priorityDelta = (b.ev.node.behavior && b.ev.node.behavior.flattenPolicy && b.ev.node.behavior.flattenPolicy.priority || 0) - (a.ev.node.behavior && a.ev.node.behavior.flattenPolicy && a.ev.node.behavior.flattenPolicy.priority || 0);
         if (priorityDelta !== 0) return priorityDelta;
+        var structuralDepthDelta = structuralDepth(a.ev) - structuralDepth(b.ev);
+        if (structuralDepthDelta !== 0) return structuralDepthDelta;
         return a.depth - b.depth;
     });
     function buildChildTree(ev, currentDepth, maxDepth) {

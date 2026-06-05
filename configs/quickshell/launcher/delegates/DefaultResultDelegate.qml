@@ -42,9 +42,8 @@ Rectangle {
     Component.onCompleted: syncControllerTreeView()
 
     onControllerChanged: syncControllerTreeView()
-    onResultChanged: { _expandedOverride = 0; syncControllerTreeView(); }
+    onResultChanged: { _expandedOverride = 0; syncControllerTreeView(); reloadTreeModel(); }
     onSelectedChanged: syncControllerTreeView()
-    onTreeModelDataChanged: reloadTreeModel()
 
     function collapseTree() { _expandedOverride = 1; }
     function expandTree() { _expandedOverride = 2; }
@@ -311,12 +310,10 @@ Rectangle {
         }
     }
 
-    readonly property var treeModelData: root.buildTreeRows(root.result.children || [])
-
     function reloadTreeModel() {
         if (!treeModel)
             return;
-        treeModel.rows = root.treeModelData || [];
+        treeModel.rows = root.buildTreeRows(root.result.children || []);
         Qt.callLater(root.expandDefaultTreeRows);
     }
 

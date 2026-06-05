@@ -329,8 +329,14 @@ Item {
             if (Math.abs(scoreDelta) > 0.0001) return scoreDelta;
             var switchDelta = (b.switchState !== null && b.switchState !== undefined ? 1 : 0) - (a.switchState !== null && a.switchState !== undefined ? 1 : 0);
             if (switchDelta !== 0) return switchDelta;
+            var structuralDepthDelta = structuralDepth(a) - structuralDepth(b);
+            if (structuralDepthDelta !== 0) return structuralDepthDelta;
             return effectiveMatchDepth(a) - effectiveMatchDepth(b);
         });
+    }
+
+    function structuralDepth(row) {
+        return (row && row.breadcrumbs && row.breadcrumbs.length) || 0;
     }
 
     function effectiveMatchDepth(row) {
