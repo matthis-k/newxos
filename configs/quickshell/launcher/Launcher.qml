@@ -218,19 +218,28 @@ PanelWindow {
                     } else if (event.key === Qt.Key_Up || (event.modifiers & Qt.ControlModifier && (event.key === Qt.Key_P || event.key === Qt.Key_K))) {
                         controller.moveSelection(-1);
                         event.accepted = true;
-                    } else if (event.modifiers & Qt.ControlModifier && (event.key === Qt.Key_H || event.key === Qt.Key_Backspace)) {
-                        controller.adjustSelectedValue(-1);
-                        event.accepted = true;
-                    } else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_L) {
-                        controller.adjustSelectedValue(1);
-                        event.accepted = true;
                     } else if (event.key === Qt.Key_Tab) {
                         if (!(event.modifiers & Qt.ShiftModifier))
                             controller.completeSelected();
                         event.accepted = true;
+                    } else if (event.modifiers & Qt.ControlModifier && (event.key === Qt.Key_H || event.key === Qt.Key_Backspace)) {
+                        if (controller.isInTree())
+                            controller.treeCollapseSelected();
+                        else
+                            controller.adjustSelectedValue(-1);
+                        event.accepted = true;
+                    } else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_L) {
+                        if (controller.isInTree())
+                            controller.treeExpandSelected();
+                        else
+                            controller.adjustSelectedValue(1);
+                        event.accepted = true;
                     } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                        if (controller.activateSelected(false))
+                        if (event.modifiers & Qt.ShiftModifier && controller.isInTree()) {
+                            controller.treeToggleSelected();
+                        } else if (controller.activateSelected(false)) {
                             root.close();
+                        }
                         event.accepted = true;
                     } else if (event.key === Qt.Key_Escape) {
                         if (text.length > 0) {
@@ -277,7 +286,12 @@ PanelWindow {
 
                             onLoaded: {
                                 item.result = Qt.binding(function() { return delegateLoader.resultData; });
-                                item.selected = Qt.binding(function() { return controller.selectedIndex === index; });
+                                if ("resultIndex" in item)
+                                    item.resultIndex = Qt.binding(function() { return index; });
+                                item.selected = Qt.binding(function() {
+                                    var result = delegateLoader.resultData || {};
+                                    return controller.activeNodeKey === (result.id || result.nodeId || "");
+                                });
                                 item.iconSize = Qt.binding(function() { return root.iconSize; });
                                 item.showSubtitle = Qt.binding(function() { return root.showSubtitles; });
                                 item.showActionHint = root.showActionHint;

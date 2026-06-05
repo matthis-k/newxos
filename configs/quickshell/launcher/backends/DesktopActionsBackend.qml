@@ -25,7 +25,7 @@ TreeBackendBase {
     maxResults: 8
     dynamicCompositeRoot: true
     routes: [
-        { pattern: "^[:!]\\s?(.*)", mode: "participate" },
+        { pattern: "^[:!](.*)", mode: "exclusive" },
         { pattern: "^.*$", mode: "ambient" }
     ]
 

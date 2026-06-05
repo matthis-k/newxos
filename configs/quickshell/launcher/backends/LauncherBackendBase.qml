@@ -69,6 +69,9 @@ QtObject {
             subtitle: root.helpDescription || "",
             icon: root.helpIcon || "system-search",
             children: children || [],
+            behavior: Object.assign({
+                exclusiveWhen: (root.routes || []).filter(function(route) { return route && route.mode === "exclusive"; })
+            }, opts.behavior || {}),
             evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend" }
         }, opts));
     }

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Qt.labs.qmlmodels
 import qs.components
 import qs.services
 
@@ -13,9 +14,11 @@ Rectangle {
     property bool showActionHint: true
     property bool showEvidence: false
     property var controller: null
-    property int treeLevel: 0
+    property int resultIndex: -1
+    property alias treeView: childTreeView
     readonly property int switchControlWidth: 132
     readonly property int switchActionButtonWidth: 40
+    property int treeRowHeight: 40
 
     readonly property var defaultAction: {
         var actions = result.actions || [];
@@ -24,77 +27,26 @@ Rectangle {
         }
         return actions[0] || null;
     }
-    readonly property int childCount: root.result.filterable ? root.filteredChildren.length : (result.children || []).length
+    readonly property int childCount: (result.children || []).length
     readonly property bool hasTreeChildren: childCount > 0
-    readonly property bool selectedChildActive: root.treeLevel === 0 && controller && controller.childIndex >= 0
-    function findWordBoundaryMatch(text, token, startFrom) {
-        if (startFrom === undefined) startFrom = 0;
-        var idx = startFrom;
-        while ((idx = text.indexOf(token, idx)) >= 0) {
-            if (idx === 0) return idx;
-            var prev = text[idx - 1];
-            if (prev === " " || prev === "-" || prev === "_") return idx;
-            idx += 1;
-        }
-        return -1;
-    }
-
-    readonly property var filteredChildren: {
-        if (!root.result.filterable || !root.controller || !root.controller.query)
-            return root.result.children || [];
-        var q = root.controller.query.trim().toLowerCase();
-        if (!q)
-            return root.result.children || [];
-        var tokens = q.split(/\s+/).filter(Boolean);
-        var parentTitle = (root.result.title || "").toLowerCase();
-        var consumedParentPos = {};
-        var consumedChildIdx = {};
-        var children = root.result.children || [];
-
-        for (var ti = 0; ti < tokens.length; ti += 1) {
-            var t = tokens[ti];
-            var matched = false;
-
-            // 1. Try parent word-boundary regions (depth 0)
-            var searchPos = 0;
-            while (!matched) {
-                var pos = root.findWordBoundaryMatch(parentTitle, t, searchPos);
-                if (pos < 0) break;
-                if (!consumedParentPos[pos]) {
-                    consumedParentPos[pos] = true;
-                    matched = true;
-                    break;
-                }
-                searchPos = pos + 1;
-            }
-            if (matched) continue;
-
-            // 2. Try child word-boundary regions (depth 1). Siblings are separate paths,
-            // so multiple children may consume the same token.
-            for (var ci = 0; ci < children.length; ci += 1) {
-                var childText = ((children[ci].title || "") + " " + (children[ci].subtitle || "")).toLowerCase();
-                if (root.findWordBoundaryMatch(childText, t) >= 0) {
-                    consumedChildIdx[String(ci)] = true;
-                    matched = true;
-                }
-            }
-        }
-
-        var hasChildMatch = false;
-        for (var ck in consumedChildIdx) { hasChildMatch = true; break; }
-        if (hasChildMatch) {
-            var keep = consumedChildIdx;
-            return children.filter(function(c, idx) { return keep[String(idx)]; });
-        }
-        return children;
-    }
     property bool expanded: result.alwaysExpanded !== false ? hasTreeChildren : (selected && hasTreeChildren)
-
     signal activated(var result)
 
+    Component.onCompleted: syncControllerTreeView()
+
+    onControllerChanged: syncControllerTreeView()
+    onResultChanged: syncControllerTreeView()
+    onSelectedChanged: syncControllerTreeView()
+    onTreeModelDataChanged: reloadTreeModel()
+
+    function syncControllerTreeView() {
+        if (controller && root.resultIndex >= 0 && root.treeView)
+            controller.registerResultTreeView(root.resultIndex, root.treeView);
+    }
+
     implicitHeight: Math.max(56, mainLayout.implicitHeight + Config.spacing.xs * 2)
-    color: selected && !selectedChildActive ? Config.styling.selectionBackgroundActive : Config.styling.bg2
-    border.color: selected && !selectedChildActive ? Config.styling.primaryAccent : Config.styling.bg4
+    color: selected ? Config.styling.selectionBackgroundActive : Config.styling.bg2
+    border.color: selected ? Config.styling.primaryAccent : Config.styling.bg4
     border.width: 1
     radius: Config.styling.radius
 
@@ -246,123 +198,111 @@ Rectangle {
         ColumnLayout {
             visible: root.expanded && root.hasTreeChildren
             Layout.fillWidth: true
-            Layout.leftMargin: Math.min(40, Config.spacing.md + root.treeLevel * Config.spacing.sm)
             spacing: Config.spacing.xxs
 
-            Repeater {
-                model: root.result.filterable ? root.filteredChildren : (root.result.children || [])
-
-                Rectangle {
-                    readonly property var childRow: modelData
-                    readonly property bool childSelected: root.selected && root.controller && root.controller.childIndex === index
-                    readonly property var childDefaultAction: root.defaultActionFor(childRow)
-
-                    color: childSelected ? Config.styling.selectionBackgroundActive : Config.styling.bg3
-                    border.color: childSelected ? Config.styling.primaryAccent : Config.styling.bg4
-                    border.width: 1
-                    radius: Config.styling.radius
+                TreeView {
+                    id: childTreeView
+                    visible: treeModel.rows && treeModel.rows.length > 0
+                    interactive: false
+                    keyNavigationEnabled: false
+                    clip: false
+                    selectionModel: ItemSelectionModel {}
                     Layout.fillWidth: true
-                    implicitHeight: childLayout.implicitHeight + Config.spacing.xs * 2
+                    implicitHeight: rows * root.treeRowHeight
+                    columnWidthProvider: function(column) { return column === 0 ? width : 0; }
 
-                    RowLayout {
-                        id: childLayout
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.margins: Config.spacing.xs
-                        spacing: Config.spacing.sm
+                    onWidthChanged: forceLayout()
 
-                        Icon {
-                            iconName: modelData.children && modelData.children.length > 0 ? "pan-end-symbolic" : ""
-                            fallbackIconName: "pan-end-symbolic"
-                            visible: modelData.children && modelData.children.length > 0
-                            color: modelData.children && modelData.children.length > 0 ? Config.styling.text1 : Config.styling.bg4
-                            implicitSize: 12
-                            Layout.preferredWidth: 12
-                            Layout.preferredHeight: 12
-                        }
+                    model: TreeModel {
+                        id: treeModel
 
-                        Icon {
-                            iconName: modelData.icon || root.result.icon || "application-x-executable"
-                            fallbackIconName: "application-x-executable"
-                            color: modelData.iconColor || root.result.iconColor || undefined
-                            implicitSize: 20
-                            Layout.preferredWidth: 20
-                            Layout.preferredHeight: 20
-                        }
+                        TableModelColumn { display: "title" }
+                        TableModelColumn { display: "subtitle" }
+                        TableModelColumn { display: "icon" }
+                        TableModelColumn { display: "iconColor" }
+                        TableModelColumn { display: "switchState" }
+                        TableModelColumn { display: "hasActions" }
+                        TableModelColumn { display: "hasSwitchActions" }
+                        TableModelColumn { display: "defaultActionLabel" }
+                        TableModelColumn { display: "executable" }
+                        TableModelColumn { display: "key" }
+                        TableModelColumn { display: "filterable" }
+                        TableModelColumn { display: "lazy" }
 
-                        ColumnLayout {
-                            spacing: Config.spacing.xxs
-                            Layout.fillWidth: true
+                        rows: []
 
-                            Text {
-                                text: modelData.breadcrumbText || modelData.title || ""
-                                color: Config.styling.text1
-                                font.pixelSize: 13
-                                font.bold: childSelected
-                                elide: Text.ElideRight
-                                maximumLineCount: 1
-                                Layout.fillWidth: true
-                            }
-
-                            Text {
-                                text: modelData.subtitle || ""
-                                visible: !!modelData.subtitle
-                                color: Config.styling.text2
-                                font.pixelSize: 11
-                                elide: Text.ElideRight
-                                maximumLineCount: 1
-                                Layout.fillWidth: true
-                            }
-                        }
-
-                        Text {
-                            text: root.showActionHint && childDefaultAction && !root.hasSwitchActions(modelData) ? childDefaultAction.label : ""
-                            visible: text.length > 0
-                            color: Config.styling.text1
-                            font.pixelSize: 12
-                            elide: Text.ElideRight
-                            horizontalAlignment: Text.AlignRight
-                            Layout.preferredWidth: 92
-                            Layout.alignment: Qt.AlignVCenter
-                        }
-
-                        ColumnLayout {
-                            visible: root.hasSwitchActions(modelData)
-                            spacing: Config.spacing.xxs
-                            Layout.alignment: Qt.AlignVCenter
-                            Layout.minimumWidth: root.switchControlWidth
-                            Layout.preferredWidth: root.switchControlWidth
-                            Layout.maximumWidth: root.switchControlWidth
-
-                            Item {
-                                Layout.alignment: Qt.AlignRight
-                                Layout.preferredWidth: childSwitchControl.implicitWidth
-                                Layout.preferredHeight: childSwitchControl.implicitHeight
-
-                                DashboardToggleSwitch {
-                                    id: childSwitchControl
-                                    checked: modelData.switchState === true
-                                    anchors.fill: parent
-                                    onToggled: {
-                                        if (root.controller)
-                                            root.controller.activateResultAction(modelData, "toggle");
-                                    }
-                                }
-                            }
-
-                        }
+                        Component.onCompleted: root.reloadTreeModel()
                     }
 
-                    TapHandler {
-                        onSingleTapped: {
-                            if (root.controller)
-                                root.controller.applyIntent(modelData, modelData.enter);
-                        }
-                    }
+                delegate: TreeRowDelegate {
+                    controller: root.controller
+                    rowHeight: root.treeRowHeight
+                }
+
+                onExpanded: function(row, depth) {
+                }
+            }
+
+            Item {
+                visible: !(treeModel.rows && treeModel.rows.length > 0) && root.hasTreeChildren
+                Layout.preferredHeight: root.treeRowHeight
+                Layout.fillWidth: true
+
+                Text {
+                    anchors.centerIn: parent
+                    text: qsTr("No matching children")
+                    color: Config.styling.text2
+                    font.pixelSize: 11
                 }
             }
         }
+    }
+
+    readonly property var treeModelData: root.buildTreeRows(root.result.children || [])
+
+    function reloadTreeModel() {
+        if (!treeModel)
+            return;
+        treeModel.clear();
+        var rows = root.treeModelData || [];
+        for (var i = 0; i < rows.length; i += 1)
+            treeModel.appendRow(rows[i]);
+    }
+
+    function defaultActionLabelFor(row) {
+        if (!row || !row.actions) return "";
+        for (var i = 0; i < row.actions.length; i += 1) {
+            if (row.actions[i].default) return row.actions[i].label || "";
+        }
+        return row.actions.length > 0 ? (row.actions[0].label || "") : "";
+    }
+
+    function buildTreeRows(children) {
+        if (!children || !children.length) return [];
+        var out = [];
+        for (var i = 0; i < children.length; i += 1) {
+            var child = children[i];
+            var treeRow = {
+                title: child.title || "",
+                subtitle: child.subtitle || "",
+                icon: child.icon || "",
+                iconColor: child.iconColor || "",
+                switchState: child.switchState === undefined ? null : child.switchState,
+                hasActions: !!(child.actions && child.actions.length > 0),
+                hasSwitchActions: !!root.hasSwitchActions(child),
+                defaultActionLabel: root.defaultActionLabelFor(child),
+                executable: !!child.executable,
+                key: child.id || child.nodeId || String(i),
+                filterable: !!child.filterable,
+                lazy: !!child.lazy
+            };
+            if (child.children && child.children.length > 0)
+                treeRow.rows = root.buildTreeRows(child.children);
+            else if (child.lazy)
+                treeRow.rows = [];
+            out.push(treeRow);
+        }
+        return out;
     }
 
     function hasSwitchActions(row) {

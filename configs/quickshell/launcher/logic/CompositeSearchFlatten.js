@@ -52,7 +52,7 @@ function decideGroupDisplay(ev, ctx) {
     var parentScore = groupDominanceOwnScore(ev, ctx);
 
     if (policy.committedTokenPrefersGroup && ctx.query.lastTokenEmpty && parentScore >= policy.committedTokenMinParentScore)
-        return { mode: "filtered-group", showParent: true, children: ev.children.slice(0, policy.maxFlattenedChildren) };
+        return { mode: "nested-group", showParent: true, children: ev.children.slice(0, policy.maxFlattenedChildren) };
 
     if (!hasActions && policy.flattenAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
         return { mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, policy.maxNestedChildren || ev.children.length) };
@@ -291,6 +291,8 @@ function toResultRow(ev, depth, state, ctx, childRows) {
         depth: depth,
         score: ev.score,
         ownScore: ev.ownScore,
+        descendantScore: ev.descendantScore || 0,
+        ownVisible: !!ev.ownVisible,
         matchDepth: ev.matchDepth === undefined ? depth : ev.matchDepth,
         evidence: copyEvidence(ev.evidence),
         selected: state.selectedNodeId === node.id,
@@ -307,6 +309,7 @@ function toResultRow(ev, depth, state, ctx, childRows) {
         executable: !!action,
         dangerous: !!node.dangerous,
         filterable: !!(node.behavior && node.behavior.filterable),
+        lazy: !!node.lazy,
         alwaysExpanded: node.behavior ? node.behavior.alwaysExpanded !== false : true,
         children: childRows || [],
         switchActions: copySwitchActions(node.switchActions, action),
@@ -379,8 +382,19 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         if (priorityDelta !== 0) return priorityDelta;
         return a.depth - b.depth;
     });
+    function buildChildTree(ev, currentDepth, maxDepth) {
+        if (maxDepth <= 0 || !ev.children)
+            return [];
+        var filtered = ev.children.filter(function(c) { return c.allowed && c.node.kind !== "backend"; });
+        return filtered.map(function(child) {
+            var grandChildren = buildChildTree(child, currentDepth + 1, maxDepth - 1);
+            return toResultRow(child, currentDepth + 1, state, ctx, grandChildren);
+        });
+    }
+
+    var maxTreeDepth = ctx.maxTreeDepth >= 0 ? ctx.maxTreeDepth : 3;
     return collected.map(function(item) {
-        var childRows = (item.childEvs || []).filter(function(child) { return child.allowed && child.node.kind !== "backend"; }).map(function(child) { return toResultRow(child, item.depth + 1, state, ctx, []); });
+        var childRows = buildChildTree(item.ev, item.depth, maxTreeDepth);
         return toResultRow(item.ev, item.depth, state, ctx, childRows);
     });
 }

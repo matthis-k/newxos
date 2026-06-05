@@ -2,6 +2,7 @@
 .import "CompositeSearchText.js" as Text
 .import "CompositeSearchIndex.js" as Index
 .import "CompositeSearchEvidence.js" as Evidence
+.import "Router.js" as Router
 
 
 var clamp = Text.clamp;
@@ -80,12 +81,7 @@ function evaluateNode(node, query, ctx) {
         }
     }
 
-    var evaluatedChildren = [];
-    for (var i = 0; i < (node.children || []).length; i += 1) {
-        var child = node.children[i];
-        if (!directiveActive || nodeTreeMayContainDirective(child, ctx))
-            evaluatedChildren.push(evaluateNode(child, query, ctx));
-    }
+    var evaluatedChildren = evaluateChildren(node, query, ctx, directiveActive);
     var own = selfAllowed ? scoreEvidence(evidenceItems, node, ctx) : { value: 0, visible: false, reason: "directive container only" };
     if (node.kind === "backend") {
         own.value = clamp(own.value * 0.65);
@@ -123,12 +119,51 @@ function evaluateNode(node, query, ctx) {
         pruned: false,
         evidence: evidenceItems,
         ownScore: own.value,
+        descendantScore: descendantBoost,
         score: finalScore,
         matchDepth: own.visible ? 0 : bestChildMatchDepth < 9999 ? bestChildMatchDepth : 9999,
+        ownVisible: own.visible,
         visible: ctx.showHidden || own.visible || retained.some(function(c) { return c.visible || ctx.showHidden; }) || (ctx.query.isEmpty && node.kind === "backend" && !directiveActive),
         visibleReason: own.reason,
         children: keepAllChildren ? retained : retained.sort(compareEvaluated)
     };
+}
+
+function evaluateChildren(node, query, ctx, directiveActive) {
+    var children = node.children || [];
+    var exclusiveChildren = children.filter(function(child) { return childClaimsExclusive(child, ctx); });
+    if (exclusiveChildren.length > 0) {
+        var exclusiveEvaluated = evaluateChildList(exclusiveChildren, query, ctx, directiveActive);
+        var hasExclusiveMatch = exclusiveEvaluated.some(function(child) {
+            return child.candidate || child.visible || ctx.showHidden;
+        });
+        if (hasExclusiveMatch)
+            return exclusiveEvaluated;
+    }
+    return evaluateChildList(children, query, ctx, directiveActive);
+}
+
+function childClaimsExclusive(child, ctx) {
+    var behavior = child && child.behavior || {};
+    var matchers = behavior.exclusiveWhen || [];
+    if (!matchers.length)
+        return false;
+    var raw = ctx.directive && ctx.directive.raw || ctx.query && ctx.query.raw || "";
+    for (var i = 0; i < matchers.length; i += 1) {
+        if (Router.routeMatches(raw, matchers[i]))
+            return true;
+    }
+    return false;
+}
+
+function evaluateChildList(children, query, ctx, directiveActive) {
+    var out = [];
+    for (var i = 0; i < (children || []).length; i += 1) {
+        var child = children[i];
+        if (!directiveActive || nodeTreeMayContainDirective(child, ctx))
+            out.push(evaluateNode(child, query, ctx));
+    }
+    return out;
 }
 
 function compareEvaluated(a, b) {

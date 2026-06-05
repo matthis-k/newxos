@@ -11,7 +11,6 @@ Item {
     property var results: []
     property int selectedIndex: 0
     property int selectedActionIndex: 0
-    property int childIndex: -1
     property bool loading: false
     property int generation: 0
     property int maxResults: 12
@@ -19,14 +18,22 @@ Item {
     property bool includePath: true
     property string flattenMode: "hybrid"
     property bool showHidden: false
+    property int maxTreeDepth: 4
     property var expandedNodeIds: ({})
     property var lastQuery: null
     property var lastDirective: null
     property var lastEvaluatedRoot: null
-    property var childIndexMap: ({})
     property var asyncBackendQueries: ({})
     property string resultsQuery: ""
     property bool debugEnabled: false
+
+    // Tree navigation state
+    property var currentTreeView: null
+    property string currentTreeKey: ""
+    property int treeVisualRow: -1
+    readonly property bool inTree: currentTreeView !== null && treeVisualRow >= 0
+    property var resultTreeViews: ({})
+    property string activeNodeKey: ""
 
     signal queryReplacementRequested(string text)
     signal backendsChangeRequested(var backendIds)
@@ -47,15 +54,6 @@ Item {
         query = text;
         selectedActionIndex = 0;
         loading = false;
-
-        if (childIndex >= 0) {
-            var cur = results[selectedIndex];
-            if (cur && cur.filterable) {
-                var filtered = effectiveChildren(cur);
-                if (childIndex >= filtered.length)
-                    childIndex = filtered.length > 0 ? filtered.length - 1 : -1;
-            }
-        }
 
         if (!text || text.trim().length === 0) {
             resultsClearRequested();
@@ -92,8 +90,7 @@ Item {
     onSelectionResetRequested: function() {
         selectedIndex = -1;
         selectedActionIndex = 0;
-        childIndex = -1;
-        childIndexMap = {};
+        root.resetTreeNavigation();
     }
 
     onAsyncLoadingRefreshRequested: function() {
@@ -148,8 +145,16 @@ Item {
         setResults(rows, text);
     }
 
-    function isSelectable(row) {
+    function queryIsEmptyForSelection() {
+        return !root.query || root.query.trim().length === 0;
+    }
+
+    function hasActivation(row) {
         return !!(row && (row.actions && row.actions.length > 0 || row.executable || row.switchActions));
+    }
+
+    function isSelectable(row) {
+        return root.hasActivation(row) && (root.queryIsEmptyForSelection() || (row.ownScore || 0) > 0 || !!row.ownVisible);
     }
 
     function serializeRow(row) {
@@ -164,6 +169,8 @@ Item {
             matchDepth: row.matchDepth === undefined ? row.depth || 0 : row.matchDepth,
             score: row.score || 0,
             ownScore: row.ownScore || 0,
+            descendantScore: row.descendantScore || 0,
+            ownVisible: !!row.ownVisible,
             source: row.source || row.backendId || "",
             kind: row.kind || "",
             executable: !!row.executable,
@@ -172,8 +179,9 @@ Item {
             breadcrumbs: row.breadcrumbs || [],
             breadcrumbText: row.breadcrumbText || "",
             filterable: !!row.filterable,
+            lazy: !!row.lazy,
             alwaysExpanded: row.alwaysExpanded !== false,
-            expandable: !!(row.children && row.children.length > 0),
+            expandable: !!(row.children && row.children.length > 0) || !!row.lazy,
             switchState: row.switchState === undefined ? null : row.switchState,
             actions: (row.actions || []).map(function(a) {
                 return { id: a.id || "", label: a.label || "", icon: a.icon || null, default: !!a.default };
@@ -481,7 +489,8 @@ Item {
             type: "state",
             query: query,
             selectedIndex: selectedIndex,
-            childIndex: childIndex,
+            childIndex: root.isInTree() ? treeVisualRow : -1,
+            treeVisualRow: treeVisualRow,
             resultCount: results.length,
             loading: loading,
             backends: (backends || []).map(function(b) { return { id: b.backendId || "", name: b.name || "", enabled: !!b.enabled }; })
@@ -570,7 +579,8 @@ Item {
             visibilityThreshold: visibilityThreshold,
             includePath: includePath,
             flattenMode: flattenMode,
-            showHidden: showHidden
+            showHidden: showHidden,
+            maxTreeDepth: maxTreeDepth
         };
     }
 
@@ -619,45 +629,39 @@ Item {
     }
 
     function selectBestChild(row) {
-        if (!row || !row.filterable) return false;
-        var children = effectiveChildren(row);
-        if (children.length === 0) return false;
-
-        var rowId = row.id || row.nodeId || "";
-        var remembered = childIndexMap[rowId];
-        if (remembered !== undefined && remembered >= 0 && remembered < children.length) {
-            childIndex = remembered;
-            return true;
-        }
-
-        var bestIdx = 0;
-        var bestScore = children[0].score || children[0].ownScore || 0;
-        for (var i = 1; i < children.length; i++) {
-            var s = children[i].score || children[i].ownScore || 0;
-            if (s > bestScore) {
-                bestScore = s;
-                bestIdx = i;
-            }
-        }
-        if (bestScore <= 0)
-            return false;
-        childIndex = bestIdx;
-        childIndexMap[rowId] = bestIdx;
+        if (!row || !currentTreeView || currentTreeView.rows <= 0) return false;
+        treeVisualRow = 0;
+        var idx = currentTreeView.index(0, 0);
+        currentTreeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
         return true;
     }
 
     function setResults(newResults, sourceQuery) {
+        resultTreeViews = {};
         results = newResults || [];
         resultsQuery = sourceQuery || "";
-        selectedIndex = results.length > 0 ? Math.max(0, Math.min(selectedIndex, results.length - 1)) : -1;
         selectedActionIndex = 0;
-        childIndex = -1;
-        childIndexMap = {};
-        if (selectedIndex >= 0) {
-            var row = results[selectedIndex];
-            if (row && row.filterable && (row.ownScore || 0) <= 0)
-                root.selectBestChild(row);
+        root.resetTreeNavigation();
+        var targets = root.navigationTargets();
+        root.applyNavigationTarget(targets.length > 0 ? targets[0] : null);
+    }
+
+    function registerResultTreeView(index, treeView) {
+        if (index < 0 || !treeView) return;
+        resultTreeViews[index] = treeView;
+        if (index === selectedIndex && activeNodeKey) {
+            var row = root.findTreeVisualRow(treeView, activeNodeKey);
+            if (row >= 0) {
+                currentTreeView = treeView;
+                currentTreeKey = activeNodeKey;
+                treeVisualRow = row;
+                treeView.selectionModel.setCurrentIndex(treeView.index(row, 0), ItemSelectionModel.SelectCurrent);
+            }
         }
+    }
+
+    function selectedResultTreeView() {
+        return selectedIndex >= 0 ? resultTreeViews[selectedIndex] || null : null;
     }
 
     function backendId(backend) {
@@ -665,20 +669,10 @@ Item {
     }
 
     function activateSelected(shiftPressed) {
-        if (childIndex >= 0) {
-            var parent = results[selectedIndex];
-            var children = effectiveChildren(parent);
-            var child = children[childIndex];
-            if (child) {
-                childIndex = -1;
-                var parentBreadcrumbs = Array.isArray(parent.breadcrumbs) ? parent.breadcrumbs : (parent.path || []);
-                var childResult = Object.assign({}, child, {
-                    source: parent.source || parent.backendId,
-                    category: parent.category,
-                    breadcrumbs: parentBreadcrumbs.concat([parent.title || ""])
-                });
-                return applyIntent(childResult, childResult.enter);
-            }
+        if (root.isInTree()) {
+            if (root.currentTreeKey)
+                return root.activateTreeRowByKey(root.currentTreeKey, null);
+            return false;
         }
         var result = selectedResult();
         if (!result)
@@ -707,6 +701,10 @@ Item {
 
     function selectedResult() {
         return selectedIndex >= 0 ? results[selectedIndex] : null;
+    }
+
+    function rowKey(row) {
+        return row ? row.id || row.nodeId || "" : "";
     }
 
     function activateResult(result, action) {
@@ -773,21 +771,6 @@ Item {
         return false;
     }
 
-    function selectedActionTarget() {
-        if (childIndex >= 0) {
-            var parent = results[selectedIndex];
-            var children = effectiveChildren(parent);
-            var child = children[childIndex];
-            if (!child)
-                return null;
-            return Object.assign({}, child, {
-                source: child.source || parent.source || parent.backendId,
-                category: child.category || parent.category
-            });
-        }
-        return selectedResult();
-    }
-
     function adjustSelectedValue(delta) {
         var result = selectedActionTarget();
         if (!result)
@@ -817,155 +800,213 @@ Item {
         });
     }
 
-    function effectiveChildren(result) {
-        if (result && result.filterable && root.query) {
-            var q = root.query.trim().toLowerCase();
-            if (q) {
-                var tokens = q.split(/\s+/).filter(Boolean);
-                var parentTitle = (result.title || "").toLowerCase();
-                var consumedParentPos = {};
-                var consumedChildIdx = {};
-                var children = result.children || [];
-
-                for (var ti = 0; ti < tokens.length; ti += 1) {
-                    var t = tokens[ti];
-                    var matched = false;
-
-                    // 1. Try parent word-boundary regions (depth 0)
-                    var searchPos = 0;
-                    while (!matched) {
-                        var pos = root.findWordBoundaryMatch(parentTitle, t, searchPos);
-                        if (pos < 0) break;
-                        if (!consumedParentPos[pos]) {
-                            consumedParentPos[pos] = true;
-                            matched = true;
-                            break;
-                        }
-                        searchPos = pos + 1;
-                    }
-                    if (matched) continue;
-
-                    // 2. Try child word-boundary regions (depth 1). Siblings are separate paths,
-                    // so multiple children may consume the same token.
-                    for (var ci = 0; ci < children.length; ci += 1) {
-                        var childText = ((children[ci].title || "") + " " + (children[ci].subtitle || "")).toLowerCase();
-                        if (root.findWordBoundaryMatch(childText, t) >= 0) {
-                            consumedChildIdx[String(ci)] = true;
-                            matched = true;
-                        }
-                    }
-                }
-
-                var hasChildMatch = false;
-                for (var ck in consumedChildIdx) { hasChildMatch = true; break; }
-                if (hasChildMatch) {
-                    var keep = consumedChildIdx;
-                    return children.filter(function(c, idx) { return keep[String(idx)]; });
-                }
-                return children;
-            }
-        }
-        return result ? (result.children || []) : [];
-    }
-
     function isRowSelectable(row) {
-        if (!row) return false;
-        return row.actions && row.actions.length > 0 || row.executable || row.switchActions;
-    }
-
-    function hasDefaultAction(row) {
-        if (!row) return false;
-        if (row.executable || row.switchActions)
-            return true;
-        var actions = row.actions || [];
-        return actions.some(function(action) { return action && action.default; });
-    }
-
-    function isParentSelectable(row, children) {
-        if (row && row.filterable && (row.ownScore || 0) <= 0 && children.length > 0)
-            return false;
-        return children.length === 0 ? root.isRowSelectable(row) : root.hasDefaultAction(row);
+        return root.isSelectable(row);
     }
 
     function moveSelection(delta) {
-        if (results.length === 0) {
-            selectedIndex = -1;
-            childIndex = -1;
+        var targets = root.navigationTargets();
+        if (targets.length === 0) {
+            root.applyNavigationTarget(null);
             return;
         }
 
-        function wrapIndex(index) {
-            if (index < 0)
-                return results.length - 1;
-            if (index >= results.length)
-                return 0;
-            return index;
-        }
+        var current = Math.max(0, targets.findIndex(function(target) { return target.key === root.activeNodeKey; }));
+        var next = (current + delta + targets.length) % targets.length;
+        root.applyNavigationTarget(targets[next]);
+    }
 
-        function previousVisibleInRow(index) {
-            selectedIndex = wrapIndex(index);
-            var previous = results[selectedIndex] || {};
-            var previousChildren = effectiveChildren(previous);
-            childIndex = previousChildren.length > 0
-                ? previousChildren.length - 1
-                : -1;
+    function navigationTargets() {
+        var out = [];
+        function visit(row, parentIndex, treeDepth) {
+            if (!row) return;
+            var children = row.children || [];
+            if (root.isRowSelectable(row))
+                out.push({ key: root.rowKey(row), row: row, parentIndex: parentIndex, treeDepth: treeDepth });
+            for (var i = 0; i < children.length; i += 1)
+                visit(children[i], parentIndex, treeDepth + 1);
         }
+        for (var i = 0; i < results.length; i += 1)
+            visit(results[i], i, 0);
+        return out;
+    }
 
-        if (selectedIndex < 0) {
-            if (delta < 0)
-                previousVisibleInRow(results.length - 1);
-            else {
-                selectedIndex = 0;
-                childIndex = -1;
-            }
-            selectedActionIndex = 0;
+    function applyNavigationTarget(target) {
+        if (!target) {
+            selectedIndex = -1;
+            activeNodeKey = "";
+            exitTree();
+            return;
+        }
+        selectedIndex = target.parentIndex;
+        selectedActionIndex = 0;
+        activeNodeKey = target.key;
+        if (target.treeDepth > 0) {
+            currentTreeView = resultTreeViews[target.parentIndex] || null;
+            currentTreeKey = target.key;
+            treeVisualRow = currentTreeView ? root.findTreeVisualRow(currentTreeView, target.key) : -1;
+            if (currentTreeView && treeVisualRow >= 0)
+                currentTreeView.selectionModel.setCurrentIndex(currentTreeView.index(treeVisualRow, 0), ItemSelectionModel.SelectCurrent);
         } else {
-            var current = results[selectedIndex] || {};
-            var children = effectiveChildren(current);
-            if (childIndex >= 0) {
-                var nextChild = childIndex + delta;
-                if (nextChild >= 0 && nextChild < children.length) {
-                    childIndex = nextChild;
-                    return;
-                }
-                if (delta < 0) {
-                    childIndex = -1;
-                    if (current.filterable && (current.ownScore || 0) <= 0)
-                        selectedIndex = wrapIndex(selectedIndex - 1);
-                } else {
-                    childIndex = -1;
-                    selectedIndex = wrapIndex(selectedIndex + 1);
-                }
-            } else if (children.length > 0 && delta > 0) {
-                childIndex = 0;
-                selectedActionIndex = 0;
-                return;
-            } else if (delta < 0) {
-                previousVisibleInRow(selectedIndex - 1);
-            } else {
-                selectedIndex = wrapIndex(selectedIndex + 1);
-                childIndex = -1;
-            }
-            selectedActionIndex = 0;
+            exitTree();
         }
-        for (var attempts = 0; attempts < results.length; attempts += 1) {
-            selectedIndex = wrapIndex(selectedIndex);
-            var row = results[selectedIndex] || {};
-            var rowChildren = effectiveChildren(row);
-            if (root.isParentSelectable(row, rowChildren))
-                return;
-            if (rowChildren.length > 0) {
-                childIndex = delta > 0 ? 0 : rowChildren.length - 1;
-                return;
-            }
-            selectedIndex += delta;
-        }
-        selectedIndex = -1;
-        childIndex = -1;
+    }
 
+    function findTreeVisualRow(treeView, key) {
+        if (!treeView || !treeView.model || !key) return -1;
+        for (var row = 0; row < treeView.rows; row += 1) {
+            var idx = treeView.index(row, 9);
+            if (treeView.model.data(idx, "display") === key)
+                return row;
+        }
+        return -1;
     }
 
     function reset() {
         resetRequested();
+    }
+
+    function resetTreeNavigation() {
+        currentTreeView = null;
+        currentTreeKey = "";
+        treeVisualRow = -1;
+        activeNodeKey = "";
+    }
+
+    function enterTree(result, treeView) {
+        if (!result || !treeView || treeView.rows <= 0) return false;
+        currentTreeView = treeView;
+        treeVisualRow = 0;
+        var idx = treeView.index(0, 0);
+        treeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
+        return true;
+    }
+
+    function exitTree() {
+        if (currentTreeView && currentTreeView.selectionModel)
+            currentTreeView.selectionModel.clearCurrentIndex();
+        currentTreeView = null;
+        currentTreeKey = "";
+        treeVisualRow = -1;
+    }
+
+    function isInTree() {
+        return inTree;
+    }
+
+    function moveInTree(delta) {
+        if (!currentTreeView) return;
+        var newRow = treeVisualRow + delta;
+        if (newRow < 0) {
+            exitTree();
+            return;
+        }
+        if (newRow >= currentTreeView.rows) {
+            exitTree();
+            if (results.length > 0)
+                selectedIndex = (selectedIndex + 1) % results.length;
+            selectedActionIndex = 0;
+            return;
+        }
+        treeVisualRow = newRow;
+        var idx = currentTreeView.index(newRow, 0);
+        currentTreeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
+    }
+
+    function treeCollapseSelected() {
+        if (!currentTreeView || treeVisualRow < 0) return;
+        currentTreeView.collapse(treeVisualRow);
+    }
+
+    function treeExpandSelected() {
+        if (!currentTreeView || treeVisualRow < 0) return;
+        currentTreeView.expand(treeVisualRow);
+    }
+
+    function treeToggleSelected() {
+        if (!currentTreeView || treeVisualRow < 0) return;
+        currentTreeView.toggleExpanded(treeVisualRow);
+    }
+
+    function findTreeRowData(key) {
+        if (!key) return null;
+        for (var ri = 0; ri < results.length; ri += 1) {
+            var found = root.findInChildren(results[ri], key);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    function findInChildren(row, key) {
+        if (!row) return null;
+        if (row.id === key || row.nodeId === key) return row;
+        var children = row.children || [];
+        for (var i = 0; i < children.length; i += 1) {
+            var found = root.findInChildren(children[i], key);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    function findParentResultByKey(key) {
+        for (var i = 0; i < results.length; i += 1) {
+            if (root.findInChildren(results[i], key))
+                return results[i];
+        }
+        return null;
+    }
+
+    function loadLazyChildren(key) {
+        var treeRow = root.findTreeRowData(key);
+        if (!treeRow || !treeRow.lazy) return;
+        var parentResult = root.findParentResultByKey(key);
+        if (!parentResult) return;
+        var sourceId = treeRow.source || parentResult.source || parentResult.backendId || "";
+        var backend = null;
+        for (var i = 0; i < (backends || []).length; i += 1) {
+            if (backends[i] && backendId(backends[i]) === sourceId) {
+                backend = backends[i];
+                break;
+            }
+        }
+        if (!backend || typeof backend.scanDirectory !== "function") return;
+        var path = (treeRow.meta && treeRow.meta.path) || "";
+        if (!path && treeRow.id && treeRow.id.indexOf("file:") === 0)
+            path = treeRow.id.slice(5);
+        if (!path) return;
+        backend.scanDirectory(path, function(children) {
+            treeRow.children = children;
+            treeRow.lazy = false;
+            root.expandedNodeIds[treeRow.nodeId || treeRow.id] = true;
+            root.searchRequested(root.query, root.generation);
+        });
+    }
+
+    function activateTreeRowByKey(key, actionId) {
+        var row = root.findTreeRowData(key);
+        if (!row) return false;
+        if (actionId)
+            return root.activateResultAction(row, actionId);
+        return root.applyIntent(row, row.enter);
+    }
+
+    function treeActivateCurrent() {
+        if (root.currentTreeKey)
+            return root.activateTreeRowByKey(root.currentTreeKey, null);
+        return false;
+    }
+
+    function selectedActionTarget() {
+        if (root.isInTree() && root.currentTreeKey) {
+            var treeRow = root.findTreeRowData(root.currentTreeKey);
+            if (treeRow) {
+                var parent = results[selectedIndex];
+                return Object.assign({}, treeRow, {
+                    source: treeRow.source || (parent ? parent.source || parent.backendId : ""),
+                    category: treeRow.category || (parent ? parent.category : "")
+                });
+            }
+        }
+        return selectedResult();
     }
 }

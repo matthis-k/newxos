@@ -1,9 +1,13 @@
 import QtCore
+import Quickshell.Io
 
 ProcessBackendBase {
     id: root
 
     property string searchRoot: StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "")
+    property var lazyNodeCache: ({})
+    property var lazyScanPath: ""
+    property var lazyScanCallback: null
 
     category: qsTr("Files")
 
@@ -17,9 +21,55 @@ ProcessBackendBase {
     routes: [
         { pattern: "^@files?\\s+(.*)", mode: "exclusive" },
         { pattern: "^files?\\s+(.*)", mode: "exclusive" },
-        { pattern: "^file://.*$", mode: "ambient" },
-        { pattern: "^[/~].*$", mode: "ambient" }
+        { pattern: "^file://.*$", mode: "exclusive" },
+        { pattern: "^(~/|/).*$", mode: "exclusive" }
     ]
+
+    property Process lazyScanner: Process {
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                var path = root.lazyScanPath;
+                var cb = root.lazyScanCallback;
+                root.lazyScanPath = "";
+                root.lazyScanCallback = null;
+                if (cb) {
+                    var nodes = root.parseDirectoryOutput(text, path);
+                    root.lazyNodeCache[path] = nodes;
+                    cb(nodes);
+                }
+            }
+        }
+        onExited: function(code) {
+            if (code !== 0 && root.lazyScanCallback) {
+                var cb = root.lazyScanCallback;
+                root.lazyScanPath = "";
+                root.lazyScanCallback = null;
+                cb([]);
+            }
+        }
+    }
+
+    function scanDirectory(path, callback) {
+        if (root.lazyNodeCache[path]) {
+            Qt.callLater(function() { callback(root.lazyNodeCache[path]); });
+            return;
+        }
+        if (root.lazyScanPath === path) return;
+        root.lazyScanPath = path;
+        root.lazyScanCallback = callback;
+        root.lazyScanner.exec({ command: ["fd", ".", path, "--absolute-path", "--max-depth", "1", "--printf", "%p|%y\n"] });
+    }
+
+    function parseDirectoryOutput(text, dirPath) {
+        var lines = (text || "").trim().split("\n").filter(function(l) { return l.length > 0; });
+        return lines.map(function(line, idx) {
+            var parts = line.split("|");
+            var fpath = parts[0] || "";
+            var type = parts[1] || "";
+            return root.nodeForPath(fpath, idx, undefined, undefined, undefined, type === "d");
+        });
+    }
 
     function shouldParticipate(rawQuery, directive, query) {
         const raw = String(rawQuery || "").trim();
@@ -35,7 +85,10 @@ ProcessBackendBase {
         const seenPaths = {};
         const children = [];
         if (pathQuery.length > 0) {
-            children.push(nodeForPath(pathQuery, 0));
+            const parts = pathQuery.split("/");
+            const filename = parts[parts.length - 1] || "";
+            const looksLikeDir = filename.indexOf(".") === -1;
+            children.push(nodeForPath(pathQuery, 0, undefined, undefined, undefined, looksLikeDir));
             seenPaths[pathQuery] = true;
         }
 
@@ -54,10 +107,10 @@ ProcessBackendBase {
         });
     }
 
-    function nodeForPath(path, index, title, subtitle, icon) {
+    function nodeForPath(path, index, title, subtitle, icon, isDir) {
         const parts = path.split("/");
         const label = title || parts[parts.length - 1] || path;
-        return root.nodeDto({
+        var opts = {
             id: "file:" + path,
             kind: "file-result",
             label: label,
@@ -74,7 +127,12 @@ ProcessBackendBase {
                 root.actionDto("copy-path", qsTr("Copy Path"), { path: path, actionId: "copy-path" })
             ],
             meta: { path: path }
-        });
+        };
+        if (isDir) {
+            opts.children = root.lazyNodeCache[path] || [];
+            opts.lazy = opts.children.length === 0;
+        }
+        return root.nodeDto(opts);
     }
 
     function buildCommand(queryText) {
