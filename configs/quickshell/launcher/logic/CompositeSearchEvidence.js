@@ -5,6 +5,8 @@
 var clamp = Text.clamp;
 var normalizeText = Text.normalizeText;
 var compactWithMap = Text.compactWithMap;
+var fuzzyDistanceLimit = Text.fuzzyDistanceLimit;
+var boundedDamerauLevenshtein = Text.boundedDamerauLevenshtein;
 
 function evidence(strategy, field, kind, score, weight, ranges, reason, meta) {
     var s = clamp(score);
@@ -16,7 +18,7 @@ function matchField(field, query, strategyIds) {
     if (query.isEmpty)
         return [];
     var out = [];
-    var ids = strategyIds || ["exact", "prefix", "compact", "substring", "acronym"];
+    var ids = strategyIds || ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"];
     for (var ti = 0; ti < query.tokens.length; ti += 1) {
         var token = query.tokens[ti];
         if (ids.indexOf("exact") >= 0) {
@@ -67,6 +69,19 @@ function matchField(field, query, strategyIds) {
             var acronym = field.acronymLetters.map(function(x) { return x.char; }).join("");
             if (acronym.length >= 2 && (acronym === token.normalized || acronym.indexOf(token.normalized) === 0)) {
                 out.push(evidence("acronym", field, acronym === token.normalized ? "acronym-exact" : "acronym-prefix", acronym === token.normalized ? 0.91 : 0.82, field.weight * 0.92, field.acronymLetters.slice(0, token.normalized.length).map(function(x) { return { start: x.start, end: x.end, kind: "acronym" }; }), "token matches acronym", { tokenIndex: ti, exactness: acronym === token.normalized ? "exact" : "prefix" }));
+            }
+        }
+        if (ids.indexOf("fuzzy") >= 0 && token.normalized.length >= 3) {
+            for (var fwi = 0; fwi < field.words.length; fwi += 1) {
+                var fword = field.words[fwi];
+                var maxDistance = fuzzyDistanceLimit(token.normalized, fword.norm);
+                if (maxDistance <= 0 || Math.abs(fword.norm.length - token.normalized.length) > maxDistance || fword.norm === token.normalized)
+                    continue;
+                var distance = boundedDamerauLevenshtein(token.normalized, fword.norm, maxDistance);
+                if (distance > maxDistance)
+                    continue;
+                var similarity = 1 - distance / Math.max(token.normalized.length, fword.norm.length, 1);
+                out.push(evidence("fuzzy", field, "fuzzy-word", 0.44 + similarity * 0.16, field.weight * 0.55, [{ start: fword.start, end: fword.end, kind: "fuzzy" }], "token is within bounded edit distance of word", { tokenIndex: ti, exactness: "fuzzy" }));
             }
         }
     }
@@ -138,6 +153,7 @@ function evidenceKindPriority(kind) {
     if (k.indexOf("compact") >= 0) return 76;
     if (k.indexOf("semantic") >= 0) return 68;
     if (k.indexOf("substring") >= 0) return 52;
+    if (k.indexOf("fuzzy") >= 0) return 44;
     if (k.indexOf("frequency") >= 0 || k.indexOf("recency") >= 0) return 20;
     return 50;
 }
@@ -149,6 +165,19 @@ function inferCoveredTokenIndexes(e, query) {
         var haystack = normalizeText([e.fieldText, e.reason, e.field].join(" "));
         if (haystack.indexOf(token.normalized) >= 0)
             covered.push(i);
+    }
+    return covered;
+}
+
+function coveredTokenIndexes(evidenceItems, query) {
+    var covered = {};
+    for (var ei = 0; ei < (evidenceItems || []).length; ei += 1) {
+        var tokenIndexes = evidenceItems[ei].tokenIndex !== undefined ? [evidenceItems[ei].tokenIndex] : inferCoveredTokenIndexes(evidenceItems[ei], query);
+        for (var ci = 0; ci < tokenIndexes.length; ci += 1) {
+            if (typeof tokenIndexes[ci] === "number")
+                covered[tokenIndexes[ci]] = true;
+        }
+
     }
     return covered;
 }
@@ -195,24 +224,16 @@ function scoreEvidence(evidenceItems, node, ctx) {
         combined = 1 - (1 - combined) * (1 - clamp(sorted[i].effective, 0, 1.2));
 
     if (ctx.query.tokens.length > 1) {
-        var covered = {};
-        for (var ei = 0; ei < sorted.length; ei += 1) {
-            var tokenIndexes = sorted[ei].tokenIndex !== undefined ? [sorted[ei].tokenIndex] : inferCoveredTokenIndexes(sorted[ei], ctx.query);
-            for (var ci = 0; ci < tokenIndexes.length; ci += 1) {
-                if (typeof tokenIndexes[ci] === "number")
-                    covered[tokenIndexes[ci]] = true;
-            }
-            if (String(sorted[ei].kind || "").indexOf("semantic") === 0) {
-                for (var qi = 0; qi < ctx.query.tokens.length; qi += 1)
-                    covered[qi] = true;
-            }
-        }
+        var prev = combined;
+        var covered = coveredTokenIndexes(sorted, ctx.query);
         var coveredCount = Object.keys(covered).length;
         var ratio = coveredCount / ctx.query.tokens.length;
         var isActionLike = ["desktop-action", "dashboard-page", "action-group", "dashboard-group", "switch"].indexOf(node.kind) >= 0;
-        combined *= (isActionLike ? 0.45 : 0.62) + ((isActionLike ? 0.55 : 0.38) * ratio);
-        if (isActionLike && coveredCount < ctx.query.tokens.length && combined < 0.82)
-            combined *= 0.68;
+        var missingCount = ctx.query.tokens.length - coveredCount;
+        var coverageFactor = (isActionLike ? 0.08 : 0.20) + ((isActionLike ? 0.92 : 0.80) * ratio);
+        var negativeEvidenceFactor = Math.pow(isActionLike ? 0.15 : 0.30, missingCount);
+        combined *= coverageFactor * negativeEvidenceFactor;
+        console.log("SCORE: node=" + node.label + " kind=" + node.kind + " tokens=" + ctx.query.tokens.length + " covered=" + coveredCount + " before=" + prev.toFixed(3) + " after=" + combined.toFixed(3) + " isAction=" + isActionLike + " missing=" + missingCount + " ratio=" + ratio.toFixed(2) + " cf=" + coverageFactor.toFixed(3) + " nf=" + negativeEvidenceFactor.toFixed(3));
     }
     return { value: clamp(combined), visible: combined >= ctx.visibilityThreshold, reason: "saturating weighted evidence" };
 }

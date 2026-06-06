@@ -6,6 +6,8 @@
 
 
 var clamp = Text.clamp;
+var fuzzyDistanceLimit = Text.fuzzyDistanceLimit;
+var boundedDamerauLevenshtein = Text.boundedDamerauLevenshtein;
 var searchableFields = Index.searchableFields;
 var computeDirectiveTagClosure = Index.computeDirectiveTagClosure;
 var matchField = Evidence.matchField;
@@ -54,7 +56,7 @@ function evaluateNode(node, query, ctx) {
         return { node: node, allowed: selfAllowed, candidate: false, pruned: true, evidence: [], ownScore: 0, score: 0, visible: false, children: [] };
 
     var profile = node.evaluationProfile || {};
-    var strategyIds = profile.strategies || ["exact", "prefix", "compact", "substring", "acronym", "semantic", "usage", "recency"];
+    var strategyIds = profile.strategies || ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"];
     var evidenceItems = [];
 
     var directCandidate = !ctx.candidateIds || !!ctx.candidateIds[node.id] || node.kind === "root" || node.kind === "backend" || node.showWhenQueryEmpty || directiveBrowse;
@@ -205,7 +207,7 @@ function computeSwitchActionBoost(node, query) {
         for (var actionId in aliasMap) {
             for (var ai = 0; ai < aliasMap[actionId].length; ai += 1) {
                 var alias = aliasMap[actionId][ai];
-                var score = token === alias ? 1.0 : alias.indexOf(token) === 0 && token.length >= 2 ? 0.78 : alias.length > token.length && alias.lastIndexOf(token) === alias.length - token.length ? 0.65 : 0;
+                var score = token === alias ? 1.0 : alias.indexOf(token) === 0 && token.length >= 2 ? 0.78 : alias.length > token.length && alias.lastIndexOf(token) === alias.length - token.length ? 0.65 : fuzzyAliasScore(token, alias);
                 bestTokenScore = Math.max(bestTokenScore, score);
             }
         }
@@ -235,13 +237,25 @@ function switchActionEvidence(node, query) {
                 continue;
             for (var ai = 0; ai < aliasMap[actionId].length; ai += 1) {
                 var alias = aliasMap[actionId][ai];
-                var score = token === alias ? 1.0 : alias.indexOf(token) === 0 && token.length >= 2 ? 0.78 : alias.length > token.length && alias.lastIndexOf(token) === alias.length - token.length ? 0.65 : 0;
+                var fuzzyScore = fuzzyAliasScore(token, alias);
+                var score = token === alias ? 1.0 : alias.indexOf(token) === 0 && token.length >= 2 ? 0.78 : alias.length > token.length && alias.lastIndexOf(token) === alias.length - token.length ? 0.65 : fuzzyScore;
                 if (score > 0)
-                    out.push({ strategy: "switch-action", field: "action", fieldText: alias, nodeId: node.id, originNodeId: node.id, originKind: "action", depth: 0, tokenIndex: ti, tokenIndexes: [ti], coverageCount: 1, exactness: score >= 1 ? "exact" : "prefix", actionId: actionId, actionRole: "switch-" + actionId, isExecutable: true, kind: score >= 1 ? "action-exact" : "action-prefix", score: score, weight: 0.64, effective: score * 0.64, ranges: [], reason: "switch action alias" });
+                    out.push({ strategy: "switch-action", field: "action", fieldText: alias, nodeId: node.id, originNodeId: node.id, originKind: "action", depth: 0, tokenIndex: ti, tokenIndexes: [ti], coverageCount: 1, exactness: score >= 1 ? "exact" : fuzzyScore > 0 ? "fuzzy" : "prefix", actionId: actionId, actionRole: "switch-" + actionId, isExecutable: true, kind: score >= 1 ? "action-exact" : fuzzyScore > 0 ? "action-fuzzy" : "action-prefix", score: score, weight: fuzzyScore > 0 ? 0.42 : 0.64, effective: score * (fuzzyScore > 0 ? 0.42 : 0.64), ranges: [], reason: fuzzyScore > 0 ? "switch action alias fuzzy match" : "switch action alias" });
             }
         }
     }
     return out;
+}
+
+function fuzzyAliasScore(token, alias) {
+    var maxDistance = fuzzyDistanceLimit(token, alias);
+    if (maxDistance <= 0 || Math.abs(alias.length - token.length) > maxDistance || token === alias)
+        return 0;
+    var distance = boundedDamerauLevenshtein(token, alias, maxDistance);
+    if (distance > maxDistance)
+        return 0;
+    var similarity = 1 - distance / Math.max(token.length, alias.length, 1);
+    return 0.44 + similarity * 0.14;
 }
 
 function pathEvidenceFromAncestors(node, query, ctx) {
@@ -254,7 +268,7 @@ function pathEvidenceFromAncestors(node, query, ctx) {
         var fields = searchableFields(chain[i]).filter(function(f) { return ["label", "aliases", "keywords"].indexOf(f.field) >= 0; });
         for (var fi = 0; fi < fields.length; fi += 1) {
             var inherited = Object.assign({}, fields[fi], { field: "ancestor-" + fields[fi].field, weight: weight * Math.min(1, fields[fi].weight) });
-            out = out.concat(matchField(inherited, query, ["exact", "prefix", "compact", "substring", "acronym"]));
+            out = out.concat(matchField(inherited, query, ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"]));
         }
         weight *= 0.72;
     }

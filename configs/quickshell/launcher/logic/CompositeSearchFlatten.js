@@ -9,13 +9,14 @@ var matchField = Evidence.matchField;
 var scoreEvidence = Evidence.scoreEvidence;
 var evidenceFieldGroup = Evidence.evidenceFieldGroup;
 var overlayEvidence = Evidence.overlayEvidence;
+var coveredTokenIndexes = Evidence.coveredTokenIndexes;
 var compareEvaluated = Evaluate.compareEvaluated;
 var collectParentChain = Evaluate.collectParentChain;
 
 function groupDisplayPolicy(ev) {
     var flattenPolicy = ev.node.behavior && ev.node.behavior.flattenPolicy || {};
     var groupPolicy = flattenPolicy.groupDisplay || {};
-    if (flattenPolicy.modeHint !== "group-dominance" && !groupPolicy.enabled)
+    if (flattenPolicy.modeHint === "group-mode-inhibit")
         return null;
     return Object.assign({ enabled: true, parentWinsMargin: 0.08, childWinsMargin: 0.03, childDominatesMargin: 0.18, maxFlattenedChildren: 3, minChildScore: 0.25, showGroupHeaderInFilteredMode: true, committedTokenPrefersGroup: true, committedTokenMinParentScore: 0.25, showAllChildrenOnParentMatch: false, parentMatchMinScore: 0.25 }, groupPolicy);
 }
@@ -42,8 +43,20 @@ function decideGroupDisplay(ev, ctx) {
     var policy = groupDisplayPolicy(ev);
 
     if (ev.node.behavior && ev.node.behavior.filterable) {
-        if (ev.ownVisible)
+        if (ev.ownVisible && policy) {
+            var childScore = groupDominanceOwnScore(ev, ctx);
+            var visibleChildren = ev.children.filter(function(c) { return c.visible && c.score >= policy.minChildScore; }).sort(compareEvaluated);
+            if (visibleChildren.length) {
+                var dominantChildren = visibleChildren.filter(function(c) { return c.score >= childScore + policy.childWinsMargin; });
+                if (dominantChildren.length === 1) {
+                    return { mode: "flatten-children", showParent: false, children: dominantChildren };
+                }
+                if (dominantChildren.length > 1) {
+                    return { mode: "nested-group", showParent: true, suppressParentActions: true, children: dominantChildren };
+                }
+            }
             return { mode: "nested-group", showParent: true, children: ev.children.slice() };
+        }
         // parent has no direct match; fall through so matching children surface directly
     }
 
@@ -62,16 +75,26 @@ function decideGroupDisplay(ev, ctx) {
 
     if (!hasActions && policy.flattenAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
         return { mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, policy.maxNestedChildren || ev.children.length) };
+    var visibleChildren = ev.children.filter(function(c) { return c.visible && c.score >= policy.minChildScore; }).sort(compareEvaluated);
+    if (!visibleChildren.length) {
+        return { mode: "group", showParent: true, children: [] };
+    }
+    var bestChild = visibleChildren[0];
+    var dominantChildren = visibleChildren.filter(function(child) { return child.score >= parentScore + policy.childWinsMargin; });
+    if (dominantChildren.length === 1) {
+        return { mode: "flatten-children", showParent: false, children: dominantChildren };
+    }
+    if (dominantChildren.length > 1) {
+        return { mode: "nested-group", showParent: true, suppressParentActions: true, children: dominantChildren.slice(0, policy.maxFlattenedChildren) };
+    }
     if (policy.showAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
         return { mode: "nested-group", showParent: true, children: ev.children.slice(0, policy.maxNestedChildren || ev.children.length) };
-    var visibleChildren = ev.children.filter(function(c) { return c.visible && c.score >= policy.minChildScore; }).sort(compareEvaluated);
-    if (!visibleChildren.length)
+    if (parentScore >= bestChild.score + policy.parentWinsMargin) {
         return { mode: "group", showParent: true, children: [] };
-    var bestChild = visibleChildren[0];
-    if (parentScore >= bestChild.score + policy.parentWinsMargin)
-        return { mode: "group", showParent: true, children: [] };
-    if (bestChild.score >= parentScore + policy.childDominatesMargin)
+    }
+    if (bestChild.score >= parentScore + policy.childDominatesMargin) {
         return { mode: "flatten-children", showParent: false, children: visibleChildren.slice(0, policy.maxFlattenedChildren) };
+    }
     return { mode: "group", showParent: true, children: [] };
 }
 
@@ -137,6 +160,19 @@ function copyEvidence(evidenceItems) {
             reason: e.reason || ""
         };
     });
+}
+
+function negativeEvidenceForMissingTokens(ev, ctx) {
+    if (!ctx.query || ctx.query.tokens.length <= 1)
+        return [];
+    var covered = coveredTokenIndexes(ev.evidence || [], ctx.query);
+    var out = [];
+    for (var i = 0; i < ctx.query.tokens.length; i += 1) {
+        if (covered[i])
+            continue;
+        out.push({ strategy: "negative", field: "unmatched-token", fieldText: ctx.query.tokens[i].raw, nodeId: ev.node.id, originNodeId: ev.node.id, originKind: "self", depth: 0, tokenIndex: i, tokenIndexes: [i], coverageCount: 0, exactness: "missing", actionId: null, actionRole: null, isExecutable: false, kind: "negative-unmatched-token", score: -1, weight: 0, effective: 0, ranges: [], reason: "query token has no matching evidence" });
+    }
+    return out;
 }
 
 function copyPayload(payload) {
@@ -288,14 +324,18 @@ function parentMatchShowsChildren(ev, ctx) {
     return ev.ownVisible && groupDominanceOwnScore(ev, ctx) >= minScore;
 }
 
-function toResultRow(ev, depth, state, ctx, childRows) {
+function toResultRow(ev, depth, state, ctx, childRows, options) {
+    options = options || {};
     var node = ev.node;
     var chain = collectParentChain(node);
     var breadcrumbs = chain.slice(0, -1).map(function(n) { return n.label; });
+    var brRoot = chain.find(function(n) { return n.behavior && n.behavior.visualRoot; });
+    if (brRoot)
+        breadcrumbs = breadcrumbs.slice(chain.indexOf(brRoot));
     var displayPolicy = displayPolicyFor(node);
     var breadcrumbText = breadcrumbTextFor(ev, breadcrumbs, displayPolicy, childRows);
     var action = defaultActionForNode(node, ctx.query, ev.ownScore);
-    var suppressOwnActions = action && childRows && childRows.length && ctx.query.tokens.length > 1 && visibleFromChildrenOnly(ev);
+    var suppressOwnActions = action && childRows && childRows.length && ctx.query.tokens.length > 1 && (options.suppressParentActions || visibleFromChildrenOnly(ev));
     if (suppressOwnActions)
         action = null;
     var sourceActions = suppressOwnActions ? [] : (node.actionList || []).slice();
@@ -321,7 +361,7 @@ function toResultRow(ev, depth, state, ctx, childRows) {
         descendantScore: ev.descendantScore || 0,
         ownVisible: !!ev.ownVisible,
         matchDepth: ev.matchDepth === undefined ? depth : ev.matchDepth,
-        evidence: copyEvidence(ev.evidence),
+        evidence: copyEvidence((ev.evidence || []).concat(negativeEvidenceForMissingTokens(ev, ctx))),
         selected: state.selectedNodeId === node.id,
         expandable: childRows ? childRows.length > 0 : (ev.children && ev.children.length > 0),
         expanded: state.expandedNodeIds[node.id] || node.kind === "backend",
@@ -358,9 +398,9 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         if (ev.node.kind === "backend") return false;
         return true;
     }
-    function add(ev, depth, sortScore, childEvs, forceInclude) {
+    function add(ev, depth, sortScore, childEvs, forceInclude, options) {
         if (ev.node.kind !== "root" && (forceInclude || canInclude(ev)))
-            collected.push({ ev: ev, depth: depth, sortScore: sortScore === undefined ? ev.score : sortScore, childEvs: childEvs || [] });
+            collected.push({ ev: ev, depth: depth, sortScore: sortScore === undefined ? ev.score : sortScore, childEvs: childEvs || [], options: options || {} });
     }
     function collect(ev, depth, forceInclude) {
         if (ev.node.kind === "root") {
@@ -373,8 +413,13 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         }
         var decision = decideGroupDisplay(ev, ctx);
         if (decision.mode === "flatten-all-children") {
-            for (var ai = 0; ai < decision.children.length; ai += 1)
-                add(decision.children[ai], depth + 1, decision.children[ai].score, [], true);
+            for (var ai = 0; ai < decision.children.length; ai += 1) {
+                var child = decision.children[ai];
+                if (child.children && child.children.length > 0)
+                    collect(child, depth + 1, true);
+                else
+                    add(child, depth + 1, child.score, [], true);
+            }
             return;
         }
         if (decision.mode === "normal") {
@@ -386,7 +431,7 @@ function flattenForUi(evaluatedRoot, state, ctx) {
             var childMaxScore = decision.children.length ? Math.max.apply(null, decision.children.map(function(c) { return c.score; })) : 0;
             var score = decision.mode === "filtered-group" || decision.mode === "nested-group" ? Math.max(0, Math.max(ev.score, childMaxScore) - 0.015) : ev.score;
             if (decision.mode === "nested-group") {
-                add(ev, depth, score, decision.children, forceInclude);
+                add(ev, depth, score, decision.children, forceInclude, { suppressParentActions: !!decision.suppressParentActions });
                 return;
             }
             add(ev, depth, score, decision.mode === "filtered-group" ? decision.children : [], forceInclude);
@@ -398,8 +443,13 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         }
         if (decision.mode === "group")
             return;
+        if (decision.mode === "flatten-children") {
+            for (var di = 0; di < decision.children.length; di += 1)
+                add(decision.children[di], depth, decision.children[di].score, [], true);
+            return;
+        }
         for (var di = 0; di < decision.children.length; di += 1)
-            collect(decision.children[di], decision.mode === "flatten-children" ? depth : depth + 1, forceInclude);
+            collect(decision.children[di], depth + 1, forceInclude);
     }
     collect(evaluatedRoot, -1, false);
     collected.sort(function(a, b) {
@@ -414,7 +464,12 @@ function flattenForUi(evaluatedRoot, state, ctx) {
     function buildChildTree(ev, currentDepth, maxDepth) {
         if (maxDepth <= 0 || !ev.children)
             return [];
-        var filtered = ev.children.filter(function(c) { return c.allowed && c.node.kind !== "backend"; });
+        return buildChildRows(ev.children, currentDepth, maxDepth);
+    }
+    function buildChildRows(children, currentDepth, maxDepth) {
+        if (maxDepth <= 0 || !children)
+            return [];
+        var filtered = children.filter(function(c) { return c.allowed && c.node.kind !== "backend" && (c.visible || c.score >= 0.25); });
         return filtered.map(function(child) {
             var grandChildren = buildChildTree(child, currentDepth + 1, maxDepth - 1);
             return toResultRow(child, currentDepth + 1, state, ctx, grandChildren);
@@ -423,7 +478,7 @@ function flattenForUi(evaluatedRoot, state, ctx) {
 
     var maxTreeDepth = ctx.maxTreeDepth >= 0 ? ctx.maxTreeDepth : 3;
     return collected.map(function(item) {
-        var childRows = buildChildTree(item.ev, item.depth, maxTreeDepth);
-        return toResultRow(item.ev, item.depth, state, ctx, childRows);
+        var childRows = item.childEvs && item.childEvs.length ? buildChildRows(item.childEvs, item.depth, maxTreeDepth) : buildChildTree(item.ev, item.depth, maxTreeDepth);
+        return toResultRow(item.ev, item.depth, state, ctx, childRows, item.options);
     });
 }

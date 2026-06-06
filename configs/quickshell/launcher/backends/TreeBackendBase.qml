@@ -31,7 +31,7 @@ LauncherBackendBase {
         root.compositeRootCacheKey = cacheKey;
         const compositeRoot = root.backendRootDto(roots.map(function(node) { return compositeNode(node, []); }), {
             tags: [root.backendId],
-            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend" }
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"], scorePolicy: "backend" }
         });
         CompositeSearch.buildSearchIndex(compositeRoot);
         if (!root.dynamicCompositeRoot)
@@ -116,7 +116,7 @@ LauncherBackendBase {
                 displayPolicy: nodeBehavior.displayPolicy || null
             }, node.behavior || {}),
             semanticTerms: semanticTermsForNode(node),
-            evaluationProfile: { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "semantic", "usage", "recency"], scorePolicy: "default" },
+            evaluationProfile: { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default" },
             meta: {
                 action: action,
                 commandPath: path.concat([node]).map(function(item) { return item.id || item.title; }),

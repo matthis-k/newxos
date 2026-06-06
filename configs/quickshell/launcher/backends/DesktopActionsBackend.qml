@@ -356,7 +356,7 @@ TreeBackendBase {
 
         SwitchNode {
             name: "bluetooth"; aliases: ["bt", "bluetooth"]; title: qsTr("Bluetooth")
-            icon: "bluetooth-symbolic"
+            icon: bluetoothIconName()
             iconColor: Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled ? Config.styling.bluetooth : Config.styling.text1
             switchState: Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.enabled : null
             switchToggleAliases: ["btt"]
@@ -549,6 +549,7 @@ TreeBackendBase {
         });
         return sinks.map(function(sink) {
             var streams = outputStreamsForSink(sink);
+            var children = streams.length > 0 ? [streamGroupNode(sink, streams)] : [];
             return {
                 id: "sink-" + sink.id,
                 aliases: ["sink", "output", "speaker", nodeTitle(sink)],
@@ -562,7 +563,7 @@ TreeBackendBase {
                 switchState: !!(sink.audio && sink.audio.muted),
                 control: { kind: "slider", target: "pipewire", nodeId: sink.id, from: 0, to: 150, step: 5, value: sink.audio ? Math.round((sink.audio.volume || 0) * 100) : 0 },
                 switchActions: muteSwitchActions(sink),
-                children: [streamGroupNode(sink, streams)]
+                children: children
             };
         });
     }

@@ -88,5 +88,4 @@ Require explicit user confirmation before:
 - `docs/playbooks/dev-specialization.md` — dev mode specialization workflow
 - `docs/playbooks/basic-memory.md` — Basic Memory integration
 - `docs/playbooks/opencode-setup.md` — OpenCode and MCP server setup
-- `docs/test-cases/launcher-ranking.md` — launcher ranking regression checks
 - `docs/playbooks/maintain-docs.md` — knowledge base maintenance rules

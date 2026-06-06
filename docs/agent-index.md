@@ -18,7 +18,7 @@
 ## When touching launcher search
 - `docs/architecture.md` — launcher architecture (pipeline, DTO boundary, prefix gating)
 - `docs/contracts/quickshell-design.md` — anti-patterns for row data and backends
-- `docs/test-cases/launcher-ranking.md` — ranking regression expectations
+- `docs/playbooks/launcher-sanity-check.md` — ranking intent and IPC debugging guidance
 - `docs/pitfalls.md` — historical launcher bugs
 
 ## When touching secrets or auth

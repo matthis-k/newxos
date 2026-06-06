@@ -104,7 +104,7 @@ Rectangle {
         height: root.hasChildren && root.expanded
             ? root.containedRows * root.rowHeight + root.rowPanelY
             : root.rowPanelHeight
-        color: root.active ? Config.styling.selectionBackgroundActive : (root.depth % 2 === 0 ? Config.styling.bg3 : Config.styling.bg4)
+        color: root.depth % 2 === 0 ? Config.styling.bg3 : Config.styling.bg4
         border.color: root.active ? Config.styling.primaryAccent : Config.styling.bg5
         border.width: 1
         radius: Config.styling.radius
@@ -154,7 +154,7 @@ Rectangle {
                 visible: !!root.effectiveIconName && root.effectiveIconName !== "system-search"
                 iconName: root.effectiveIconName
                 fallbackIconName: "system-search"
-                color: root.effectiveIconColor || Config.styling.text0
+                color: root.effectiveIconColor
                 implicitSize: 20
                 Layout.preferredWidth: 20
                 Layout.preferredHeight: 20
@@ -170,7 +170,7 @@ Rectangle {
                     text: root.title
                     color: Config.styling.text0
                     font.pixelSize: 13
-                    font.bold: root.active
+                    font.bold: false
                     elide: Text.ElideRight
                     maximumLineCount: 1
                     Layout.fillWidth: true

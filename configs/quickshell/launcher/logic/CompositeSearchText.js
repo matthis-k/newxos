@@ -42,6 +42,77 @@ function compactWithMap(text) {
     return { compact: chars.join(""), map: map };
 }
 
+function fuzzyMaxDistance(text) {
+    var len = String(text || "").length;
+    if (len >= 6) return 2;
+    if (len >= 4) return 1;
+    return 0;
+}
+
+function containsCharacterMultiset(haystack, needle) {
+    haystack = String(haystack || "");
+    needle = String(needle || "");
+    if (needle.length > haystack.length)
+        return false;
+    var counts = {};
+    for (var i = 0; i < haystack.length; i += 1)
+        counts[haystack[i]] = (counts[haystack[i]] || 0) + 1;
+    for (var j = 0; j < needle.length; j += 1) {
+        if (!counts[needle[j]])
+            return false;
+        counts[needle[j]] -= 1;
+    }
+    return true;
+}
+
+function fuzzyDistanceLimit(a, b) {
+    var limit = fuzzyMaxDistance(a);
+    // Letter twists are common in short words: audio -> aduio/audoi. Keep
+    // general short-word edits strict, but allow two edits when the candidate
+    // contains the query letters.
+    if (String(a || "").length >= 3 && containsCharacterMultiset(b, a))
+        limit = Math.max(limit, 2);
+    return limit;
+}
+
+function boundedDamerauLevenshtein(a, b, maxDistance) {
+    a = String(a || "");
+    b = String(b || "");
+    maxDistance = maxDistance || 0;
+    if (a === b)
+        return 0;
+    if (!maxDistance || Math.abs(a.length - b.length) > maxDistance)
+        return maxDistance + 1;
+
+    var prevPrev = [];
+    var prev = [];
+    var cur = [];
+    for (var j = 0; j <= b.length; j += 1)
+        prev[j] = j;
+
+    for (var i = 1; i <= a.length; i += 1) {
+        cur = [i];
+        var rowMin = cur[0];
+        for (var bj = 1; bj <= b.length; bj += 1) {
+            var cost = a[i - 1] === b[bj - 1] ? 0 : 1;
+            var value = Math.min(
+                prev[bj] + 1,
+                cur[bj - 1] + 1,
+                prev[bj - 1] + cost
+            );
+            if (i > 1 && bj > 1 && a[i - 1] === b[bj - 2] && a[i - 2] === b[bj - 1])
+                value = Math.min(value, prevPrev[bj - 2] + 1);
+            cur[bj] = value;
+            rowMin = Math.min(rowMin, value);
+        }
+        if (rowMin > maxDistance)
+            return maxDistance + 1;
+        prevPrev = prev;
+        prev = cur;
+    }
+    return prev[b.length];
+}
+
 function getAcronymRanges(text) {
     return splitWordsWithRanges(text).map(function(w) {
         return { char: w.norm[0] || "", start: w.start, end: Math.min(w.start + 1, w.end), word: w };
@@ -133,7 +204,7 @@ function makeNode(props) {
     node.path = node.path || "";
     node.usageCount = node.usageCount || 0;
     node.lastUsedDaysAgo = node.lastUsedDaysAgo === undefined ? 9999 : node.lastUsedDaysAgo;
-    node.evaluationProfile = node.evaluationProfile || { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "semantic", "usage", "recency"], scorePolicy: "default" };
+    node.evaluationProfile = node.evaluationProfile || { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default" };
     node.actionList = node.actionList || [];
     node.meta = node.meta || node.metadata || {};
     for (var i = 0; i < node.children.length; i += 1) {

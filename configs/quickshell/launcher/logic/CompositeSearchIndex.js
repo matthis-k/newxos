@@ -6,6 +6,8 @@ var normalizeText = Text.normalizeText;
 var splitWordsWithRanges = Text.splitWordsWithRanges;
 var compactWithMap = Text.compactWithMap;
 var getAcronymRanges = Text.getAcronymRanges;
+var fuzzyDistanceLimit = Text.fuzzyDistanceLimit;
+var boundedDamerauLevenshtein = Text.boundedDamerauLevenshtein;
 
 function prepareSearchableField(field) {
     var text = String(field.text === undefined || field.text === null ? "" : field.text);
@@ -172,6 +174,22 @@ function collectIndexHitsCapped(map, key, marked, capState) {
     }
 }
 
+function collectFuzzyHitsCapped(index, token, marked, capState) {
+    if (String(token || "").length < 3)
+        return;
+    var maxDistance = 0;
+    for (var term in index.terms) {
+        if (capState.hits >= capState.cap)
+            return;
+        maxDistance = fuzzyDistanceLimit(token, term);
+        if (Math.abs(term.length - token.length) > maxDistance || term === token)
+            continue;
+        if (boundedDamerauLevenshtein(token, term, maxDistance) > maxDistance)
+            continue;
+        collectIndexHitsCapped(index.terms, term, marked, capState);
+    }
+}
+
 function collectCandidateIds(index, query, marked, capState) {
     if (!index || query.isEmpty)
         return null;
@@ -189,10 +207,12 @@ function collectCandidateIds(index, query, marked, capState) {
         collectIndexHitsCapped(index.compactPrefix, compactToken, marked, capState);
         collectIndexHitsCapped(index.acronym, token, marked, capState);
         collectIndexHitsCapped(index.acronymPrefix, token, marked, capState);
+        collectFuzzyHitsCapped(index, token, marked, capState);
 
         // Avoid whole-index substring scans on every keystroke. Exact, prefix,
-        // compact, and acronym indexes provide the hot-path candidate set; the
-        // field matcher still handles substring evidence for those candidates.
+        // compact, acronym, and capped fuzzy term hits provide the hot-path
+        // candidate set; the field matcher still handles substring evidence for
+        // those candidates.
     }
     return marked;
 }

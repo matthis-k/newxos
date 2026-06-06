@@ -11,7 +11,7 @@ Use this skill when editing, reviewing, or debugging `configs/quickshell/` or re
 
 - Project behavior: Basic Memory -> `docs/agent-index.md` -> local docs -> source inspection.
 - Visual and interaction rules: `docs/contracts/quickshell-design.md`.
-- Launcher pipeline rules: `docs/architecture.md` and `docs/test-cases/launcher-ranking.md`.
+- Launcher pipeline rules: `docs/architecture.md`.
 - Known project bugs and workarounds: `docs/pitfalls.md`.
 - Qt/QML framework API details: Qt Documentation MCP.
 - External library docs not covered by Qt or local source: Context7.

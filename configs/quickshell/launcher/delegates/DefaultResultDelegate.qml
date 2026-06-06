@@ -61,7 +61,7 @@ Rectangle {
     }
 
     implicitHeight: Math.max(56, mainLayout.implicitHeight + Config.spacing.xs * 2)
-    color: selected ? Config.styling.selectionBackgroundActive : Config.styling.bg2
+    color: Config.styling.bg2
     border.color: selected ? Config.styling.primaryAccent : Config.styling.bg4
     border.width: 1
     radius: Config.styling.radius
@@ -101,19 +101,20 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignVCenter
 
-                Text {
-                    text: root.result.breadcrumbText || ""
-                    visible: text.length > 0
-                    color: Config.styling.text2
-                    font.pixelSize: 11
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    Layout.fillWidth: true
-                }
-
                 RowLayout {
                     spacing: Config.spacing.xxs
                     Layout.fillWidth: true
+                    visible: (root.result.breadcrumbText || (root.result.breadcrumbs || root.result.path || []).length > 0)
+
+                    Text {
+                        text: root.result.breadcrumbText || ""
+                        visible: text.length > 0
+                        color: Config.styling.text2
+                        font.pixelSize: 11
+                        elide: Text.ElideRight
+                        maximumLineCount: 1
+                        Layout.fillWidth: true
+                    }
 
                     Repeater {
                         model: root.result.breadcrumbText ? [] : root.result.breadcrumbs || root.result.path || []
@@ -136,15 +137,21 @@ Rectangle {
                                 implicitSize: 12
                                 Layout.preferredWidth: 12
                                 Layout.preferredHeight: 12
+                                visible: index !== (root.result.breadcrumbs || root.result.path || []).length - 1
                             }
                         }
                     }
+                }
+
+                RowLayout {
+                    spacing: Config.spacing.xxs
+                    Layout.fillWidth: true
 
                     Text {
                         text: root.result.title || ""
                         color: Config.styling.text0
                         font.pixelSize: 15
-                        font.bold: root.selected
+                        font.bold: false
                         elide: Text.ElideRight
                         maximumLineCount: 1
                         Layout.fillWidth: true
@@ -158,19 +165,10 @@ Rectangle {
                         font.bold: true
                         horizontalAlignment: Text.AlignRight
                         Layout.preferredWidth: 28
-                        Layout.alignment: Qt.AlignVCenter
                     }
                 }
 
-                Text {
-                    text: root.result.subtitle || ""
-                    visible: root.showSubtitle && text.length > 0
-                    color: Config.styling.text2
-                    font.pixelSize: 11
-                    elide: Text.ElideRight
-                    maximumLineCount: 1
-                    Layout.fillWidth: true
-                }
+
             }
 
             Text {

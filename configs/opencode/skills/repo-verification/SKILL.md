@@ -21,7 +21,6 @@ Use this skill near the end of any non-trivial change.
 - Flake-file declarations: `nix run "path:$PWD#write-flake"` before `flake show` or `flake check`.
 - New or changed flake outputs: `nix flake show "path:$PWD"`.
 - `configs/quickshell/**`: run the repo QuickShell/QML check if available; otherwise use `repo-gate` when practical.
-- Launcher search behavior: also inspect `docs/test-cases/launcher-ranking.md` expectations.
 - `configs/hypr/**`: run the Hyprland config check through the repo gate or targeted package/check.
 - `configs/nvim/**` or Neovim modules: run the Neovim check through the repo gate or targeted check.
 - `docs/**`: run `nix run "path:$PWD#newxos" -- memory reindex`.
