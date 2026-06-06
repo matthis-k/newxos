@@ -163,11 +163,6 @@ PanelWindow {
             input.cursorPosition = input.text.length;
         }
 
-        onBackendsChangeRequested: function(backendIds) {
-            root.backends = root.allBackends.filter(function(b) {
-                return b && backendIds.indexOf(b.backendId) >= 0;
-            });
-        }
     }
 
     MouseArea {

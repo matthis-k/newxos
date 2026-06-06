@@ -3,6 +3,7 @@
 .import "CompositeSearchIndex.js" as Index
 .import "CompositeSearchEvaluate.js" as Evaluate
 .import "CompositeSearchFlatten.js" as Flatten
+.import "CompositeSearchRows.js" as Rows
 
 
 var nowMs = Text.nowMs;
@@ -15,12 +16,13 @@ var collectCandidateIdsForRoots = Index.collectCandidateIdsForRoots;
 var evaluateNode = Evaluate.evaluateNode;
 var injectPathEvidence = Evaluate.injectPathEvidence;
 var flattenForUi = Flatten.flattenForUi;
+var finalizeRows = Rows.finalizeRows;
 
 function search(backends, rawQuery, state, options) {
     var totalStart = nowMs();
     var directive = parseDirective(rawQuery, backends);
     var query = tokenize(directive.searchRaw);
-    var ctx = Object.assign({ query: query, directive: directive, visibilityThreshold: 0.18, showHidden: false, includePath: true, flattenMode: "hybrid" }, options || {});
+    var ctx = Object.assign({ query: query, directive: directive, visibilityThreshold: 0.18, showHidden: false, includePath: true }, options || {});
     var active = (backends || []).filter(function(b) {
         if (!b || !b.enabled)
             return false;
@@ -56,7 +58,7 @@ function search(backends, rawQuery, state, options) {
     var pathMs = nowMs() - pathStart;
 
     var flattenStart = nowMs();
-    var rows = suppressFallbackRows(flattenForUi(evaluated, state, ctx), ctx);
+    var rows = finalizeRows(suppressFallbackRows(flattenForUi(evaluated, state, ctx), ctx), query, directive, ctx);
     var flattenMs = nowMs() - flattenStart;
     var timings = null;
     if (ctx.trace) {

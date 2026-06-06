@@ -429,18 +429,13 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         }
         if (decision.showParent) {
             var childMaxScore = decision.children.length ? Math.max.apply(null, decision.children.map(function(c) { return c.score; })) : 0;
-            var score = decision.mode === "filtered-group" || decision.mode === "nested-group" ? Math.max(0, Math.max(ev.score, childMaxScore) - 0.015) : ev.score;
+            var score = decision.mode === "nested-group" ? Math.max(0, Math.max(ev.score, childMaxScore) - 0.015) : ev.score;
             if (decision.mode === "nested-group") {
                 add(ev, depth, score, decision.children, forceInclude, { suppressParentActions: !!decision.suppressParentActions });
                 return;
             }
             if (decision.mode !== "group" || ev.ownScore > 0 || ev.ownVisible)
-                add(ev, depth, score, decision.mode === "filtered-group" ? decision.children : [], forceInclude);
-            if (decision.mode === "filtered-group") {
-                for (var ci = 0; ci < decision.children.length; ci += 1)
-                    add(decision.children[ci], depth + 1, decision.children[ci].score);
-                return;
-            }
+                add(ev, depth, score, [], forceInclude);
         }
         if (decision.mode === "group")
             return;

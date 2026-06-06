@@ -151,6 +151,7 @@ function parseDirective(rawQuery, backends) {
             directives.push({ prefix: prefixes[pi], backendIds: [backend.backendId], label: backend.helpTitle || backend.name || backend.backendId });
         }
     }
+
     directives.sort(function(a, b) { return b.prefix.length - a.prefix.length; });
 
     for (var di = 0; di < directives.length; di += 1) {
@@ -158,7 +159,7 @@ function parseDirective(rawQuery, backends) {
         if (!d.prefix || trimmed.indexOf(d.prefix) !== 0)
             continue;
         var next = trimmed[d.prefix.length];
-        var compactPrefix = d.prefix.length === 1 && (d.prefix === ":" || d.prefix === "!" || d.prefix === "=");
+        var compactPrefix = d.prefix.length === 1 && (d.prefix === ":" || d.prefix === "=");
         if (!compactPrefix && next !== undefined && !/\s/.test(next) && next !== ":" && next !== "/")
             continue;
         return {

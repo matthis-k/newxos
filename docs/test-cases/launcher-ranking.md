@@ -6,7 +6,7 @@ Use `newshell ipc call query search '<query>'` after `systemctl --user restart n
 
 Run these queries after any launcher search change:
 
-`zen`, `zen `, `zen priv`, `zen win`, `zen browser`, `zen new`, `wifi`, `wifi `, `wifi on`, `wifi off`, `wifi toggle`, `toggle wifi`, `wo`, `wt`, `:`, `:wifi`, `:wifi `, `:wifi on`, `:db wifi`, `@apps`, `@apps zen`, `@apps wifi`, `db wifi`, `dashboard wifi`, `au`, `aud`, `audi`, `audio`, `en`, `screen`, `session`, `newxos`, `vpn of`, `notes`, `/tmp`
+`zen`, `zen `, `zen priv`, `zen win`, `zen browser`, `zen new`, `wifi`, `wifi `, `wifi on`, `wifi off`, `wifi toggle`, `toggle wifi`, `wo`, `wt`, `:`, `:wifi`, `:wifi `, `:wifi on`, `:db wifi`, `@apps`, `@apps zen`, `@apps wifi`, `@web nix`, `web nix`, `web !gh nix`, `db wifi`, `dashboard wifi`, `au`, `aud`, `audi`, `audio`, `en`, `screen`, `session`, `newxos`, `vpn of`, `notes`, `/tmp`
 
 ## What each case guards against
 
@@ -20,6 +20,8 @@ Run these queries after any launcher search change:
 - `:` — prefix gate should activate desktop-action mode, not leak to other backends
 - `:wifi` / `:wifi on` — gated queries should scope to the gated namespace, not surface ungated results
 - `@apps` — app gate should scope to desktop apps, not fall back to general search
+- `@web nix` / `web nix` — explicit web mode should pass the raw query to the default browser, not construct engine-specific URLs
+- `web !gh nix` — browser bang shortcuts should remain browser-owned by passing `!gh nix` to the default browser search engine
 - `db wifi` / `dashboard wifi` — tab backend should activate on keyword; the same keyword typed with or without the tab prefix should produce consistent results
 - `au` / `aud` / `audi` / `audio` — progressive typing should not cause jumpy reordering of the top result; the user should see a stable selection as they type (broke when short fuzzy matches from other backends intermittently outscored the correct result)
 - `session` — session/power actions should appear as a group, not scattered as individual flat results
@@ -31,4 +33,4 @@ Run these queries after any launcher search change:
 
 - Flattening and row generation: `configs/quickshell/launcher/logic/CompositeSearchFlatten.js`
 - Scoring and evidence: `configs/quickshell/launcher/logic/CompositeSearchEvaluate.js`, `configs/quickshell/launcher/logic/CompositeSearchEvidence.js`
-- Prefix parsing and backend participation: `configs/quickshell/launcher/logic/CompositeSearchPipeline.js`, `configs/quickshell/launcher/logic/QueryParsing.js`
+- Prefix parsing and backend participation: `configs/quickshell/launcher/logic/CompositeSearchText.js`, `configs/quickshell/launcher/logic/CompositeSearchPipeline.js`, `configs/quickshell/launcher/logic/Router.js`

@@ -1,6 +1,5 @@
 import QtQml
 import "../logic/CompositeSearch.js" as CompositeSearch
-import "../logic/QueryParsing.js" as QueryParsing
 import "../logic/Router.js" as Router
 
 QtObject {
@@ -77,16 +76,9 @@ QtObject {
     }
 
     function queryText(query) {
-        const parsed = QueryParsing.parse(query);
         for (const route of root.routes || []) {
-            if (Router.routeMatches(query, route)) {
-                const routed = Router.extractText(query, route);
-                if (route.pattern)
-                    return routed;
-                if (parsed.explicit && parsed.targetBackend === root.backendId)
-                    return parsed.text || "";
-                return routed;
-            }
+            if (Router.routeMatches(query, route))
+                return Router.extractText(query, route);
         }
         return query || "";
     }

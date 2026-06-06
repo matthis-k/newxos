@@ -28,6 +28,11 @@ ModelTreeBackendBase {
 
     readonly property var appTree: buildAppTree()
 
+    function debugLog(category, message, data) {
+        if (root.controller && root.controller.debugEnabled)
+            DebugLogger.log(category, message, data);
+    }
+
     function skipEntry(entry) {
         if (entry.noDisplay || !entry.name)
             return true;
@@ -84,7 +89,7 @@ ModelTreeBackendBase {
         const entryId = metadata.desktopEntry || cmdAction.entryId;
         const entry = entryId ? DesktopEntries.byId(entryId) : null;
         if (!entry) {
-            DebugLogger.log("desktop-launch", "Desktop entry not found", {
+            root.debugLog("desktop-launch", "Desktop entry not found", {
                 resultId: result ? result.id : null,
                 entryId: entryId || null,
                 actionId: cmdAction.actionId || null
@@ -93,7 +98,7 @@ ModelTreeBackendBase {
         }
 
         const actionId = cmdAction.actionId || (action ? action.id : null);
-        DebugLogger.log("desktop-launch", "Activating desktop entry", {
+        root.debugLog("desktop-launch", "Activating desktop entry", {
             resultId: result ? result.id : null,
             entryId: entry.id,
             name: entry.name || null,
@@ -109,14 +114,14 @@ ModelTreeBackendBase {
 
         const desktopAction = (entry.actions || []).find(item => item.id === actionId);
         if (desktopAction) {
-            DebugLogger.log("desktop-launch", "Activating desktop action", {
+            root.debugLog("desktop-launch", "Activating desktop action", {
                 entryId: entry.id,
                 actionId: actionId,
                 command: desktopAction.command || []
             });
             launchDesktopCommand(desktopAction.command, entry.workingDirectory, entry.runInTerminal);
         } else {
-            DebugLogger.log("desktop-launch", "Desktop action not found", {
+            root.debugLog("desktop-launch", "Desktop action not found", {
                 entryId: entry.id,
                 actionId: actionId,
                 availableActions: (entry.actions || []).map(item => item.id || "")
@@ -126,13 +131,13 @@ ModelTreeBackendBase {
 
     function launchDesktopCommand(command, workingDirectory, runInTerminal) {
         if (!command || command.length === 0) {
-            DebugLogger.log("desktop-launch", "Empty desktop command", {});
+            root.debugLog("desktop-launch", "Empty desktop command", {});
             return;
         }
 
         const launchCommand = stripDesktopFieldCodes(command);
         if (launchCommand.length === 0) {
-            DebugLogger.log("desktop-launch", "Desktop command only contained field codes", {
+            root.debugLog("desktop-launch", "Desktop command only contained field codes", {
                 originalCommand: command || []
             });
             return;
@@ -140,7 +145,7 @@ ModelTreeBackendBase {
 
         if (runInTerminal) {
             const terminalCommand = ["systemd-run", "--user", "--scope", "--collect", "--same-dir", "--", "setsid", "sh", "-lc", "exec \"${TERMINAL:-kitty}\" -e \"$@\"", "launcher-terminal"].concat(launchCommand);
-            DebugLogger.log("desktop-launch", "Executing terminal desktop command", {
+            root.debugLog("desktop-launch", "Executing terminal desktop command", {
                 originalCommand: command,
                 launchCommand: launchCommand,
                 systemdCommand: terminalCommand,
@@ -154,7 +159,7 @@ ModelTreeBackendBase {
         }
 
         const systemdCommand = ["systemd-run", "--user", "--scope", "--collect", "--same-dir", "--"].concat(launchCommand);
-        DebugLogger.log("desktop-launch", "Executing desktop command", {
+        root.debugLog("desktop-launch", "Executing desktop command", {
             originalCommand: command,
             launchCommand: launchCommand,
             systemdCommand: systemdCommand,

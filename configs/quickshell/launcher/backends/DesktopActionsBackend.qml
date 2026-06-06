@@ -20,12 +20,12 @@ TreeBackendBase {
     name: qsTr("Desktop Actions")
     helpDescription: qsTr("Run networking, session, system, and dashboard actions")
     helpIcon: "system-run"
-    helpPrefixes: [":", "!"]
+    helpPrefixes: [":"]
     priority: 120
     maxResults: 8
     dynamicCompositeRoot: true
     routes: [
-        { pattern: "^[:!](.*)", mode: "exclusive" },
+        { pattern: "^:(.*)", mode: "exclusive" },
         { pattern: "^.*$", mode: "ambient" }
     ]
 

@@ -224,7 +224,6 @@ function scoreEvidence(evidenceItems, node, ctx) {
         combined = 1 - (1 - combined) * (1 - clamp(sorted[i].effective, 0, 1.2));
 
     if (ctx.query.tokens.length > 1) {
-        var prev = combined;
         var covered = coveredTokenIndexes(sorted, ctx.query);
         var coveredCount = Object.keys(covered).length;
         var ratio = coveredCount / ctx.query.tokens.length;
@@ -233,7 +232,6 @@ function scoreEvidence(evidenceItems, node, ctx) {
         var coverageFactor = (isActionLike ? 0.08 : 0.20) + ((isActionLike ? 0.92 : 0.80) * ratio);
         var negativeEvidenceFactor = Math.pow(isActionLike ? 0.15 : 0.30, missingCount);
         combined *= coverageFactor * negativeEvidenceFactor;
-        console.log("SCORE: node=" + node.label + " kind=" + node.kind + " tokens=" + ctx.query.tokens.length + " covered=" + coveredCount + " before=" + prev.toFixed(3) + " after=" + combined.toFixed(3) + " isAction=" + isActionLike + " missing=" + missingCount + " ratio=" + ratio.toFixed(2) + " cf=" + coverageFactor.toFixed(3) + " nf=" + negativeEvidenceFactor.toFixed(3));
     }
     return { value: clamp(combined), visible: combined >= ctx.visibilityThreshold, reason: "saturating weighted evidence" };
 }
