@@ -148,10 +148,11 @@ Rectangle {
                     Layout.fillWidth: true
 
                     Text {
-                        text: root.result.title || ""
+                        text: root.buildHighlightedText(root.result.title || "", root.result.labelMatches)
                         color: Config.styling.text0
                         font.pixelSize: 15
                         font.bold: false
+                        textFormat: root.result.labelMatches && root.result.labelMatches.length > 0 ? Text.StyledText : Text.PlainText
                         elide: Text.ElideRight
                         maximumLineCount: 1
                         Layout.fillWidth: true
@@ -278,6 +279,8 @@ Rectangle {
                         TableModelColumn { display: "control" }
                         TableModelColumn { display: "alwaysExpanded" }
                         TableModelColumn { display: "presentation" }
+                        TableModelColumn { display: "labelMatches" }
+                        TableModelColumn { display: "subtitleMatches" }
 
                         rows: []
 
@@ -352,6 +355,8 @@ Rectangle {
                 subtitle: child.subtitle || "",
                 icon: child.icon || "",
                 iconColor: child.iconColor || "",
+                labelMatches: child.labelMatches || [],
+                subtitleMatches: child.subtitleMatches || [],
                 switchState: child.switchState === true,
                 hasActions: !!(child.actions && child.actions.length > 0),
                 hasSwitchActions: !!root.hasSwitchActions(child),
@@ -462,6 +467,45 @@ Rectangle {
             if (actions[i].default) return actions[i];
         }
         return actions[0] || null;
+    }
+
+    function buildHighlightedText(text, matches) {
+        if (!matches || matches.length === 0 || !text)
+            return text || "";
+        function escapeHtml(s) {
+            return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+        var sorted = matches.slice().sort(function(a, b) { return a.start - b.start; });
+        var merged = [];
+        for (var i = 0; i < sorted.length; i++) {
+            var r = sorted[i];
+            if (r.start >= text.length) break;
+            if (r.end <= 0) continue;
+            if (!merged.length) {
+                merged.push({ start: Math.max(0, r.start), end: Math.min(text.length, r.end) });
+            } else {
+                var last = merged[merged.length - 1];
+                var s = Math.max(0, r.start);
+                var e = Math.min(text.length, r.end);
+                if (s <= last.end) {
+                    last.end = Math.max(last.end, e);
+                } else {
+                    merged.push({ start: s, end: e });
+                }
+            }
+        }
+        var result = "";
+        var pos = 0;
+        for (var i = 0; i < merged.length; i++) {
+            var r = merged[i];
+            if (r.start > pos)
+                result += escapeHtml(text.substring(pos, r.start));
+            result += "<font color=\"" + String(Config.colors.blue) + "\">" + escapeHtml(text.substring(r.start, r.end)) + "</font>";
+            pos = r.end;
+        }
+        if (pos < text.length)
+            result += escapeHtml(text.substring(pos));
+        return result;
     }
 
     function scoreColor(score) {

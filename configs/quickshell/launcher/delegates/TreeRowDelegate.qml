@@ -36,6 +36,8 @@ Rectangle {
     readonly property bool lazy: !!cell(11)
     readonly property var control: cell(12) || null
     readonly property bool alwaysExpanded: !!cell(13)
+    readonly property var labelMatches: cell(15) || []
+    readonly property var subtitleMatches: cell(16) || []
     readonly property bool hasSlider: !!control && control.kind === "slider"
     readonly property var sliderNode: sliderNodeFor(control)
     readonly property real sliderValue: sliderValueFor(control, sliderNode)
@@ -167,20 +169,22 @@ Rectangle {
                 Layout.alignment: Qt.AlignVCenter
 
                 Text {
-                    text: root.title
+                    text: root.buildHighlightedText(root.title, root.labelMatches)
                     color: Config.styling.text0
                     font.pixelSize: 13
                     font.bold: false
+                    textFormat: root.labelMatches.length > 0 ? Text.StyledText : Text.PlainText
                     elide: Text.ElideRight
                     maximumLineCount: 1
                     Layout.fillWidth: true
                 }
 
                 Text {
-                    text: root.subtitle
+                    text: root.buildHighlightedText(root.subtitle, root.subtitleMatches)
                     visible: !!root.subtitle
                     color: Config.styling.text2
                     font.pixelSize: 11
+                    textFormat: root.subtitleMatches.length > 0 ? Text.StyledText : Text.PlainText
                     elide: Text.ElideRight
                     maximumLineCount: 1
                     Layout.fillWidth: true
@@ -317,6 +321,45 @@ Rectangle {
         }
         if (root.control.target === "pipewire" && root.sliderNode && root.sliderNode.audio)
             root.sliderNode.audio.volume = Math.max(0, Math.min((root.control.to || 100) / 100, value / 100));
+    }
+
+    function buildHighlightedText(text, matches) {
+        if (!matches || matches.length === 0 || !text)
+            return text || "";
+        function escapeHtml(s) {
+            return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+        var sorted = matches.slice().sort(function(a, b) { return a.start - b.start; });
+        var merged = [];
+        for (var i = 0; i < sorted.length; i++) {
+            var r = sorted[i];
+            if (r.start >= text.length) break;
+            if (r.end <= 0) continue;
+            if (!merged.length) {
+                merged.push({ start: Math.max(0, r.start), end: Math.min(text.length, r.end) });
+            } else {
+                var last = merged[merged.length - 1];
+                var s = Math.max(0, r.start);
+                var e = Math.min(text.length, r.end);
+                if (s <= last.end) {
+                    last.end = Math.max(last.end, e);
+                } else {
+                    merged.push({ start: s, end: e });
+                }
+            }
+        }
+        var result = "";
+        var pos = 0;
+        for (var i = 0; i < merged.length; i++) {
+            var r = merged[i];
+            if (r.start > pos)
+                result += escapeHtml(text.substring(pos, r.start));
+            result += "<font color=\"" + String(Config.colors.blue) + "\">" + escapeHtml(text.substring(r.start, r.end)) + "</font>";
+            pos = r.end;
+        }
+        if (pos < text.length)
+            result += escapeHtml(text.substring(pos));
+        return result;
     }
 
     function selectThisRow() {
