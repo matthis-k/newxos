@@ -434,7 +434,8 @@ function flattenForUi(evaluatedRoot, state, ctx) {
                 add(ev, depth, score, decision.children, forceInclude, { suppressParentActions: !!decision.suppressParentActions });
                 return;
             }
-            add(ev, depth, score, decision.mode === "filtered-group" ? decision.children : [], forceInclude);
+            if (decision.mode !== "group" || ev.ownScore > 0 || ev.ownVisible)
+                add(ev, depth, score, decision.mode === "filtered-group" ? decision.children : [], forceInclude);
             if (decision.mode === "filtered-group") {
                 for (var ci = 0; ci < decision.children.length; ci += 1)
                     add(decision.children[ci], depth + 1, decision.children[ci].score);

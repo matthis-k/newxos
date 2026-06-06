@@ -59,7 +59,6 @@ Item {
         generation += 1;
         query = text;
         selectedActionIndex = 0;
-        loading = false;
 
         if (!text || text.trim().length === 0) {
             resultsClearRequested();
@@ -721,8 +720,7 @@ Item {
             }
         }
         var targets = root.navigationTargets();
-        var preservedTarget = previousActiveNodeKey ? targets.find(function(target) { return target.key === previousActiveNodeKey; }) : null;
-        root.applyNavigationTarget(preservedTarget || (targets.length > 0 ? targets[0] : null));
+        root.applyNavigationTarget(targets.length > 0 ? targets[0] : null);
     }
 
     function registerResultTreeView(index, treeView) {

@@ -226,7 +226,7 @@ PanelWindow {
                         if (!(event.modifiers & Qt.ShiftModifier))
                             controller.completeSelected();
                         event.accepted = true;
-                    } else if (event.modifiers & Qt.ControlModifier && (event.key === Qt.Key_H || event.key === Qt.Key_Backspace)) {
+                    } else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_H) {
                         if (controller.isInTree())
                             controller.treeCollapseSelected();
                         else

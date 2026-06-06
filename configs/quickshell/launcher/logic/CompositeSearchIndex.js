@@ -29,6 +29,7 @@ function searchableFields(node) {
     if (node.keywords && node.keywords.length) fields.push({ field: "keywords", text: node.keywords.join(" "), weight: w.keywords === undefined ? 0.45 : w.keywords, nodeId: node.id });
     if (node.command) fields.push({ field: "command", text: node.command, weight: w.command === undefined ? 0.25 : w.command, nodeId: node.id });
     if (node.path) fields.push({ field: "path", text: node.path, weight: w.path === undefined ? 0.38 : w.path, nodeId: node.id });
+    if (node.breadcrumbLabel) fields.push({ field: "breadcrumb", text: node.breadcrumbLabel, weight: w.breadcrumb === undefined ? 0.5 : w.breadcrumb, nodeId: node.id });
     node.__searchableFields = fields.map(prepareSearchableField);
     return node.__searchableFields;
 }
@@ -90,9 +91,6 @@ function computeDirectiveTagClosure(node) {
 }
 
 function buildSearchIndex(root) {
-    if (root.__searchIndex)
-        return root.__searchIndex;
-
     var index = {
         exact: {},
         prefix: {},
@@ -126,20 +124,29 @@ function buildSearchIndex(root) {
             index.nodesById[id] = source.nodesById[id];
     }
 
-    function visit(node) {
-        if (node !== root && node.__searchIndex) {
-            mergeIndex(node.__searchIndex);
-            return;
-        }
+    function visit(node, parentBreadcrumbAcro) {
         index.nodesById[node.id] = node;
+
+        delete node.__searchableFields;
+        var labelAcro = getAcronymRanges(node.label || "");
+        var firstLetter = (labelAcro[0] || {}).char || "";
+        var parentLetter = (parentBreadcrumbAcro || "").slice(-1);
+        var breadcrumbAcro = parentBreadcrumbAcro || "";
+        if (firstLetter) {
+            breadcrumbAcro = (parentLetter || "") + firstLetter;
+            if (breadcrumbAcro.length >= 2)
+                node.breadcrumbLabel = breadcrumbAcro.toUpperCase().split("").join(" ");
+        }
+
         var fields = searchableFields(node);
         for (var fi = 0; fi < fields.length; fi += 1)
             addFieldToIndex(index, fields[fi], node);
+
         for (var ci = 0; ci < (node.children || []).length; ci += 1)
-            visit(node.children[ci]);
+            visit(node.children[ci], breadcrumbAcro);
     }
 
-    visit(root);
+    visit(root, "");
     computeDirectiveTagClosure(root);
     root.__searchIndex = index;
     return index;
