@@ -196,8 +196,8 @@ LauncherBackendBase {
                 children.push(root.node({
                     id: "calculator:result:" + expression,
                     kind: "calculator-result",
-                    label: expression,
-                    subtitle: qsTr("= %1").arg(output),
+                    label: output,
+                    keywords: [expression],
                     icon: root.helpIcon,
                     actionList: [
                         root.action("copy", qsTr("Copy result"), { expression: expression, result: output, actionId: "copy" }),

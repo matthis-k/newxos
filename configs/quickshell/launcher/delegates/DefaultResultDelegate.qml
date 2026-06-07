@@ -148,11 +148,13 @@ Rectangle {
                     Layout.fillWidth: true
 
                     Text {
-                        text: root.buildHighlightedText(root.result.title || "", root.result.labelMatches)
+                        text: root.result.kind === "calculator-result"
+                            ? root.buildCalculatorText(root.result.title)
+                            : root.buildHighlightedText(root.result.title || "", root.result.labelMatches)
                         color: Config.styling.text0
                         font.pixelSize: 15
                         font.bold: false
-                        textFormat: root.result.labelMatches && root.result.labelMatches.length > 0 ? Text.StyledText : Text.PlainText
+                        textFormat: root.result.kind === "calculator-result" ? Text.StyledText : (root.result.labelMatches && root.result.labelMatches.length > 0 ? Text.StyledText : Text.PlainText)
                         elide: Text.ElideRight
                         maximumLineCount: 1
                         Layout.fillWidth: true
@@ -467,6 +469,13 @@ Rectangle {
             if (actions[i].default) return actions[i];
         }
         return actions[0] || null;
+    }
+
+    function buildCalculatorText(title) {
+        function escapeHtml(s) {
+            return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+        return "<font color=\"" + String(Config.colors.blue) + "\"><b>" + escapeHtml(title) + "</b></font>";
     }
 
     function buildHighlightedText(text, matches) {
