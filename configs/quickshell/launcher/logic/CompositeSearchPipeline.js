@@ -4,6 +4,7 @@
 .import "CompositeSearchEvaluate.js" as Evaluate
 .import "CompositeSearchFlatten.js" as Flatten
 .import "CompositeSearchRows.js" as Rows
+.import "CompositeSearchPolicies.js" as Policies
 
 
 var nowMs = Text.nowMs;
@@ -14,7 +15,7 @@ var countKeys = Text.countKeys;
 var buildSearchIndex = Index.buildSearchIndex;
 var collectCandidateIdsForRoots = Index.collectCandidateIdsForRoots;
 var evaluateNode = Evaluate.evaluateNode;
-var injectPathEvidence = Evaluate.injectPathEvidence;
+var applyInheritPolicies = Evaluate.applyInheritPolicies;
 var flattenForUi = Flatten.flattenForUi;
 var finalizeRows = Rows.finalizeRows;
 
@@ -54,7 +55,7 @@ function search(backends, rawQuery, state, options) {
 
     var pathStart = nowMs();
     if (ctx.includePath && !query.isEmpty)
-        injectPathEvidence(evaluated, query, ctx);
+        applyInheritPolicies(evaluated, query, ctx);
     var pathMs = nowMs() - pathStart;
 
     var flattenStart = nowMs();

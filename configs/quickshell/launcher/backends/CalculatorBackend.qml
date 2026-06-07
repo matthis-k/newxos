@@ -203,7 +203,7 @@ LauncherBackendBase {
                         root.action("copy", qsTr("Copy result"), { expression: expression, result: output, actionId: "copy" }),
                         root.action("copy-expression", qsTr("Copy expression"), { expression: expression, result: output, actionId: "copy-expression" })
                     ],
-                    evaluationProfile: { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "semantic"], scorePolicy: "semantic-result" },
+                    evaluationProfile: { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "semantic"], scorePolicy: "semantic-result", profile: { evidence: ["field-match:all", "semantic"], inherit: [], boost: [], childVisible: ["visible-flag", "above-min-score:0.25"], childBypass: ["own-score-beats-parent", "score-dominates:0.03"] } },
                     semanticTerms: [{ triggers: [expression], matches: [expression], field: "semantic", score: 1, weight: 1.4 }],
                     meta: { expression: expression, result: output }
                 }));

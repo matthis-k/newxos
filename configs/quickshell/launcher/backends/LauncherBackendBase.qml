@@ -71,7 +71,7 @@ QtObject {
             behavior: Object.assign({
                 exclusiveWhen: (root.routes || []).filter(function(route) { return route && route.mode === "exclusive"; })
             }, opts.behavior || {}),
-            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend" }
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "switch-action", "semantic", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], childBypass: ["own-score-beats-parent", "score-dominates:0.03"] } }
         }, opts));
     }
 

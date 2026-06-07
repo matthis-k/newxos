@@ -205,7 +205,7 @@ function makeNode(props) {
     node.path = node.path || "";
     node.usageCount = node.usageCount || 0;
     node.lastUsedDaysAgo = node.lastUsedDaysAgo === undefined ? 9999 : node.lastUsedDaysAgo;
-    node.evaluationProfile = node.evaluationProfile || { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default" };
+    node.evaluationProfile = node.evaluationProfile || { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default", profile: { evidence: ["field-match:all", "switch-action", "semantic", "token-claim", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], childBypass: ["own-score-beats-parent", "score-dominates:0.03"] } };
     node.actionList = node.actionList || [];
     node.meta = node.meta || node.metadata || {};
     for (var i = 0; i < node.children.length; i += 1) {

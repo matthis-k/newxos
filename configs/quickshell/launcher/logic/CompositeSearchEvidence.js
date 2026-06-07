@@ -134,6 +134,24 @@ function tokenClaimToEvidence(node, query, claim) {
     return { strategy: "node-token-policy", field: claim.field || "token-claim", fieldText: query.tokens[claim.tokenIndex] ? query.tokens[claim.tokenIndex].raw : "", nodeId: node.id, originNodeId: node.id, originKind: "self", depth: 0, kind: "token-claim", tokenIndex: claim.tokenIndex, tokenIndexes: [claim.tokenIndex], coverageCount: 1, exactness: "exact", actionId: null, actionRole: null, isExecutable: false, score: clamp(claim.strength || 1), weight: claim.weight || 0.62, effective: clamp(claim.strength || 1) * (claim.weight || 0.62), ranges: [], reason: claim.reason || "node token claim" };
 }
 
+function filterFields(fields, filterType) {
+    if (!fields || !fields.length)
+        return [];
+    if (!filterType || filterType === "all")
+        return fields.slice();
+    if (filterType === "primary")
+        return fields.filter(function(f) { return f.field !== "breadcrumb"; });
+    if (filterType === "breadcrumb")
+        return fields.filter(function(f) { return f.field === "breadcrumb"; });
+    var re;
+    try {
+        re = new RegExp(filterType);
+    } catch (e) {
+        return [];
+    }
+    return fields.filter(function(f) { return re.test(f.field); });
+}
+
 function evidenceFieldGroup(field) {
     var f = String(field || "");
     if (f === "usage" || f === "recency") return "boost:" + f;

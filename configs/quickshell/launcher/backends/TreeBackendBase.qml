@@ -31,7 +31,7 @@ LauncherBackendBase {
         root.compositeRootCacheKey = cacheKey;
         const compositeRoot = root.backendRootDto(roots.map(function(node) { return compositeNode(node, []); }), {
             tags: [root.backendId],
-            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"], scorePolicy: "backend" }
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "switch-action", "semantic", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], childBypass: ["own-score-beats-parent", "score-dominates:0.03"] } }
         });
         CompositeSearch.buildSearchIndex(compositeRoot);
         if (!root.dynamicCompositeRoot)
@@ -131,7 +131,7 @@ LauncherBackendBase {
 
     function behaviorForNode(node, children) {
         var extra = {};
-        if (node.template === "action-group" || node.template === "flat-action-group")
+        if (node.template === "action-group" || node.template === "flat-action-group" || node.template === "switch")
             extra = categoryGroupBehavior(node.groupOptions || {});
         if (node.behavior)
             return Object.assign({}, extra, node.behavior);

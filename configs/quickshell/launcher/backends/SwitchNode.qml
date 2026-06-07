@@ -35,6 +35,24 @@ Node {
         return actions;
     }
 
+    function ownChildNodes() {
+        var out = [];
+        for (var ci = 0; ci < (root.dynamicChildren || []).length; ci += 1)
+            out.push(root.ownMaterializeChild(root.dynamicChildren[ci]));
+        for (var i = 0; i < root.entries.length; i += 1) {
+            var child = root.ownMaterializeChild(root.entries[i]);
+            if (child)
+                out.push(child);
+        }
+        return out;
+    }
+
+    function ownMaterializeChild(entry) {
+        if (entry && typeof entry.toTreeObject === "function")
+            return entry.toTreeObject();
+        return entry || null;
+    }
+
     function toTreeObject() {
         var id = root.nodeId || root.name || root.title;
         var out = {
@@ -50,9 +68,21 @@ Node {
             behavior: root.behavior,
             groupOptions: root.groupOptions || {},
             tokenPolicy: root.tokenPolicy,
-            children: [],
+            children: root.ownChildNodes(),
             replaceQuery: root.replaceQuery,
-            switchActions: root.ownSwitchActions()
+            switchActions: root.ownSwitchActions(),
+            evaluationProfile: {
+                mode: "generic+custom",
+                strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"],
+                scorePolicy: "default",
+                profile: {
+                    evidence: ["field-match:primary", "field-match:breadcrumb", "switch-action"],
+                    inherit: [],
+                    boost: ["descendant-boost", "switch-aliases"],
+                    childVisible: ["own-score-min:0.25", "own-score-beats-parent"],
+                    childBypass: ["score-dominates:0.03"]
+                }
+            }
         };
         if (root.switchState !== undefined)
             out.switchState = root.switchState;

@@ -2,6 +2,7 @@
 .import "CompositeSearchText.js" as Text
 .import "CompositeSearchEvidence.js" as Evidence
 .import "CompositeSearchEvaluate.js" as Evaluate
+.import "CompositeSearchPolicyRegistry.js" as PolicyRegistry
 
 
 var clamp = Text.clamp;
@@ -12,6 +13,35 @@ var overlayEvidence = Evidence.overlayEvidence;
 var coveredTokenIndexes = Evidence.coveredTokenIndexes;
 var compareEvaluated = Evaluate.compareEvaluated;
 var collectParentChain = Evaluate.collectParentChain;
+
+var defaultChildVisible = ["visible-flag", "above-min-score:0.25"];
+var defaultChildBypass = ["own-score-beats-parent", "score-dominates:0.03"];
+
+function childProfile(ev) {
+    return (ev.node.evaluationProfile || {}).profile || {};
+}
+
+function childPassesVisible(childEval, parentEval, ctx) {
+    var profile = childProfile(parentEval);
+    var names = profile.childVisible || defaultChildVisible;
+    for (var i = 0; i < names.length; i += 1) {
+        var policy = PolicyRegistry.childVisible.get(names[i]);
+        if (!policy || !policy.apply(childEval, parentEval, ctx))
+            return false;
+    }
+    return true;
+}
+
+function childDominates(childEval, parentEval, ctx) {
+    var profile = childProfile(parentEval);
+    var names = profile.childBypass || defaultChildBypass;
+    for (var i = 0; i < names.length; i += 1) {
+        var policy = PolicyRegistry.childBypass.get(names[i]);
+        if (policy && policy.apply(childEval, parentEval, ctx))
+            return true;
+    }
+    return false;
+}
 
 function groupDisplayPolicy(ev) {
     var flattenPolicy = ev.node.behavior && ev.node.behavior.flattenPolicy || {};
@@ -37,17 +67,42 @@ function groupDominanceOwnScore(ev, ctx) {
 }
 
 function decideGroupDisplay(ev, ctx) {
-    if (ev.node.switchActions)
+    if (ev.node.switchActions) {
+        if (!ev.children || ev.children.length === 0)
+            return { mode: "group", showParent: true, children: [] };
+        var switchPolicy = groupDisplayPolicy(ev) || {};
+        var switchGroupPolicy = switchPolicy.groupDisplay || {};
+        var switchMinChildScore = switchGroupPolicy.minChildScore === undefined ? 0.25 : switchGroupPolicy.minChildScore;
+        var switchMaxChildren = switchGroupPolicy.maxNestedChildren || switchGroupPolicy.maxFlattenedChildren || 8;
+
+        if (ctx.query.lastTokenEmpty && ev.ownVisible && ev.ownScore >= switchMinChildScore) {
+            var browseChildren = ev.children.filter(function(c) {
+                return c.candidate || c.visible;
+            }).sort(compareEvaluated).slice(0, switchMaxChildren);
+            if (browseChildren.length > 0)
+                return { mode: "nested-group", showParent: true, children: browseChildren };
+        }
+
+        var switchChildren = ev.children.filter(function(c) {
+            return childPassesVisible(c, ev, ctx);
+        }).sort(compareEvaluated).slice(0, switchMaxChildren);
+        if (switchChildren.length > 0)
+            return { mode: "nested-group", showParent: true, children: switchChildren };
         return { mode: "group", showParent: true, children: [] };
+    }
 
     var policy = groupDisplayPolicy(ev);
 
     if (ev.node.behavior && ev.node.behavior.filterable) {
         if (ev.ownVisible && policy) {
             var childScore = groupDominanceOwnScore(ev, ctx);
-            var visibleChildren = ev.children.filter(function(c) { return c.visible && c.score >= policy.minChildScore; }).sort(compareEvaluated);
+            var visibleChildren = ev.children.filter(function(c) {
+                return childPassesVisible(c, ev, ctx);
+            }).sort(compareEvaluated);
             if (visibleChildren.length) {
-                var dominantChildren = visibleChildren.filter(function(c) { return c.score >= childScore + policy.childWinsMargin; });
+                var dominantChildren = visibleChildren.filter(function(c) {
+                    return childDominates(c, ev, ctx);
+                });
                 if (dominantChildren.length === 1) {
                     return { mode: "flatten-children", showParent: false, children: dominantChildren };
                 }
@@ -75,12 +130,16 @@ function decideGroupDisplay(ev, ctx) {
 
     if (!hasActions && policy.flattenAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
         return { mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, policy.maxNestedChildren || ev.children.length) };
-    var visibleChildren = ev.children.filter(function(c) { return c.visible && c.score >= policy.minChildScore; }).sort(compareEvaluated);
+    var visibleChildren = ev.children.filter(function(c) {
+        return childPassesVisible(c, ev, ctx);
+    }).sort(compareEvaluated);
     if (!visibleChildren.length) {
         return { mode: "group", showParent: true, children: [] };
     }
     var bestChild = visibleChildren[0];
-    var dominantChildren = visibleChildren.filter(function(child) { return child.score >= parentScore + policy.childWinsMargin; });
+    var dominantChildren = visibleChildren.filter(function(child) {
+        return childDominates(child, ev, ctx);
+    });
     if (dominantChildren.length === 1) {
         return { mode: "flatten-children", showParent: false, children: dominantChildren };
     }
@@ -358,6 +417,7 @@ function toResultRow(ev, depth, state, ctx, childRows, options) {
         depth: depth,
         score: ev.score,
         ownScore: ev.ownScore,
+        inheritedScore: ev.inheritedScore || 0,
         descendantScore: ev.descendantScore || 0,
         ownVisible: !!ev.ownVisible,
         matchDepth: ev.matchDepth === undefined ? depth : ev.matchDepth,
