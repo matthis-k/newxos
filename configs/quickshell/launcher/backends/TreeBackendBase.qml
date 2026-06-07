@@ -1,5 +1,5 @@
 import QtQml
-import "../logic/CompositeSearch.js" as CompositeSearch
+import "../logic/"
 
 LauncherBackendBase {
     id: root
@@ -33,7 +33,7 @@ LauncherBackendBase {
             tags: [root.backendId],
             evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "switch-action", "semantic", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], childBypass: ["own-score-beats-parent", "score-dominates:0.03"] } }
         });
-        CompositeSearch.buildSearchIndex(compositeRoot);
+        IndexBuilder.buildSearchIndex(compositeRoot);
         if (!root.dynamicCompositeRoot)
             root.compositeRootCache = compositeRoot;
         return compositeRoot;
@@ -68,6 +68,18 @@ LauncherBackendBase {
         const rawSwitchActions = node.switchActions || (node.switchState === undefined ? null : switchActionMap(node, children));
         const switchActions = actionDtosForSwitchActions(rawSwitchActions);
         const kind = switchActions && children.length === 0 ? "switch" : (children.length > 0 || node.template === "action-group" || node.template === "flat-action-group") ? "action-group" : "desktop-action";
+        const switchProfile = kind === "switch" && !node.evaluationProfile ? {
+            mode: "generic+custom",
+            strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"],
+            scorePolicy: "default",
+            profile: {
+                evidence: ["field-match:primary", "field-match:breadcrumb", "switch-action"],
+                inherit: [],
+                boost: ["descendant-boost", "switch-aliases"],
+                childVisible: ["has-own-score"],
+                childBypass: ["score-dominates:0.03"]
+            }
+        } : null;
         const actions = switchActions
             ? [switchActions.toggle, switchActions.on, switchActions.off].filter(Boolean)
             : action ? [root.actionDto(action.actionId || action.id || "run", action.title || qsTr("Run"), action)] : [];
@@ -116,7 +128,7 @@ LauncherBackendBase {
                 displayPolicy: nodeBehavior.displayPolicy || null
             }, node.behavior || {}),
             semanticTerms: semanticTermsForNode(node),
-            evaluationProfile: { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default" },
+            evaluationProfile: switchProfile || { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default" },
             meta: {
                 action: action,
                 commandPath: path.concat([node]).map(function(item) { return item.id || item.title; }),

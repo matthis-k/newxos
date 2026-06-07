@@ -52,13 +52,20 @@ Rectangle {
     function cell(column) {
         if (!root.treeView || !root.treeView.model)
             return null;
-        return root.treeView.model.data(root.treeView.index(root.row, column), "display");
+        if (root.row < 0 || root.row >= root.treeView.rows)
+            return null;
+        var idx = root.treeView.index(root.row, column);
+        if (!idx.valid)
+            return null;
+        return root.treeView.model.data(idx, "display");
     }
 
     function rowDepth(row) {
         if (!root.treeView || !root.treeView.model || row < 0 || row >= root.treeView.rows)
             return -1;
         var idx = root.treeView.index(row, 0);
+        if (!idx.valid)
+            return -1;
         var depth = 0;
         var parent = root.treeView.model.parent(idx);
         while (parent && parent.valid) {
@@ -363,7 +370,11 @@ Rectangle {
     }
 
     function selectThisRow() {
+        if (!root.treeView || !root.treeView.selectionModel || root.row < 0 || root.row >= root.treeView.rows)
+            return;
         var idx = root.treeView.index(root.row, 0);
+        if (!idx.valid)
+            return;
         root.treeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
         if (root.controller) {
             root.controller.currentTreeView = root.treeView;

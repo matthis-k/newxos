@@ -59,7 +59,7 @@ TreeBackendBase {
             title: qsTr("Newxos")
             icon: "nix-snowflake-symbolic"
             groupOptions: root.defaultFlatGroupOptions
-            behavior: ({ filterable: true })
+            behavior: ({ })
         actionId: "newxos-switch"
         action: function() { launchTerminalPaused(qsTr("newxos switch"), "newxos switch"); }
 
@@ -67,7 +67,7 @@ TreeBackendBase {
             name: "switch"
             aliases: ["switch", "rebuild"]
             title: qsTr("Switch System")
-            subtitle: qsTr("Run newxos switch")
+            subtitle: qsTr("Switch this system to the current flake")
             icon: "system-run-symbolic"
             iconColor: Config.styling.primaryAccent
             actionId: "newxos-switch"

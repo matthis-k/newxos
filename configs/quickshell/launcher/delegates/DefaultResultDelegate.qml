@@ -331,6 +331,8 @@ Rectangle {
                 if (!idx.valid || childTreeView.isExpanded(row))
                     continue;
                 var policyIdx = childTreeView.index(row, 13);
+                if (!policyIdx.valid)
+                    continue;
                 if (treeModel.data(policyIdx, "display") && treeModel.hasChildren(idx)) {
                     childTreeView.expand(row);
                     changed = true;

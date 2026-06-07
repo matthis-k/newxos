@@ -1,0 +1,186 @@
+pragma Singleton
+import QtQml
+import Quickshell
+import "Tokenize.qml"
+
+Singleton {
+    function prepareSearchableField(field) {
+        var text = String(field.text === undefined || field.text === null ? "" : field.text);
+        field.text = text;
+        field.normText = Tokenize.normalizeText(text);
+        field.words = Tokenize.splitWordsWithRanges(text);
+        field.compact = Tokenize.compactWithMap(text);
+        field.acronymLetters = Tokenize.getAcronymRanges(text);
+        return field;
+    }
+
+    function searchableFields(node) {
+        if (node.__searchableFields)
+            return node.__searchableFields;
+        var w = node.fieldWeights || {};
+        var fields = [{ field: "label", text: node.label, weight: w.label === undefined ? 1.0 : w.label, nodeId: node.id }];
+        if (node.subtitle) fields.push({ field: "subtitle", text: node.subtitle, weight: w.subtitle === undefined ? 0.55 : w.subtitle, nodeId: node.id });
+        if (node.aliases && node.aliases.length) fields.push({ field: "aliases", text: node.aliases.join(" "), weight: w.aliases === undefined ? 0.72 : w.aliases, nodeId: node.id });
+        if (node.keywords && node.keywords.length) fields.push({ field: "keywords", text: node.keywords.join(" "), weight: w.keywords === undefined ? 0.45 : w.keywords, nodeId: node.id });
+        if (node.command) fields.push({ field: "command", text: node.command, weight: w.command === undefined ? 0.25 : w.command, nodeId: node.id });
+        if (node.path) fields.push({ field: "path", text: node.path, weight: w.path === undefined ? 0.38 : w.path, nodeId: node.id });
+        if (node.breadcrumbLabel) fields.push({ field: "breadcrumb", text: node.breadcrumbLabel, weight: w.breadcrumb === undefined ? 0.5 : w.breadcrumb, nodeId: node.id });
+        node.__searchableFields = fields.map(prepareSearchableField);
+        return node.__searchableFields;
+    }
+
+    function buildSearchIndex(root) {
+        var index = { exact: {}, prefix: {}, compact: {}, compactPrefix: {}, acronym: {}, acronymPrefix: {}, terms: {}, nodesById: {} };
+        function mergeMap(target, source) {
+            for (var key in source) {
+                if (!target[key]) target[key] = [];
+                var nodes = source[key] || [];
+                for (var ni = 0; ni < nodes.length; ni += 1)
+                    if (target[key].indexOf(nodes[ni]) < 0)
+                        target[key].push(nodes[ni]);
+            }
+        }
+        function mergeIndex(source) {
+            mergeMap(index.exact, source.exact || {});
+            mergeMap(index.prefix, source.prefix || {});
+            mergeMap(index.compact, source.compact || {});
+            mergeMap(index.compactPrefix, source.compactPrefix || {});
+            mergeMap(index.acronym, source.acronym || {});
+            mergeMap(index.acronymPrefix, source.acronymPrefix || {});
+            mergeMap(index.terms, source.terms || {});
+            for (var id in source.nodesById || {}) index.nodesById[id] = source.nodesById[id];
+        }
+        function visit(node, parentBreadcrumbAcro) {
+            index.nodesById[node.id] = node;
+            delete node.__searchableFields;
+            var labelAcro = Tokenize.getAcronymRanges(node.label || "");
+            var firstLetter = (labelAcro[0] || {}).char || "";
+            var parentLetter = (parentBreadcrumbAcro || "").slice(-1);
+            var breadcrumbAcro = parentBreadcrumbAcro || "";
+            if (firstLetter) {
+                breadcrumbAcro = (parentLetter || "") + firstLetter;
+                if (breadcrumbAcro.length >= 2)
+                    node.breadcrumbLabel = breadcrumbAcro.toUpperCase().split("").join(" ");
+            }
+            var fields = searchableFields(node);
+            for (var fi = 0; fi < fields.length; fi += 1)
+                addFieldToIndex(index, fields[fi], node);
+            for (var ci = 0; ci < (node.children || []).length; ci += 1)
+                visit(node.children[ci], breadcrumbAcro);
+        }
+        function addIndexEntry(map, key, nd) {
+            if (!key) return;
+            if (!map[key]) map[key] = [];
+            if (map[key].indexOf(nd) < 0) map[key].push(nd);
+        }
+        function addFieldToIndex(idx, field, nd) {
+            var words = field.words || [];
+            for (var wi = 0; wi < words.length; wi += 1) {
+                var word = words[wi].norm;
+                if (!word) continue;
+                addIndexEntry(idx.exact, word, nd);
+                addIndexEntry(idx.terms, word, nd);
+                for (var pi = 1; pi <= word.length; pi += 1)
+                    addIndexEntry(idx.prefix, word.slice(0, pi), nd);
+            }
+            var compact = field.compact && field.compact.compact || "";
+            if (compact.length >= 2) {
+                addIndexEntry(idx.compact, compact, nd);
+                addIndexEntry(idx.terms, compact, nd);
+                for (var cpi = 2; cpi <= compact.length; cpi += 1)
+                    addIndexEntry(idx.compactPrefix, compact.slice(0, cpi), nd);
+            }
+            var acronym = (field.acronymLetters || []).map(function(x) { return x.char; }).join("");
+            if (acronym.length >= 2) {
+                addIndexEntry(idx.acronym, acronym, nd);
+                for (var api = 2; api <= acronym.length; api += 1)
+                    addIndexEntry(idx.acronymPrefix, acronym.slice(0, api), nd);
+            }
+        }
+        visit(root, "");
+        computeDirectiveTagClosure(root);
+        root.__searchIndex = index;
+        return index;
+    }
+
+    function computeDirectiveTagClosure(node) {
+        if (node.__directiveTagClosure) return node.__directiveTagClosure;
+        var closure = {};
+        for (var ti = 0; ti < (node.tags || []).length; ti += 1)
+            closure[node.tags[ti]] = true;
+        for (var ci = 0; ci < (node.children || []).length; ci += 1) {
+            var childClosure = computeDirectiveTagClosure(node.children[ci]);
+            for (var key in childClosure) closure[key] = true;
+        }
+        node.__directiveTagClosure = closure;
+        return closure;
+    }
+
+    function collectCandidateIds(index, query, marked, capState) {
+        if (!index || query.isEmpty) return null;
+        marked = marked || {};
+        capState = capState || { hits: 0, cap: 256 };
+        for (var ti = 0; ti < query.tokens.length; ti += 1) {
+            if (capState.hits >= capState.cap) break;
+            var token = query.tokens[ti].normalized;
+            var compactToken = Tokenize.compactWithMap(query.tokens[ti].raw).compact || token;
+            collectIndexHitsCapped(index.exact, token, marked, capState);
+            collectIndexHitsCapped(index.prefix, token, marked, capState);
+            collectIndexHitsCapped(index.compact, compactToken, marked, capState);
+            collectIndexHitsCapped(index.compactPrefix, compactToken, marked, capState);
+            collectIndexHitsCapped(index.acronym, token, marked, capState);
+            collectIndexHitsCapped(index.acronymPrefix, token, marked, capState);
+            collectFuzzyHitsCapped(index, token, marked, capState);
+        }
+        return marked;
+    }
+
+    function collectIndexHitsCapped(map, key, marked, capState) {
+        var nodes = map[key] || [];
+        for (var i = 0; i < nodes.length; i += 1) {
+            if (capState.hits >= capState.cap) return;
+            capState.hits += 1;
+            markNodeFamily(marked, nodes[i]);
+        }
+    }
+
+    function collectFuzzyHitsCapped(idx, token, marked, capState) {
+        if (String(token || "").length < 3) return;
+        var maxDistance = 0;
+        for (var term in idx.terms) {
+            if (capState.hits >= capState.cap) return;
+            maxDistance = Tokenize.fuzzyDistanceLimit(token, term);
+            if (Math.abs(term.length - token.length) > maxDistance || term === token) continue;
+            if (Tokenize.boundedDamerauLevenshtein(token, term, maxDistance) > maxDistance) continue;
+            collectIndexHitsCapped(idx.terms, term, marked, capState);
+        }
+    }
+
+    function markNodeAndAncestors(marked, node) {
+        var cur = node;
+        while (cur) { marked[cur.id] = true; cur = cur.parent; }
+    }
+
+    function markNodeAndDescendants(marked, node) {
+        marked[node.id] = true;
+        for (var i = 0; i < (node.children || []).length; i += 1)
+            markNodeAndDescendants(marked, node.children[i]);
+    }
+
+    function markNodeFamily(marked, node) {
+        markNodeAndAncestors(marked, node);
+        markNodeAndDescendants(marked, node);
+    }
+
+    function collectCandidateIdsForRoots(roots, query, cap) {
+        if (query.isEmpty) return null;
+        var marked = {};
+        var capState = { hits: 0, cap: cap || 256 };
+        for (var i = 0; i < (roots || []).length; i += 1) {
+            if (capState.hits >= capState.cap) break;
+            var index = roots[i].__searchIndex || buildSearchIndex(roots[i]);
+            collectCandidateIds(index, query, marked, capState);
+        }
+        return marked;
+    }
+}

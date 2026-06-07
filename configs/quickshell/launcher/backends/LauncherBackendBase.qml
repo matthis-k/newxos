@@ -1,5 +1,5 @@
 import QtQml
-import "../logic/CompositeSearch.js" as CompositeSearch
+import "../logic/"
 import "../logic/RoutingTree.js" as RoutingTree
 
 QtObject {
@@ -71,12 +71,12 @@ QtObject {
     }
 
     function actionDto(id, label, payload) {
-        return CompositeSearch.makeAction(id, label, payload || {});
+        return Tokenize.makeAction(id, label, payload || {});
     }
 
     function nodeDto(options) {
         const opts = options || {};
-        return CompositeSearch.makeNode(Object.assign({
+        return Tokenize.makeNode(Object.assign({
             backendId: root.backendId,
             kind: "backend-result",
             icon: root.helpIcon || "system-search"
@@ -85,7 +85,7 @@ QtObject {
 
     function backendRootDto(children, options) {
         const opts = options || {};
-        return CompositeSearch.makeNode(Object.assign({
+        return Tokenize.makeNode(Object.assign({
             id: "backend." + root.backendId,
             backendId: root.backendId,
             backendPriority: root.priority,

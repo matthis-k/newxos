@@ -2,10 +2,10 @@ import QtQuick
 import QtQml
 import Quickshell.Services.Pipewire
 import qs.services
-import "logic/CompositeSearch.js" as CompositeSearch
-import "logic/AsyncSearchPipeline.js" as AsyncSearch
+import "logic/"
 import "logic/RoutingTree.js" as RoutingTree
 import "logic/DebugLogger.js" as DebugLogger
+import "policies" as P
 
 Item {
     id: root
@@ -67,7 +67,7 @@ Item {
             var gen = root.generation;
             var ag = (root._asyncGen += 1);
             triggerAsyncBackends(text, gen);
-            AsyncSearch.searchAsync(backends || [], text || "", stateForSearch(), searchOptions(),
+            Engine.searchAsync(backends || [], text || "", stateForSearch(), searchOptions(),
                 function() { return root.generation === gen && root._asyncGen === ag; },
                 function(output) {
                     if (output) root.searchCompleted(text, gen, output);
@@ -75,6 +75,29 @@ Item {
             );
         }
     }
+
+    P.UsagePolicy {}
+    P.RecencyPolicy {}
+    P.SemanticPolicy {}
+    P.TokenClaimPolicy {}
+    P.SwitchActionPolicy {}
+    P.SwitchAliasesBoostPolicy {}
+    P.FieldMatchPolicy { policyId: "field-match:all"; filterType: "all" }
+    P.FieldMatchPolicy { policyId: "field-match:primary"; filterType: "primary" }
+    P.FieldMatchPolicy { policyId: "field-match:breadcrumb"; filterType: "breadcrumb" }
+    P.PathEvidencePolicy {}
+    P.DescendantBoostPolicy { policyId: "descendant-boost" }
+    P.VisibleFlagPolicy {}
+    P.HasOwnScorePolicy {}
+    P.AboveMinScorePolicy { policyId: "above-min-score:0.25"; threshold: 0.25 }
+    P.OwnScoreMinPolicy { policyId: "own-score-min:0.25"; threshold: 0.25 }
+    P.CandidateOrVisiblePolicy {}
+    P.HasEvidencePolicy {}
+    P.OwnScoreBeatsParentPolicy {}
+    P.ScoreDominatesPolicy { policyId: "score-dominates:0.03"; margin: 0.03 }
+    P.ScoreDominatesPolicy { policyId: "score-dominates:0.08"; margin: 0.08 }
+    P.OwnScoreDominatesPolicy { policyId: "own-score-dominates:0.08"; margin: 0.08 }
+    P.ScoreBeatsParentPolicy {}
 
     onQueryUpdateRequested: function(text) {
         generation += 1;
@@ -157,7 +180,7 @@ Item {
     onSearchRequested: function(text, requestGeneration) {
         var ag = root._asyncGen;
         triggerAsyncBackends(text, requestGeneration);
-        AsyncSearch.searchAsync(backends || [], text || "", stateForSearch(), searchOptions(),
+        Engine.searchAsync(backends || [], text || "", stateForSearch(), searchOptions(),
             function() { return root.generation === requestGeneration && root._asyncGen === ag; },
             function(output) {
                 if (output) root.searchCompleted(text, requestGeneration, output);
@@ -269,7 +292,7 @@ Item {
     }
 
     function querySearch(text) {
-        var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: false, onlySelectable: true, filterRowChildren: true, trace: true }));
+        var output = Engine.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: false, onlySelectable: true, filterRowChildren: true, trace: true }));
         var rows = output.rows || [];
         var directive = output.directive;
         return JSON.stringify({
@@ -299,7 +322,7 @@ Item {
 
         triggerAsyncBackends(visualText, visualGen);
         var ag = root._asyncGen;
-        AsyncSearch.searchAsync(backends || [], visualText, stateForSearch(), searchOptions(),
+        Engine.searchAsync(backends || [], visualText, stateForSearch(), searchOptions(),
             function() { return root.generation === visualGen && root._asyncGen === ag; },
             function(output) {
                 if (output) {
@@ -327,7 +350,7 @@ Item {
             }
         );
 
-        var output = CompositeSearch.search(backends || [], visualText, stateForSearch(), searchOptions());
+        var output = Engine.search(backends || [], visualText, stateForSearch(), searchOptions());
         var rows = output.rows.slice(0, maxResults);
         var previousResults = results;
         var previousQuery = query;
@@ -370,7 +393,7 @@ Item {
     }
 
     function queryComplete(text) {
-        var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: false, onlySelectable: true, filterRowChildren: true }));
+        var output = Engine.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: false, onlySelectable: true, filterRowChildren: true }));
         var rows = output.rows || [];
         return JSON.stringify({
             version: 1,
@@ -415,9 +438,9 @@ Item {
         var route = RoutingTree.routeQuery(root.routingTree, text || "");
         var directive = route && route.endpoints && route.endpoints.length > 0
             ? buildDirectiveFromRoute(text || "", route)
-            : CompositeSearch.parseDirective(text || "", backends || []);
+            : Tokenize.parseDirective(text || "", backends || []);
         var rawQuery = text || "";
-        var query = CompositeSearch.tokenize(directive.searchRaw);
+        var query = Tokenize.tokenize(directive.searchRaw);
         var participants = (backends || []).filter(function(b) {
             if (!b || !b.enabled)
                 return false;
@@ -545,13 +568,13 @@ Item {
 
         for (var wi = 0; wi < warmups; wi += 1) {
             for (var wq = 0; wq < queries.length; wq += 1)
-                CompositeSearch.search(backends || [], queries[wq], stateForSearch(), Object.assign(searchOptions(), { trace: true }));
+                Engine.search(backends || [], queries[wq], stateForSearch(), Object.assign(searchOptions(), { trace: true }));
         }
 
         for (var i = 0; i < iterations; i += 1) {
             for (var qi = 0; qi < queries.length; qi += 1) {
                 var start = Date.now();
-                var output = CompositeSearch.search(backends || [], queries[qi], stateForSearch(), Object.assign(searchOptions(), { trace: true }));
+                var output = Engine.search(backends || [], queries[qi], stateForSearch(), Object.assign(searchOptions(), { trace: true }));
                 var elapsed = Date.now() - start;
                 totalMs += elapsed;
                 maxMs = Math.max(maxMs, elapsed);
@@ -628,8 +651,8 @@ Item {
         var route = RoutingTree.routeQuery(root.routingTree, text || "");
         var directive = route && route.endpoints && route.endpoints.length > 0
             ? root.buildDirectiveFromRoute(text || "", route)
-            : CompositeSearch.parseDirective(text || "", backends || []);
-        var parsedQuery = CompositeSearch.tokenize(directive.searchRaw || "");
+            : Tokenize.parseDirective(text || "", backends || []);
+        var parsedQuery = Tokenize.tokenize(directive.searchRaw || "");
 
         for (let i = 0; i < (backends || []).length; i += 1) {
             let backend = backends[i];
@@ -693,10 +716,13 @@ Item {
         if (index === selectedIndex && activeNodeKey) {
             var row = root.findTreeVisualRow(treeView, activeNodeKey);
             if (row >= 0) {
+                var idx = treeView.index(row, 0);
+                if (!idx.valid)
+                    return;
                 currentTreeView = treeView;
                 currentTreeKey = activeNodeKey;
                 treeVisualRow = row;
-                treeView.selectionModel.setCurrentIndex(treeView.index(row, 0), ItemSelectionModel.SelectCurrent);
+                treeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
             }
         }
     }
@@ -1018,8 +1044,11 @@ Item {
             currentTreeView = resultTreeViews[target.parentIndex] || null;
             currentTreeKey = target.key;
             treeVisualRow = currentTreeView ? root.findTreeVisualRow(currentTreeView, target.key) : -1;
-            if (currentTreeView && treeVisualRow >= 0)
-                currentTreeView.selectionModel.setCurrentIndex(currentTreeView.index(treeVisualRow, 0), ItemSelectionModel.SelectCurrent);
+            if (currentTreeView && treeVisualRow >= 0) {
+                var idx = currentTreeView.index(treeVisualRow, 0);
+                if (idx.valid)
+                    currentTreeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
+            }
         } else {
             exitTree();
         }
@@ -1029,7 +1058,7 @@ Item {
         if (!treeView || !treeView.model || !key) return -1;
         for (var row = 0; row < treeView.rows; row += 1) {
             var idx = treeView.index(row, 9);
-            if (treeView.model.data(idx, "display") === key)
+            if (idx.valid && treeView.model.data(idx, "display") === key)
                 return row;
         }
         return -1;
@@ -1051,6 +1080,8 @@ Item {
         currentTreeView = treeView;
         treeVisualRow = 0;
         var idx = treeView.index(0, 0);
+        if (!idx.valid)
+            return false;
         treeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
         return true;
     }
@@ -1115,6 +1146,10 @@ Item {
         }
         treeVisualRow = newRow;
         var idx = currentTreeView.index(newRow, 0);
+        if (!idx.valid) {
+            exitTree();
+            return;
+        }
         currentTreeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
     }
 
@@ -1144,12 +1179,15 @@ Item {
                 return false;
             }
             var idx = currentTreeView.index(treeVisualRow, 0);
+            if (!idx.valid)
+                return false;
             var parentIdx = currentTreeView.model.parent(idx);
             if (parentIdx.valid) {
                 currentTreeView.collapse(parentIdx.row);
                 currentTreeView.selectionModel.setCurrentIndex(parentIdx, ItemSelectionModel.SelectCurrent);
                 treeVisualRow = parentIdx.row;
-                currentTreeKey = currentTreeView.model.data(currentTreeView.index(parentIdx.row, 9), "display");
+                var keyIdx = currentTreeView.index(parentIdx.row, 9);
+                currentTreeKey = keyIdx.valid ? currentTreeView.model.data(keyIdx, "display") : "";
                 if (root.debugEnabled)
                     DebugLogger.log("switch", "treeCollapseSelected collapsed parent row", {
                         row: treeVisualRow,
