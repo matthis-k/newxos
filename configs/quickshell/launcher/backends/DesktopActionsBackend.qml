@@ -1,3 +1,4 @@
+import QtQml
 import Quickshell
 import Quickshell.Bluetooth
 import Quickshell.Services.Pipewire
@@ -23,11 +24,24 @@ TreeBackendBase {
     helpPrefixes: [":"]
     priority: 120
     maxResults: 8
-    dynamicCompositeRoot: true
+    dynamicCompositeRoot: false
     routes: [
         { pattern: "^:(.*)", mode: "exclusive" },
         { pattern: "^.*$", mode: "ambient" }
     ]
+
+    Connections {
+        target: Pipewire
+        function onDefaultAudioSinkChanged() { root.invalidateCompositeRootCache(); }
+    }
+    Connections {
+        target: Pipewire.nodes
+        function onValuesChanged() { root.invalidateCompositeRootCache(); }
+    }
+    Connections {
+        target: Pipewire.linkGroups
+        function onValuesChanged() { root.invalidateCompositeRootCache(); }
+    }
 
     function effectiveTreeRoots() {
         var roots = [audioTree(), brightnessTree()];
@@ -285,72 +299,29 @@ TreeBackendBase {
 
         SwitchNode {
             name: "vpn"
-            aliases: ["vpn", "nordvpn"]
+            aliases: ["vpn", "nordvpn", "connect to"]
             title: qsTr("VPN")
             icon: "network-vpn-symbolic"
             iconColor: NordVPN.connected || NordVPN.connecting ? Config.styling.good : Config.styling.warning
             switchState: NordVPN.connected || NordVPN.connecting
-
-            ActionNode {
-                name: "connect"
-                aliases: ["connect"]
-                title: qsTr("Connect")
-                icon: "network-vpn-symbolic"
-                iconColor: Config.styling.good
-                dynamicChildren: buildVpnConnectChildren()
-                actionId: "vpn"
-                actionProps: ({ state: "connect" })
-                action: function() { NordVPN.connect(null); }
-            }
-
-            ActionNode {
-                name: "disconnect"
-                aliases: ["disconnect"]
-                title: qsTr("Disconnect")
-                icon: "network-vpn-disconnected-symbolic"
-                iconColor: Config.styling.warning
-                actionId: "vpn"
-                actionProps: ({ state: "disconnect" })
-                action: function() { NordVPN.disconnect(); }
-            }
-
-            ActionNode {
-                name: "toggle"
-                aliases: ["toggle"]
-                title: qsTr("Toggle")
-                subtitle: qsTr("Connect or disconnect VPN")
-                icon: "view-refresh-symbolic"
-                iconColor: Config.styling.primaryAccent
-                actionId: "vpn"
-                actionProps: ({ state: null })
-                action: function() {
-                    if (NordVPN.connected || NordVPN.connecting)
-                        NordVPN.disconnect();
-                    else
-                        NordVPN.connect(null);
-                }
-            }
-
-            SwitchNode {
-                name: "autoconnect"; aliases: ["autoconnect", "auto-connect"]; title: qsTr("Auto-connect")
-                icon: "network-vpn-symbolic"
-                iconColor: NordVPN.settings && NordVPN.settings["Auto-connect"] ? Config.styling.good : Config.styling.text1
-                switchState: NordVPN.settings && NordVPN.settings["Auto-connect"]
-                switchActionId: "vpn-autoconnect"
-                onAction: function() { NordVPN.setSetting("autoconnect", true); }
-                offAction: function() { NordVPN.setSetting("autoconnect", false); }
-                toggleAction: function() { NordVPN.setSetting("autoconnect", !(NordVPN.settings && NordVPN.settings["Auto-connect"])); }
-            }
-
-            SwitchNode {
-                name: "killswitch"; aliases: ["killswitch", "kill-switch"]; title: qsTr("Kill Switch")
-                icon: "network-vpn-symbolic"
-                iconColor: NordVPN.settings && NordVPN.settings["Kill Switch"] ? Config.styling.critical : Config.styling.text1
-                switchState: NordVPN.settings && NordVPN.settings["Kill Switch"]
-                switchActionId: "vpn-killswitch"
-                onAction: function() { NordVPN.setSetting("killswitch", true); }
-                offAction: function() { NordVPN.setSetting("killswitch", false); }
-                toggleAction: function() { NordVPN.setSetting("killswitch", !(NordVPN.settings && NordVPN.settings["Kill Switch"])); }
+            switchActionId: "vpn"
+            switchOnAliases: ["connect", "on"]
+            switchOffAliases: ["disconnect", "off"]
+            switchToggleAliases: ["toggle"]
+            dynamicChildren: buildVpnConnectChildren()
+            groupOptions: ({
+                showAllChildrenOnParentMatch: false,
+                flattenAllChildrenOnParentMatch: false,
+                maxNestedChildren: 8
+            })
+            behavior: ({ filterable: true })
+            onAction: function() { NordVPN.connect(null); }
+            offAction: function() { NordVPN.disconnect(); }
+            toggleAction: function() {
+                if (NordVPN.connected || NordVPN.connecting)
+                    NordVPN.disconnect();
+                else
+                    NordVPN.connect(null);
             }
         }
 
@@ -484,9 +455,11 @@ TreeBackendBase {
         });
 
         (NordVPN.groups || []).forEach(function(group) {
+            const title = vpnGroupTitle(group);
             children.push(actionNode({
                 id: "group-" + group,
-                title: group,
+                title: title,
+                aliases: [title],
                 subtitle: qsTr("Group"),
                 icon: "network-vpn-symbolic",
                 iconColor: Config.styling.info,
@@ -497,6 +470,14 @@ TreeBackendBase {
         });
 
         return children;
+    }
+
+    function vpnGroupTitle(group) {
+        return String(group || "")
+            .replace(/_/g, " ")
+            .replace(/\bVPN\b/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
     }
 
     function audioTree() {

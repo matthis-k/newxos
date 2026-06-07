@@ -237,7 +237,7 @@ Item {
     function querySearch(text) {
         var directive = CompositeSearch.parseDirective(text || "", backends || []);
         var query = CompositeSearch.tokenize(directive.searchRaw);
-        var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: true, onlySelectable: true, filterRowChildren: true }));
+        var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: false, onlySelectable: true, filterRowChildren: true, trace: true }));
         var rows = output.rows || [];
         return JSON.stringify({
             version: 1,
@@ -255,6 +255,7 @@ Item {
                 backendIds: directive.backendIds || []
             },
             totalResults: rows.length,
+            timings: output.timings || null,
             results: root.serializeRowsForQuery(rows, output.query)
         });
     }
@@ -303,7 +304,7 @@ Item {
     }
 
     function queryComplete(text) {
-        var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: true, onlySelectable: true, filterRowChildren: true }));
+        var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: false, onlySelectable: true, filterRowChildren: true }));
         var rows = output.rows || [];
         return JSON.stringify({
             version: 1,

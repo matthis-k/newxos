@@ -233,7 +233,8 @@ function collectCandidateIdsForRoots(roots, query, cap) {
     for (var i = 0; i < (roots || []).length; i += 1) {
         if (capState.hits >= capState.cap)
             break;
-        collectCandidateIds(buildSearchIndex(roots[i]), query, marked, capState);
+        var index = roots[i].__searchIndex || buildSearchIndex(roots[i]);
+        collectCandidateIds(index, query, marked, capState);
     }
     return marked;
 }

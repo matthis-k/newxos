@@ -32,15 +32,19 @@ function search(backends, rawQuery, state, options) {
         return !directive.active || directive.backendIds.indexOf(b.backendId) >= 0;
     }).sort(function(a, b) { return (b.priority || 0) - (a.priority || 0); });
     var children = [];
+    var backendTimings = {};
     var rootNodeStart = nowMs();
     for (var i = 0; i < active.length; i += 1) {
         var backend = active[i];
+        var bStart = nowMs();
         var node = backend.rootNode ? backend.rootNode(query, ctx) : null;
+        var bMs = nowMs() - bStart;
         if (node) {
             node.backendId = node.backendId || backend.backendId;
             node.backendPriority = backend.priority || 0;
             children.push(makeNode(node));
         }
+        backendTimings["root:" + (backend.backendId || i)] = bMs;
     }
     var rootNodeMs = nowMs() - rootNodeStart;
     var root = makeNode({ id: "root", kind: "root", label: "Root", children: children, evaluationProfile: { strategies: [] } });
@@ -48,6 +52,8 @@ function search(backends, rawQuery, state, options) {
     var candidateStart = nowMs();
     ctx.candidateIds = collectCandidateIdsForRoots(children, query, ctx.candidateCap || 256);
     var candidateMs = nowMs() - candidateStart;
+    var candidateCount = countKeys(ctx.candidateIds);
+    backendTimings["candidates"] = candidateCount;
 
     var evaluateStart = nowMs();
     var evaluated = evaluateNode(root, query, ctx);
@@ -72,7 +78,8 @@ function search(backends, rawQuery, state, options) {
             flattenMs: flattenMs,
             activeBackends: active.length,
             backendRoots: children.length,
-            candidateIds: countKeys(ctx.candidateIds),
+            candidateIds: candidateCount,
+            backends: backendTimings,
             rows: rows.length
         };
     }
