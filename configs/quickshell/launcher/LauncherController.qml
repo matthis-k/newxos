@@ -3,6 +3,7 @@ import QtQml
 import Quickshell.Services.Pipewire
 import qs.services
 import "logic/CompositeSearch.js" as CompositeSearch
+import "logic/AsyncSearchPipeline.js" as AsyncSearch
 import "logic/RoutingTree.js" as RoutingTree
 import "logic/DebugLogger.js" as DebugLogger
 
@@ -17,6 +18,7 @@ Item {
     property int selectedActionIndex: 0
     property bool loading: false
     property int generation: 0
+    property int _asyncGen: 0
     property int maxResults: 12
     property real visibilityThreshold: 0.18
     property bool includePath: true
@@ -30,6 +32,7 @@ Item {
     property var asyncBackendQueries: ({})
     property string resultsQuery: ""
     property bool debugEnabled: false
+    property string lastAsyncVisualJson: ""
 
     // Tree navigation state
     property var currentTreeView: null
@@ -62,8 +65,14 @@ Item {
         onTriggered: {
             var text = root.query;
             var gen = root.generation;
-            var output = searchNow(text, gen, true);
-            searchCompleted(text, gen, output);
+            var ag = (root._asyncGen += 1);
+            triggerAsyncBackends(text, gen);
+            AsyncSearch.searchAsync(backends || [], text || "", stateForSearch(), searchOptions(),
+                function() { return root.generation === gen && root._asyncGen === ag; },
+                function(output) {
+                    if (output) root.searchCompleted(text, gen, output);
+                }
+            );
         }
     }
 
@@ -94,6 +103,8 @@ Item {
         lastDirective = null;
         lastEvaluatedRoot = null;
         asyncBackendQueries = {};
+        lastAsyncVisualJson = "";
+        _asyncGen += 1;
     }
 
     onResultsClearRequested: function() {
@@ -139,12 +150,19 @@ Item {
         backend.compositeQuery = text;
         backend.applyStreamUpdate(update || []);
         asyncLoadingRefreshRequested();
+        root._asyncGen += 1;
         searchRequested(text, requestGeneration);
     }
 
     onSearchRequested: function(text, requestGeneration) {
-        var output = searchNow(text, requestGeneration, true);
-        searchCompleted(text, requestGeneration, output);
+        var ag = root._asyncGen;
+        triggerAsyncBackends(text, requestGeneration);
+        AsyncSearch.searchAsync(backends || [], text || "", stateForSearch(), searchOptions(),
+            function() { return root.generation === requestGeneration && root._asyncGen === ag; },
+            function(output) {
+                if (output) root.searchCompleted(text, requestGeneration, output);
+            }
+        );
     }
 
     onSearchCompleted: function(text, requestGeneration, output) {
@@ -276,13 +294,46 @@ Item {
     }
 
     function queryVisual(text) {
-        var output = searchNow(text || "", generation, true);
+        var visualText = text || "";
+        var visualGen = generation;
+
+        triggerAsyncBackends(visualText, visualGen);
+        var ag = root._asyncGen;
+        AsyncSearch.searchAsync(backends || [], visualText, stateForSearch(), searchOptions(),
+            function() { return root.generation === visualGen && root._asyncGen === ag; },
+            function(output) {
+                if (output) {
+                    var rows = output.rows.slice(0, maxResults);
+                    root.lastAsyncVisualJson = JSON.stringify({
+                        version: 1, type: "visual",
+                        query: {
+                            raw: output.query.raw,
+                            tokens: output.query.tokens.map(function(t) { return { raw: t.raw, normalized: t.normalized }; }),
+                            isEmpty: output.query.isEmpty,
+                            lastTokenEmpty: output.query.lastTokenEmpty
+                        },
+                        directive: {
+                            active: output.directive.active,
+                            prefix: output.directive.prefix || "",
+                            label: output.directive.label || "",
+                            backendIds: output.directive.backendIds || []
+                        },
+                        totalResults: rows.length,
+                        maxResults: maxResults,
+                        results: rows.map(root.serializeRow),
+                        empty: rows.length === 0
+                    });
+                }
+            }
+        );
+
+        var output = CompositeSearch.search(backends || [], visualText, stateForSearch(), searchOptions());
         var rows = output.rows.slice(0, maxResults);
         var previousResults = results;
         var previousQuery = query;
         var previousLastQuery = lastQuery;
         results = rows;
-        query = text || "";
+        query = visualText;
         lastQuery = output.query;
         var targets = root.navigationTargets().map(function(target) {
             return {
@@ -478,7 +529,8 @@ Item {
             treeVisualRow: treeVisualRow,
             resultCount: results.length,
             loading: loading,
-            backends: (backends || []).map(function(b) { return { id: b.backendId || "", name: b.name || "", enabled: !!b.enabled }; })
+            backends: (backends || []).map(function(b) { return { id: b.backendId || "", name: b.name || "", enabled: !!b.enabled }; }),
+            lastAsyncVisualJson: root.lastAsyncVisualJson
         });
     }
 
@@ -570,12 +622,6 @@ Item {
 
     function updateQuery(text) {
         queryUpdateRequested(text || "");
-    }
-
-    function searchNow(text, currentGeneration, includeAsync) {
-        if (includeAsync)
-            triggerAsyncBackends(text, currentGeneration);
-        return CompositeSearch.search(backends || [], text || "", stateForSearch(), searchOptions());
     }
 
     function triggerAsyncBackends(text, currentGeneration) {
