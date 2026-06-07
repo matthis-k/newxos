@@ -55,6 +55,18 @@ Item {
     signal resultsAvailable(string text, int generation, var rows, var output)
     signal treeSwitchRefreshRequested(int resultIndex)
 
+    Timer {
+        id: searchTimer
+        interval: 40
+        repeat: false
+        onTriggered: {
+            var text = root.query;
+            var gen = root.generation;
+            var output = searchNow(text, gen, true);
+            searchCompleted(text, gen, output);
+        }
+    }
+
     onQueryUpdateRequested: function(text) {
         generation += 1;
         query = text;
@@ -65,13 +77,15 @@ Item {
             lastQuery = null;
             lastDirective = null;
             lastEvaluatedRoot = null;
+            searchTimer.stop();
             return;
         }
 
-        searchRequested(text, generation);
+        searchTimer.restart();
     }
 
     onResetRequested: function() {
+        searchTimer.stop();
         query = "";
         resultsClearRequested();
         loading = false;
