@@ -373,6 +373,21 @@ function childHasGoodMatch(childRows) {
     return false;
 }
 
+function isDiscoverable(node, ctx) {
+    var directive = ctx.directive;
+    if (!directive || !directive.active)
+        return false;
+    if (!ctx.query.isEmpty)
+        return false;
+    var chain = collectParentChain(node);
+    for (var i = 0; i < chain.length; i += 1) {
+        var behavior = chain[i].behavior || {};
+        if (behavior.displayPolicy && behavior.displayPolicy.discoverable)
+            return true;
+    }
+    return false;
+}
+
 function parentMatchShowsChildren(ev, ctx) {
     var behavior = ev && ev.node && ev.node.behavior || {};
     var flattenPolicy = behavior.flattenPolicy || {};
@@ -431,7 +446,7 @@ function toResultRow(ev, depth, state, ctx, childRows, options) {
         labelMatches: copyRanges(rangesForField(ev.evidence, "label", node.id)),
         subtitleMatches: copyRanges(rangesForField(ev.evidence, "subtitle", node.id)),
         actions: actions,
-        enter: enterAction ? { type: "sequence", steps: [{ type: "activate", action: enterAction }, { type: "close" }] } : { type: "noop" },
+        enter: enterAction ? (enterAction.payload && enterAction.payload.replaceQuery ? { type: "sequence", steps: [{ type: "activate", action: enterAction }] } : { type: "sequence", steps: [{ type: "activate", action: enterAction }, { type: "close" }] }) : { type: "noop" },
         shiftEnter: { type: "noop" },
         executable: !!action,
         dangerous: !!node.dangerous,
@@ -469,6 +484,10 @@ function flattenForUi(evaluatedRoot, state, ctx) {
         }
         if (ev.node.kind === "backend") {
             for (var bi = 0; bi < ev.children.length; bi += 1) collect(ev.children[bi], depth, forceInclude);
+            return;
+        }
+        if (!ev.visible && isDiscoverable(ev.node, ctx)) {
+            add(ev, depth, 0, [], true);
             return;
         }
         var decision = decideGroupDisplay(ev, ctx);

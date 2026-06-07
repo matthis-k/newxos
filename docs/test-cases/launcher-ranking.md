@@ -6,10 +6,12 @@ Use `newshell ipc call query search '<query>'` after `systemctl --user restart n
 
 Run these queries after any launcher search change:
 
-`zen`, `zen `, `zen priv`, `zen win`, `zen browser`, `zen new`, `wifi`, `wifi `, `wifi on`, `wifi off`, `wifi toggle`, `toggle wifi`, `wo`, `wt`, `:`, `:wifi`, `:wifi `, `:wifi on`, `:db wifi`, `@apps`, `@apps zen`, `@apps wifi`, `@web nix`, `web nix`, `web !gh nix`, `db wifi`, `dashboard wifi`, `au`, `aud`, `audi`, `audio`, `en`, `screen`, `session`, `newxos`, `vpn of`, `notes`, `/tmp`
+`?`, `? `, `?au`, `zen`, `zen `, `zen priv`, `zen win`, `zen browser`, `zen new`, `wifi`, `wifi `, `wifi on`, `wifi off`, `wifi toggle`, `toggle wifi`, `wo`, `wt`, `:`, `:wifi`, `:wifi `, `:wifi on`, `:db wifi`, `@apps`, `@apps zen`, `@apps wifi`, `@web nix`, `web nix`, `web !gh nix`, `db wifi`, `dashboard wifi`, `au`, `aud`, `audi`, `audio`, `en`, `screen`, `session`, `newxos`, `vpn of`, `notes`, `/tmp`
 
 ## What each case guards against
 
+- `?` / `? ` — backends backend should show all children by default (discoverable), not filter by score when query is empty
+- `?au` — discoverable backends should still filter when search text follows the prefix
 - `zen` — adding characters shouldn't cause jarring reordering of the top result
 - `zen ` (with trailing space) — whitespace after a prefix shouldn't collapse or drop the group
 - `zen priv` — when one child clearly beats the parent, show it at top level; irrelevant partial matches (`zen browser`) must not appear as top results (that case broke when partial-match boosting leaked unrelated results)

@@ -398,7 +398,7 @@ Item {
         return {
             active: route.combine === "exclusive" || (backendIds.length > 0 && prefix !== ""),
             raw: rawQuery,
-            searchRaw: route.strippedQuery || rawQuery,
+            searchRaw: route.strippedQuery !== undefined && route.strippedQuery !== null ? route.strippedQuery : rawQuery,
             prefix: prefix,
             label: label,
             tags: [],

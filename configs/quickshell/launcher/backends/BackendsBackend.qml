@@ -27,7 +27,8 @@ ModelTreeBackendBase {
         title: backend.helpTitle,
         subtitle: backend.helpPrefixes.join(", ") + " - " + backend.helpDescription,
         icon: backend.helpIcon || "system-search",
-        action: { prefix: backend.helpPrefixes[0], replaceQuery: backend.helpPrefixes[0] + " " }
+        action: { prefix: backend.helpPrefixes[0], replaceQuery: backend.helpPrefixes[0] + " " },
+        behavior: { displayPolicy: { discoverable: true } }
     }))
 
     function activate(result, action) {
