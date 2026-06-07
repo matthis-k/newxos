@@ -2,7 +2,6 @@
 .import "CompositeSearchText.js" as Text
 .import "CompositeSearchIndex.js" as Index
 .import "CompositeSearchEvidence.js" as Evidence
-.import "Router.js" as Router
 .import "CompositeSearchPolicyRegistry.js" as PolicyRegistry
 
 
@@ -168,29 +167,24 @@ function evaluateNode(node, query, ctx) {
 
 function evaluateChildren(node, query, ctx, directiveActive) {
     var children = node.children || [];
-    var exclusiveChildren = children.filter(function(child) { return childClaimsExclusive(child, ctx); });
-    if (exclusiveChildren.length > 0) {
-        var exclusiveEvaluated = evaluateChildList(exclusiveChildren, query, ctx, directiveActive);
-        var hasExclusiveMatch = exclusiveEvaluated.some(function(child) {
-            return child.candidate || child.visible || ctx.showHidden;
+
+    // Route-tier exclusivity: if the routing tree picked exclusive endpoints,
+    // only evaluate children from those endpoints' backends.
+    var routeCtx = ctx && ctx.route;
+    if (routeCtx && routeCtx.combine === "exclusive" && routeCtx.endpoints && routeCtx.endpoints.length > 0) {
+        var allowedIds = {};
+        for (var ri = 0; ri < routeCtx.endpoints.length; ri += 1) {
+            var ep = routeCtx.endpoints[ri];
+            if (ep.node && ep.node.backendId)
+                allowedIds[ep.node.backendId] = true;
+        }
+        var exclusiveChildren = children.filter(function(child) {
+            return child.backendId && allowedIds[child.backendId];
         });
-        if (hasExclusiveMatch)
-            return exclusiveEvaluated;
+        if (exclusiveChildren.length > 0)
+            return evaluateChildList(exclusiveChildren, query, ctx, directiveActive);
     }
     return evaluateChildList(children, query, ctx, directiveActive);
-}
-
-function childClaimsExclusive(child, ctx) {
-    var behavior = child && child.behavior || {};
-    var matchers = behavior.exclusiveWhen || [];
-    if (!matchers.length)
-        return false;
-    var raw = ctx.directive && ctx.directive.raw || ctx.query && ctx.query.raw || "";
-    for (var i = 0; i < matchers.length; i += 1) {
-        if (Router.routeMatches(raw, matchers[i]))
-            return true;
-    }
-    return false;
 }
 
 function evaluateChildList(children, query, ctx, directiveActive) {

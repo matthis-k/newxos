@@ -26,8 +26,8 @@ TreeBackendBase {
     maxResults: 8
     dynamicCompositeRoot: false
     routes: [
-        { pattern: "^:(.*)", mode: "exclusive" },
-        { pattern: "^.*$", mode: "ambient" }
+        { prefix: ":", priority: 120, combine: "exclusive", afterEmpty: "fallthrough" },
+        { priority: 0, combine: "shared", afterEmpty: "stop" }
     ]
 
     Connections {

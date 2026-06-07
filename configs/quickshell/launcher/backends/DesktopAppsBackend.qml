@@ -15,13 +15,10 @@ ModelTreeBackendBase {
     priority: 80
     maxResults: 6
     routes: [
-        { pattern: "^@app\\s+(.*)", mode: "exclusive" },
-        { pattern: "^@app$", mode: "exclusive" },
-        { pattern: "^@apps\\s+(.*)", mode: "exclusive" },
-        { pattern: "^@apps$", mode: "exclusive" },
-        { pattern: "^@desktop\\s+(.*)", mode: "exclusive" },
-        { pattern: "^@desktop$", mode: "exclusive" },
-        { pattern: "^.*$", mode: "ambient" }
+        { prefix: "@app", priority: 80, combine: "exclusive", afterEmpty: "fallthrough" },
+        { prefix: "@apps", priority: 80, combine: "exclusive", afterEmpty: "fallthrough" },
+        { prefix: "@desktop", priority: 80, combine: "exclusive", afterEmpty: "fallthrough" },
+        { priority: 0, combine: "shared", afterEmpty: "stop" }
     ]
 
     treeRoots: appTree

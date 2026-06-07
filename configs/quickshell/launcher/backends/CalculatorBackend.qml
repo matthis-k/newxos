@@ -13,9 +13,9 @@ LauncherBackendBase {
     priority: 100
     maxResults: 1
     routes: [
-        { pattern: "^@calc(ulator)?\\s+(.*)", mode: "exclusive" },
-        { pattern: "^=\\s?(.*)", mode: "exclusive" },
-        { pattern: "^.*$", mode: "ambient" }
+        { pattern: "^@calc(ulator)?\\s+(.*)", priority: 100, combine: "exclusive", afterEmpty: "fallthrough" },
+        { prefix: "=", priority: 100, combine: "exclusive", afterEmpty: "fallthrough" },
+        { priority: 0, combine: "shared", afterEmpty: "stop" }
     ]
 
     function looksLikeMath(expression) {

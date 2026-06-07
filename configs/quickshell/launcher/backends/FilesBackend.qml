@@ -19,10 +19,8 @@ ProcessBackendBase {
     priority: 60
     maxResults: 5
     routes: [
-        { pattern: "^@files?\\s+(.*)", mode: "exclusive" },
-        { pattern: "^files?\\s+(.*)", mode: "exclusive" },
-        { pattern: "^file://.*$", mode: "exclusive" },
-        { pattern: "^(~/|/).*$", mode: "exclusive" }
+        { pattern: "^@?files?\\s+(.*)", priority: 60, combine: "exclusive", afterEmpty: "stop" },
+        { pattern: "^(file://|~/|/)(.*)", priority: 60, combine: "exclusive", afterEmpty: "stop" }
     ]
 
     property Process lazyScanner: Process {

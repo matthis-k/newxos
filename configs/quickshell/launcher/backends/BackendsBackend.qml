@@ -12,7 +12,7 @@ ModelTreeBackendBase {
     helpPrefixes: ["?"]
     priority: 110
     maxResults: 16
-    routes: [{ pattern: "^\\?\\s?(.*)", mode: "exclusive" }]
+    routes: [{ prefix: "?", priority: 110, combine: "exclusive", afterEmpty: "fallthrough" }]
 
     treeRoots: backendTree
 

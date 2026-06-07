@@ -13,9 +13,9 @@ LauncherBackendBase {
     priority: 20
     maxResults: 1
     routes: [
-        { pattern: "^@web\\s+(.*)", mode: "exclusive" },
-        { pattern: "^web\\s+(.*)", mode: "exclusive" },
-        { pattern: "^.*$", mode: "fallback" }
+        { prefix: "@web", priority: 20, combine: "exclusive", afterEmpty: "fallthrough" },
+        { prefix: "web", priority: 20, combine: "exclusive", afterEmpty: "fallthrough" },
+        { priority: 0, combine: "shared", afterEmpty: "fallthrough" }
     ]
 
     function resultNodes(query, context) {

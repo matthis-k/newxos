@@ -138,6 +138,7 @@ PanelWindow {
     Backends.CalculatorBackend {
         id: calculatorBackend
         backendId: "calculator"
+        controller: controller
     }
 
     Backends.WebSearchBackend {
@@ -149,6 +150,7 @@ PanelWindow {
     Backends.FilesBackend {
         id: filesBackend
         backendId: "files"
+        controller: controller
     }
 
     LauncherController {

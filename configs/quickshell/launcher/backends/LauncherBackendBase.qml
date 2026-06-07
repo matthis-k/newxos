@@ -1,6 +1,6 @@
 import QtQml
 import "../logic/CompositeSearch.js" as CompositeSearch
-import "../logic/Router.js" as Router
+import "../logic/RoutingTree.js" as RoutingTree
 
 QtObject {
     id: root
@@ -17,8 +17,34 @@ QtObject {
     property int maxResults: 5
     property var routes: []
     property var controller: null
+    property var _registeredEndpoints: []
     property string activeQuery: ""
     property int activeGeneration: 0
+
+    Component.onCompleted: {
+        root.registerRoutesOnTree();
+    }
+
+    Component.onDestruction: {
+        root.unregisterRoutesFromTree();
+    }
+
+    function registerRoutesOnTree() {
+        if (!root.controller || !root.controller.routingTree)
+            return;
+        for (var i = 0; i < (root.routes || []).length; i += 1) {
+            RoutingTree.registerEndpoint(root.controller.routingTree, root.routes[i], root);
+            root._registeredEndpoints.push(root.routes[i]);
+        }
+    }
+
+    function unregisterRoutesFromTree() {
+        if (!root.controller || !root.controller.routingTree)
+            return;
+        for (var i = 0; i < root._registeredEndpoints.length; i += 1)
+            RoutingTree.unregisterEndpoint(root.controller.routingTree, root);
+        root._registeredEndpoints = [];
+    }
 
     signal backendError(string message)
 
@@ -69,16 +95,17 @@ QtObject {
             icon: root.helpIcon || "system-search",
             children: children || [],
             behavior: Object.assign({
-                exclusiveWhen: (root.routes || []).filter(function(route) { return route && route.mode === "exclusive"; })
+                exclusiveWhen: (root.routes || []).filter(function(route) { return route && (route.mode === "exclusive" || route.combine === "exclusive"); })
             }, opts.behavior || {}),
             evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "switch-action", "semantic", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], childBypass: ["own-score-beats-parent", "score-dominates:0.03"] } }
         }, opts));
     }
 
     function queryText(query) {
-        for (const route of root.routes || []) {
-            if (Router.routeMatches(query, route))
-                return Router.extractText(query, route);
+        if (root.controller && root.controller.routingTree) {
+            var result = RoutingTree.routeQuery(root.controller.routingTree, query || "");
+            if (result && result.endpoints && result.endpoints.length > 0)
+                return result.strippedQuery || "";
         }
         return query || "";
     }

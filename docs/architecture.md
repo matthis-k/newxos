@@ -110,7 +110,14 @@ The Quickshell launcher uses a composite search pipeline:
 - **Normalized result rows** carry only primitive fields, actions, and evidence metadata — no raw tree objects or evaluated nodes.
 - **UI delegates** render normalized row data; they do not recompute scoring or hold backend references.
 - **Update coalescing** (`LauncherController.searchTimer`) prevents per-keystroke re-entrance. Async backends check generation counters before applying results.
-- **Prefix gating**: backends declare `canHandle(query)` to opt in. Non-matching backends do not compete.
+- **Routing tree** (`configs/quickshell/launcher/logic/RoutingTree.js`): A shared recursive tree owned by `LauncherController`. Backends register their route declarations (`prefix`/`pattern`, `priority`, `combine`, `afterEmpty`) during `Component.onCompleted`. The routing tree replaces the old `Router.js` and `helpPrefixes`-based gating with a single shared structure.
+  - **Route tiers**: Endpoints are grouped by `priority` (higher = earlier). The first tier with matches wins.
+  - **Exclusive routing**: When a matched endpoint declares `combine: "exclusive"`, only that endpoint's subtree runs. Other backends are excluded.
+  - **Shared routing**: When multiple endpoints at the same priority match and none are exclusive, all matching backends participate.
+  - **Prefix stripping**: `extractStripped()` uses the last capture group for patterns (`^@calc(ulator)?\\s+(.*)` → stripped query) or straightforward slice for prefixes.
+  - **Boundary checks**: Multi-char prefixes require next char to be whitespace or end (prevents `@app` matching `@appfirefox`). Compact single-char prefixes (`:`, `=`, `?`) skip boundary checks.
+  - **Ambient routes**: Priority 0 routes without prefix/pattern always match, providing fallback search behavior.
+  - **Fallthrough**: When a tier has zero matching endpoints, it cascades to the next lower priority tier.
 - **Web fallback**: web rows appear only for explicit web prefixes or when no non-web backend produces visible rows.
 
 Launcher visual intent:

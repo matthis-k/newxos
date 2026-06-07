@@ -5,6 +5,7 @@
 .import "CompositeSearchFlatten.js" as Flatten
 .import "CompositeSearchRows.js" as Rows
 .import "CompositeSearchPolicies.js" as Policies
+.import "RoutingTree.js" as RoutingTree
 
 
 var nowMs = Text.nowMs;
@@ -21,9 +22,18 @@ var finalizeRows = Rows.finalizeRows;
 
 function search(backends, rawQuery, state, options) {
     var totalStart = nowMs();
-    var directive = parseDirective(rawQuery, backends);
+
+    var routingTree = options && options.routingTree;
+    var route = null;
+    if (routingTree) {
+        route = RoutingTree.routeQuery(routingTree, rawQuery);
+    }
+    var directive = route
+        ? buildDirectiveFromRoute(rawQuery, route, backends)
+        : parseDirective(rawQuery, backends);
     var query = tokenize(directive.searchRaw);
-    var ctx = Object.assign({ query: query, directive: directive, visibilityThreshold: 0.18, showHidden: false, includePath: true }, options || {});
+    var ctx = Object.assign({ query: query, directive: directive, routingTree: routingTree, route: route, visibilityThreshold: 0.18, showHidden: false, includePath: true }, options || {});
+
     var active = (backends || []).filter(function(b) {
         if (!b || !b.enabled)
             return false;
@@ -83,7 +93,46 @@ function search(backends, rawQuery, state, options) {
             rows: rows.length
         };
     }
-    return { rows: rows, query: query, directive: directive, evaluatedRoot: evaluated, timings: timings };
+    return { rows: rows, query: query, directive: directive, route: route, evaluatedRoot: evaluated, timings: timings };
+}
+
+function buildDirectiveFromRoute(rawQuery, route, backends) {
+    if (!route || !route.endpoints || route.endpoints.length === 0)
+        return { active: false, raw: rawQuery, searchRaw: rawQuery, prefix: "", label: "All", tags: [], kinds: [], backendIds: [] };
+
+    var backendIds = [];
+    var seen = {};
+    for (var i = 0; i < route.endpoints.length; i += 1) {
+        var ep = route.endpoints[i];
+        var id = String(ep.node && ep.node.backendId || "");
+        if (id && !seen[id]) {
+            seen[id] = true;
+            backendIds.push(id);
+        }
+    }
+
+    var prefix = route.endpoints[0] ? (route.endpoints[0].prefix || "") : "";
+    var label = backendIds.length === 1 ? findHelpTitle(backends, backendIds[0]) : (backendIds.length > 1 ? "Multiple" : "All");
+
+    return {
+        active: route.combine === "exclusive" || (backendIds.length > 0 && prefix !== ""),
+        raw: rawQuery,
+        searchRaw: route.strippedQuery || rawQuery,
+        prefix: prefix,
+        label: label,
+        tags: [],
+        kinds: [],
+        backendIds: backendIds
+    };
+}
+
+function findHelpTitle(backends, backendId) {
+    for (var i = 0; i < (backends || []).length; i += 1) {
+        var b = backends[i];
+        if (b && b.backendId === backendId)
+            return b.helpTitle || b.name || b.backendId;
+    }
+    return backendId;
 }
 
 function suppressFallbackRows(rows, ctx) {

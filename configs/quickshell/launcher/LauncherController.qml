@@ -3,6 +3,7 @@ import QtQml
 import Quickshell.Services.Pipewire
 import qs.services
 import "logic/CompositeSearch.js" as CompositeSearch
+import "logic/RoutingTree.js" as RoutingTree
 import "logic/DebugLogger.js" as DebugLogger
 
 Item {
@@ -11,6 +12,7 @@ Item {
     property string query: ""
     property var backends: []
     property var results: []
+    property var routingTree: RoutingTree.makeTree()
     property int selectedIndex: 0
     property int selectedActionIndex: 0
     property bool loading: false
@@ -235,18 +237,17 @@ Item {
     }
 
     function querySearch(text) {
-        var directive = CompositeSearch.parseDirective(text || "", backends || []);
-        var query = CompositeSearch.tokenize(directive.searchRaw);
         var output = CompositeSearch.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: false, onlySelectable: true, filterRowChildren: true, trace: true }));
         var rows = output.rows || [];
+        var directive = output.directive;
         return JSON.stringify({
             version: 1,
             type: "search",
             query: {
-                raw: query.raw,
-                tokens: query.tokens.map(function(t) { return { raw: t.raw, normalized: t.normalized }; }),
-                isEmpty: query.isEmpty,
-                lastTokenEmpty: query.lastTokenEmpty
+                raw: output.query.raw,
+                tokens: output.query.tokens.map(function(t) { return { raw: t.raw, normalized: t.normalized }; }),
+                isEmpty: output.query.isEmpty,
+                lastTokenEmpty: output.query.lastTokenEmpty
             },
             directive: {
                 active: directive.active,
@@ -335,16 +336,21 @@ Item {
                 hasStreamUpdates: typeof b.applyStreamUpdate === "function"
             };
         });
+        var treeInfo = { endpointCount: (root.routingTree || {}).endpoints ? root.routingTree.endpoints.length : 0 };
         return JSON.stringify({
             version: 1,
             type: "backends",
             total: entries.length,
+            routingTree: treeInfo,
             backends: entries
         });
     }
 
     function queryRoutes(text) {
-        var directive = CompositeSearch.parseDirective(text || "", backends || []);
+        var route = RoutingTree.routeQuery(root.routingTree, text || "");
+        var directive = route && route.endpoints && route.endpoints.length > 0
+            ? buildDirectiveFromRoute(text || "", route)
+            : CompositeSearch.parseDirective(text || "", backends || []);
         var rawQuery = text || "";
         var query = CompositeSearch.tokenize(directive.searchRaw);
         var participants = (backends || []).filter(function(b) {
@@ -372,6 +378,42 @@ Item {
                 };
             })
         });
+    }
+
+    function buildDirectiveFromRoute(rawQuery, route) {
+        if (!route || !route.endpoints || route.endpoints.length === 0)
+            return { active: false, raw: rawQuery, searchRaw: rawQuery, prefix: "", label: "All", tags: [], kinds: [], backendIds: [] };
+        var backendIds = [];
+        var seen = {};
+        for (var i = 0; i < route.endpoints.length; i += 1) {
+            var ep = route.endpoints[i];
+            var id = String(ep.node && ep.node.backendId || "");
+            if (id && !seen[id]) {
+                seen[id] = true;
+                backendIds.push(id);
+            }
+        }
+        var prefix = route.endpoints[0] ? (route.endpoints[0].prefix || "") : "";
+        var label = backendIds.length === 1 ? findHelpTitle(backendIds[0]) : (backendIds.length > 1 ? "Multiple" : "All");
+        return {
+            active: route.combine === "exclusive" || (backendIds.length > 0 && prefix !== ""),
+            raw: rawQuery,
+            searchRaw: route.strippedQuery || rawQuery,
+            prefix: prefix,
+            label: label,
+            tags: [],
+            kinds: [],
+            backendIds: backendIds
+        };
+    }
+
+    function findHelpTitle(backendId) {
+        for (var i = 0; i < (backends || []).length; i += 1) {
+            var b = backends[i];
+            if (b && b.backendId === backendId)
+                return b.helpTitle || b.name || b.backendId;
+        }
+        return backendId;
     }
 
     function queryEvidence(resultId) {
@@ -504,6 +546,7 @@ Item {
 
     function searchOptions() {
         return {
+            routingTree: root.routingTree,
             visibilityThreshold: visibilityThreshold,
             includePath: includePath,
             showHidden: showHidden,
@@ -522,7 +565,10 @@ Item {
     }
 
     function triggerAsyncBackends(text, currentGeneration) {
-        var directive = CompositeSearch.parseDirective(text || "", backends || []);
+        var route = RoutingTree.routeQuery(root.routingTree, text || "");
+        var directive = route && route.endpoints && route.endpoints.length > 0
+            ? root.buildDirectiveFromRoute(text || "", route)
+            : CompositeSearch.parseDirective(text || "", backends || []);
         var parsedQuery = CompositeSearch.tokenize(directive.searchRaw || "");
 
         for (let i = 0; i < (backends || []).length; i += 1) {
