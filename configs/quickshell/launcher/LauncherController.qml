@@ -106,6 +106,7 @@ Item {
     P.ScoreDominatesPolicy { policyId: "score-dominates:0.08"; margin: 0.08 }
     P.OwnScoreDominatesPolicy { policyId: "own-score-dominates:0.08"; margin: 0.08 }
     P.ScoreBeatsParentPolicy {}
+    P.PresentationChainPolicy {}
 
     onQueryUpdateRequested: function(text) {
         generation += 1;
@@ -364,9 +365,15 @@ Item {
         var previousResults = results;
         var previousQuery = query;
         var previousLastQuery = lastQuery;
+        var previousCollapsed = collapsedResultIndices;
         results = rows;
         query = visualText;
         lastQuery = output.query;
+        collapsedResultIndices = {};
+        for (var ci = 0; ci < rows.length; ci += 1) {
+            if (rows[ci].alwaysExpanded === false)
+                collapsedResultIndices[ci] = true;
+        }
         var targets = root.navigationTargets().map(function(target) {
             return {
                 key: target.key,
@@ -379,6 +386,7 @@ Item {
         results = previousResults;
         query = previousQuery;
         lastQuery = previousLastQuery;
+        collapsedResultIndices = previousCollapsed;
         return JSON.stringify({
             version: 1,
             type: "visual",
