@@ -35,6 +35,7 @@ Rectangle {
     }
     readonly property int childCount: (result.children || []).length
     readonly property bool hasTreeChildren: childCount > 0
+    readonly property bool confirming: controller && result.id ? controller.pendingConfirmId === result.id : false
     property int _expandedOverride: 0 // 0=use policy, 1=force collapse, 2=force expand
     property bool expanded: _expandedOverride === 1 ? false : (_expandedOverride === 2 ? true : (result.alwaysExpanded !== false && hasTreeChildren))
     signal activated(var result)
@@ -174,15 +175,38 @@ Rectangle {
 
             }
 
-            Text {
-                text: root.showActionHint && root.defaultAction ? root.defaultAction.label : ""
-                visible: text.length > 0 && !switchColumn.visible && !sliderColumn.visible
-                color: Config.styling.text1
-                font.pixelSize: 12
-                elide: Text.ElideRight
-                horizontalAlignment: Text.AlignRight
+            Item {
                 Layout.preferredWidth: 92
+                Layout.minimumWidth: 92
                 Layout.alignment: Qt.AlignVCenter
+                Layout.fillHeight: true
+
+                Rectangle {
+                    anchors.fill: parent
+                    visible: root.confirming
+                    color: Config.colors.red
+                    radius: Config.styling.radius
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: qsTr("Confirm?")
+                        color: Config.styling.bg0
+                        font.pixelSize: 11
+                        font.bold: true
+                    }
+                }
+
+                Text {
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.showActionHint && root.defaultAction && !root.confirming ? root.defaultAction.label : ""
+                    visible: text.length > 0 && !switchColumn.visible && !sliderColumn.visible
+                    color: Config.styling.text1
+                    font.pixelSize: 12
+                    elide: Text.ElideRight
+                    horizontalAlignment: Text.AlignRight
+                }
             }
 
             ColumnLayout {

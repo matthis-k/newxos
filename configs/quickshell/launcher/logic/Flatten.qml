@@ -4,66 +4,20 @@ import Quickshell
 import "Tokenize.qml"
 import "Evidence.qml"
 import "Evaluate.qml"
-import "CompositeSearchPolicyRegistry.js" as JsRegistry
+import "../policies/presentation/"
 
 Singleton {
-    readonly property var defaultChildVisible: ["visible-flag"]
-    readonly property var defaultChildBypass: ["own-score-beats-parent", "score-dominates:0.03"]
-
-    function childProfile(ev) {
-        return (ev.node.evaluationProfile || {}).profile || {};
-    }
-
-    function childPassesVisible(childEval, parentEval, ctx) {
-        var profile = childProfile(parentEval);
-        var names = profile.childVisible || defaultChildVisible;
-        for (var i = 0; i < names.length; i += 1) {
-            var policy = JsRegistry.childVisible.get(names[i]);
-            if (!policy || !policy.apply(childEval, parentEval, ctx))
-                return false;
-        }
-        return true;
-    }
-
-    function childDominates(childEval, parentEval, ctx) {
-        var profile = childProfile(parentEval);
-        var names = profile.childBypass || defaultChildBypass;
-        for (var i = 0; i < names.length; i += 1) {
-            var policy = JsRegistry.childBypass.get(names[i]);
-            if (policy && policy.apply(childEval, parentEval, ctx))
-                return true;
-        }
-        return false;
-    }
-
-    function groupDisplayPolicy(ev) {
-        var flattenPolicy = ev.node.behavior && ev.node.behavior.flattenPolicy || {};
-        var groupPolicy = flattenPolicy.groupDisplay || {};
-        if (flattenPolicy.modeHint === "group-mode-inhibit")
-            return null;
-        return Object.assign({ enabled: true, parentWinsMargin: 0.08, childWinsMargin: 0.03, childDominatesMargin: 0.18, maxFlattenedChildren: 3, minChildScore: 0.25, showGroupHeaderInFilteredMode: true, committedTokenPrefersGroup: true, committedTokenMinParentScore: 0.25, showAllChildrenOnParentMatch: false, parentMatchMinScore: 0.25 }, groupPolicy);
-    }
-
-    function groupDominanceOwnScore(ev, ctx) {
-        var primary = (ev.evidence || []).filter(function(e) {
-            if (e.nodeId !== ev.node.id) return false;
-            var group = Evidence.evidenceFieldGroup(e.field);
-            return group === "primary-text" || group === "path-text" || group === "semantic-text";
-        });
-        if (!primary.length)
-            return ev.ownScore;
-        var score = 0;
-        var overlaid = Evidence.overlayEvidence(primary, ctx.query);
-        for (var i = 0; i < overlaid.length; i += 1)
-            score = 1 - (1 - score) * (1 - Tokenize.clamp(overlaid[i].effective));
-        return Tokenize.clamp(Math.min(score, ev.ownScore));
-    }
+    id: root
 
     function decideGroupDisplay(ev, ctx) {
+        var presMode = PresentationPolicy.decidePresentation(ev, ctx);
+        if (presMode && presMode.mode !== "normal")
+            return presMode;
+
         if (ev.node.switchActions) {
             if (!ev.children || ev.children.length === 0)
                 return { mode: "group", showParent: true, children: [] };
-            var switchPolicy = groupDisplayPolicy(ev) || {};
+            var switchPolicy = PresentationPolicy.groupDisplayPolicy(ev) || {};
             var switchGroupPolicy = switchPolicy.groupDisplay || {};
             var switchMinChildScore = switchGroupPolicy.minChildScore === undefined ? 0.25 : switchGroupPolicy.minChildScore;
             var switchMaxChildren = switchGroupPolicy.maxNestedChildren || switchGroupPolicy.maxFlattenedChildren || 8;
@@ -77,24 +31,24 @@ Singleton {
             }
 
             var switchChildren = ev.children.filter(function(c) {
-                return childPassesVisible(c, ev, ctx);
+                return PresentationPolicy.childPassesVisible(c, ev, ctx);
             }).sort(Evaluate.compareEvaluated).slice(0, switchMaxChildren);
             if (switchChildren.length > 0)
                 return { mode: "nested-group", showParent: true, children: switchChildren };
             return { mode: "group", showParent: true, children: [] };
         }
 
-        var policy = groupDisplayPolicy(ev);
+        var policy = PresentationPolicy.groupDisplayPolicy(ev);
 
         if (ev.node.behavior && ev.node.behavior.filterable) {
             if (ev.ownVisible && policy) {
-                var childScore = groupDominanceOwnScore(ev, ctx);
+                var childScore = PresentationPolicy.groupDominanceOwnScore(ev, ctx);
                 var visibleChildren = ev.children.filter(function(c) {
-                    return childPassesVisible(c, ev, ctx);
+                    return PresentationPolicy.childPassesVisible(c, ev, ctx);
                 }).sort(Evaluate.compareEvaluated);
                 if (visibleChildren.length) {
                     var dominantChildren = visibleChildren.filter(function(c) {
-                        return childDominates(c, ev, ctx);
+                        return PresentationPolicy.childDominates(c, ev, ctx);
                     });
                     if (dominantChildren.length === 1) {
                         return { mode: "flatten-children", showParent: false, children: dominantChildren };
@@ -115,7 +69,7 @@ Singleton {
 
         if (!policy)
             return { mode: "normal", showParent: true, children: ev.children };
-        var parentScore = groupDominanceOwnScore(ev, ctx);
+        var parentScore = PresentationPolicy.groupDominanceOwnScore(ev, ctx);
 
         if ((policy.showAllChildrenOnParentMatch || policy.flattenAllChildrenOnParentMatch) && parentScore >= policy.parentMatchMinScore)
             return { mode: "nested-group", showParent: true, includeAllChildren: true, children: ev.children.slice(0, policy.maxNestedChildren || ev.children.length) };
@@ -126,14 +80,14 @@ Singleton {
         if (!hasActions && policy.flattenAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
             return { mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, policy.maxNestedChildren || ev.children.length) };
         var visibleChildren = ev.children.filter(function(c) {
-            return childPassesVisible(c, ev, ctx);
+            return PresentationPolicy.childPassesVisible(c, ev, ctx);
         }).sort(Evaluate.compareEvaluated);
         if (!visibleChildren.length) {
             return { mode: "group", showParent: true, children: [] };
         }
         var bestChild = visibleChildren[0];
         var dominantChildren = visibleChildren.filter(function(child) {
-            return childDominates(child, ev, ctx);
+            return PresentationPolicy.childDominates(child, ev, ctx);
         });
         if (dominantChildren.length === 1) {
             return { mode: "flatten-children", showParent: false, children: dominantChildren };
@@ -388,7 +342,7 @@ Singleton {
         if (!groupDisplay.showAllChildrenOnParentMatch && !groupDisplay.flattenAllChildrenOnParentMatch)
             return false;
         var minScore = groupDisplay.parentMatchMinScore === undefined ? 0.25 : groupDisplay.parentMatchMinScore;
-        return ev.ownVisible && groupDominanceOwnScore(ev, ctx) >= minScore;
+        return ev.ownVisible && PresentationPolicy.groupDominanceOwnScore(ev, ctx) >= minScore;
     }
 
     function toResultRow(ev, depth, state, ctx, childRows, options) {
@@ -443,6 +397,13 @@ Singleton {
             shiftEnter: { type: "noop" },
             executable: !!action,
             dangerous: !!node.dangerous,
+            risk: node.risk ? {
+                level: node.risk.level || "none",
+                activation: node.risk.activation || "normal"
+            } : node.dangerous ? {
+                level: "state-change",
+                activation: "confirm"
+            } : null,
             filterable: !!(node.behavior && node.behavior.filterable),
             lazy: !!node.lazy,
             alwaysExpanded: hasExplicitAlwaysExpanded(node) ? node.behavior.alwaysExpanded !== false : (parentMatchShowsChildren(ev, ctx) || childHasGoodMatch(childRows)),
@@ -551,4 +512,5 @@ Singleton {
             return toResultRow(item.ev, item.depth, state, ctx, childRows, item.options);
         });
     }
+
 }

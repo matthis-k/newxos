@@ -33,6 +33,14 @@ Item {
     property string resultsQuery: ""
     property bool debugEnabled: false
     property string lastAsyncVisualJson: ""
+    property var pendingConfirmId: null
+    property int pendingConfirmTimeoutMs: 1600
+
+    Timer {
+        id: pendingConfirmTimer
+        interval: root.pendingConfirmTimeoutMs
+        onTriggered: root.pendingConfirmId = null
+    }
 
     // Tree navigation state
     property var currentTreeView: null
@@ -237,6 +245,7 @@ Item {
             kind: row.kind || "",
             executable: !!row.executable,
             dangerous: !!row.dangerous,
+            risk: row.risk || null,
             selectable: root.isSelectable(row),
             breadcrumbs: row.breadcrumbs || [],
             breadcrumbText: row.breadcrumbText || "",
@@ -740,7 +749,26 @@ Item {
         var result = selectedResult();
         if (!result)
             return false;
+
+        if (result.risk && result.risk.activation) {
+            if (result.id === root.pendingConfirmId) {
+                root.pendingConfirmId = null;
+                pendingConfirmTimer.stop();
+                return applyIntent(result, shiftPressed ? result.shiftEnter : result.enter);
+            }
+            if (root.requiresConfirm(result.risk.activation)) {
+                root.pendingConfirmId = result.id;
+                pendingConfirmTimer.restart();
+                resultsRefreshRequested();
+                return false;
+            }
+        }
+
         return applyIntent(result, shiftPressed ? result.shiftEnter : result.enter);
+    }
+
+    function requiresConfirm(activation) {
+        return activation === "confirm" || activation === "confirm-and-explicit-prefix" || activation === "terminal-confirm-or-explicit-prefix";
     }
 
     function completeSelected() {

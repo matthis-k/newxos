@@ -16,6 +16,7 @@ QtObject {
     property var keywords: []
     property var dynamicChildren: []
     property bool dangerous: false
+    property var risk: null
     property var behavior: null
     property var groupOptions: ({})
     property var tokenPolicy: null
@@ -68,6 +69,7 @@ QtObject {
             icon: root.icon || "",
             iconColor: root.iconColor,
             dangerous: root.dangerous,
+            risk: root.risk,
             behavior: root.behavior,
             groupOptions: root.groupOptions || {},
             tokenPolicy: root.tokenPolicy,

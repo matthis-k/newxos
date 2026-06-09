@@ -65,6 +65,7 @@ Node {
             icon: root.icon || "",
             iconColor: root.iconColor,
             dangerous: root.dangerous,
+            risk: root.risk,
             behavior: root.behavior,
             groupOptions: root.groupOptions || {},
             tokenPolicy: root.tokenPolicy,

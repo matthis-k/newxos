@@ -1,9 +1,12 @@
 import QtCore
 import Quickshell.Io
+import "../logic/"
 
 ProcessBackendBase {
     id: root
 
+    property FileQueryParser fileQueryParser: FileQueryParser {}
+    property FilePathResolver filePathResolver: FilePathResolver {}
     property string searchRoot: StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "")
     property var lazyNodeCache: ({})
     property var lazyScanPath: ""
@@ -20,7 +23,8 @@ ProcessBackendBase {
     maxResults: 5
     routes: [
         { pattern: "^@?files?\\s+(.*)", priority: 60, combine: "exclusive", afterEmpty: "stop" },
-        { pattern: "^(file://|~/|/)(.*)", priority: 60, combine: "exclusive", afterEmpty: "stop" }
+        { pattern: "^(file://|~/|/)(.*)", priority: 60, combine: "exclusive", afterEmpty: "stop" },
+        { pattern: "^~\\s+", priority: 55, combine: "exclusive", afterEmpty: "stop" }
     ]
 
     property Process lazyScanner: Process {
@@ -70,8 +74,14 @@ ProcessBackendBase {
     }
 
     function shouldParticipate(rawQuery, directive, query) {
+        if (directive && directive.active && directive.raw)
+            return true;
         const raw = String(rawQuery || "").trim();
-        return raw[0] === "/" || raw[0] === "~" || raw.indexOf("file://") === 0 || /^@?files?(\s|$)/.test(raw);
+        if (raw[0] === "/" || raw[0] === "~" || raw.indexOf("file://") === 0 || /^@?files?(\s|$)/.test(raw))
+            return true;
+        if (raw.indexOf("~ ") === 0 && raw.length > 2)
+            return true;
+        return false;
     }
 
     function rootNode(query, context) {
@@ -79,14 +89,77 @@ ProcessBackendBase {
         if (!shouldParticipate(rawQuery, context ? context.directive : null, query))
             return null;
 
+        var parsed = root.fileQueryParser.parseFileQuery(rawQuery);
+
+        if (parsed.mode === "path-explore" || parsed.mode === "mixed" || parsed.mode === "direct-path") {
+            var result = buildExploreResults(parsed);
+            print("FILES BACKEND: path-explore result children=" + (result ? (result.children || []).length : 0) + " mode=" + parsed.mode + " path=" + parsed.concretePath);
+            return result;
+        }
+
+        if (parsed.mode === "flat-search") {
+            var result = buildFlatSearchResults(parsed, query, context);
+            print("FILES BACKEND: flat-search result children=" + (result ? (result.children || []).length : 0));
+            return result;
+        }
+
+        print("FILES BACKEND: no matching mode=" + parsed.mode);
+        return null;
+    }
+
+    function buildExploreResults(parsed) {
+        var children = [];
+        if (parsed.concretePath) {
+            var home = StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "");
+            var display = parsed.concretePath.replace(home, "~");
+            var resolution = root.filePathResolver.resolveFileQuery(parsed, root.maxResults);
+
+            var nodeOpts = {
+                id: "file:" + parsed.concretePath,
+                kind: parsed.isDirectory !== false ? "directory-result" : "file-result",
+                label: parsed.concretePath.split("/").pop(),
+                subtitle: display,
+                path: parsed.concretePath,
+                keywords: [parsed.concretePath, parsed.concretePath.split("/").pop()],
+                showWhenQueryEmpty: true
+            };
+
+            if (resolution && resolution.resolution) {
+                nodeOpts.meta = {
+                    path: parsed.concretePath,
+                    fileResolution: resolution.resolution
+                };
+                if (resolution.resolution.unresolvedTokens && resolution.resolution.unresolvedTokens.length > 0)
+                    nodeOpts.subtitle = display + " (? " + resolution.resolution.unresolvedTokens.map(function(t) { return t.raw; }).join(" ") + ")";
+                if (resolution.resolution.alternatives && resolution.resolution.alternatives.length > 0)
+                    nodeOpts.alternatives = resolution.resolution.alternatives;
+            }
+
+            children.push(root.nodeDto(nodeOpts));
+        }
+
+        return root.backendRootDto(children, {
+            subtitle: "Path Explorer",
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], childBypass: ["own-score-beats-parent", "score-dominates:0.03"] } }
+        });
+    }
+
+    function buildFlatSearchResults(parsed, query, context) {
+        const rawQuery = context && context.directive && context.directive.active ? context.directive.raw : (query ? query.raw : "");
         const pathQuery = expandHome(fileQueryText(rawQuery));
         const seenPaths = {};
         const children = [];
+
+        var resolution = root.filePathResolver.resolveFileQuery(parsed, root.maxResults);
+
         if (pathQuery.length > 0) {
             const parts = pathQuery.split("/");
             const filename = parts[parts.length - 1] || "";
             const looksLikeDir = filename.indexOf(".") === -1;
-            children.push(nodeForPath(pathQuery, 0, undefined, undefined, undefined, looksLikeDir));
+            var node = nodeForPath(pathQuery, 0, undefined, undefined, undefined, looksLikeDir);
+            if (resolution && resolution.resolution)
+                node.meta = node.meta || {}, node.meta.fileResolution = resolution.resolution;
+            children.push(node);
             seenPaths[pathQuery] = true;
         }
 
@@ -110,7 +183,7 @@ ProcessBackendBase {
         const label = title || parts[parts.length - 1] || path;
         var opts = {
             id: "file:" + path,
-            kind: "file-result",
+            kind: isDir ? "directory-result" : "file-result",
             label: label,
             subtitle: subtitle || displayPath(path),
             icon: icon || iconForPath(path),

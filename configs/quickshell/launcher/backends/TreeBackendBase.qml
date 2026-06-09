@@ -118,6 +118,7 @@ LauncherBackendBase {
             control: node.control || null,
             presentation: node.presentation || null,
             dangerous: !!node.dangerous,
+            risk: node.risk || null,
             children: children,
             showWhenQueryEmpty: path.length === 0,
             usageCount: node.usageCount || 0,
@@ -207,6 +208,7 @@ LauncherBackendBase {
             iconColor: opts.iconColor || null,
             action: actionPayload(actionId, opts.actionProps || {}, opts.execute),
             dangerous: !!opts.dangerous,
+            risk: opts.risk || null,
             behavior: opts.behavior || null,
             children: opts.children || []
         };

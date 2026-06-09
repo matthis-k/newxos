@@ -58,10 +58,15 @@ TreeBackendBase {
             aliases: ["newxos", "nx", "repo"]
             title: qsTr("Newxos")
             icon: "nix-snowflake-symbolic"
-            groupOptions: root.defaultFlatGroupOptions
-            behavior: ({ })
-        actionId: "newxos-switch"
-        action: function() { launchTerminalPaused(qsTr("newxos switch"), "newxos switch"); }
+            groupOptions: Object.assign({}, root.defaultFlatGroupOptions, { committedTokenPrefersGroup: true, committedTokenMinParentScore: 0.15, showAllChildrenOnParentMatch: true, flattenAllChildrenOnParentMatch: true, parentMatchMinScore: 0.1 })
+            behavior: ({
+                filterable: true,
+                presentation: "discoverable-command-group",
+                displayPolicy: {
+                    discoverable: true,
+                    breadcrumbMode: "when-parent-dominates"
+                }
+            })
 
         ActionNode {
             name: "switch"
@@ -72,6 +77,7 @@ TreeBackendBase {
             iconColor: Config.styling.primaryAccent
             actionId: "newxos-switch"
             action: function() { launchTerminalPaused(qsTr("newxos switch"), "newxos switch"); }
+            risk: ({ level: "privileged", activation: "confirm" })
         }
 
         ActionNode {
@@ -147,6 +153,7 @@ TreeBackendBase {
             icon: "system-log-out-symbolic"
             iconColor: Config.styling.warning
             dangerous: true
+            risk: ({ level: "session", activation: "confirm-and-explicit-prefix" })
             actionId: "logout"
             action: function() { Quickshell.execDetached({ command: ["hyprctl", "dispatch", "exit"] }); }
         }
@@ -159,6 +166,7 @@ TreeBackendBase {
             icon: "system-shutdown-symbolic"
             iconColor: Config.styling.critical
             dangerous: true
+            risk: ({ level: "power", activation: "confirm-and-explicit-prefix" })
             actionId: "shutdown"
             action: function() { Quickshell.execDetached({ command: ["systemctl", "poweroff"] }); }
         }
@@ -171,6 +179,7 @@ TreeBackendBase {
             icon: "system-reboot-symbolic"
             iconColor: Config.styling.urgent
             dangerous: true
+            risk: ({ level: "power", activation: "confirm-and-explicit-prefix" })
             actionId: "reboot"
             action: function() { Quickshell.execDetached({ command: ["systemctl", "reboot"] }); }
         }
@@ -183,6 +192,7 @@ TreeBackendBase {
             icon: "system-suspend-hibernate-symbolic"
             iconColor: Config.styling.secondaryAccent
             dangerous: true
+            risk: ({ level: "power", activation: "confirm-and-explicit-prefix" })
             actionId: "hibernate"
             action: function() { Quickshell.execDetached({ command: ["systemctl", "hibernate"] }); }
         }
