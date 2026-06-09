@@ -42,6 +42,14 @@ TreeBackendBase {
         target: Pipewire.linkGroups
         function onValuesChanged() { root.invalidateCompositeRootCache(); }
     }
+    Connections {
+        target: NordVPN
+        function onConnectedChanged() { root.invalidateCompositeRootCache(); }
+        function onConnectingChanged() { root.invalidateCompositeRootCache(); }
+        function onAvailableChanged() { root.invalidateCompositeRootCache(); }
+        function onCountriesChanged() { root.invalidateCompositeRootCache(); }
+        function onGroupsChanged() { root.invalidateCompositeRootCache(); }
+    }
 
     function effectiveTreeRoots() {
         var roots = [audioTree(), brightnessTree()];
@@ -444,6 +452,7 @@ TreeBackendBase {
         children.push(actionNode({
             id: "fastest",
             title: qsTr("Fastest server"),
+            keywords: ["vpn"],
             icon: "network-vpn-symbolic",
             iconColor: Config.styling.good,
             actionId: "vpn",
@@ -455,6 +464,7 @@ TreeBackendBase {
             children.push(actionNode({
                 id: "country-" + country,
                 title: country,
+                keywords: ["vpn"],
                 subtitle: qsTr("Country"),
                 icon: "network-vpn-symbolic",
                 iconColor: Config.styling.good,
@@ -470,6 +480,7 @@ TreeBackendBase {
                 id: "group-" + group,
                 title: title,
                 aliases: [title],
+                keywords: ["vpn"],
                 subtitle: qsTr("Group"),
                 icon: "network-vpn-symbolic",
                 iconColor: Config.styling.info,

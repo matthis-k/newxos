@@ -467,7 +467,7 @@ Singleton {
                     add(ev, depth, score, decision.children, forceInclude, { suppressParentActions: !!decision.suppressParentActions, includeAllChildren: !!decision.includeAllChildren });
                     return;
                 }
-                if (decision.mode !== "group" || ev.ownScore > 0 || ev.ownVisible)
+            if (decision.mode !== "group" || ev.ownScore > 0 || ev.ownVisible)
                     add(ev, depth, score, [], forceInclude);
             }
             if (decision.mode === "group")
@@ -508,7 +508,12 @@ Singleton {
         var maxTreeDepth = ctx.maxTreeDepth >= 0 ? ctx.maxTreeDepth : 3;
         return collected.map(function(item) {
             var includeAllChildren = item.options && item.options.includeAllChildren;
-            var childRows = item.childEvs && item.childEvs.length ? buildChildRows(item.childEvs, item.depth, maxTreeDepth, includeAllChildren) : buildChildTree(item.ev, item.depth, maxTreeDepth, false);
+            var childRows;
+            if (item.childEvs != null) {
+                childRows = item.childEvs.length ? buildChildRows(item.childEvs, item.depth, maxTreeDepth, includeAllChildren) : [];
+            } else {
+                childRows = buildChildTree(item.ev, item.depth, maxTreeDepth, false);
+            }
             return toResultRow(item.ev, item.depth, state, ctx, childRows, item.options);
         });
     }

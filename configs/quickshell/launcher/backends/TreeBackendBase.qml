@@ -129,7 +129,7 @@ LauncherBackendBase {
                 displayPolicy: nodeBehavior.displayPolicy || null
             }, node.behavior || {}),
             semanticTerms: semanticTermsForNode(node),
-            evaluationProfile: switchProfile || { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default" },
+            evaluationProfile: node.evaluationProfile || switchProfile || { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default" },
             meta: {
                 action: action,
                 commandPath: path.concat([node]).map(function(item) { return item.id || item.title; }),
@@ -202,6 +202,7 @@ LauncherBackendBase {
         return {
             id: opts.id || actionId,
             aliases: opts.aliases || [],
+            keywords: opts.keywords || [],
             title: opts.title || opts.id || actionId,
             subtitle: opts.subtitle || "",
             icon: opts.icon || root.helpIcon || "system-run",
