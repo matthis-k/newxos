@@ -44,4 +44,12 @@ Singleton {
             apply: applyFn
         });
     }
+
+    function registerPresentation(id, applyFn) {
+        JsRegistry.presentation.register(id, {
+            name: id,
+            phase: "presentation",
+            apply: applyFn
+        });
+    }
 }

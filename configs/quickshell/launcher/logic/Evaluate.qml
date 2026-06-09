@@ -4,6 +4,7 @@ import Quickshell
 import "Tokenize.qml"
 import "IndexBuilder.qml"
 import "Evidence.qml"
+import "PolicyChain.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
@@ -59,18 +60,22 @@ Singleton {
         var directCandidate = !ctx.candidateIds || !!ctx.candidateIds[node.id] || node.kind === "root" || node.kind === "backend" || node.showWhenQueryEmpty || directiveBrowse;
 
         if (selfAllowed && directCandidate) {
-            var evidencePolicies = profile.evidence || [];
-            for (var pi = 0; pi < evidencePolicies.length; pi += 1) {
-                var policy = JsRegistry.evidence.get(evidencePolicies[pi]);
-                if (!policy || policy.phase !== "evidence")
-                    continue;
+            var evidenceNames = profile.evidence || [];
+            var evidenceResult = PolicyChain.run(evidenceNames, function(name) {
+                var policy = JsRegistry.evidence.get(name);
+                if (!policy || policy.phase !== "evidence") return null;
                 var items = policy.match(node, query, ctx);
-                if (!items || !items.length)
-                    continue;
-                if (policy.group === "inherited")
-                    inheritedEvidence = inheritedEvidence.concat(items);
+                if (!items || !items.length) return null;
+                var group = policy.group || "own";
+                items.forEach(function(item) { item.originGroup = group; });
+                return items;
+            }, "evidence");
+            var allEvidence = evidenceResult.value || [];
+            for (var ei = 0; ei < allEvidence.length; ei += 1) {
+                if (allEvidence[ei].originGroup === "inherited")
+                    inheritedEvidence.push(allEvidence[ei]);
                 else
-                    ownEvidence = ownEvidence.concat(items);
+                    ownEvidence.push(allEvidence[ei]);
             }
         }
 
@@ -88,16 +93,13 @@ Singleton {
         var inheritedScore = inheritedResult.value;
 
         var scores = { ownScore: own.value, inheritedScore: inheritedScore };
-        var descendantBoost = 0;
-        var boostPolicies = profile.boost || [];
-        for (var bi = 0; bi < boostPolicies.length; bi += 1) {
-            var bpol = JsRegistry.boost.get(boostPolicies[bi]);
-            if (!bpol || bpol.phase !== "boost")
-                continue;
+        var boostNames = profile.boost || [];
+        var descendantBoost = (PolicyChain.run(boostNames, function(name) {
+            var bpol = JsRegistry.boost.get(name);
+            if (!bpol || bpol.phase !== "boost") return null;
             var boostVal = bpol.apply(node, query, ctx, evaluatedChildren, scores);
-            if (boostVal > 0)
-                descendantBoost = Math.max(descendantBoost, boostVal);
-        }
+            return boostVal > 0 ? boostVal : null;
+        }, "boost").value) || 0;
 
         var finalScore = Tokenize.clamp(Math.max(own.value, inheritedScore, descendantBoost));
 
@@ -215,11 +217,12 @@ Singleton {
         var ep = evaluated.node.evaluationProfile || {};
         var profile = ep.profile || defaultProfile;
         var inheritNames = profile.inherit || [];
-        for (var pi = 0; pi < inheritNames.length; pi += 1) {
-            var policy = JsRegistry.inherit.get(inheritNames[pi]);
-            if (policy && policy.phase === "inherit")
-                policy.apply(evaluated, query, ctx);
-        }
+        PolicyChain.run(inheritNames, function(name) {
+            var policy = JsRegistry.inherit.get(name);
+            if (!policy || policy.phase !== "inherit") return null;
+            policy.apply(evaluated, query, ctx);
+            return true;
+        }, "inherit");
     }
 
     function hasBaseEvidence(ev) {

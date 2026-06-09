@@ -32,3 +32,4 @@ var inherit = makeRegistry();
 var boost = makeRegistry();
 var childVisible = makeRegistry();
 var childBypass = makeRegistry();
+var presentation = makeRegistry();

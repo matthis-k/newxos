@@ -17,23 +17,21 @@ Singleton {
     function childPassesVisible(childEval, parentEval, ctx) {
         var profile = childProfile(parentEval);
         var names = profile.childVisible || defaultChildVisible;
-        for (var i = 0; i < names.length; i += 1) {
-            var policy = JsRegistry.childVisible.get(names[i]);
-            if (!policy || !policy.apply(childEval, parentEval, ctx))
-                return false;
-        }
-        return true;
+        return PolicyChain.run(names, function(name) {
+            var policy = JsRegistry.childVisible.get(name);
+            if (!policy) return false;
+            return policy.apply(childEval, parentEval, ctx);
+        }, "childVisible").value;
     }
 
     function childDominates(childEval, parentEval, ctx) {
         var profile = childProfile(parentEval);
         var names = profile.childBypass || defaultChildBypass;
-        for (var i = 0; i < names.length; i += 1) {
-            var policy = JsRegistry.childBypass.get(names[i]);
-            if (policy && policy.apply(childEval, parentEval, ctx))
-                return true;
-        }
-        return false;
+        return PolicyChain.run(names, function(name) {
+            var policy = JsRegistry.childBypass.get(name);
+            if (!policy) return null;
+            return policy.apply(childEval, parentEval, ctx);
+        }, "childBypass").value;
     }
 
     function groupDisplayPolicy(ev) {
@@ -107,18 +105,14 @@ Singleton {
         var node = ev.node;
         var riskLevel = riskLevelForNode(node);
         var activation = activationModeForNode(node);
-        var presentationId = (node.behavior && node.behavior.presentation) || "";
-        if (!presentationId && node.presentation) presentationId = node.presentation;
-        var preset = PresentationPresets.presetForKind(presentationId || node.kind);
-        if (preset) {
-            var policy = decideByPreset(ev, ctx, preset);
-            return enrichWithRisk(policy, riskLevel, activation);
-        }
-        if (node.switchActions) {
-            var switchPolicy = decideSwitchPresentation(ev, ctx);
-            return enrichWithRisk(switchPolicy, riskLevel, activation);
-        }
-        return enrichWithRisk({ mode: "normal", showParent: true, children: ev.children || [] }, riskLevel, activation);
+        var chainNames = ["preset-presentation", "switch-presentation", "default-presentation"];
+        var chainResult = PolicyChain.run(chainNames, function(name) {
+            var policy = JsRegistry.presentation.get(name);
+            if (!policy) return null;
+            return policy.apply(ev, ctx);
+        }, "presentation");
+        var decision = chainResult.value || { mode: "normal", showParent: true, children: ev.children || [] };
+        return enrichWithRisk(decision, riskLevel, activation);
     }
 
     function decideByPreset(ev, ctx, preset) {
