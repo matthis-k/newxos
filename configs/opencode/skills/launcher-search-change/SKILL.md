@@ -31,6 +31,16 @@ Use this skill for search behavior in `configs/quickshell/launcher/`.
 4. Avoid broad rewrites; change the smallest owner.
 5. Check ranking expectations after behavior changes.
 
+## newshell CLI and service
+
+`newshell` is a wrapper script around `quickshell -p <config-dir>` (see `modules/desktop/wrappers/quickshell.nix`). In dev mode (`NEWXOS_DEV=1`) it uses the live config from `$NEWXOS_FLAKE/configs/quickshell` and passes `--verbose`.
+
+The systemd user service `newshell` (`systemctl --user restart newshell`) restarts the Quickshell session. All `newshell ipc` subcommands route IPC calls to the running instance identified by the config directory — you don't need to specify which instance.
+
+Key subcommands:
+- `newshell ipc call query <method> [arg]` — invokes a named IPC query method (search, visual, complete, backends, routes, evidence, result, state, pipeline, policies, score, shape, cases, runCases, benchmark)
+- Arguments after `query <method>` are passed as raw strings to the method
+
 ## IPC Debugging Shape
 
 Use `newshell ipc call query search '<query>'` for the full search payload and `newshell ipc call query visual '<query>'` for the UI-facing, truncated payload.
@@ -39,7 +49,7 @@ Source of truth: `configs/quickshell/launcher/LauncherController.qml`, especiall
 
 New debug endpoints (version 2): `queryPipeline()`, `queryPolicies()`, `queryScore()`, `queryShape()`, `queryCases()`, `queryRunCases()`. These are exposed through `Launcher.qml` as `queryPipeline()`, `queryPolicies()`, `queryScore()`, `queryShape()`, `queryCases()`, `queryRunCases()` and through `ShellState.qml` IPC as `pipeline`, `policies`, `score`, `shape`, `benchmark`, `cases`, `runCases`.
 
-Pipeline model modules live in `configs/quickshell/launcher/logic/`: `PolicySpec.qml` (spec normalization), `PolicyDiagnostics.qml` (from `pipeline/`), `ScoreBundle.qml` (score parts with coverage), `ResultShaping.qml` (placement decisions retains placement/decision/shaped metadata), `PresentationContext.qml` (placement-sensitive display choices), `RenderedRows.qml` (row DTO construction consumes shaped items + presentation context).
+Pipeline model modules live in `configs/quickshell/launcher/logic/`: `PolicySpec.qml` (spec normalization), `PolicyChain.qml` (policy aggregation + `lookupPolicy` helper for normalized spec-aware lookups), `ScoreBundle.qml` (score parts with coverage), `ResultShaping.qml` (placement decisions retains placement/decision/shaped metadata), `PresentationContext.qml` (placement-sensitive display choices), `RenderedRows.qml` (row DTO construction consumes shaped items + presentation context). TokenFlowDecision is not implemented yet. ActionPolicy is not extracted yet.
 
 Current `search` and `visual` envelopes are defined there in this form:
 
@@ -66,7 +76,7 @@ Filtering notes:
 - `score` (version 2) returns `{version,type,resultId,found,scoreBundle,evidenceSummary}` with full `ScoreBundle` parts.
 - `pipeline` (version 2) returns `{version,type,query,directive,timings,stages,diagnostics}`.
 - `policies` (version 2) returns `{version,type,query,activeBackends,policiesByKind,diagnostics}`.
-- `shape` (version 2) returns `{version,type,query,shapedResults}` with placement metadata per row from actual `ResultShaping` decisions. Fields: `title`, `nodeId`, `placement`, `depth`, `sortScore`, `score`, `ownScore`, `inheritedScore`, `descendantScore`, `ranking`, `group`, `activation`, `showParent`, `showBreadcrumbs`, `children`, `mode`, `reason`.
+- `shape` (version 2) returns `{version,type,query,shapedResults}` with placement metadata per row from actual `ResultShaping` decisions. Fields: `title`, `nodeId`, `placement`, `depth`, `sortScore`, `score`, `ownScore`, `inheritedScore`, `descendantScore`, `ranking`, `group`, `activation`, `confidence`, `showParent`, `showBreadcrumbs`, `children`, `mode`, `reason`, `suppressParentActions`, `includeAllChildren`, `presentationContext`.
 - `pipeline` (version 2, extended) now includes `shapingSummary` with placement counts and `tokenFlow` placeholder.
 - `policies` (version 2, extended) now returns normalized policy specs with `name`, `baseName`, `args`, `priority`, `count` per kind.
 

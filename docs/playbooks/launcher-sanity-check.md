@@ -49,6 +49,8 @@ Always record the visible query when debugging GUI-only missing-row reports. A r
 
 ## Debug Flow for Bad Results
 
+Pipeline modules live in `configs/quickshell/launcher/logic/`: `Evaluate.qml` -> `ResultShaping.qml` (owns placement) -> `RenderedRows.qml` (builds rows from shaped items using `PresentationContext.qml`). `PolicyChain.lookupPolicy` provides normalized spec-aware lookups. TokenFlowDecision not implemented yet; ActionPolicy not extracted.
+
 1. `query routes` — check backend participation and directive parsing
 2. `query pipeline` — check staged pipeline data (backend roots, candidates, timings, shaping summary, token flow)
 3. `query visual` — check rendered rows and ordering (includes `placement`, `presentationContext`, `scoreBundle`)

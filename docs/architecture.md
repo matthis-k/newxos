@@ -112,7 +112,10 @@ The Quickshell launcher uses a composite search pipeline:
 - **ResultShaping** (`logic/ResultShaping.qml`) centralizes decidePlacement() logic that was previously in Flatten.qml, supporting placements: hidden, standalone, group, filtered-group, group-child, flattened, promoted-child, nested-group. Owns placement decisions and shaped item metadata. Shaped items retain `placement`, `decision`, and `presentationHints`.
 - **PresentationContext** (`logic/PresentationContext.qml`) owns placement-sensitive display decisions: breadcrumb visibility, backend badge visibility, action hint visibility, and density. Provides `forShapedItem()` to build a serializable context from a shaped item.
 - **RenderedRows** (`logic/RenderedRows.qml`) provides toResultRow() DTO construction for the shaped pipeline output. Consumes shaped item data and PresentationContext instead of re-inferring placement locally.
-- **PolicySpec** (`logic/PolicySpec.qml`) normalizes legacy strings, tuple specs, and object specs into a canonical shape.
+- **PolicySpec** (`logic/PolicySpec.qml`) normalizes legacy strings, tuple specs, and object specs into a canonical shape. Full parameterized policy semantics are still incremental — threshold/dominance policies can consume spec args but most policies still rely on legacy string names.
+- **PolicyChain** (`logic/PolicyChain.qml`) chains and aggregates policy results. Provides `lookupPolicy(registry, spec)` for normalized spec-aware lookups, and `run(names, callback, mode)` which passes `(legacyName, spec)` to each callback.
+- **TokenFlowDecision** is not implemented yet.
+- **ActionPolicy** is not extracted yet.
 - **Normalized result rows** carry only primitive fields, actions, and evidence metadata — no raw tree objects or evaluated nodes.
 - **UI delegates** render normalized row data; they do not recompute scoring or hold backend references.
 - **Update coalescing** (`LauncherController.searchTimer`) prevents per-keystroke re-entrance. Async backends check generation counters before applying results.

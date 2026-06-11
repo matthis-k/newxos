@@ -42,6 +42,7 @@ Run these queries after any launcher search change:
 - Shaping and row generation: `configs/quickshell/launcher/logic/ResultShaping.qml` + `configs/quickshell/launcher/logic/RenderedRows.qml`
 - Row post-processing and sorting: `configs/quickshell/launcher/logic/Rows.qml`
 - Policy registry: `configs/quickshell/launcher/logic/CompositeSearchPolicyRegistry.js`, `configs/quickshell/launcher/PolicyRegistry.qml`
-- Policy chaining and aggregation: `configs/quickshell/launcher/logic/PolicyChain.qml`
+- Policy chaining and aggregation: `configs/quickshell/launcher/logic/PolicyChain.qml` (includes `lookupPolicy(registry, spec)` helper for normalized spec-aware lookups)
 - Pipeline model/utility modules: `configs/quickshell/launcher/logic/ScoreBundle.qml`, `ResultShaping.qml`, `PresentationContext.qml`, `RenderedRows.qml`, `PolicySpec.qml`
+- Current gaps: TokenFlowDecision not implemented; ActionPolicy not extracted; PolicySpec parameterized semantics still incremental
 - Routing tree: `configs/quickshell/launcher/logic/RoutingTree.js`
