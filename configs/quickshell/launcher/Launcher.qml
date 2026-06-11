@@ -128,6 +128,7 @@ PanelWindow {
     Component.onCompleted: {
         if (WlrLayershell)
             WlrLayershell.layer = WlrLayer.Overlay;
+        controller.resultView = resultRepeater;
     }
 
     HyprlandFocusGrab {

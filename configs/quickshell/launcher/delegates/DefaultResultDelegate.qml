@@ -57,6 +57,7 @@ Rectangle {
     }
 
     function syncControllerTreeView() {
+        console.warn("[NAV] delegate sync: resultIndex=" + root.resultIndex + " controller=" + !!controller + " treeView=" + !!root.treeView + " treeViewRows=" + (root.treeView ? root.treeView.rows : "N/A"));
         if (controller && root.resultIndex >= 0 && root.treeView)
             controller.registerResultTreeView(root.resultIndex, root.treeView);
     }
