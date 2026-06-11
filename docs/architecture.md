@@ -111,7 +111,7 @@ The Quickshell launcher uses a composite search pipeline:
 - **ScoreBundle** (`logic/pipeline/ScoreBundle.qml`) wraps own/inherited/children/aggregate score parts with coverage info, alongside legacy score fields.
 - **ResultShaping** (`logic/pipeline/ResultShaping.qml`) centralizes decidePlacement() logic that was previously in Flatten.qml, supporting placements: hidden, standalone, group, filtered-group, group-child, flattened, promoted-child, nested-group.
 - **PresentationContext** (`logic/pipeline/PresentationContext.qml`) decides breadcrumbs, backend badge, action hint, and density per shaped item.
-- **RenderedRows** (`logic/pipeline/RenderedRows.qml`) provides toResultRow() DTO construction as an alternative to Flatten.qml's version.
+- **RenderedRows** (`logic/pipeline/RenderedRows.qml`) provides toResultRow() DTO construction for the shaped pipeline output.
 - **Normalized result rows** carry only primitive fields, actions, and evidence metadata — no raw tree objects or evaluated nodes.
 - **UI delegates** render normalized row data; they do not recompute scoring or hold backend references.
 - **Update coalescing** (`LauncherController.searchTimer`) prevents per-keystroke re-entrance. Async backends check generation counters before applying results.

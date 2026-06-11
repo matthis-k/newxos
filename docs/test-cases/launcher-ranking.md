@@ -39,7 +39,7 @@ Run these queries after any launcher search change:
 - Evidence scoring and field matching: `configs/quickshell/launcher/logic/Evidence.qml`
 - Evaluation tree construction and inherit policies: `configs/quickshell/launcher/logic/Evaluate.qml`
 - Presentation decisions and group display: `configs/quickshell/launcher/policies/presentation/PresentationPolicy.qml`, `PresentationPresets.qml`
-- Flattening and row generation: `configs/quickshell/launcher/logic/Flatten.qml`
+- Shaping and row generation: `configs/quickshell/launcher/logic/pipeline/ResultShaping.qml` + `RenderedRows.qml`
 - Row post-processing and sorting: `configs/quickshell/launcher/logic/Rows.qml`
 - Policy registry: `configs/quickshell/launcher/logic/CompositeSearchPolicyRegistry.js`, `configs/quickshell/launcher/PolicyRegistry.qml`
 - Policy chaining and aggregation: `configs/quickshell/launcher/logic/PolicyChain.qml`

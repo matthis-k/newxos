@@ -4,7 +4,8 @@ import Quickshell
 import "Tokenize.qml"
 import "IndexBuilder.qml"
 import "Evaluate.qml"
-import "Flatten.qml"
+import "pipeline/ResultShaping.qml"
+import "pipeline/RenderedRows.qml"
 import "Rows.qml"
 import "RoutingTree.js" as JsRoutingTree
 
@@ -57,6 +58,40 @@ Singleton {
             return rows;
 
         return rows.filter(function(row) { return row.source !== "web"; });
+    }
+
+    function buildRowsFromShaped(shapedResult, state, ctx) {
+        var maxTreeDepth = shapedResult.maxTreeDepth;
+
+        function buildChildTree(ev, currentDepth, maxDepth, includeAllChildren) {
+            if (maxDepth <= 0 || !ev.children) return [];
+            var filtered = ev.children.filter(function(c) {
+                return c.allowed && c.node.kind !== "backend" && (includeAllChildren || c.visible || c.score >= 0.25);
+            });
+            return buildChildRows(filtered, currentDepth, maxDepth, includeAllChildren);
+        }
+
+        function buildChildRows(children, currentDepth, maxDepth, includeAllChildren) {
+            if (maxDepth <= 0 || !children) return [];
+            var filtered = children.filter(function(c) {
+                return c.allowed && c.node.kind !== "backend" && (includeAllChildren || c.visible || c.score >= 0.25);
+            });
+            return filtered.map(function(child) {
+                var grandChildren = buildChildTree(child, currentDepth + 1, maxDepth - 1, includeAllChildren);
+                return RenderedRows.toResultRow(child, currentDepth + 1, state, ctx, grandChildren);
+            });
+        }
+
+        return shapedResult.shaped.map(function(item) {
+            var includeAllChildren = item.options && item.options.includeAllChildren;
+            var childRows;
+            if (item.childEvs != null && item.childEvs.length > 0) {
+                childRows = buildChildRows(item.childEvs, item.depth, maxTreeDepth, includeAllChildren);
+            } else {
+                childRows = buildChildTree(item.ev, item.depth, maxTreeDepth, false);
+            }
+            return RenderedRows.toResultRow(item.ev, item.depth, state, ctx, childRows, item.options);
+        });
     }
 
     function search(backends, rawQuery, state, options) {
@@ -167,14 +202,17 @@ Singleton {
         function phase5() {
             if (!isCurrent()) { abort(); return; }
 
-            var flattenStart = Tokenize.nowMs();
-            var rows = Rows.finalizeRows(suppressFallbackRows(Flatten.flattenForUi(ctx.evaluated, state, ctx), ctx), query, directive, ctx);
-            var flattenMs = Tokenize.nowMs() - flattenStart;
+            var shapeStart = Tokenize.nowMs();
+            var shapedResult = ResultShaping.shape(ctx.evaluated, state, ctx);
+            var rows = buildRowsFromShaped(shapedResult, state, ctx);
+            rows = suppressFallbackRows(rows, ctx);
+            rows = Rows.finalizeRows(rows, query, directive, ctx);
+            var shapeMs = Tokenize.nowMs() - shapeStart;
 
             if (ctx.trace) {
                 timings = {
                     totalMs: Tokenize.nowMs() - totalStart, rootNodeMs: ctx.rootNodeMs, candidateMs: ctx.candidateMs,
-                    evaluateMs: ctx.evaluateMs, pathMs: ctx.pathMs, flattenMs: flattenMs,
+                    evaluateMs: ctx.evaluateMs, pathMs: ctx.pathMs, shapeMs: shapeMs,
                     activeBackends: active.length, backendRoots: children.length, candidateIds: ctx.candidateCount,
                     backends: ctx.backendTimings, rows: rows.length
                 };
