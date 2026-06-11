@@ -309,8 +309,11 @@ PanelWindow {
                     var current = resultRepeater.itemAt(controller.selectedIndex);
                     var height = current ? current.height : root.rowHeight;
                     if (controller.isInTree()) {
-                        y += root.rowHeight + Config.spacing.xs + Math.max(0, controller.treeVisualRow) * root.rowHeight;
-                        height = root.rowHeight;
+                        var treeRowH = 44;
+                        if (current && current.item && current.item.treeRowHeight)
+                            treeRowH = current.item.treeRowHeight;
+                        y += root.rowHeight + resultsColumn.spacing + Math.max(0, controller.treeVisualRow) * treeRowH;
+                        height = treeRowH;
                     }
                     if (y < resultsFlickable.contentY)
                         resultsFlickable.contentY = y;
