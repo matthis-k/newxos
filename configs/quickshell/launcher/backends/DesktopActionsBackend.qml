@@ -323,9 +323,10 @@ TreeBackendBase {
             iconColor: NordVPN.connected || NordVPN.connecting ? Config.styling.good : Config.styling.warning
             switchState: NordVPN.connected || NordVPN.connecting
             switchActionId: "vpn"
-            switchOnAliases: ["connect", "on"]
-            switchOffAliases: ["disconnect", "off"]
+            switchOnAliases: ["connect", "on", "up"]
+            switchOffAliases: ["disconnect", "off", "down"]
             switchToggleAliases: ["toggle"]
+            childVisible: ["own-score-min:0.25", "expand-on-trailing-space"]
             dynamicChildren: buildVpnConnectChildren()
             groupOptions: ({
                 showAllChildrenOnParentMatch: false,
@@ -662,11 +663,18 @@ TreeBackendBase {
         return props["media.name"] || props["application.name"] || nodeTitle(stream);
     }
 
+    function titleForDashboardTab(tab) {
+        switch (tab) {
+        case "wifi": return "Wi-Fi";
+        default: return tab;
+        }
+    }
+
     function dashboardTabNodes() {
         var tabs = (shellScreenState && shellScreenState.dashboardTabs) || ["overview", "audio", "notifications", "bluetooth", "wifi", "energy", "stats"];
         return tabs.map(function(tab) { return actionNode({
             id: tab,
-            title: tab,
+            title: titleForDashboardTab(tab),
             icon: dashboardIconForTab(tab),
             iconColor: colorForDashboardTab(tab),
             actionId: "dashboard",

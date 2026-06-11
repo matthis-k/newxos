@@ -86,8 +86,32 @@ PanelWindow {
         return controller.queryState();
     }
 
+    function queryPipeline(text) {
+        return controller.queryPipeline(text || "");
+    }
+
+    function queryPolicies(text) {
+        return controller.queryPolicies(text || "");
+    }
+
+    function queryScore(resultId) {
+        return controller.queryScore(resultId || "");
+    }
+
+    function queryShape(text) {
+        return controller.queryShape(text || "");
+    }
+
     function debugBenchmark(arg) {
         return controller.debugBenchmark(arg || "");
+    }
+
+    function queryCases() {
+        return controller.queryCases();
+    }
+
+    function queryRunCases() {
+        return controller.queryRunCases();
     }
 
     anchors {

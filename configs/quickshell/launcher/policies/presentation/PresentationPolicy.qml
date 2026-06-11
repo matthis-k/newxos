@@ -159,9 +159,17 @@ Singleton {
 
     function decideSwitchPresentation(ev, ctx) {
         if (!ev.children || ev.children.length === 0) return { mode: "group", showParent: true, children: [] };
-        var visibleChildren = ev.children.filter(function(c) { return childPassesVisible(c, ev, ctx); }).sort(Evaluate.compareEvaluated).slice(0, 8);
-        if (visibleChildren.length > 0)
-            return { mode: "nested-group", showParent: true, children: visibleChildren };
+        if (ctx.query.lastTokenEmpty) {
+            var visibleChildren = ev.children.filter(function(c) { return childPassesVisible(c, ev, ctx); }).sort(Evaluate.compareEvaluated);
+            if (visibleChildren.length > 0)
+                return { mode: "nested-group", showParent: true, children: visibleChildren };
+            return { mode: "group", showParent: true, children: [] };
+        }
+        var policy = groupDisplayPolicy(ev) || {};
+        var maxChildren = policy.maxNestedChildren || policy.maxFlattenedChildren || 8;
+        var filteredChildren = ev.children.filter(function(c) { return childPassesVisible(c, ev, ctx); }).sort(Evaluate.compareEvaluated).slice(0, maxChildren);
+        if (filteredChildren.length > 0)
+            return { mode: "nested-group", showParent: true, children: filteredChildren };
         return { mode: "group", showParent: true, children: [] };
     }
 

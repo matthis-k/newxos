@@ -63,7 +63,10 @@ function endpointKey(ep) {
 }
 
 function routeQuery(tree, raw) {
-    var text = String(raw || "").trim();
+    var rawStr = String(raw || "");
+    var leading = rawStr.match(/^\s*/)[0];
+    var text = rawStr.trim();
+    var trailing = rawStr.slice(leading.length + text.length);
     if (!text)
         return { endpoints: [], strippedQuery: "", combine: null, tier: -1 };
 
@@ -130,7 +133,7 @@ function routeQuery(tree, raw) {
 
         if (exclusive) {
             var stripped = extractStripped(text, exclusive);
-            return { endpoints: [exclusive], strippedQuery: stripped, combine: "exclusive", tier: exclusive.priority };
+            return { endpoints: [exclusive], strippedQuery: stripped + trailing, combine: "exclusive", tier: exclusive.priority };
         }
 
         var shared = deduped.filter(function(ep) {
@@ -149,8 +152,8 @@ function routeQuery(tree, raw) {
             }
         }
 
-        return { endpoints: shared, strippedQuery: strippedQuery, combine: "shared", tier: currentPriority };
+        return { endpoints: shared, strippedQuery: strippedQuery + trailing, combine: "shared", tier: currentPriority };
     }
 
-    return { endpoints: [], strippedQuery: text, combine: null, tier: -1 };
+    return { endpoints: [], strippedQuery: text + trailing, combine: null, tier: -1 };
 }

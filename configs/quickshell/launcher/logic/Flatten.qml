@@ -493,7 +493,16 @@ Singleton {
         function buildChildTree(ev, currentDepth, maxDepth, includeAllChildren) {
             if (maxDepth <= 0 || !ev.children)
                 return [];
-            return buildChildRows(ev.children, currentDepth, maxDepth, includeAllChildren);
+            var filtered = ev.children.filter(function(c) {
+                return c.allowed && c.node.kind !== "backend" && (includeAllChildren || c.visible || c.score >= 0.25);
+            });
+            var profile = ev.node && ev.node.evaluationProfile && ev.node.evaluationProfile.profile;
+            if (profile && profile.childVisible && profile.childVisible.length) {
+                filtered = filtered.filter(function(c) {
+                    return PresentationPolicy.childPassesVisible(c, ev, ctx);
+                });
+            }
+            return buildChildRows(filtered, currentDepth, maxDepth, includeAllChildren);
         }
         function buildChildRows(children, currentDepth, maxDepth, includeAllChildren) {
             if (maxDepth <= 0 || !children)

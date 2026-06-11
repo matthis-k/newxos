@@ -1,6 +1,6 @@
 # Launcher ranking expectations
 
-Use `newshell ipc call query search '<query>'` after `systemctl --user restart newshell` to verify results. Source: `configs/quickshell/launcher/logic/CompositeSearchFlatten.js`.
+Use `newshell ipc call query search '<query>'` or `newshell ipc call query visual '<query>'` after `systemctl --user restart newshell` to verify results. Source: `configs/quickshell/launcher/logic/` (QML pipeline modules).
 
 ## Core checklist
 
@@ -33,6 +33,15 @@ Run these queries after any launcher search change:
 
 ## Source owners
 
-- Flattening and row generation: `configs/quickshell/launcher/logic/CompositeSearchFlatten.js`
-- Scoring and evidence: `configs/quickshell/launcher/logic/CompositeSearchEvaluate.js`, `configs/quickshell/launcher/logic/CompositeSearchEvidence.js`
-- Prefix parsing and backend participation: `configs/quickshell/launcher/logic/CompositeSearchText.js`, `configs/quickshell/launcher/logic/CompositeSearchPipeline.js`, `configs/quickshell/launcher/logic/Router.js`
+- Engine and pipeline orchestration: `configs/quickshell/launcher/logic/Engine.qml`
+- Tokenization and normalized node construction: `configs/quickshell/launcher/logic/Tokenize.qml`
+- Indexing and candidate collection: `configs/quickshell/launcher/logic/IndexBuilder.qml`
+- Evidence scoring and field matching: `configs/quickshell/launcher/logic/Evidence.qml`
+- Evaluation tree construction and inherit policies: `configs/quickshell/launcher/logic/Evaluate.qml`
+- Presentation decisions and group display: `configs/quickshell/launcher/policies/presentation/PresentationPolicy.qml`, `PresentationPresets.qml`
+- Flattening and row generation: `configs/quickshell/launcher/logic/Flatten.qml`
+- Row post-processing and sorting: `configs/quickshell/launcher/logic/Rows.qml`
+- Policy registry: `configs/quickshell/launcher/logic/CompositeSearchPolicyRegistry.js`, `configs/quickshell/launcher/PolicyRegistry.qml`
+- Policy chaining and aggregation: `configs/quickshell/launcher/logic/PolicyChain.qml`
+- Pipeline model/utility modules: `configs/quickshell/launcher/logic/pipeline/ScoreBundle.qml`, `ResultShaping.qml`, `PresentationContext.qml`, `RenderedRows.qml`
+- Routing tree: `configs/quickshell/launcher/logic/RoutingTree.js`

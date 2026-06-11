@@ -37,6 +37,10 @@ Use `newshell ipc call query search '<query>'` for the full search payload and `
 
 Source of truth: `configs/quickshell/launcher/LauncherController.qml`, especially `querySearch()`, `queryVisual()`, `queryComplete()`, `queryBackends()`, and related `query*()` methods. Check that file before asserting the IPC JSON shape changed.
 
+New debug endpoints (version 2): `queryPipeline()`, `queryPolicies()`, `queryScore()`, `queryShape()`, `queryCases()`, `queryRunCases()`. These are exposed through `Launcher.qml` as `queryPipeline()`, `queryPolicies()`, `queryScore()`, `queryShape()`, `queryCases()`, `queryRunCases()` and through `ShellState.qml` IPC as `pipeline`, `policies`, `score`, `shape`, `benchmark`, `cases`, `runCases`.
+
+Pipeline model modules live in `configs/quickshell/launcher/logic/pipeline/`: `PolicySpec.qml` (spec normalization), `PolicyDiagnostics.qml`, `ScoreBundle.qml` (score parts with coverage), `ResultShaping.qml` (placement decisions), `PresentationContext.qml` (breadcrumbs/badge/density), `RenderedRows.qml` (row DTO construction).
+
 Current `search` and `visual` envelopes are defined there in this form:
 
 ```json
@@ -59,6 +63,10 @@ Filtering notes:
 - `visual` is the rendered-launcher view; prefer it when checking explicit prefixes or zero-score browse rows such as `@apps`.
 - `search` can include rows with `ownVisible: false`; filter those out for ranking checks unless debugging hidden candidates.
 - `evidence` currently returns `{version,type,resultId,found,evidence}` and may return `found: false` if the IPC cache does not contain that result id.
+- `score` (version 2) returns `{version,type,resultId,found,scoreBundle,evidenceSummary}` with full `ScoreBundle` parts.
+- `pipeline` (version 2) returns `{version,type,query,directive,timings,stages,diagnostics}`.
+- `policies` (version 2) returns `{version,type,query,activeBackends,policiesByKind,diagnostics}`.
+- `shape` (version 2) returns `{version,type,query,shapedResults}` with placement metadata per row.
 
 Useful row fields for `jq`: `id`, `title`, `subtitle`, `source`, `kind`, `score`, `ownScore`, `descendantScore`, `matchDepth`, `ownVisible`, `executable`, `dangerous`, `actions`, `evidence`, `children`, `switchState`, `control`, `breadcrumbs`, `breadcrumbText`.
 

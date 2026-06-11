@@ -3,6 +3,7 @@ import QtQml
 import Quickshell.Services.Pipewire
 import qs.services
 import "logic/"
+import "logic/pipeline/"
 import "logic/RoutingTree.js" as RoutingTree
 import "logic/DebugLogger.js" as DebugLogger
 import "policies" as P
@@ -107,6 +108,7 @@ Item {
     P.OwnScoreDominatesPolicy { policyId: "own-score-dominates:0.08"; margin: 0.08 }
     P.ScoreBeatsParentPolicy {}
     P.PresentationChainPolicy {}
+    P.ExpandOnTrailingSpace {}
 
     onQueryUpdateRequested: function(text) {
         generation += 1;
@@ -301,7 +303,21 @@ Item {
         return out;
     }
 
+    function _resolveQueryArg(text) {
+        if (!text) return text || "";
+        var trimmed = text.trim();
+        if (trimmed.length > 0 && (trimmed[0] === "{" || trimmed[0] === "[")) {
+            try {
+                var parsed = JSON.parse(trimmed);
+                if (typeof parsed === "object" && parsed.query !== undefined)
+                    return String(parsed.query);
+            } catch (e) {}
+        }
+        return text;
+    }
+
     function querySearch(text) {
+        text = _resolveQueryArg(text);
         var output = Engine.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: false, onlySelectable: true, filterRowChildren: true, trace: true }));
         var rows = output.rows || [];
         var directive = output.directive;
@@ -1369,5 +1385,270 @@ Item {
             }
         }
         return selectedResult();
+    }
+
+    function queryPipeline(text) {
+        text = _resolveQueryArg(text);
+        var output = Engine.search(backends || [], text || "", stateForSearch(),
+            Object.assign(searchOptions(), { showHidden: true, trace: true }));
+        var diag = PolicyDiagnostics.empty();
+        var rows = output.rows ? output.rows.slice(0, maxResults) : [];
+        var backendRoots = (output.evaluatedRoot && output.evaluatedRoot.children || []).map(function(ev) {
+            return { backendId: ev.node.backendId, label: ev.node.label, children: ev.children ? ev.children.length : 0, visible: ev.visible };
+        });
+        var candidates = output.evaluatedRoot ? countCandidates(output.evaluatedRoot) : 0;
+        return JSON.stringify({
+            version: 2, type: "pipeline",
+            query: output.query ? output.query.raw : text,
+            directive: output.directive ? { active: output.directive.active, prefix: output.directive.prefix || "", label: output.directive.label || "", backendIds: output.directive.backendIds || [] } : { active: false },
+            timings: output.timings || {},
+            stages: {
+                backendRoots: backendRoots,
+                candidates: candidates,
+                evaluationSummary: { totalNodes: countEvaluationNodes(output.evaluatedRoot), visibleNodes: countVisibleEvaluationNodes(output.evaluatedRoot) },
+                renderedRows: rows.length
+            },
+            diagnostics: PolicyDiagnostics.toDebug(diag)
+        });
+    }
+
+    function countCandidates(ev) {
+        var count = ev.candidate ? 1 : 0;
+        for (var i = 0; i < (ev.children || []).length; i += 1)
+            count += countCandidates(ev.children[i]);
+        return count;
+    }
+
+    function countEvaluationNodes(ev) {
+        if (!ev) return 0;
+        var count = 1;
+        for (var i = 0; i < (ev.children || []).length; i += 1)
+            count += countEvaluationNodes(ev.children[i]);
+        return count;
+    }
+
+    function countVisibleEvaluationNodes(ev) {
+        if (!ev) return 0;
+        if (ev.node && (ev.node.kind === "root" || ev.node.kind === "backend"))
+            return 0;
+        var count = (ev.visible && ev.ownVisible) ? 1 : 0;
+        for (var i = 0; i < (ev.children || []).length; i += 1)
+            count += countVisibleEvaluationNodes(ev.children[i]);
+        return count;
+    }
+
+    function queryPolicies(text) {
+        text = _resolveQueryArg(text);
+        var output = Engine.search(backends || [], text || "", stateForSearch(),
+            Object.assign(searchOptions(), { showHidden: true }));
+        var activeBackendIds = (backends || []).filter(function(b) { return b && b.enabled; }).map(function(b) { return b.backendId || ""; });
+        var policiesByKind = collectActivePolicies(output.evaluatedRoot);
+        return JSON.stringify({
+            version: 2, type: "policies",
+            query: text || "",
+            activeBackends: activeBackendIds,
+            policiesByKind: policiesByKind,
+            diagnostics: { warnings: [], errors: [] }
+        });
+    }
+
+    function collectActivePolicies(ev) {
+        if (!ev) return {};
+        var kinds = {};
+        function visit(evaluated) {
+            var rawNode = evaluated.node || evaluated;
+            var profile = (rawNode.evaluationProfile || {}).profile || {};
+            for (var key in profile) {
+                if (!kinds[key]) kinds[key] = {};
+                var specs = profile[key];
+                if (Array.isArray(specs)) {
+                    for (var si = 0; si < specs.length; si += 1) {
+                        var s = String(specs[si]);
+                        kinds[key][s] = (kinds[key][s] || 0) + 1;
+                    }
+                }
+            }
+            var children = evaluated.children || rawNode.children || [];
+            for (var i = 0; i < children.length; i += 1)
+                visit(children[i]);
+        }
+        visit(ev);
+        var out = {};
+        for (var kind in kinds) {
+            out[kind] = Object.keys(kinds[kind]);
+        }
+        return out;
+    }
+
+    function queryScore(resultId) {
+        var match = findResultById(resultId);
+        if (match) {
+            var bundle = match.scoreBundle || null;
+            return JSON.stringify({
+                version: 2, type: "score",
+                resultId: resultId, found: true,
+                scoreBundle: bundle ? ScoreBundle.toDebug(bundle) : null,
+                evidenceSummary: summarizeEvidence(match.evidence || []),
+                diagnostics: {}
+            });
+        }
+        var nodeId = resultId.replace(/^row:/, "");
+        var targetRoot = lastEvaluatedRoot;
+        var queryObj = lastQuery;
+        if (!targetRoot) {
+            var output = Engine.search(backends || [], nodeId, stateForSearch(),
+                Object.assign(searchOptions(), { showHidden: true }));
+            targetRoot = output.evaluatedRoot || null;
+            queryObj = output.query || null;
+        }
+        var matchInEval = findResultInEvaluated(targetRoot, nodeId);
+        if (!matchInEval)
+            matchInEval = findResultInEvaluated(targetRoot, resultId);
+        if (matchInEval) {
+            var bundle = matchInEval.scoreBundle || ScoreBundle.fromEvaluated(matchInEval, queryObj);
+            return JSON.stringify({
+                version: 2, type: "score",
+                resultId: resultId, found: true,
+                scoreBundle: ScoreBundle.toDebug(bundle),
+                evidenceSummary: summarizeEvidence(matchInEval.evidence || []),
+                diagnostics: {}
+            });
+        }
+        return JSON.stringify({ version: 2, type: "score", resultId: resultId, found: false });
+    }
+
+    function findResultById(resultId) {
+        var allResults = results || [];
+        for (var i = 0; i < allResults.length; i += 1) {
+            if (allResults[i].id === resultId || allResults[i].nodeId === resultId)
+                return allResults[i];
+            var found = findResultInChildren(allResults[i], resultId);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    function findResultInChildren(row, resultId) {
+        if (!row || !row.children) return null;
+        for (var i = 0; i < row.children.length; i += 1) {
+            if (row.children[i].id === resultId || row.children[i].nodeId === resultId)
+                return row.children[i];
+            var found = findResultInChildren(row.children[i], resultId);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    function findResultInEvaluated(ev, resultId) {
+        if (!ev) return null;
+        if (ev.node && (ev.node.id === resultId)) return ev;
+        for (var i = 0; i < (ev.children || []).length; i += 1) {
+            var found = findResultInEvaluated(ev.children[i], resultId);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    function summarizeEvidence(evidenceItems) {
+        var byKind = {};
+        for (var i = 0; i < (evidenceItems || []).length; i += 1) {
+            var e = evidenceItems[i];
+            var kind = e.kind || e.strategy || "unknown";
+            if (!byKind[kind]) byKind[kind] = { count: 0, totalEffective: 0 };
+            byKind[kind].count += 1;
+            byKind[kind].totalEffective += e.effective || 0;
+        }
+        return byKind;
+    }
+
+    function queryShape(text) {
+        text = _resolveQueryArg(text);
+        var output = Engine.search(backends || [], text || "", stateForSearch(), searchOptions());
+        var rows = output.rows ? output.rows.slice(0, maxResults) : [];
+        var shapedRows = rows.map(function(row) {
+            var hasChildren = (row.children || []).length > 0;
+            var isGroup = hasChildren && row.ownScore > 0 && row.ownVisible;
+            var isPromoted = !isGroup && row.ownScore > 0 && row.breadcrumbs && row.breadcrumbs.length > 0;
+            return {
+                title: row.title,
+                nodeId: row.nodeId || row.id,
+                placement: isPromoted ? "promoted-child" : (isGroup ? "nested-group" : "standalone"),
+                parentShown: true,
+                showBreadcrumbs: !!row.breadcrumbText,
+                score: row.score,
+                ownScore: row.ownScore,
+                group: row.ownScore || 0,
+                activation: row.ownScore || 0,
+                children: (row.children || []).length
+            };
+        });
+        return JSON.stringify({
+            version: 2, type: "shape",
+            query: text || "",
+            totalResults: rows.length,
+            shapedResults: shapedRows
+        });
+    }
+
+    function queryCases() {
+        return JSON.stringify({
+            version: 1, type: "cases",
+            cases: regressionCaseQueries()
+        });
+    }
+
+    function queryRunCases() {
+        var cases = regressionCaseQueries();
+        var results = [];
+        for (var i = 0; i < cases.length; i += 1) {
+            var q = cases[i];
+            var output = Engine.search(backends || [], q, stateForSearch(),
+                Object.assign(searchOptions(), { trace: true }));
+            var rows = output.rows || [];
+            var visibleRows = rows.filter(function(r) { return r.ownVisible; });
+            results.push({
+                query: q,
+                totalRows: rows.length,
+                visibleRows: visibleRows.length,
+                topTitle: visibleRows.length > 0 ? visibleRows[0].title : null,
+                topScore: visibleRows.length > 0 ? visibleRows[0].score : 0,
+                timings: output.timings || {}
+            });
+        }
+        return JSON.stringify({
+            version: 1, type: "runCases",
+            total: cases.length,
+            results: results,
+            summary: summarizeCaseResults(results)
+        });
+    }
+
+    function regressionCaseQueries() {
+        return [
+            "?", "? ", "?au",
+            "zen", "zen ", "zen priv", "zen win", "zen browser", "zen new",
+            "wifi", "wifi ", "wifi on", "wifi off", "wifi toggle", "toggle wifi",
+            "wo", "wt",
+            ":", ":wifi", ":wifi ", ":wifi on", ":db wifi",
+            "@apps", "@apps zen", "@web nix",
+            "web nix", "web !gh nix",
+            "db wifi", "dashboard wifi",
+            "au", "aud", "audi", "audio",
+            "en", "screen", "session",
+            "newxos", "vpn ", "vpn of",
+            "notes", "/tmp"
+        ];
+    }
+
+    function summarizeCaseResults(results) {
+        var totalMs = 0;
+        var count = Math.max(1, results.length);
+        for (var i = 0; i < results.length; i += 1)
+            totalMs += results[i].timings.totalMs || 0;
+        return {
+            avgMs: totalMs / count,
+            totalCases: results.length,
+            maxRows: results.reduce(function(m, r) { return Math.max(m, r.totalRows); }, 0)
+        };
     }
 }

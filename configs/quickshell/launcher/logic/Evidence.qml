@@ -185,6 +185,22 @@ Singleton {
         return a.score > b.score;
     }
 
+    function bestPerToken(evidenceItems) {
+        var best = {};
+        var out = [];
+        for (var i = 0; i < evidenceItems.length; i += 1) {
+            var e = evidenceItems[i];
+            var ti = e.tokenIndex;
+            if (ti === undefined) { out.push(e); continue; }
+            if (!best[ti] || isBetterEvidence(e, best[ti]))
+                best[ti] = e;
+        }
+        var keys = Object.keys(best).map(Number).sort(function(a, b) { return a - b; });
+        for (var ki = 0; ki < keys.length; ki += 1)
+            out.push(best[keys[ki]]);
+        return out;
+    }
+
     function overlayEvidence(items, query) {
         var buckets = {};
         var out = [];

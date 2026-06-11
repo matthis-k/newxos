@@ -29,6 +29,13 @@ Keep the launcher IPC available for manual checks:
 newshell ipc call query search 'audio'
 newshell ipc call query visual 'audio'
 newshell ipc call query evidence '<result-id>'
+newshell ipc call query pipeline 'audio'
+newshell ipc call query policies 'audio'
+newshell ipc call query score '<result-id>'
+newshell ipc call query shape 'audio'
+newshell ipc call query benchmark '{"queries":["zen","wifi"],"iterations":2}'
+newshell ipc call query cases
+newshell ipc call query runCases
 ```
 
 Use `jq` to reduce output before pasting or comparing results:
@@ -39,6 +46,16 @@ newshell ipc call query visual 'audio' | jq '{query:.query.raw, totalResults, ro
 ```
 
 Always record the visible query when debugging GUI-only missing-row reports. A row can be absent because the visible launcher query differs from the query sent through IPC, because prefix parsing changed the effective search query, or because the GUI is showing stale/filtered rows.
+
+## Debug Flow for Bad Results
+
+1. `query routes` — check backend participation and directive parsing
+2. `query pipeline` — check staged pipeline data (backend roots, candidates, timings)
+3. `query visual` — check rendered rows and ordering
+4. `query score <id>` — check full score bundle for a result
+5. `query evidence <id>` — check evidence items driving scores
+6. `query shape <query>` — compare evaluation vs shaped placement
+7. `query benchmark` — run benchmarks with timing data
 
 ## When Logic Changes
 

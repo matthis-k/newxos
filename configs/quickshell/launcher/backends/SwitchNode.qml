@@ -10,6 +10,7 @@ Node {
     property var switchOffAliases: []
     property var switchToggleAliases: []
     property bool switchOffDangerous: true
+    property var childVisible: null
 
     function switchAction(kind, state, actionFn, dangerous) {
         if (typeof actionFn !== "function")
@@ -80,7 +81,7 @@ Node {
                     evidence: ["field-match:primary", "field-match:breadcrumb", "switch-action"],
                     inherit: [],
                     boost: ["descendant-boost", "switch-aliases"],
-                    childVisible: ["own-score-min:0.25", "own-score-beats-parent"],
+                    childVisible: root.childVisible || ["own-score-min:0.25"],
                     childBypass: ["score-dominates:0.03"]
                 }
             }

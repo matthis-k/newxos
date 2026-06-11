@@ -5,6 +5,7 @@ import "Tokenize.qml"
 import "IndexBuilder.qml"
 import "Evidence.qml"
 import "PolicyChain.qml"
+import "pipeline/"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
@@ -79,6 +80,12 @@ Singleton {
             }
         }
 
+        if (ownEvidence.length > 0) {
+            var tokenDedup = profile.tokenDedup || "best-per-token";
+            if (tokenDedup === "best-per-token")
+                ownEvidence = Evidence.bestPerToken(ownEvidence);
+        }
+
         var evaluatedChildren = evaluateChildren(node, query, ctx, directiveActive);
 
         var own = selfAllowed ? Evidence.scoreEvidence(ownEvidence, node, ctx) : { value: 0, visible: false, reason: "directive container only" };
@@ -129,7 +136,7 @@ Singleton {
 
         var mergedEvidence = ownEvidence.concat(inheritedEvidence);
 
-        return {
+        var result = {
             node: node,
             allowed: selfAllowed,
             candidate: (selfAllowed && (directCandidate || ownEvidence.length > 0 || own.visible)) || retained.length > 0,
@@ -147,6 +154,9 @@ Singleton {
             visibleReason: own.reason,
             children: keepAllChildren ? retained : retained.sort(compareEvaluated)
         };
+
+        result.scoreBundle = ScoreBundle.fromEvaluated(result, query);
+        return result;
     }
 
     function evaluateChildren(node, query, ctx, directiveActive) {
@@ -223,6 +233,8 @@ Singleton {
             policy.apply(evaluated, query, ctx);
             return true;
         }, "inherit");
+
+        evaluated.scoreBundle = ScoreBundle.fromEvaluated(evaluated, query);
     }
 
     function hasBaseEvidence(ev) {

@@ -107,6 +107,11 @@ The Quickshell launcher uses a composite search pipeline:
 
 - **Backends** produce normalized tree DTOs (plain JS objects, no live QML refs). Backend types: static trees, model-derived trees, computed results, streaming results, process-backed results.
 - **Composite search** (`configs/quickshell/launcher/logic/`) handles indexing, candidate collection, evidence scoring, tree evaluation, path evidence, flattening, and row generation.
+- **Pipeline modules** (`configs/quickshell/launcher/logic/pipeline/`) provide explicit model/utility modules for policy spec normalization, score bundles, result shaping, presentation context, and rendered row construction.
+- **ScoreBundle** (`logic/pipeline/ScoreBundle.qml`) wraps own/inherited/children/aggregate score parts with coverage info, alongside legacy score fields.
+- **ResultShaping** (`logic/pipeline/ResultShaping.qml`) centralizes decidePlacement() logic that was previously in Flatten.qml, supporting placements: hidden, standalone, group, filtered-group, group-child, flattened, promoted-child, nested-group.
+- **PresentationContext** (`logic/pipeline/PresentationContext.qml`) decides breadcrumbs, backend badge, action hint, and density per shaped item.
+- **RenderedRows** (`logic/pipeline/RenderedRows.qml`) provides toResultRow() DTO construction as an alternative to Flatten.qml's version.
 - **Normalized result rows** carry only primitive fields, actions, and evidence metadata — no raw tree objects or evaluated nodes.
 - **UI delegates** render normalized row data; they do not recompute scoring or hold backend references.
 - **Update coalescing** (`LauncherController.searchTimer`) prevents per-keystroke re-entrance. Async backends check generation counters before applying results.
@@ -119,6 +124,24 @@ The Quickshell launcher uses a composite search pipeline:
   - **Ambient routes**: Priority 0 routes without prefix/pattern always match, providing fallback search behavior.
   - **Fallthrough**: When a tier has zero matching endpoints, it cascades to the next lower priority tier.
 - **Web fallback**: web rows appear only for explicit web prefixes or when no non-web backend produces visible rows.
+
+Available IPC endpoints through `ShellState.qml`:
+
+- `search <query>` — full search payload with all rows (version 1).
+- `visual <query>` — UI-facing truncated payload with navigation targets (version 1).
+- `complete <query>` — completion-oriented payload.
+- `backends` — registered backend metadata and routing tree info.
+- `routes <query>` — directive/route participation details.
+- `evidence <result-id>` — evidence items for a result (version 1).
+- `result <result-id>` — single result row payload (version 1).
+- `state` — current launcher state (query, selection, loading).
+- `pipeline <query>` — staged pipeline data: backend roots, candidates, evaluation summary, timings (version 2).
+- `policies <query>` — resolved policy specs for active backends/nodes (version 2).
+- `score <result-id>` — full score bundle with own/inherited/children/aggregate scores and evidence summary (version 2).
+- `shape <query>` — evaluation-vs-shaped rows with placement metadata (version 2).
+- `benchmark <json-or-query>` — run benchmark queries via `debugBenchmark()`.
+- `cases` — active regression query list.
+- `runCases` — run all regression cases and return compact results.
 
 Launcher visual intent:
 - A row that directly matches the query should explain itself first. If it is a meaningful group, keep the group row visible instead of replacing it with unrelated-looking descendants.

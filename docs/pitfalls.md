@@ -257,3 +257,11 @@ Fix: publish to a world-readable path like `/run/caddy-local-root.crt`.
 Kernel `ata*.00 supports DRM functions` refers to drive feature support, not Direct Rendering Manager.
 
 Fix: for Plymouth/NVIDIA issues, focus on `simpledrm`, `nvidia_drm`, and framebuffer handoff.
+
+## Token dedup: best-per-token by default
+
+Evidence dedup changed from `(tokenIndex, fieldGroup)` to `(tokenIndex)` — only the highest-scoring evidence per token is kept by default.
+
+If a node needs the old per-field-group dedup, set `profile.tokenDedup = "field-group"` in its `evaluationProfile.profile`.
+
+Default behavior is `"best-per-token"` (set in `Evaluate.qml:85`). The dedup function lives in `Evidence.qml:bestPerToken()`.
