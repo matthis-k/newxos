@@ -111,6 +111,10 @@ Item {
     P.PresentationChainPolicy {}
     P.ExpandOnTrailingSpace {}
 
+    QtObject {
+        Component.onCompleted: P.PolicyRegistry.registerBaseNameAliases()
+    }
+
     onQueryUpdateRequested: function(text) {
         generation += 1;
         query = text;
@@ -247,6 +251,8 @@ Item {
             descendantScore: row.descendantScore || 0,
             ownVisible: !!row.ownVisible,
             scoreBundle: row.scoreBundle ? ScoreBundle.toDebug(row.scoreBundle) : null,
+            placement: row.placement || "",
+            presentationContext: row.presentationContext || null,
             source: row.source || row.backendId || "",
             kind: row.kind || "",
             executable: !!row.executable,
@@ -1468,19 +1474,20 @@ Item {
         var output = Engine.search(backends || [], text || "", stateForSearch(),
             Object.assign(searchOptions(), { showHidden: true }));
         var activeBackendIds = (backends || []).filter(function(b) { return b && b.enabled; }).map(function(b) { return b.backendId || ""; });
-        var policiesByKind = collectActivePolicies(output.evaluatedRoot);
+        var policyInfo = collectActivePolicies(output.evaluatedRoot);
         return JSON.stringify({
             version: 2, type: "policies",
             query: text || "",
             activeBackends: activeBackendIds,
-            policiesByKind: policiesByKind,
-            diagnostics: { warnings: [], errors: [] }
+            policiesByKind: policyInfo.policiesByKind,
+            diagnostics: policyInfo.diagnostics
         });
     }
 
     function collectActivePolicies(ev) {
-        if (!ev) return {};
+        if (!ev) return { policiesByKind: {}, diagnostics: { warnings: [], errors: [], unresolved: [], legacyCount: 0, tupleCount: 0, objectCount: 0 } };
         var kinds = {};
+        var legacyCount = 0, tupleCount = 0, objectCount = 0;
         function visit(evaluated) {
             var rawNode = evaluated.node || evaluated;
             var profile = (rawNode.evaluationProfile || {}).profile || {};
@@ -1492,9 +1499,13 @@ Item {
                         var spec = PolicySpec.normalize(specs[si]);
                         var specKey = spec.name;
                         if (!kinds[key][specKey]) {
-                            kinds[key][specKey] = { name: spec.name, baseName: spec.baseName, kind: spec.kind, args: spec.args, priority: spec.priority, count: 0 };
+                            kinds[key][specKey] = { name: spec.name, baseName: spec.baseName, kind: spec.kind, args: spec.args, priority: spec.priority, source: spec.source, count: 0 };
                         }
                         kinds[key][specKey].count += 1;
+                        var rawSpec = specs[si];
+                        if (typeof rawSpec === "string") legacyCount += 1;
+                        else if (Array.isArray(rawSpec)) tupleCount += 1;
+                        else objectCount += 1;
                     }
                 }
             }
@@ -1509,7 +1520,13 @@ Item {
             for (var specKey in kinds[kind])
                 out[kind].push(kinds[kind][specKey]);
         }
-        return out;
+        return {
+            policiesByKind: out,
+            diagnostics: {
+                warnings: [], errors: [], unresolved: [],
+                legacyCount: legacyCount, tupleCount: tupleCount, objectCount: objectCount
+            }
+        };
     }
 
     function queryScore(resultId) {
@@ -1571,6 +1588,14 @@ Item {
         return null;
     }
 
+    function shapedChainDepth(ev) {
+        if (!ev || !ev.node) return 0;
+        var depth = 0;
+        var n = ev.node;
+        while (n && n.kind !== "root") { depth += 1; n = n.parent; }
+        return Math.max(0, depth - 1);
+    }
+
     function findResultInEvaluated(ev, resultId) {
         if (!ev) return null;
         if (ev.node && (ev.node.id === resultId)) return ev;
@@ -1600,10 +1625,18 @@ Item {
         var shapedItems = shapedResult && shapedResult.shaped ? shapedResult.shaped : [];
         var shapedRows = shapedItems.map(function(item) {
             var bundle = item.ev.scoreBundle;
+            var placement = item.placement || "standalone";
+            var decision = item.decision || {};
+            var chainLen = shapedChainDepth(item.ev);
+            var showBreadcrumbs = placement === "promoted-child" || placement === "flattened"
+                ? chainLen > 0
+                : placement === "standalone"
+                    ? chainLen > 1
+                    : false;
             return {
                 title: item.ev.node.label,
                 nodeId: item.ev.node.id,
-                placement: item.placement,
+                placement: placement,
                 depth: item.depth,
                 sortScore: item.sortScore,
                 score: item.ev.score,
@@ -1613,11 +1646,18 @@ Item {
                 ranking: bundle ? bundle.ranking : item.sortScore,
                 group: bundle ? bundle.group : item.ev.ownScore,
                 activation: bundle ? bundle.activation : item.ev.ownScore,
-                showParent: item.decision ? item.decision.showParent : true,
-                showBreadcrumbs: !!item.placement && (item.placement === "promoted-child" || item.placement === "flattened" || item.placement === "standalone"),
-                children: (item.childEvs || []).length,
-                mode: item.decision ? item.decision.mode : "normal",
-                reason: item.decision ? item.decision.reason || "" : ""
+                confidence: bundle ? bundle.confidence : 0,
+                showParent: decision.showParent !== false,
+                showBreadcrumbs: showBreadcrumbs,
+                children: (item.childEvs || item.ev.children || []).length,
+                mode: decision.mode || "normal",
+                reason: decision.reason || "",
+                suppressParentActions: !!decision.suppressParentActions,
+                includeAllChildren: !!decision.includeAllChildren,
+                presentationContext: {
+                    showBreadcrumbs: showBreadcrumbs,
+                    density: (item.presentationHints && item.presentationHints.density) || "normal"
+                }
             };
         });
         return JSON.stringify({

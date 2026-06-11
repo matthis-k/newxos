@@ -52,4 +52,21 @@ Singleton {
             apply: applyFn
         });
     }
+
+    function registerBaseNameAliases() {
+        var registries = [JsRegistry.evidence, JsRegistry.inherit, JsRegistry.boost, JsRegistry.childVisible, JsRegistry.childBypass, JsRegistry.presentation];
+        for (var ri = 0; ri < registries.length; ri += 1) {
+            var reg = registries[ri];
+            var names = reg.list();
+            for (var ni = 0; ni < names.length; ni += 1) {
+                var name = names[ni];
+                var colonIdx = name.indexOf(":");
+                if (colonIdx > 0) {
+                    var baseName = name.slice(0, colonIdx);
+                    if (!reg.get(baseName))
+                        reg.register(baseName, reg.get(name));
+                }
+            }
+        }
+    }
 }

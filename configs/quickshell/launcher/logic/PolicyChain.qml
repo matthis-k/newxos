@@ -13,6 +13,15 @@ Singleton {
         presentation: "first-wins"
     })
 
+    function lookupPolicy(registry, spec) {
+        if (!registry || !spec) return null;
+        var policy = null;
+        if (spec.name) policy = registry.get(spec.name);
+        if (!policy && spec.legacyName) policy = registry.get(spec.legacyName);
+        if (!policy && spec.baseName) policy = registry.get(spec.baseName);
+        return policy;
+    }
+
     function run(names, call, modeOrPhase) {
         var mode = defaultModes[modeOrPhase] || modeOrPhase;
         if (!mode)

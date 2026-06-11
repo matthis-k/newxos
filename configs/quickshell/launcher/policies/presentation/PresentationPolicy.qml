@@ -17,20 +17,20 @@ Singleton {
     function childPassesVisible(childEval, parentEval, ctx) {
         var profile = childProfile(parentEval);
         var names = profile.childVisible || defaultChildVisible;
-        return PolicyChain.run(names, function(name) {
-            var policy = JsRegistry.childVisible.get(name);
+        return PolicyChain.run(names, function(name, spec) {
+            var policy = PolicyChain.lookupPolicy(JsRegistry.childVisible, spec);
             if (!policy) return false;
-            return policy.apply(childEval, parentEval, ctx);
+            return policy.apply(childEval, parentEval, ctx, spec && spec.args);
         }, "childVisible").value;
     }
 
     function childDominates(childEval, parentEval, ctx) {
         var profile = childProfile(parentEval);
         var names = profile.childBypass || defaultChildBypass;
-        return PolicyChain.run(names, function(name) {
-            var policy = JsRegistry.childBypass.get(name);
+        return PolicyChain.run(names, function(name, spec) {
+            var policy = PolicyChain.lookupPolicy(JsRegistry.childBypass, spec);
             if (!policy) return null;
-            return policy.apply(childEval, parentEval, ctx);
+            return policy.apply(childEval, parentEval, ctx, spec && spec.args);
         }, "childBypass").value;
     }
 
@@ -106,10 +106,10 @@ Singleton {
         var riskLevel = riskLevelForNode(node);
         var activation = activationModeForNode(node);
         var chainNames = ["preset-presentation", "switch-presentation", "default-presentation"];
-        var chainResult = PolicyChain.run(chainNames, function(name) {
-            var policy = JsRegistry.presentation.get(name);
+        var chainResult = PolicyChain.run(chainNames, function(name, spec) {
+            var policy = PolicyChain.lookupPolicy(JsRegistry.presentation, spec);
             if (!policy) return null;
-            return policy.apply(ev, ctx);
+            return policy.apply(ev, ctx, spec && spec.args);
         }, "presentation");
         var decision = chainResult.value || { mode: "normal", showParent: true, children: ev.children || [] };
         return enrichWithRisk(decision, riskLevel, activation);

@@ -5,8 +5,11 @@ QtObject {
     property string policyId
     property real threshold: 0.25
 
-    function policyApply(childEval, parentEval, ctx) {
-        return (childEval.ownScore || 0) >= threshold;
+    function policyApply(childEval, parentEval, ctx, specArgs) {
+        var effectiveThreshold = specArgs && specArgs.threshold !== undefined
+            ? Number(specArgs.threshold)
+            : threshold;
+        return (childEval.ownScore || 0) >= effectiveThreshold;
     }
 
     Component.onCompleted: {

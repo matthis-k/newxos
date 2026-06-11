@@ -63,8 +63,8 @@ Singleton {
 
         if (selfAllowed && directCandidate) {
             var evidenceNames = profile.evidence || [];
-            var evidenceResult = PolicyChain.run(evidenceNames, function(name) {
-                var policy = JsRegistry.evidence.get(name);
+            var evidenceResult = PolicyChain.run(evidenceNames, function(name, spec) {
+                var policy = PolicyChain.lookupPolicy(JsRegistry.evidence, spec);
                 if (!policy || policy.phase !== "evidence") return null;
                 var items = policy.match(node, query, ctx);
                 if (!items || !items.length) return null;
@@ -102,8 +102,8 @@ Singleton {
 
         var scores = { ownScore: own.value, inheritedScore: inheritedScore };
         var boostNames = profile.boost || [];
-        var descendantBoost = (PolicyChain.run(boostNames, function(name) {
-            var bpol = JsRegistry.boost.get(name);
+        var descendantBoost = (PolicyChain.run(boostNames, function(name, spec) {
+            var bpol = PolicyChain.lookupPolicy(JsRegistry.boost, spec);
             if (!bpol || bpol.phase !== "boost") return null;
             var boostVal = bpol.apply(node, query, ctx, evaluatedChildren, scores);
             return boostVal > 0 ? boostVal : null;
@@ -232,8 +232,8 @@ Singleton {
         var ep = evaluated.node.evaluationProfile || {};
         var profile = ep.profile || defaultProfile;
         var inheritNames = profile.inherit || [];
-        PolicyChain.run(inheritNames, function(name) {
-            var policy = JsRegistry.inherit.get(name);
+        PolicyChain.run(inheritNames, function(name, spec) {
+            var policy = PolicyChain.lookupPolicy(JsRegistry.inherit, spec);
             if (!policy || policy.phase !== "inherit") return null;
             policy.apply(evaluated, query, ctx);
             return true;
