@@ -3,44 +3,83 @@ name: newxos-nix-module
 description: Use when changing Nix modules, Home Manager modules, flake inputs, perSystem outputs, wrappers, packages, apps, checks, dev shells, or flake-file declarations in newxos.
 ---
 
-# Newxos Nix Module Work
+# Newxos Nix Module
 
-Use this skill for Nix changes that affect repo behavior or flake outputs.
+## Core Rule
+
+All flake behavior changes go in `modules/`. Never edit generated `flake.nix` directly.
 
 ## Inspect First
 
-- Read `AGENTS.md` and `docs/agent-index.md`.
-- For module layout and scope rules, read `docs/architecture.md`.
-- For recurring mistakes, read `docs/pitfalls.md`.
-- Inspect existing nearby modules before adding new structure.
+- `AGENTS.md` and `docs/agent-index.md`
+- `docs/architecture.md` — module layout, dendritic pattern, scope rules
+- `docs/pitfalls.md` — recurring Nix scope mistakes
+- Nearest existing module in `modules/` for pattern matching
 
-## Rules
+## Ownership Map
 
-- Edit `modules/`, not generated `flake.nix`.
-- Keep feature logic in the dendritic feature directory that owns it.
-- Use plain `inputs` for top-level flake wiring.
-- Use `inputs'` and `self'` only inside `perSystem`.
-- Use `withSystem` when a reusable NixOS/Home Manager module needs per-system packages.
-- Export reusable NixOS modules as real NixOS module functions when they need `config`, `pkgs`, or `modulesPath`.
-- Do not put `imports` inside `lib.mkMerge`.
-- Prefer existing wrappers in `modules/desktop/wrappers/` over raw packages.
+| Path | Owns |
+|------|------|
+| `modules/core/` | Flake bootstrap, global inputs, dendritic activation |
+| `modules/common/` | Shared NixOS modules (audio, locale, networking, SOPS) |
+| `modules/dev/` | Dev tools, Neovim, OpenCode, git hooks |
+| `modules/desktop/` | Desktop session, wrappers |
+| `modules/hosts/<name>/` | Per-machine NixOS configuration |
+| `modules/users/<name>/` | Per-user Home Manager configuration |
+| `modules/theming/` | Stylix palette, generated theme fragments |
+| `modules/desktop/wrappers/` | nix-wrapper-modules wrapper definitions |
+| `modules/installation/` | Installer media |
+| `modules/network/` | Network services |
+| `modules/socials/` | Browser and comms apps |
+| `modules/gaming/` | Gaming modules |
+
+## Scope Rules
+
+| Scope | Access |
+|-------|--------|
+| Top-level flake-parts | `inputs` (plain) |
+| `perSystem` | `inputs'`, `self'`, `withSystem` |
+| NixOS/HM module | `pkgs`, `config`, `lib`, `modulesPath` |
+
+## Change Routing
+
+| Symptom | Edit |
+|---------|------|
+| New module not found | Check file is valid `.nix` under `modules/` (import-tree auto-imports) |
+| Flake output missing | Declare output in owning `modules/` file, then `write-flake` |
+| `inputs'`/`self'` error in top-level | Move to `perSystem` block |
+| NixOS-only args missing | Export as real NixOS module function, use `withSystem` |
+| `imports` inside `lib.mkMerge` fails | Keep `imports` at module top level, put conditions under `config = lib.mkMerge [...]` |
+| Program needs opinionated config | Check `modules/desktop/wrappers/` for existing wrapper |
+| Stale `flake.nix` after declaration change | Run `write-flake` before `flake show`/`flake check` |
 
 ## Procedure
 
-1. Locate the owning module or nearest similar feature.
-2. Make the smallest source change in `modules/` or nearby owned config.
-3. If flake-file declarations changed, run `nix run "path:$PWD#write-flake"` before introspection.
-4. If adding or changing outputs, run `nix flake show "path:$PWD"`.
-5. Run formatting and the narrowest relevant checks.
+1. Locate owning module or nearest similar feature.
+2. Make the smallest source change in `modules/`.
+3. If flake-file declarations changed: `nix run "path:$PWD#write-flake"`.
+4. If outputs changed: `nix flake show "path:$PWD"`.
+5. Run formatting and narrowest checks.
 
-## Checks
+## Validation
 
-- Flake-file declaration changed: `nix run "path:$PWD#write-flake"`.
-- Output added/changed: `nix flake show "path:$PWD"`.
-- Handoff when practical: `nix run "path:$PWD#repo-gate"`.
+| Trigger | Command |
+|---------|---------|
+| Declarations changed | `nix run "path:$PWD#write-flake"` |
+| Outputs changed | `nix flake show "path:$PWD"` |
+| Handoff | `nix run "path:$PWD#repo-gate"` |
 
 ## Do Not
 
-- Manually edit `flake.nix`.
+- Edit `flake.nix` directly — it is generated.
+- Put `imports` inside `lib.mkMerge`.
 - Duplicate exact package lists or option values in docs.
-- Add compatibility layers without a concrete persisted/shipped/external need.
+- Add compatibility layers without concrete persisted/shipped/external need.
+- Parameterize exported NixOS modules with ad hoc outer args.
+
+## Done Criteria
+
+- Change is in `modules/`, not `flake.nix`.
+- `write-flake` and `flake show` pass if declarations or outputs changed.
+- Formatting applied (`nix run "path:$PWD#fmt"`).
+- Existing behavior preserved or explained why not.

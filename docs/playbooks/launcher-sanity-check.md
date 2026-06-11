@@ -26,22 +26,103 @@ These examples are not a fixed regression suite; they describe the underlying ru
 Keep the launcher IPC available for manual checks:
 
 ```bash
-newshell ipc call query pipeline 'audio'
-newshell ipc call query policies 'audio'
+newshell ipc call query pipeline '<query>'    # Universal debug — rows, phases, backends, timings
+newshell ipc call query policies '<query>'    # Active policy specs per kind
 newshell ipc call query benchmark '{"queries":["zen","wifi"],"iterations":2}'
 newshell ipc call query cases
 newshell ipc call query runCases
 ```
 
-Use `jq` to reduce output before pasting or comparing results:
+## Pipeline JSON Schema (version 3)
+
+The `pipeline` endpoint is the universal debug output. Shape:
+
+```json
+{
+  "version": 3, "type": "pipeline",
+  "query": "audio",
+  "directive": { "active": false, "prefix": "", "label": "All", "backendIds": [] },
+  "timings": { "totalMs": 2.3, "shapeMs": 0.4 },
+  "phases": [
+    { "phase": 0, "name": "directive-tokenize", "tokens": [], "activeBackendIds": [] },
+    { "phase": 1, "name": "root-nodes", "roots": [] },
+    { "phase": 2, "name": "candidates", "candidateCount": 42 },
+    { "phase": 3, "name": "evaluation", "childScoreBundles": [] },
+    { "phase": 4, "name": "path-policies", "pathMs": 0.1 },
+    { "phase": 5, "name": "shaping", "shaped": [], "placements": {} }
+  ],
+  "rows": [{ "id": "...", "title": "...", "score": 0.8 }],
+  "totalResults": 5,
+  "backends": { "total": 8, "entries": [], "routingTree": {} },
+  "state": { "selectedIndex": 0, "resultCount": 5, "loading": false },
+  "diagnostics": {}
+}
+```
+
+### Row Fields
+
+Useful fields for `jq` filtering:
+
+`id`, `title`, `subtitle`, `source`, `kind`, `score`, `ownScore`, `descendantScore`, `matchDepth`, `ownVisible`, `executable`, `dangerous`, `actions`, `evidence`, `children`, `switchState`, `control`, `breadcrumbs`, `breadcrumbText`, `placement`, `presentationContext`, `scoreBundle`.
+
+### jq Filter Recipes
 
 ```bash
-newshell ipc call query pipeline 'audio' | jq '.rows[] | select(.ownVisible == true) | {title, subtitle, source, score, ownScore, matchDepth, children: (.children // [] | length)}'
+# Visible rows with key fields
+newshell ipc call query pipeline 'audio' \
+  | jq '.rows[] | select(.ownVisible == true) | {title, subtitle, source, kind, score, ownScore, matchDepth, children: (.children // [] | length)}'
+
+# Phase listing
 newshell ipc call query pipeline 'audio' | jq '.phases[] | {phase, name}'
-newshell ipc call query pipeline 'audio' | jq '.phases[] | select(.name == "evaluation").childScoreBundles[] | {label, score, ownScore}'
-newshell ipc call query pipeline 'audio' | jq '.phases[] | select(.name == "shaping").shaped[] | {title, placement, score}'
+
+# Evaluation scores per backend root
+newshell ipc call query pipeline 'audio' \
+  | jq '.phases[] | select(.name == "evaluation").childScoreBundles[] | {label, score, ownScore}'
+
+# Shaping decisions per item
+newshell ipc call query pipeline 'audio' \
+  | jq '.phases[] | select(.name == "shaping").shaped[] | {title, placement, score}'
+
+# Backend metadata
 newshell ipc call query pipeline 'audio' | jq '.backends.entries[] | {id, name, enabled}'
+
+# Directive and tokens (phase 0)
+newshell ipc call query pipeline 'zen priv' | jq '{directive, tokens: .phases[0].tokens}'
+
+# Timing breakdown
+newshell ipc call query pipeline 'audio' | jq '.timings'
 ```
+
+### Phase Reference
+
+| Phase | Name | Contents |
+|-------|------|----------|
+| 0 | directive-tokenize | Directive, tokens, active backend IDs |
+| 1 | root-nodes | Backend root nodes |
+| 2 | candidates | Candidate count per backend |
+| 3 | evaluation | Score bundles per candidate |
+| 4 | path-policies | Path-based policy timing |
+| 5 | shaping | Per-item placement decisions |
+
+## Capability Use Cases
+
+When adding, removing, or changing a backend, row kind, prefix, action family, or fallback, verify these query forms still work. Choose concrete examples from installed apps, available actions, and current devices — do not preserve stale hardcoded examples.
+
+- **Partial app name**, acronym, or user shorthand.
+- **App plus sub-action**: app name with intent word (window, profile, private).
+- **Desktop/system action**: action name, category, or category + action text.
+- **Stateful control**: control name alone, and control + desired state.
+- **Continuous control**: control name with level/adjustment intent.
+- **Group/category**: group name alone, and group + child intent.
+- **Backend prefix alone**: browse mode (shows root nodes for that backend).
+- **Backend prefix + terms**: scoped search within a backend.
+- **Familiar shorthand**: dashboard, system, settings, or workflow area name.
+- **Path**: absolute path, home-relative path, or path fragment.
+- **Calculator**: expression or unit/value style input.
+- **Help/backend browser**: prefix or query form to discover backends.
+- **Web fallback**: ordinary phrase where no non-web result should be visible.
+- **Explicit web**: web prefix plus search terms.
+- **Misspelled/transposed**: query that should recover without outranking stronger exact/prefix matches.
 
 Always record the visible query when debugging GUI-only missing-row reports. A row can be absent because the visible launcher query differs from the query sent through IPC, because prefix parsing changed the effective search query, or because the GUI is showing stale/filtered rows.
 

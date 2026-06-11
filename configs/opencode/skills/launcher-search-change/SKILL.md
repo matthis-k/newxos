@@ -5,123 +5,76 @@ description: Use when changing launcher backends, tokenization, evidence, scorin
 
 # Launcher Search Change
 
-Use this skill for search behavior in `configs/quickshell/launcher/`.
+## Core Rule
+
+Launcher behavior changes should be policy-driven. Backend data must cross the DTO boundary as plain serializable objects. UI delegates render, they do not compute.
 
 ## Inspect First
 
-- Read launcher architecture in `docs/architecture.md`.
-- Read launcher anti-patterns in `docs/contracts/quickshell-design.md`.
-- Read launcher pitfalls in `docs/pitfalls.md`.
-- Inspect the owning backend or logic file before editing.
+- `docs/architecture.md` — launcher architecture section (pipeline, DTO boundary, prefix gating)
+- `docs/contracts/quickshell-design.md` — anti-patterns section
+- `docs/pitfalls.md` — launcher pitfalls (retained trees, circular references, children bypass)
+- `docs/playbooks/launcher-sanity-check.md` — ranking intent, IPC debugging, pipeline schema, capability cases
+- Owning backend or logic file in `configs/quickshell/launcher/`
 
 ## Architecture Boundary
 
-- Backends produce normalized tree DTOs or result inputs.
-- Composite search owns indexing, candidate collection, evidence, scoring, flattening, and row generation.
-- Result rows carry primitive fields, actions, and evidence metadata only.
-- UI delegates render normalized rows; they do not recompute scoring or hold backend references.
-- Prefix gating controls backend participation through `canHandle(query)`.
-- Async backends must respect generation counters before applying results.
+- **Backends** produce normalized tree DTOs (plain JS objects, no live QML refs).
+- **Composite search** (`logic/`) handles indexing, evidence, scoring, flattening, row generation.
+- **Result rows** carry primitive fields, actions, and evidence metadata only.
+- **UI delegates** render normalized rows; no score recomputation or backend references.
+- **Prefix gating** via `RoutingTree.js` — backends register routes in `Component.onCompleted`.
+- **Async backends** check generation counters before applying results.
 
-## Procedure
+## Ownership Map
 
-1. Identify whether the change is backend input, scoring/evidence, flattening, row DTO, or UI rendering.
-2. Keep data crossing boundaries plain and serializable.
-3. Preserve web fallback behavior: explicit web prefixes or no visible non-web results.
-4. Avoid broad rewrites; change the smallest owner.
-5. Check ranking expectations after behavior changes.
+| Path | Owns |
+|------|------|
+| `launcher/LauncherController.qml` | Composite search orchestration, `queryPipeline()` |
+| `launcher/Logic/Evaluate.qml` | Evidence collection, scoring, default dedup mode |
+| `launcher/Logic/ResultShaping.qml` | Placement decisions (hidden, standalone, group, flattened, etc) |
+| `launcher/Logic/RenderedRows.qml` | Row DTO construction from shaped items |
+| `launcher/Logic/PresentationContext.qml` | Placement-sensitive display choices |
+| `launcher/Logic/PolicyChain.qml` | Policy aggregation, `lookupPolicy()` |
+| `launcher/Logic/PolicySpec.qml` | Policy spec normalization (legacy strings → canonical) |
+| `launcher/Logic/ScoreBundle.qml` | Score parts with coverage |
+| `launcher/Logic/Evidence.qml` | Evidence dedup (`bestPerToken` default) |
+| `launcher/Logic/RoutingTree.js` | Prefix routing, backend gating |
+| `launcher/backends/` | Backend DTOs and search |
+| `launcher/policies/` | Individual policy implementations |
+| `launcher/delegates/` | UI delegates rendering rows |
+| `launcher/Launcher.qml` | IPC boundary, delegates to controller |
 
-## newshell CLI and service
+## Pipeline Flow
 
-`newshell` is a wrapper script around `quickshell -p <config-dir>` (see `modules/desktop/wrappers/quickshell.nix`). In dev mode (`NEWXOS_DEV=1`) it uses the live config from `$NEWXOS_FLAKE/configs/quickshell` and passes `--verbose`.
-
-The systemd user service `newshell` (`systemctl --user restart newshell`) restarts the Quickshell session. All `newshell ipc` subcommands route IPC calls to the running instance identified by the config directory — you don't need to specify which instance.
-
-Key subcommands:
-- `newshell ipc call query <method> [arg]` — invokes a named IPC query method (search, visual, complete, backends, routes, evidence, result, state, pipeline, policies, score, shape, cases, runCases, benchmark)
-- Arguments after `query <method>` are passed as raw strings to the method
-
-## IPC Debugging Shape
-
-Use `newshell ipc call query pipeline '<query>'` for the universal debug endpoint — returns rows, phases, backends, timings, and state in one call. Filter with `jq`: `jq '.rows[]'`, `jq '.phases[] | select(.name == "evaluation")'`, `jq '.backends.entries'`.
-
-Source of truth: `configs/quickshell/launcher/LauncherController.qml`, especially `queryPipeline()`. Check that file before asserting the IPC JSON shape changed.
-
-Debug endpoints: `queryPipeline()` returns per-phase snapshots and serialized rows. `queryPolicies()` returns active policy catalog. `queryCases()` and `queryRunCases()` handle regression testing. These are exposed through `Launcher.qml` and `ShellState.qml` IPC as `pipeline`, `policies`, `benchmark`, `cases`, `runCases`.
-
-Pipeline model modules live in `configs/quickshell/launcher/logic/`: `PolicySpec.qml` (spec normalization), `PolicyChain.qml` (policy aggregation + `lookupPolicy` helper for normalized spec-aware lookups), `ScoreBundle.qml` (score parts with coverage), `ResultShaping.qml` (placement decisions retains placement/decision/shaped metadata), `PresentationContext.qml` (placement-sensitive display choices), `RenderedRows.qml` (row DTO construction consumes shaped items + presentation context). TokenFlowDecision is not implemented yet. ActionPolicy is not extracted yet.
-
-`pipeline` (version 3) is the universal debug endpoint. Shape:
-
-```json
-{
-  "version": 3, "type": "pipeline",
-  "query": "audio",
-  "directive": { "active": false, "prefix": "", "label": "All", "backendIds": [] },
-  "timings": { "totalMs": 2.3, "shapeMs": 0.4, ... },
-  "phases": [
-    { "phase": 0, "name": "directive-tokenize", "tokens": [...], "activeBackendIds": [...] },
-    { "phase": 1, "name": "root-nodes", "roots": [...] },
-    { "phase": 2, "name": "candidates", "candidateCount": 42 },
-    { "phase": 3, "name": "evaluation", "childScoreBundles": [...] },
-    { "phase": 4, "name": "path-policies", "pathMs": 0.1 },
-    { "phase": 5, "name": "shaping", "shaped": [...], "placements": {...} }
-  ],
-  "rows": [{ "id": "...", "title": "...", "score": 0.8, ... }],
-  "totalResults": 5,
-  "backends": { "total": 8, "entries": [...], "routingTree": {...} },
-  "state": { "selectedIndex": 0, "resultCount": 5, "loading": false },
-  "diagnostics": {...}
-}
+```
+Directive/tokenize → Candidate collection → Evidence → Scoring → Path policies → Shaping → Row DTOs
 ```
 
-Filtering notes:
+## Change Routing
 
-- Rows are under `.rows[]` — same shape as the old `search`/`visual` `.results[]`.
-- `.phases[]` — select by `.name` or `.phase` number. Phase 0 covers directive/tokens/backends, phase 3 covers scores, phase 5 covers shaping.
-- `.backends.entries[]` — full backend metadata.
-- Filter hidden candidates with `.rows[] | select(.ownVisible == true)`.
-- `policies` (version 2) returns `{version,type,query,activeBackends,policiesByKind,diagnostics}`.
-- `hitCount` and `hitCountUpper` live on the `scoreBundle` inside each row's `.scoreBundle` field.
+| Symptom | Edit |
+|---------|------|
+| Matching wrong or incomplete | Edit evidence/searchable-field config in backend or PolicyChain |
+| Ranking wrong | Edit scoring/boost policy |
+| Display wrong | Edit row DTO (`RenderedRows.qml`), presentation context, or delegate |
+| Source data wrong | Edit backend DTO construction |
+| Backend not participating | Check prefix/routing registration in backend's `Component.onCompleted` |
+| Children missing after shaping | Check `Engine.qml:buildRowsFromShaped` — null vs empty `childEvs` |
+| Web fallback appearing with visible results | Check web fallback gating in composite search |
+| Row DTO field missing or wrong type | Update `RenderedRows.qml` and all consuming delegates |
 
-Useful row fields for `jq`: `id`, `title`, `subtitle`, `source`, `kind`, `score`, `ownScore`, `descendantScore`, `matchDepth`, `ownVisible`, `executable`, `dangerous`, `actions`, `evidence`, `children`, `switchState`, `control`, `breadcrumbs`, `breadcrumbText`, `placement`, `presentationContext`, `scoreBundle`.
-
-Start with these filters:
+## IPC Commands
 
 ```bash
-newshell ipc call query search 'audio' \
-  | jq '{query:.query.raw, directive, rows:[.results[] | select(.ownVisible == true) | {title, subtitle, source, kind, score, ownScore, matchDepth, actions, children:(.children // [] | length)}]}'
-
-newshell ipc call query visual 'audio' \
-  | jq '{query:.query.raw, totalResults, directive, rows:[.results[] | {title, source, kind, score, children:(.children // [] | map({title, kind, score}))}], navigationTargets:[.navigationTargets[]? | {title, treeDepth}]}'
-
-for q in '<partial app name or shorthand>' '<app name plus sub-action word>' '<control name plus desired state>' '<backend prefix alone or with terms>' '<absolute or home-relative path>' '<ordinary web-search phrase>'; do
-  newshell ipc call query visual "$q" \
-    | jq --arg q "$q" '{query:$q, totalResults, directive, rows:[.results[] | {title, subtitle, source, kind, score, children:(.children // [] | length)}] | .[0:8]}'
-done
+newshell ipc call query pipeline '<query>'    # Universal debug — rows, phases, backends, timings
+newshell ipc call query policies '<query>'    # Active policy specs per kind
+newshell ipc call query benchmark '<json>'    # Benchmark queries via debugBenchmark()
+newshell ipc call query cases                 # Active regression query list
+newshell ipc call query runCases              # Run all regression cases
 ```
 
-## Capability Use Cases
-
-Keep this list aligned with launcher capabilities. When adding, removing, or changing a backend, row kind, prefix, action family, or fallback behavior, update these use cases so future sanity checks cover the current launcher surface.
-
-Run or manually inspect query forms a user might type when trying to. Choose concrete examples from installed apps, available actions, current devices, and familiar local shorthand; do not preserve stale hard-coded examples.
-
-- Partial app name, app acronym, or user shorthand.
-- App name plus a sub-action word such as a window/profile/private/action intent.
-- Desktop/system action name, category name, or category plus action text.
-- Stateful control name alone, and control name plus desired state/action word.
-- Continuous control name with level/adjustment intent.
-- Group/category name alone, then group/category plus child intent.
-- Backend prefix alone for browse mode.
-- Backend prefix plus search terms for scoped search.
-- Familiar shorthand for a dashboard, system, settings, or workflow area.
-- Absolute path, home-relative path, or path fragment.
-- Calculator expression or unit/value style input.
-- Help/backend browser prefix or help-oriented query form.
-- Ordinary phrase that should use web fallback because no local non-web result is visible.
-- Explicit web prefix plus search terms.
-- Misspelled or transposed form of a query that should still recover without outranking stronger exact/prefix/common matches.
+For the full pipeline JSON schema, detailed `jq` filter recipes, capability use cases, and debug flow guidance, see `docs/playbooks/launcher-sanity-check.md`.
 
 ## Do Not
 
@@ -129,3 +82,24 @@ Run or manually inspect query forms a user might type when trying to. Choose con
 - Treat permission alone as evidence of relevance.
 - Prewarm backends whose source model populates asynchronously.
 - Let web fallback compete when non-web visible rows exist.
+- Put ranking logic in UI delegates.
+- Serialize raw QML objects in IPC responses.
+- Remove legacy policy names without migration path.
+
+## Deferred Architecture
+
+Do not implement unless repeated concrete need:
+
+- TokenFlowDecision
+- ActionPolicy extraction
+- Generic rule engine
+
+## Done Criteria
+
+- Smallest correct owner changed.
+- Backend DTOs are plain serializable objects.
+- Prefix gating unchanged unless intended.
+- Web fallback behavior preserved.
+- Ranking intent verified with representative queries.
+- No raw QML objects in IPC responses.
+- Docs/playbook updated only if the workflow changed.

@@ -3,37 +3,67 @@ name: secrets-and-auth
 description: Use when touching secrets, sops-nix, auth tokens, OpenCode provider auth, MCP auth, OAuth/API keys, Caddy local CA wiring, or service credentials in newxos.
 ---
 
-# Secrets And Auth
+# Secrets and Auth
 
-Use this skill for high-impact secret and authentication wiring.
+## Core Rule
+
+Prefer checking wiring, paths, permissions, and filenames over reading plaintext. Never print or commit decrypted secrets.
 
 ## Inspect First
 
-- Read `AGENTS.md` safety rules.
-- Read secret/auth routes in `docs/agent-index.md`.
-- Read relevant pitfalls in `docs/pitfalls.md`.
-- Inspect wiring, paths, permissions, and filenames before touching encrypted payloads.
+- `AGENTS.md` — safety rules and secret policies
+- `docs/pitfalls.md` — secrets and containers section
+- `modules/common/sops.nix` — sops-nix module wiring
+- `modules/dev/opencode.nix` — OpenCode/MCP auth wiring
+- `.sops.yaml` — recipient rules
 
-## Rules
+## Ownership Map
 
-- Never print decrypted secret payloads.
-- Prefer checking paths, ownership, permissions, and module wiring.
-- Keep provider auth user-controlled unless explicitly requested otherwise.
-- Route GitHub/OpenCode token wiring through sops-managed secrets where the repo already does so.
-- Do not commit generated auth state, OAuth tokens, provider caches, or plaintext credentials.
-- Require explicit confirmation before rotating secrets or changing recipients.
-- Require explicit confirmation before deleting secret files or large auth state directories.
+| Path | Owns |
+|------|------|
+| `secrets/` | Encrypted sops-nix payloads (age) |
+| `.sops.yaml` | Recipient rules |
+| `modules/common/sops.nix` | sops-nix activation, key placement |
+| `modules/dev/opencode.nix` | OpenCode token wiring, MCP server definitions |
+| `modules/installation/` | Installer key handling |
+
+## Change Routing
+
+| Symptom | Edit |
+|---------|------|
+| Secret not decrypting at activation | Check recipient rules in `.sops.yaml`, key placement |
+| Token auth failing | Verify module wiring paths, not secret content |
+| New secret needed | Add encrypted file to `secrets/`, update `.sops.yaml` recipients |
+| Provider auth broken | Check generated settings in `opencode.nix` |
+| MCP server auth failing | Inspect server wiring in `opencode.nix` |
+| Caddy CA not trusted by apps | Publish to world-readable path (`/run/caddy-local-root.crt`) |
 
 ## Procedure
 
-1. Identify the secret owner and consumer.
-2. Verify whether wiring can be fixed without reading plaintext.
-3. Check sops-nix module paths and activation permissions.
-4. Preserve existing secret names and mount paths unless a rename is required.
+1. Identify secret owner and consumer.
+2. Check wiring, paths, and permissions without reading plaintext.
+3. Verify sops-nix module paths and activation permissions.
+4. Preserve existing secret names and mount paths unless rename is required.
 5. Run narrow Nix evaluation/build checks for wiring changes.
+
+## Validation
+
+- `nix flake show "path:$PWD"` — verify packages/outputs
+- `nix flake check "path:$PWD"` — full evaluation
+- `nix run "path:$PWD#repo-gate"` for handoff
 
 ## Do Not
 
+- Print decrypted secret payloads.
 - Use shell commands that dump secret contents.
 - Add API keys to docs, memory, commits, logs, or config examples.
-- Make broad auth changes while solving a narrow wiring issue.
+- Commit OAuth tokens, provider caches, or plaintext credentials.
+- Make broad auth changes while solving narrow wiring issues.
+- Rotate secrets or change recipients without explicit confirmation.
+- Delete secret files or large auth state directories without explicit confirmation.
+
+## Done Criteria
+
+- Wiring verified without reading plaintext.
+- No plaintext secrets in output, diffs, or commits.
+- Nix evaluation passes.

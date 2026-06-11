@@ -5,34 +5,41 @@ description: Use when a coding task needs current external library, framework, p
 
 # Context7 Library Documentation
 
-Use Context7 only for current external library documentation that is not already better covered by local source, Basic Memory, the NixOS MCP, or the Qt Documentation MCP.
+## Core Rule
 
-## Use Context7 For
+Use Context7 only for external library docs not already covered by local source, Basic Memory, NixOS MCP, or Qt Documentation MCP. Never copy large upstream docs into this repo.
 
-- External library API usage.
-- Version-sensitive examples.
-- Upstream setup or configuration steps.
-- Unfamiliar package APIs.
-- Changed or deprecated APIs.
-- Code generation that depends on third-party docs.
+## Use For
 
-## Do Not Use Context7 For
+- External library API usage
+- Version-sensitive examples
+- Upstream setup or configuration steps
+- Unfamiliar package APIs
+- Changed or deprecated APIs
 
-- Repo architecture, project decisions, or local conventions.
-- NixOS, Home Manager, Darwin, Nixvim, or nixpkgs option lookup.
-- Qt or QML API documentation covered by Qt Documentation MCP.
-- Secrets or auth wiring.
-- Exact behavior already defined in source files.
+## Do Not Use For
+
+- Repo architecture, project decisions, or local conventions
+- NixOS, Home Manager, Darwin, Nixvim, or nixpkgs option lookup (use NixOS MCP)
+- Qt or QML API documentation (use Qt Documentation MCP)
+- Secrets or auth wiring
+- Exact behavior already defined in source files
 
 ## Workflow
 
-1. Identify the external library or package.
-2. Resolve the Context7 library ID.
-3. Query only the relevant topic.
-4. Treat returned docs as external reference material, not repo policy.
+1. Identify the external library.
+2. Resolve the Context7 library ID (`context7_resolve-library-id`).
+3. Query the relevant topic only (`context7_query-docs`).
+4. Treat returned docs as external reference, not repo policy.
 5. Cross-check generated code against local source patterns before editing.
 6. Do not copy large upstream docs into this repository.
 
 ## Output Expectations
 
-When Context7 affected an implementation, mention the library ID, topic queried, and any version assumption or uncertainty.
+When Context7 affected an implementation, note the library ID, topic queried, and any version assumption.
+
+## Done Criteria
+
+- Context7 used only for external library docs.
+- Library ID and version assumption noted.
+- Generated code cross-checked against local patterns.

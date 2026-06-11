@@ -3,45 +3,87 @@ name: quickshell-qml-component
 description: Use when editing QuickShell QML components, panels, services, layout, theming, animations, hot reload behavior, or related wrapper config in newxos.
 ---
 
-# QuickShell QML Component Work
+# QuickShell QML Component
 
-Use this skill for `configs/quickshell/` changes that are not specifically launcher search pipeline changes.
+## Core Rule
+
+All UI must follow the flat-design contract: no gradients, shadows, or 3D. Use palette tokens and the repo spacing scale. Never hardcode colors or sizes.
 
 ## Inspect First
 
-- Read `docs/contracts/quickshell-design.md`.
-- For live config iteration, read `docs/playbooks/dev-specialization.md`.
-- For wrapper behavior, inspect `modules/desktop/wrappers/quickshell.nix`.
-- For known Quickshell pitfalls, read `docs/pitfalls.md`.
-- Inspect nearby QML components and services before adding patterns.
+- `docs/contracts/quickshell-design.md` — visual style, spacing scale, animation rules, QML conventions
+- `docs/pitfalls.md` — Quickshell section
+- `modules/desktop/wrappers/quickshell.nix` — wrapper, newshell binary, dev mode routing
+- Nearby QML components for import conventions and pattern matching
+
+## Ownership Map
+
+| Path | Owns |
+|------|------|
+| `configs/quickshell/shell.qml` | Root window, panel layout, per-screen instantiation |
+| `configs/quickshell/services/` | Singleton services (network, brightness, config, notifications) |
+| `configs/quickshell/components/` | Shared UI components (buttons, sliders, icons, dashboard pieces) |
+| `configs/quickshell/modules/*/` | Panel modules (quickmenu, background, hyprland preview) |
+| `configs/quickshell/launcher/` | Launcher search pipeline (see launcher-search-change skill) |
+| `modules/desktop/wrappers/quickshell.nix` | Wrapper, newshell binary, dev mode config routing |
+| `modules/theming/` | Palette, generated QuickShell theme JSON |
+
+## Change Routing
+
+| Symptom | Edit |
+|---------|------|
+| Color or spacing wrong | Check `docs/contracts/quickshell-design.md`, then theme tokens |
+| Component pattern missing | Match nearest existing component in `components/` |
+| Service state lost on reload | Add unique `reloadableId` to `PersistentProperties` |
+| Panel behavior change | Edit owning module file in `modules/<panel>/` |
+| Hot reload not working | Check dev mode wrapper logic; verify `NEWXOS_DEV=1` |
+| New service needed | Add `pragma Singleton` file in `services/` |
+| File watch duplicated | Centralize in service, not multiple components |
 
 ## Design Rules
 
-- Flat design only: no gradients, drop shadows, or 3D effects.
-- Use palette/theme values such as `Colours.palette.*` and `Appearance.*`; do not hardcode colors or sizes.
-- Follow the repo spacing scale: 4, 8, 12, 16 px roles from the contract.
-- Use color contrast and spacing for hierarchy, not depth effects.
-- Respect animation settings and keep animation tied to state transitions.
+- Flat design: no gradients, shadows, 3D effects.
+- Colors: `Colours.palette.*` and `Appearance.*`.
+- Spacing: 4/8/12/16 px scale from `Config.spacing`.
+- Animations: state transitions only, 100-400ms, `Easing.InOutQuad` or `Easing.OutCubic`.
+- Respect `behaviourObj.animation.enabled`; skip animations when disabled.
+- One primary accent (`blue`) and one secondary (`sky`) per view max.
 
 ## QML Rules
 
-- Use `id: root` for component roots.
-- Use repo import conventions and nearby component patterns.
-- Services should be `pragma Singleton` with `Singleton {}` root.
-- `PersistentProperties` must have a unique `reloadableId`.
+- `id: root` for component roots.
+- `pragma Singleton` + `Singleton {}` root for services.
+- `PersistentProperties` must have unique `reloadableId`.
 - Centralize repeated file watches or polling in services.
-- Avoid polling unless a visible/ref-counted consumer needs the data.
+- No polling without `refCount > 0` guard.
+- Use repo import conventions (`qs.` prefix for local modules).
+- PascalCase filenames matching component name.
 
 ## Procedure
 
-1. Classify the change as component, service, panel, theme, or wrapper interaction.
-2. Preserve existing visual language and module structure.
+1. Classify change: component, service, panel, theme, or wrapper interaction.
+2. Match existing conventions and patterns.
 3. Make the smallest QML/source change.
-4. Check hot reload assumptions when state or wrapper paths change.
-5. Run the relevant QuickShell/QML checks or explain why they were skipped.
+4. Check hot reload assumptions if state or wrapper paths changed.
+5. Verify with dev specialization or repo-gate.
+
+## Validation
+
+- `nix run "path:$PWD#repo-gate"` for handoff.
+- In dev mode: restart `newshell` session to hot-reload.
+- For hot-reload state: verify with `newshell ipc` queries.
 
 ## Do Not
 
-- Put raw launcher backend/evaluation objects into UI models.
+- Hardcode colors or sizes.
+- Put raw backend objects into UI models or IPC responses.
 - Duplicate wrapper-generated config in handwritten QML.
-- Treat generic upstream QuickShell snippets as repo policy.
+- Treat generic QuickShell snippets as repo policy.
+- Prewarm async backends before source model is populated.
+
+## Done Criteria
+
+- Design contract respected (no gradients, shadows, 3D).
+- No hardcoded theme values.
+- Hot reload state preserved if relevant.
+- Formatting applied.
