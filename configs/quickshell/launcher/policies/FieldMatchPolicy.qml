@@ -7,11 +7,14 @@ QtObject {
     property string filterType: "all"
     property var strategyList: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"]
 
-    function policyMatch(node, query, ctx) {
+    function policyMatch(node, query, ctx, specArgs) {
         if (query.isEmpty)
             return [];
+        var effectiveFilterType = specArgs && specArgs.filterType !== undefined
+            ? String(specArgs.filterType)
+            : filterType;
         var fields = IndexBuilder.searchableFields(node);
-        var filtered = Evidence.filterFields(fields, filterType);
+        var filtered = Evidence.filterFields(fields, effectiveFilterType);
         var out = [];
         for (var fi = 0; fi < filtered.length; fi += 1)
             out = out.concat(Evidence.matchField(filtered[fi], query, strategyList));

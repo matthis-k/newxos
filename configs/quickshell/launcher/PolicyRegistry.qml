@@ -55,6 +55,7 @@ Singleton {
 
     function registerBaseNameAliases() {
         var registries = [JsRegistry.evidence, JsRegistry.inherit, JsRegistry.boost, JsRegistry.childVisible, JsRegistry.childBypass, JsRegistry.presentation];
+        var aliasMap = {};
         for (var ri = 0; ri < registries.length; ri += 1) {
             var reg = registries[ri];
             var names = reg.list();
@@ -63,10 +64,15 @@ Singleton {
                 var colonIdx = name.indexOf(":");
                 if (colonIdx > 0) {
                     var baseName = name.slice(0, colonIdx);
-                    if (!reg.get(baseName))
-                        reg.register(baseName, reg.get(name));
+                    if (reg.get(baseName))
+                        continue;
+                    reg.register(baseName, reg.get(name));
+                    aliasMap[baseName] = name;
                 }
             }
         }
+        if (Object.keys(aliasMap).length > 0)
+            console.log("PolicyRegistry: registered base-name aliases", JSON.stringify(aliasMap));
+        return aliasMap;
     }
 }

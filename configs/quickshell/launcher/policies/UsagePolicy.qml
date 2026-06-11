@@ -3,7 +3,7 @@ import "../" as Launcher
 import "../logic/"
 
 QtObject {
-    function policyMatch(node, query, ctx) {
+    function policyMatch(node, query, ctx, specArgs) {
         if (query.isEmpty || !node.usageCount || node.usageCount <= 0)
             return [];
         var usage = Evidence.frequencyScore(node.usageCount);

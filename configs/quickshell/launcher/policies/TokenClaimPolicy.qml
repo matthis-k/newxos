@@ -3,7 +3,7 @@ import "../" as Launcher
 import "../logic/"
 
 QtObject {
-    function policyMatch(node, query, ctx) {
+    function policyMatch(node, query, ctx, specArgs) {
         if (!node.behavior || !node.behavior.tokenPolicy || !node.behavior.tokenPolicy.tokens || query.isEmpty)
             return [];
         var claims = Evidence.claimMatchingTokens(query, node.behavior.tokenPolicy.tokens, node.behavior.tokenPolicy);

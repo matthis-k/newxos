@@ -34,7 +34,7 @@ Singleton {
         };
     }
 
-    function make(ownValue, inheritedValue, childrenValue, rankingValue, evidenceItems, query) {
+    function make(ownValue, inheritedValue, childrenValue, rankingValue, evidenceItems, query, groupValue, activationValue) {
         var ownScore = ownValue || 0;
         var inheritedScore = inheritedValue || 0;
         var childrenScore = childrenValue || 0;
@@ -46,8 +46,8 @@ Singleton {
             children: makeScorePart(childrenScore, [], query),
             aggregate: makeScorePart(ranking, [], query),
             ranking: ranking,
-            group: ownScore,
-            activation: ownScore,
+            group: groupValue !== undefined ? groupValue : ownScore,
+            activation: activationValue !== undefined ? activationValue : ownScore,
             confidence: computeConfidence(ownScore, evidenceItems, query)
         };
     }
@@ -55,13 +55,26 @@ Singleton {
     function fromEvaluated(ev, query) {
         if (!ev) return null;
         var evidenceItems = (ev.ownEvidence || ev.evidence || []);
+        var node = ev.node;
+        var ownScore = ev.ownScore || 0;
+        var group = ownScore;
+        var activation = ownScore;
+        if (node) {
+            var hasActions = (node.actionList && node.actionList.length > 0) || !!node.switchActions;
+            if (!hasActions)
+                activation = 0;
+            if ((node.children || []).length > 0 && ev.ownVisible)
+                group = Math.min(1, group + 0.03);
+        }
         return make(
-            ev.ownScore || 0,
+            ownScore,
             ev.inheritedScore || 0,
             ev.descendantScore || 0,
             ev.score || 0,
             evidenceItems,
-            query
+            query,
+            group,
+            activation
         );
     }
 

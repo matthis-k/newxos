@@ -4,7 +4,7 @@ import "../" as Launcher
 QtObject {
     property string policyId: "own-score-beats-parent"
 
-    function policyApply(childEval, parentEval, ctx) {
+    function policyApply(childEval, parentEval, ctx, specArgs) {
         return (childEval.ownScore || 0) > (parentEval.ownScore || 0);
     }
 

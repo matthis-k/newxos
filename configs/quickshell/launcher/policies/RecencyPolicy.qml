@@ -3,7 +3,7 @@ import "../" as Launcher
 import "../logic/"
 
 QtObject {
-    function policyMatch(node, query, ctx) {
+    function policyMatch(node, query, ctx, specArgs) {
         if (query.isEmpty || !isFinite(node.lastUsedDaysAgo))
             return [];
         var rec = Evidence.recencyScore(node.lastUsedDaysAgo);

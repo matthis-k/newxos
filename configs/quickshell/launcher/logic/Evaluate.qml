@@ -66,7 +66,7 @@ Singleton {
             var evidenceResult = PolicyChain.run(evidenceNames, function(name, spec) {
                 var policy = PolicyChain.lookupPolicy(JsRegistry.evidence, spec);
                 if (!policy || policy.phase !== "evidence") return null;
-                var items = policy.match(node, query, ctx);
+                var items = policy.match(node, query, ctx, spec && spec.args);
                 if (!items || !items.length) return null;
                 var group = policy.group || "own";
                 items.forEach(function(item) { item.originGroup = group; });

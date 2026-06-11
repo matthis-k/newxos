@@ -5,7 +5,7 @@ import "../logic/"
 QtObject {
     property string policyId: "expand-on-trailing-space"
 
-    function policyApply(childEval, parentEval, ctx) {
+    function policyApply(childEval, parentEval, ctx, specArgs) {
         if (ctx.query.lastTokenEmpty) return true;
 
         var parentCov = Evidence.coveredTokenIndexes(parentEval.evidence || [], ctx.query);

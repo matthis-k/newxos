@@ -239,6 +239,7 @@ Item {
         if (!row) return null;
         var out = {
             id: row.id || "",
+            nodeId: row.nodeId || "",
             title: row.title || "",
             subtitle: row.subtitle || "",
             icon: row.icon || null,
@@ -1623,16 +1624,13 @@ Item {
         var output = Engine.search(backends || [], text || "", stateForSearch(), searchOptions());
         var shapedResult = output.shapedResult;
         var shapedItems = shapedResult && shapedResult.shaped ? shapedResult.shaped : [];
+        var ctx = searchOptions();
         var shapedRows = shapedItems.map(function(item) {
+            var presCtx = PresentationContext.forShapedItem(item.ev, item);
             var bundle = item.ev.scoreBundle;
             var placement = item.placement || "standalone";
             var decision = item.decision || {};
-            var chainLen = shapedChainDepth(item.ev);
-            var showBreadcrumbs = placement === "promoted-child" || placement === "flattened"
-                ? chainLen > 0
-                : placement === "standalone"
-                    ? chainLen > 1
-                    : false;
+            var showBreadcrumbs = presCtx.showBreadcrumbs;
             return {
                 title: item.ev.node.label,
                 nodeId: item.ev.node.id,
@@ -1654,10 +1652,7 @@ Item {
                 reason: decision.reason || "",
                 suppressParentActions: !!decision.suppressParentActions,
                 includeAllChildren: !!decision.includeAllChildren,
-                presentationContext: {
-                    showBreadcrumbs: showBreadcrumbs,
-                    density: (item.presentationHints && item.presentationHints.density) || "normal"
-                }
+                presentationContext: presCtx
             };
         });
         return JSON.stringify({
@@ -1684,12 +1679,25 @@ Item {
                 Object.assign(searchOptions(), { trace: true }));
             var rows = output.rows || [];
             var visibleRows = rows.filter(function(r) { return r.ownVisible; });
+            var top = visibleRows.length > 0 ? visibleRows[0] : null;
+            var topBreadcrumb = "";
+            if (top && top.breadcrumbs) {
+                if (Array.isArray(top.breadcrumbs))
+                    topBreadcrumb = top.breadcrumbs.join(" > ");
+                else if (top.breadcrumbText)
+                    topBreadcrumb = top.breadcrumbText;
+            }
             results.push({
                 query: q,
                 totalRows: rows.length,
                 visibleRows: visibleRows.length,
-                topTitle: visibleRows.length > 0 ? visibleRows[0].title : null,
-                topScore: visibleRows.length > 0 ? visibleRows[0].score : 0,
+                topTitle: top ? top.title : null,
+                topScore: top ? top.score : 0,
+                topOwnScore: top ? top.ownScore : 0,
+                topPlacement: top ? top.placement : null,
+                topSource: top ? (top.source || top.backendId || "") : null,
+                topExecutable: top ? !!top.executable : false,
+                topBreadcrumbText: topBreadcrumb,
                 timings: output.timings || {}
             });
         }
