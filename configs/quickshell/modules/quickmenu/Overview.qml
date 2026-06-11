@@ -74,9 +74,7 @@ DashboardPage {
                 enabled: NetworkService.wifiHardwareEnabled
                 checked: NetworkService.wifiEnabled
                 onToggled: function (checked) {
-                    overviewWifiToggleProcess.exec({
-                        command: checked ? ["nmcli", "radio", "wifi", "on"] : ["nmcli", "radio", "wifi", "off"]
-                    });
+                    NetworkService.setWifiEnabled(checked);
                 }
             }
 
@@ -197,12 +195,4 @@ DashboardPage {
         }
     }
 
-    Process {
-        id: overviewWifiToggleProcess
-
-        function onExited(exitCode) {
-            if (exitCode === 0)
-                NetworkService.refresh();
-        }
-    }
 }

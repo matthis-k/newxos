@@ -12,6 +12,9 @@ import qs.utils
 DashboardPage {
     id: root
 
+    // Keep page layout here. If audio model/actions grow further, extract PipeWire grouping/actions
+    // into an AudioService or AudioModel helper. Utils.qml already provides volume/mute helpers;
+    // reduce local duplication to avoid drift (volumePercent, isMuted, toggleMute).
     title: "Audio"
     fillHeight: true
 

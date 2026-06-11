@@ -101,18 +101,10 @@ PanelWindow {
         visible: root.dashboardVisible
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        x: parent.width - width * root.panelProgress
+        x: parent.width - width
         width: root.targetWidth
         height: root.targetHeight
-
-        Behavior on x {
-            NumberAnimation {
-                duration: Config.behaviour.animation.enabled
-                    ? Config.behaviour.animation.calc(0.2)
-                    : 0
-                easing.type: Easing.OutCubic
-            }
-        }
+        transformOrigin: Item.Top
 
         Behavior on opacity {
             NumberAnimation {
@@ -134,7 +126,7 @@ PanelWindow {
             }
         }
 
-        scale: 0.985 + 0.015 * root.panelProgress
+        scale: root.panelProgress
 
         Behavior on scale {
             NumberAnimation {
@@ -171,6 +163,7 @@ PanelWindow {
                 onWheel: event => root.queueTabSwipeFromWheelEvent(event)
             }
 
+            // Page order must match ShellState.dashboardTabs and bar dashboard icon order.
             Overview {
                 screenState: root.shellScreenState
                 tabSwipeTarget: root

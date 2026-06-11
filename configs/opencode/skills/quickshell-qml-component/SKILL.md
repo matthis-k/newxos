@@ -13,6 +13,7 @@ All UI must follow the flat-design contract: no gradients, shadows, or 3D. Use p
 
 - `docs/contracts/quickshell-design.md` — visual style, spacing scale, animation rules, QML conventions
 - `docs/pitfalls.md` — Quickshell section
+- `docs/playbooks/dashboard-change.md` — dashboard/quickmenu tab state, ShellState ownership, tab order, and validation
 - `modules/desktop/wrappers/quickshell.nix` — wrapper, newshell binary, dev mode routing
 - Nearby QML components for import conventions and pattern matching
 
@@ -39,6 +40,7 @@ All UI must follow the flat-design contract: no gradients, shadows, or 3D. Use p
 | Hot reload not working | Check dev mode wrapper logic; verify `NEWXOS_DEV=1` |
 | New service needed | Add `pragma Singleton` file in `services/` |
 | File watch duplicated | Centralize in service, not multiple components |
+| Dashboard state/tab behavior wrong | Read `docs/playbooks/dashboard-change.md`; keep state in `ShellState.qml` |
 
 ## Design Rules
 
@@ -80,6 +82,7 @@ All UI must follow the flat-design contract: no gradients, shadows, or 3D. Use p
 - Duplicate wrapper-generated config in handwritten QML.
 - Treat generic QuickShell snippets as repo policy.
 - Prewarm async backends before source model is populated.
+- Duplicate dashboard open/close/tab state outside `ShellState.qml`.
 
 ## Done Criteria
 

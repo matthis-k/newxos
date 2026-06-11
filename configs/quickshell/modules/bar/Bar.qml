@@ -49,6 +49,7 @@ Rectangle {
         Behavior on width { NumberAnimation { duration: root.transitionMs; easing.type: Easing.OutCubic } }
         Behavior on spacing { NumberAnimation { duration: root.transitionMs; easing.type: Easing.OutCubic } }
 
+        // Icon order must match ShellState.dashboardTabs and quickmenu/Window.qml SwipeView pages.
         OverviewIcon   { screenState: root.screenState; Layout.fillWidth: root.rightExpanded }
         AudioIcon      { screenState: root.screenState; Layout.fillWidth: root.rightExpanded }
         NotificationIcon { screenState: root.screenState; Layout.fillWidth: root.rightExpanded }

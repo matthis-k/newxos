@@ -353,6 +353,15 @@ Singleton {
         }
     }
 
+    function setWifiEnabled(enabled) {
+        const cmd = enabled ? "on" : "off";
+        wifiToggleProcess.exec({ command: ["nmcli", "radio", "wifi", cmd] });
+    }
+
+    function toggleWifi() {
+        setWifiEnabled(!wifiEnabled);
+    }
+
     Process {
         id: connectProcess
         function onExited(exitCode) {
@@ -371,6 +380,14 @@ Singleton {
 
     Process {
         id: forgetProcess
+        function onExited(exitCode) {
+            if (exitCode === 0)
+                root._refreshAll();
+        }
+    }
+
+    Process {
+        id: wifiToggleProcess
         function onExited(exitCode) {
             if (exitCode === 0)
                 root._refreshAll();
