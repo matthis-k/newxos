@@ -78,7 +78,8 @@ Singleton {
             });
             return filtered.map(function(child) {
                 var grandChildren = buildChildTree(child, currentDepth + 1, maxDepth - 1, includeAllChildren);
-                return RenderedRows.toResultRow(child, currentDepth + 1, state, ctx, grandChildren);
+                var childShapedItem = { ev: child, depth: currentDepth + 1, placement: "group-child", decision: { placement: "group-child", mode: "normal", showParent: false }, options: {} };
+                return RenderedRows.toResultRow(child, currentDepth + 1, state, ctx, grandChildren, {}, childShapedItem);
             });
         }
 
@@ -92,7 +93,7 @@ Singleton {
                 childRows = buildChildTree(item.ev, item.depth, maxTreeDepth, false);
             }
             if (!childRows) childRows = [];
-            return RenderedRows.toResultRow(item.ev, item.depth, state, ctx, childRows, item.options);
+            return RenderedRows.toResultRow(item.ev, item.depth, state, ctx, childRows, item.options, item);
         });
     }
 
@@ -220,7 +221,7 @@ Singleton {
                 };
             }
 
-            var result = { rows: rows, query: query, directive: directive, route: route, evaluatedRoot: ctx.evaluated, timings: timings };
+            var result = { rows: rows, query: query, directive: directive, route: route, evaluatedRoot: ctx.evaluated, shapedResult: shapedResult, timings: timings };
             syncResult = result;
             if (onComplete) onComplete(result);
         }

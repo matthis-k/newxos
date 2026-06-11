@@ -50,12 +50,13 @@ Always record the visible query when debugging GUI-only missing-row reports. A r
 ## Debug Flow for Bad Results
 
 1. `query routes` — check backend participation and directive parsing
-2. `query pipeline` — check staged pipeline data (backend roots, candidates, timings)
-3. `query visual` — check rendered rows and ordering
-4. `query score <id>` — check full score bundle for a result
-5. `query evidence <id>` — check evidence items driving scores
-6. `query shape <query>` — compare evaluation vs shaped placement
-7. `query benchmark` — run benchmarks with timing data
+2. `query pipeline` — check staged pipeline data (backend roots, candidates, timings, shaping summary, token flow)
+3. `query visual` — check rendered rows and ordering (includes `placement`, `presentationContext`, `scoreBundle`)
+4. `query policies` — check normalized policy specs active per kind
+5. `query score <id>` — check full score bundle for a result
+6. `query evidence <id>` — check evidence items driving scores
+7. `query shape <query>` — compare evaluation vs shaped placement from actual shaping decisions
+8. `query benchmark` — run benchmarks with timing data
 
 ## When Logic Changes
 

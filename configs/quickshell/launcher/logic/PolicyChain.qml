@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import "PolicySpec.qml"
 
 Singleton {
     readonly property var defaultModes: ({
@@ -19,7 +20,8 @@ Singleton {
 
         var results = [];
         for (var i = 0; i < names.length; i += 1) {
-            var raw = call(names[i]);
+            var spec = PolicySpec.normalize(names[i]);
+            var raw = call(spec.legacyName || spec.name, spec);
             if (raw === null || raw === undefined)
                 continue;
             var r = normalize(raw);

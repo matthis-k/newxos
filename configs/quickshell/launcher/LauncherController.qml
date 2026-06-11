@@ -4,6 +4,7 @@ import Quickshell.Services.Pipewire
 import qs.services
 import "logic/"
 import "logic/pipeline/"
+import "logic/PolicySpec.qml"
 import "logic/RoutingTree.js" as RoutingTree
 import "logic/DebugLogger.js" as DebugLogger
 import "policies" as P
@@ -242,8 +243,10 @@ Item {
             matchDepth: row.matchDepth === undefined ? row.depth || 0 : row.matchDepth,
             score: row.score || 0,
             ownScore: row.ownScore || 0,
+            inheritedScore: row.inheritedScore || 0,
             descendantScore: row.descendantScore || 0,
             ownVisible: !!row.ownVisible,
+            scoreBundle: row.scoreBundle ? ScoreBundle.toDebug(row.scoreBundle) : null,
             source: row.source || row.backendId || "",
             kind: row.kind || "",
             executable: !!row.executable,
@@ -1397,6 +1400,27 @@ Item {
             return { backendId: ev.node.backendId, label: ev.node.label, children: ev.children ? ev.children.length : 0, visible: ev.visible };
         });
         var candidates = output.evaluatedRoot ? countCandidates(output.evaluatedRoot) : 0;
+
+        var shapingSummary = null;
+        if (output.shapedResult && output.shapedResult.shaped) {
+            var placements = {};
+            for (var si = 0; si < output.shapedResult.shaped.length; si += 1) {
+                var pl = output.shapedResult.shaped[si].placement || "unknown";
+                placements[pl] = (placements[pl] || 0) + 1;
+            }
+            shapingSummary = {
+                totalShaped: output.shapedResult.shaped.length,
+                placements: placements
+            };
+        }
+
+        var tokenFlow = {
+            implemented: false,
+            tokens: (output.query && output.query.tokens || []).map(function(t) {
+                return { raw: t.raw, normalized: t.normalized };
+            })
+        };
+
         return JSON.stringify({
             version: 2, type: "pipeline",
             query: output.query ? output.query.raw : text,
@@ -1408,6 +1432,8 @@ Item {
                 evaluationSummary: { totalNodes: countEvaluationNodes(output.evaluatedRoot), visibleNodes: countVisibleEvaluationNodes(output.evaluatedRoot) },
                 renderedRows: rows.length
             },
+            shapingSummary: shapingSummary,
+            tokenFlow: tokenFlow,
             diagnostics: PolicyDiagnostics.toDebug(diag)
         });
     }
@@ -1463,8 +1489,12 @@ Item {
                 var specs = profile[key];
                 if (Array.isArray(specs)) {
                     for (var si = 0; si < specs.length; si += 1) {
-                        var s = String(specs[si]);
-                        kinds[key][s] = (kinds[key][s] || 0) + 1;
+                        var spec = PolicySpec.normalize(specs[si]);
+                        var specKey = spec.name;
+                        if (!kinds[key][specKey]) {
+                            kinds[key][specKey] = { name: spec.name, baseName: spec.baseName, kind: spec.kind, args: spec.args, priority: spec.priority, count: 0 };
+                        }
+                        kinds[key][specKey].count += 1;
                     }
                 }
             }
@@ -1475,7 +1505,9 @@ Item {
         visit(ev);
         var out = {};
         for (var kind in kinds) {
-            out[kind] = Object.keys(kinds[kind]);
+            out[kind] = [];
+            for (var specKey in kinds[kind])
+                out[kind].push(kinds[kind][specKey]);
         }
         return out;
     }
@@ -1564,28 +1596,34 @@ Item {
     function queryShape(text) {
         text = _resolveQueryArg(text);
         var output = Engine.search(backends || [], text || "", stateForSearch(), searchOptions());
-        var rows = output.rows ? output.rows.slice(0, maxResults) : [];
-        var shapedRows = rows.map(function(row) {
-            var hasChildren = (row.children || []).length > 0;
-            var isGroup = hasChildren && row.ownScore > 0 && row.ownVisible;
-            var isPromoted = !isGroup && row.ownScore > 0 && row.breadcrumbs && row.breadcrumbs.length > 0;
+        var shapedResult = output.shapedResult;
+        var shapedItems = shapedResult && shapedResult.shaped ? shapedResult.shaped : [];
+        var shapedRows = shapedItems.map(function(item) {
+            var bundle = item.ev.scoreBundle;
             return {
-                title: row.title,
-                nodeId: row.nodeId || row.id,
-                placement: isPromoted ? "promoted-child" : (isGroup ? "nested-group" : "standalone"),
-                parentShown: true,
-                showBreadcrumbs: !!row.breadcrumbText,
-                score: row.score,
-                ownScore: row.ownScore,
-                group: row.ownScore || 0,
-                activation: row.ownScore || 0,
-                children: (row.children || []).length
+                title: item.ev.node.label,
+                nodeId: item.ev.node.id,
+                placement: item.placement,
+                depth: item.depth,
+                sortScore: item.sortScore,
+                score: item.ev.score,
+                ownScore: item.ev.ownScore,
+                inheritedScore: item.ev.inheritedScore || 0,
+                descendantScore: item.ev.descendantScore || 0,
+                ranking: bundle ? bundle.ranking : item.sortScore,
+                group: bundle ? bundle.group : item.ev.ownScore,
+                activation: bundle ? bundle.activation : item.ev.ownScore,
+                showParent: item.decision ? item.decision.showParent : true,
+                showBreadcrumbs: !!item.placement && (item.placement === "promoted-child" || item.placement === "flattened" || item.placement === "standalone"),
+                children: (item.childEvs || []).length,
+                mode: item.decision ? item.decision.mode : "normal",
+                reason: item.decision ? item.decision.reason || "" : ""
             };
         });
         return JSON.stringify({
             version: 2, type: "shape",
             query: text || "",
-            totalResults: rows.length,
+            totalResults: shapedItems.length,
             shapedResults: shapedRows
         });
     }

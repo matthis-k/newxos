@@ -4,20 +4,31 @@ import Quickshell
 import "Tokenize.qml"
 import "Evidence.qml"
 import "Evaluate.qml"
+import "ScoreBundle.qml"
+import "PresentationContext.qml"
 import "../policies/presentation/"
 
 Singleton {
-    function toResultRow(ev, depth, state, ctx, childRows, options) {
+    function toResultRow(ev, depth, state, ctx, childRows, options, shapedItem, parentPresentationContext) {
         options = options || {};
         var node = ev.node;
         var chain = Evaluate.collectParentChain(node);
-        var breadcrumbs = chain.slice(0, -1).map(function(n) { return n.label; });
+
+        var presCtx = shapedItem
+            ? PresentationContext.forShapedItem(ev, shapedItem, parentPresentationContext)
+            : PresentationContext.emptyContext();
+
+        var breadcrumbs = presCtx.breadcrumbs.length > 0
+            ? presCtx.breadcrumbs
+            : chain.slice(0, -1).map(function(n) { return n.label; });
         var brRoot = chain.find(function(n) { return n.behavior && n.behavior.visualRoot; });
-        if (brRoot)
+        if (presCtx.breadcrumbs.length === 0 && brRoot)
             breadcrumbs = breadcrumbs.slice(chain.indexOf(brRoot));
 
         var displayPolicy = displayPolicyFor(node);
-        var breadcrumbText = breadcrumbTextFor(ev, breadcrumbs, displayPolicy, childRows);
+        var breadcrumbText = presCtx.showBreadcrumbs
+            ? presCtx.breadcrumbText
+            : breadcrumbTextFor(ev, breadcrumbs, displayPolicy, childRows);
         var action = defaultActionForNode(node, ctx.query, ev.ownScore);
         var suppressOwnActions = action && childRows && childRows.length && ctx.query.tokens.length > 1
             && (options.suppressParentActions || visibleFromChildrenOnly(ev));
@@ -29,6 +40,8 @@ Singleton {
         }
         var actions = copyActionList(sourceActions, action);
         var enterAction = action ? copyAction(action, true) : null;
+
+        var placement = shapedItem ? shapedItem.placement : presCtx.placement;
 
         return {
             id: "row:" + node.id,
@@ -42,6 +55,7 @@ Singleton {
             icon: node.icon,
             iconColor: node.iconColor || null,
             depth: depth,
+            placement: placement,
             score: ev.score,
             ownScore: ev.ownScore,
             inheritedScore: ev.inheritedScore || 0,
@@ -54,7 +68,7 @@ Singleton {
             expanded: state.expandedNodeIds[node.id] || node.kind === "backend",
             breadcrumbs: breadcrumbs,
             breadcrumbText: breadcrumbText,
-            display: Object.assign({ breadcrumbText: breadcrumbText }, displayPolicy),
+            display: Object.assign({ breadcrumbText: breadcrumbText, showBreadcrumbs: presCtx.showBreadcrumbs, showBackendBadge: presCtx.showBackendBadge, showActionHint: presCtx.showActionHint, density: presCtx.density }, displayPolicy),
             labelMatches: copyRanges(rangesForField(ev.evidence, "label", node.id)),
             subtitleMatches: copyRanges(rangesForField(ev.evidence, "subtitle", node.id)),
             actions: actions,
@@ -81,7 +95,9 @@ Singleton {
             switchState: node.switchState === undefined ? null : node.switchState,
             control: node.control || null,
             presentation: node.presentation || null,
-            metadata: copyMetadata(node.meta, node, action)
+            presentationContext: PresentationContext.toDebug(presCtx),
+            metadata: copyMetadata(node.meta, node, action),
+            scoreBundle: ev.scoreBundle || null
         };
     }
 
@@ -278,7 +294,7 @@ Singleton {
         return {
             id: row.id, title: row.title, source: row.source, kind: row.kind,
             score: row.score, ownScore: row.ownScore, ownVisible: row.ownVisible,
-            depth: row.depth, children: (row.children || []).length,
+            depth: row.depth, placement: row.placement, children: (row.children || []).length,
             actions: (row.actions || []).length
         };
     }

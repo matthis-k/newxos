@@ -25,13 +25,16 @@ Singleton {
             return true;
         }
 
-        function makeShaped(ev, depth, sortScore, childEvs, forceInclude, options) {
+        function makeShaped(ev, depth, sortScore, childEvs, forceInclude, options, placement, decision) {
             if (ev.node.kind !== "root" && (forceInclude || canInclude(ev))) {
                 collected.push({
                     ev: ev,
                     depth: depth,
                     sortScore: sortScore === undefined ? ev.score : sortScore,
                     childEvs: childEvs || [],
+                    placement: placement || "standalone",
+                    decision: decision || { placement: placement || "standalone", mode: "normal", showParent: true },
+                    presentationHints: (decision && decision.presentationHints) || {},
                     options: options || {}
                 });
             }
@@ -59,7 +62,7 @@ Singleton {
                 return;
             }
             if (!ev.visible && isDiscoverable(ev.node)) {
-                makeShaped(ev, depth, 0, [], true);
+                makeShaped(ev, depth, 0, [], true, {}, "standalone", { placement: "standalone", mode: "normal", showParent: true });
                 return;
             }
             var decision = decidePlacement(ev, ctx);
@@ -69,12 +72,12 @@ Singleton {
                     if (child.children && child.children.length > 0)
                         collect(child, depth + 1, true);
                     else
-                        makeShaped(child, depth + 1, child.score, [], true);
+                        makeShaped(child, depth + 1, child.score, [], true, {}, "flattened", { placement: "flattened", mode: "flatten-all-children", showParent: false });
                 }
                 return;
             }
             if (decision.mode === "normal") {
-                makeShaped(ev, depth, undefined, [], forceInclude);
+                makeShaped(ev, depth, undefined, [], forceInclude, {}, "standalone", decision);
                 for (var n = 0; n < ev.children.length; n += 1) collect(ev.children[n], depth + 1, forceInclude);
                 return;
             }
@@ -87,16 +90,17 @@ Singleton {
                     : ev.score;
                 if (decision.mode === "nested-group") {
                     makeShaped(ev, depth, score, decision.children, forceInclude,
-                        { suppressParentActions: !!decision.suppressParentActions, includeAllChildren: !!decision.includeAllChildren });
+                        { suppressParentActions: !!decision.suppressParentActions, includeAllChildren: !!decision.includeAllChildren },
+                        "nested-group", decision);
                     return;
                 }
                 if (decision.mode !== "group" || ev.ownScore > 0 || ev.ownVisible)
-                    makeShaped(ev, depth, score, [], forceInclude);
+                    makeShaped(ev, depth, score, [], forceInclude, {}, decision.placement || "group", decision);
             }
             if (decision.mode === "group") return;
             if (decision.mode === "flatten-children") {
                 for (var di = 0; di < decision.children.length; di += 1)
-                    makeShaped(decision.children[di], depth, decision.children[di].score, [], true);
+                    makeShaped(decision.children[di], depth, decision.children[di].score, [], true, {}, "promoted-child", { placement: "promoted-child", mode: "flatten-children", showParent: false, parentDecision: decision });
                 return;
             }
             for (var ci = 0; ci < decision.children.length; ci += 1)
@@ -282,7 +286,10 @@ Singleton {
                 nodeId: item.ev.node.id,
                 score: item.sortScore,
                 depth: item.depth,
-                childCount: (item.childEvs || []).length
+                placement: item.placement,
+                childCount: (item.childEvs || []).length,
+                showParent: item.decision ? item.decision.showParent : true,
+                mode: item.decision ? item.decision.mode : "normal"
             };
         });
     }

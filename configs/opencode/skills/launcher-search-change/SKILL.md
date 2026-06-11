@@ -39,7 +39,7 @@ Source of truth: `configs/quickshell/launcher/LauncherController.qml`, especiall
 
 New debug endpoints (version 2): `queryPipeline()`, `queryPolicies()`, `queryScore()`, `queryShape()`, `queryCases()`, `queryRunCases()`. These are exposed through `Launcher.qml` as `queryPipeline()`, `queryPolicies()`, `queryScore()`, `queryShape()`, `queryCases()`, `queryRunCases()` and through `ShellState.qml` IPC as `pipeline`, `policies`, `score`, `shape`, `benchmark`, `cases`, `runCases`.
 
-Pipeline model modules live in `configs/quickshell/launcher/logic/pipeline/`: `PolicySpec.qml` (spec normalization), `PolicyDiagnostics.qml`, `ScoreBundle.qml` (score parts with coverage), `ResultShaping.qml` (placement decisions), `PresentationContext.qml` (breadcrumbs/badge/density), `RenderedRows.qml` (row DTO construction).
+Pipeline model modules live in `configs/quickshell/launcher/logic/`: `PolicySpec.qml` (spec normalization), `PolicyDiagnostics.qml` (from `pipeline/`), `ScoreBundle.qml` (score parts with coverage), `ResultShaping.qml` (placement decisions retains placement/decision/shaped metadata), `PresentationContext.qml` (placement-sensitive display choices), `RenderedRows.qml` (row DTO construction consumes shaped items + presentation context).
 
 Current `search` and `visual` envelopes are defined there in this form:
 
@@ -66,9 +66,11 @@ Filtering notes:
 - `score` (version 2) returns `{version,type,resultId,found,scoreBundle,evidenceSummary}` with full `ScoreBundle` parts.
 - `pipeline` (version 2) returns `{version,type,query,directive,timings,stages,diagnostics}`.
 - `policies` (version 2) returns `{version,type,query,activeBackends,policiesByKind,diagnostics}`.
-- `shape` (version 2) returns `{version,type,query,shapedResults}` with placement metadata per row.
+- `shape` (version 2) returns `{version,type,query,shapedResults}` with placement metadata per row from actual `ResultShaping` decisions. Fields: `title`, `nodeId`, `placement`, `depth`, `sortScore`, `score`, `ownScore`, `inheritedScore`, `descendantScore`, `ranking`, `group`, `activation`, `showParent`, `showBreadcrumbs`, `children`, `mode`, `reason`.
+- `pipeline` (version 2, extended) now includes `shapingSummary` with placement counts and `tokenFlow` placeholder.
+- `policies` (version 2, extended) now returns normalized policy specs with `name`, `baseName`, `args`, `priority`, `count` per kind.
 
-Useful row fields for `jq`: `id`, `title`, `subtitle`, `source`, `kind`, `score`, `ownScore`, `descendantScore`, `matchDepth`, `ownVisible`, `executable`, `dangerous`, `actions`, `evidence`, `children`, `switchState`, `control`, `breadcrumbs`, `breadcrumbText`.
+Useful row fields for `jq`: `id`, `title`, `subtitle`, `source`, `kind`, `score`, `ownScore`, `descendantScore`, `matchDepth`, `ownVisible`, `executable`, `dangerous`, `actions`, `evidence`, `children`, `switchState`, `control`, `breadcrumbs`, `breadcrumbText`, `placement`, `presentationContext`, `scoreBundle`.
 
 Start with these filters:
 
