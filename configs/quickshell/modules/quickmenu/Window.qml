@@ -63,8 +63,18 @@ PanelWindow {
 
     readonly property real targetHeight: screen ? screen.height : 720
     readonly property real targetWidth: shellScreenState ? shellScreenState.dashboardWidth : 392
-    readonly property real panelProgress: shellScreenState && shellScreenState.dashboardPhase === "closing" ? 0 : 1
-    readonly property real backdropOpacity: shellScreenState && shellScreenState.dashboardPhase === "closing" ? 0 : 0.22
+    readonly property real panelProgress: {
+        if (!shellScreenState) return 0;
+        switch (shellScreenState.dashboardPhase) {
+            case "opening":
+            case "open":
+            case "switching":
+                return 1;
+            default:
+                return 0;
+        }
+    }
+    readonly property real backdropOpacity: root.panelProgress * 0.22
 
     MouseArea {
         width: panelCard.x
@@ -102,33 +112,10 @@ PanelWindow {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         x: parent.width - width
-        width: root.targetWidth
+        width: root.targetWidth * root.panelProgress
         height: root.targetHeight
-        transformOrigin: Item.Top
-
-        Behavior on opacity {
-            NumberAnimation {
-                duration: Config.behaviour.animation.enabled
-                    ? Config.behaviour.animation.calc(0.12)
-                    : 0
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        opacity: root.panelProgress
 
         Behavior on width {
-            NumberAnimation {
-                duration: Config.behaviour.animation.enabled
-                    ? Config.behaviour.animation.calc(0.2)
-                    : 0
-                easing.type: Easing.InOutCubic
-            }
-        }
-
-        scale: root.panelProgress
-
-        Behavior on scale {
             NumberAnimation {
                 duration: Config.behaviour.animation.enabled
                     ? Config.behaviour.animation.calc(0.18)
@@ -136,6 +123,19 @@ PanelWindow {
                 easing.type: Easing.OutCubic
             }
         }
+
+        opacity: root.panelProgress
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: Config.behaviour.animation.enabled
+                    ? Config.behaviour.animation.calc(0.18)
+                    : 0
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        scale: 1
 
         Rectangle {
             anchors.fill: parent
