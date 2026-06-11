@@ -54,52 +54,12 @@ PanelWindow {
         input.text = "";
     }
 
-    function querySearch(text) {
-        return controller.querySearch(text || "");
-    }
-
-    function queryVisual(text) {
-        return controller.queryVisual(text || "");
-    }
-
-    function queryComplete(text) {
-        return controller.queryComplete(text || "");
-    }
-
-    function queryBackends() {
-        return controller.queryBackends();
-    }
-
-    function queryRoutes(text) {
-        return controller.queryRoutes(text || "");
-    }
-
-    function queryEvidence(resultId) {
-        return controller.queryEvidence(resultId || "");
-    }
-
-    function queryResult(resultId) {
-        return controller.queryResult(resultId || "");
-    }
-
-    function queryState() {
-        return controller.queryState();
-    }
-
     function queryPipeline(text) {
         return controller.queryPipeline(text || "");
     }
 
     function queryPolicies(text) {
         return controller.queryPolicies(text || "");
-    }
-
-    function queryScore(resultId) {
-        return controller.queryScore(resultId || "");
-    }
-
-    function queryShape(text) {
-        return controller.queryShape(text || "");
     }
 
     function debugBenchmark(arg) {

@@ -226,40 +226,6 @@ Singleton {
 
     IpcHandler {
         target: "query"
-        function search(query: string): string {
-            const state = root.instances[0];
-            return state ? state.launcher.querySearch(query) : "{}";
-        }
-        function visual(query: string): string {
-            const states = root.instances.filter(s => s && s.launcher && s.launcher.visible);
-            const state = states[0] || root.instances[0];
-            return state ? state.launcher.queryVisual(query) : "{}";
-        }
-        function complete(query: string): string {
-            const state = root.instances[0];
-            return state ? state.launcher.queryComplete(query) : "{}";
-        }
-        function backends(): string {
-            const state = root.instances[0];
-            return state ? state.launcher.queryBackends() : "{}";
-        }
-        function routes(query: string): string {
-            const state = root.instances[0];
-            return state ? state.launcher.queryRoutes(query) : "{}";
-        }
-        function evidence(resultId: string): string {
-            const state = root.instances[0];
-            return state ? state.launcher.queryEvidence(resultId) : "{}";
-        }
-        function result(resultId: string): string {
-            const state = root.instances[0];
-            return state ? state.launcher.queryResult(resultId) : "{}";
-        }
-        function state(): string {
-            const states = root.instances.filter(s => s && s.launcher && s.launcher.visible);
-            const s = states[0] || root.instances[0];
-            return s ? s.launcher.queryState() : "{}";
-        }
         function pipeline(query: string): string {
             const state = root.instances[0];
             return state ? state.launcher.queryPipeline(query) : "{}";
@@ -267,14 +233,6 @@ Singleton {
         function policies(query: string): string {
             const state = root.instances[0];
             return state ? state.launcher.queryPolicies(query) : "{}";
-        }
-        function score(resultId: string): string {
-            const state = root.instances[0];
-            return state ? state.launcher.queryScore(resultId) : "{}";
-        }
-        function shape(query: string): string {
-            const state = root.instances[0];
-            return state ? state.launcher.queryShape(query) : "{}";
         }
         function benchmark(arg: string): string {
             const state = root.instances[0];

@@ -131,18 +131,8 @@ The Quickshell launcher uses a composite search pipeline:
 
 Available IPC endpoints through `ShellState.qml`:
 
-- `search <query>` — full search payload with all rows (version 1).
-- `visual <query>` — UI-facing truncated payload with navigation targets (version 1).
-- `complete <query>` — completion-oriented payload.
-- `backends` — registered backend metadata and routing tree info.
-- `routes <query>` — directive/route participation details.
-- `evidence <result-id>` — evidence items for a result (version 1).
-- `result <result-id>` — single result row payload (version 1).
-- `state` — current launcher state (query, selection, loading).
-- `pipeline <query>` — staged pipeline data: backend roots, candidates, evaluation summary, timings (version 2).
+- `pipeline <query>` — universal query debug endpoint. Returns per-phase snapshots (`.phases[]`), serialized rows (`.rows`), backend metadata (`.backends`), timings (`.timings`), and launcher state (`.state`). Use `jq` to select: `jq '.phases[] | select(.name == "evaluation")'`, `jq '.rows[] | {title, score}'`, `jq '.backends.entries'`.
 - `policies <query>` — resolved policy specs for active backends/nodes (version 2).
-- `score <result-id>` — full score bundle with own/inherited/children/aggregate scores and evidence summary (version 2).
-- `shape <query>` — evaluation-vs-shaped rows with placement metadata (version 2).
 - `benchmark <json-or-query>` — run benchmark queries via `debugBenchmark()`.
 - `cases` — active regression query list.
 - `runCases` — run all regression cases and return compact results.

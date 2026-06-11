@@ -327,191 +327,6 @@ Item {
         return text;
     }
 
-    function querySearch(text) {
-        text = _resolveQueryArg(text);
-        var output = Engine.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: false, onlySelectable: true, filterRowChildren: true, trace: true }));
-        var rows = output.rows || [];
-        var directive = output.directive;
-        return JSON.stringify({
-            version: 1,
-            type: "search",
-            query: {
-                raw: output.query.raw,
-                tokens: output.query.tokens.map(function(t) { return { raw: t.raw, normalized: t.normalized }; }),
-                isEmpty: output.query.isEmpty,
-                lastTokenEmpty: output.query.lastTokenEmpty
-            },
-            directive: {
-                active: directive.active,
-                prefix: directive.prefix || "",
-                label: directive.label || "",
-                backendIds: directive.backendIds || []
-            },
-            totalResults: rows.length,
-            timings: output.timings || null,
-            results: root.serializeRowsForQuery(rows, output.query)
-        });
-    }
-
-    function queryVisual(text) {
-        var visualText = text || "";
-        var visualGen = generation;
-
-        triggerAsyncBackends(visualText, visualGen);
-        var ag = root._asyncGen;
-        Engine.searchAsync(backends || [], visualText, stateForSearch(), searchOptions(),
-            function() { return root.generation === visualGen && root._asyncGen === ag; },
-            function(output) {
-                if (output) {
-                    var rows = output.rows.slice(0, maxResults);
-                    root.lastAsyncVisualJson = JSON.stringify({
-                        version: 1, type: "visual",
-                        query: {
-                            raw: output.query.raw,
-                            tokens: output.query.tokens.map(function(t) { return { raw: t.raw, normalized: t.normalized }; }),
-                            isEmpty: output.query.isEmpty,
-                            lastTokenEmpty: output.query.lastTokenEmpty
-                        },
-                        directive: {
-                            active: output.directive.active,
-                            prefix: output.directive.prefix || "",
-                            label: output.directive.label || "",
-                            backendIds: output.directive.backendIds || []
-                        },
-                        totalResults: rows.length,
-                        maxResults: maxResults,
-                        results: rows.map(root.serializeRow),
-                        empty: rows.length === 0
-                    });
-                }
-            }
-        );
-
-        var output = Engine.search(backends || [], visualText, stateForSearch(), searchOptions());
-        var rows = output.rows.slice(0, maxResults);
-        var previousResults = results;
-        var previousQuery = query;
-        var previousLastQuery = lastQuery;
-        var previousCollapsed = collapsedResultIndices;
-        results = rows;
-        query = visualText;
-        lastQuery = output.query;
-        collapsedResultIndices = {};
-        for (var ci = 0; ci < rows.length; ci += 1) {
-            if (rows[ci].alwaysExpanded === false)
-                collapsedResultIndices[ci] = true;
-        }
-        var targets = root.navigationTargets().map(function(target) {
-            return {
-                key: target.key,
-                title: target.row ? target.row.title || "" : "",
-                parentIndex: target.parentIndex,
-                treeDepth: target.treeDepth,
-                selectable: target.row ? root.isSelectable(target.row) : false
-            };
-        });
-        results = previousResults;
-        query = previousQuery;
-        lastQuery = previousLastQuery;
-        collapsedResultIndices = previousCollapsed;
-        return JSON.stringify({
-            version: 1,
-            type: "visual",
-            query: {
-                raw: output.query.raw,
-                tokens: output.query.tokens.map(function(t) { return { raw: t.raw, normalized: t.normalized }; }),
-                isEmpty: output.query.isEmpty,
-                lastTokenEmpty: output.query.lastTokenEmpty
-            },
-            directive: {
-                active: output.directive.active,
-                prefix: output.directive.prefix || "",
-                label: output.directive.label || "",
-                backendIds: output.directive.backendIds || []
-            },
-            totalResults: rows.length,
-            maxResults: maxResults,
-            results: rows.map(root.serializeRow),
-            navigationTargets: targets
-        });
-    }
-
-    function queryComplete(text) {
-        var output = Engine.search(backends || [], text || "", stateForSearch(), Object.assign(searchOptions(), { showHidden: false, onlySelectable: true, filterRowChildren: true }));
-        var rows = output.rows || [];
-        return JSON.stringify({
-            version: 1,
-            type: "complete",
-            totalResults: rows.length,
-            results: root.serializeRowsForQuery(rows.slice(0, maxResults), output.query)
-        });
-    }
-
-    function queryBackends() {
-        var entries = (backends || []).filter(function(b) { return !!b; }).map(function(b) {
-            var routes = [];
-            if (typeof b.routes !== "undefined")
-                routes = b.routes || [];
-            var helpPrefixes = [];
-            if (typeof b.helpPrefixes !== "undefined")
-                helpPrefixes = b.helpPrefixes || [];
-            return {
-                id: b.backendId || "",
-                name: b.name || "",
-                description: b.helpDescription || "",
-                enabled: !!b.enabled,
-                priority: b.priority || 0,
-                routes: routes,
-                helpPrefixes: helpPrefixes,
-                hasAsyncResults: typeof b.resultsAsync === "function",
-                hasRootNode: typeof b.rootNode === "function",
-                hasStreamUpdates: typeof b.applyStreamUpdate === "function"
-            };
-        });
-        var treeInfo = { endpointCount: (root.routingTree || {}).endpoints ? root.routingTree.endpoints.length : 0 };
-        return JSON.stringify({
-            version: 1,
-            type: "backends",
-            total: entries.length,
-            routingTree: treeInfo,
-            backends: entries
-        });
-    }
-
-    function queryRoutes(text) {
-        var route = RoutingTree.routeQuery(root.routingTree, text || "");
-        var directive = route && route.endpoints && route.endpoints.length > 0
-            ? buildDirectiveFromRoute(text || "", route)
-            : Tokenize.parseDirective(text || "", backends || []);
-        var rawQuery = text || "";
-        var query = Tokenize.tokenize(directive.searchRaw);
-        var participants = (backends || []).filter(function(b) {
-            if (!b || !b.enabled)
-                return false;
-            if (typeof b.shouldParticipate === "function" && !b.shouldParticipate(rawQuery, directive, query))
-                return false;
-            return !directive.active || directive.backendIds.indexOf(b.backendId) >= 0;
-        }).sort(function(a, b) { return (b.priority || 0) - (a.priority || 0); });
-        return JSON.stringify({
-            version: 1,
-            type: "routes",
-            query: text || "",
-            directive: {
-                active: directive.active,
-                prefix: directive.prefix || "",
-                label: directive.label || "",
-                backendIds: directive.backendIds || []
-            },
-            participants: (participants || []).map(function(b) {
-                return {
-                    id: b.backendId || "",
-                    name: b.name || "",
-                    priority: b.priority || 0
-                };
-            })
-        });
-    }
-
     function buildDirectiveFromRoute(rawQuery, route) {
         if (!route || !route.endpoints || route.endpoints.length === 0)
             return { active: false, raw: rawQuery, searchRaw: rawQuery, prefix: "", label: "All", tags: [], kinds: [], backendIds: [] };
@@ -546,59 +361,6 @@ Item {
                 return b.helpTitle || b.name || b.backendId;
         }
         return backendId;
-    }
-
-    function queryEvidence(resultId) {
-        var allResults = results || [];
-        for (var i = 0; i < allResults.length; i += 1) {
-            if (allResults[i].id === resultId || allResults[i].nodeId === resultId)
-                return JSON.stringify({
-                    version: 1,
-                    type: "evidence",
-                    resultId: resultId,
-                    evidence: allResults[i].evidence || []
-                });
-        }
-        return JSON.stringify({
-            version: 1,
-            type: "evidence",
-            resultId: resultId,
-            found: false,
-            evidence: []
-        });
-    }
-
-    function queryResult(resultId) {
-        var allResults = results || [];
-        for (var i = 0; i < allResults.length; i += 1) {
-            if (allResults[i].id === resultId || allResults[i].nodeId === resultId)
-                return JSON.stringify({
-                    version: 1,
-                    type: "result",
-                    result: root.serializeRow(allResults[i])
-                });
-        }
-        return JSON.stringify({
-            version: 1,
-            type: "result",
-            found: false,
-            result: null
-        });
-    }
-
-    function queryState() {
-        return JSON.stringify({
-            version: 1,
-            type: "state",
-            query: query,
-            selectedIndex: selectedIndex,
-            childIndex: root.isInTree() ? treeVisualRow : -1,
-            treeVisualRow: treeVisualRow,
-            resultCount: results.length,
-            loading: loading,
-            backends: (backends || []).map(function(b) { return { id: b.backendId || "", name: b.name || "", enabled: !!b.enabled }; }),
-            lastAsyncVisualJson: root.lastAsyncVisualJson
-        });
     }
 
     function debugBenchmark(arg) {
@@ -1441,71 +1203,49 @@ Item {
             Object.assign(searchOptions(), { showHidden: true, trace: true }));
         var diag = PolicyDiagnostics.empty();
         var rows = output.rows ? output.rows.slice(0, maxResults) : [];
-        var backendRoots = (output.evaluatedRoot && output.evaluatedRoot.children || []).map(function(ev) {
-            return { backendId: ev.node.backendId, label: ev.node.label, children: ev.children ? ev.children.length : 0, visible: ev.visible };
-        });
-        var candidates = output.evaluatedRoot ? countCandidates(output.evaluatedRoot) : 0;
+        var serializedRows = root.serializeRowsForQuery(rows, output.query);
 
-        var shapingSummary = null;
-        if (output.shapedResult && output.shapedResult.shaped) {
-            var placements = {};
-            for (var si = 0; si < output.shapedResult.shaped.length; si += 1) {
-                var pl = output.shapedResult.shaped[si].placement || "unknown";
-                placements[pl] = (placements[pl] || 0) + 1;
-            }
-            shapingSummary = {
-                totalShaped: output.shapedResult.shaped.length,
-                placements: placements
+        var backendEntries = (backends || []).filter(function(b) { return !!b; }).map(function(b) {
+            var routes = [];
+            if (typeof b.routes !== "undefined")
+                routes = b.routes || [];
+            var helpPrefixes = [];
+            if (typeof b.helpPrefixes !== "undefined")
+                helpPrefixes = b.helpPrefixes || [];
+            return {
+                id: b.backendId || "",
+                name: b.name || "",
+                description: b.helpDescription || "",
+                enabled: !!b.enabled,
+                priority: b.priority || 0,
+                routes: routes,
+                helpPrefixes: helpPrefixes,
+                hasAsyncResults: typeof b.resultsAsync === "function",
+                hasRootNode: typeof b.rootNode === "function",
+                hasStreamUpdates: typeof b.applyStreamUpdate === "function"
             };
-        }
-
-        var tokenFlow = {
-            implemented: false,
-            tokens: (output.query && output.query.tokens || []).map(function(t) {
-                return { raw: t.raw, normalized: t.normalized };
-            })
-        };
+        });
 
         return JSON.stringify({
-            version: 2, type: "pipeline",
+            version: 3, type: "pipeline",
             query: output.query ? output.query.raw : text,
             directive: output.directive ? { active: output.directive.active, prefix: output.directive.prefix || "", label: output.directive.label || "", backendIds: output.directive.backendIds || [] } : { active: false },
             timings: output.timings || {},
-            stages: {
-                backendRoots: backendRoots,
-                candidates: candidates,
-                evaluationSummary: { totalNodes: countEvaluationNodes(output.evaluatedRoot), visibleNodes: countVisibleEvaluationNodes(output.evaluatedRoot) },
-                renderedRows: rows.length
+            phases: output.phases || [],
+            rows: serializedRows,
+            totalResults: rows.length,
+            backends: {
+                total: backendEntries.length,
+                entries: backendEntries,
+                routingTree: { endpointCount: (root.routingTree || {}).endpoints ? root.routingTree.endpoints.length : 0 }
             },
-            shapingSummary: shapingSummary,
-            tokenFlow: tokenFlow,
+            state: {
+                selectedIndex: selectedIndex,
+                resultCount: results.length,
+                loading: loading
+            },
             diagnostics: PolicyDiagnostics.toDebug(diag)
         });
-    }
-
-    function countCandidates(ev) {
-        var count = ev.candidate ? 1 : 0;
-        for (var i = 0; i < (ev.children || []).length; i += 1)
-            count += countCandidates(ev.children[i]);
-        return count;
-    }
-
-    function countEvaluationNodes(ev) {
-        if (!ev) return 0;
-        var count = 1;
-        for (var i = 0; i < (ev.children || []).length; i += 1)
-            count += countEvaluationNodes(ev.children[i]);
-        return count;
-    }
-
-    function countVisibleEvaluationNodes(ev) {
-        if (!ev) return 0;
-        if (ev.node && (ev.node.kind === "root" || ev.node.kind === "backend"))
-            return 0;
-        var count = (ev.visible && ev.ownVisible) ? 1 : 0;
-        for (var i = 0; i < (ev.children || []).length; i += 1)
-            count += countVisibleEvaluationNodes(ev.children[i]);
-        return count;
     }
 
     function queryPolicies(text) {
@@ -1566,139 +1306,6 @@ Item {
                 legacyCount: legacyCount, tupleCount: tupleCount, objectCount: objectCount
             }
         };
-    }
-
-    function queryScore(resultId) {
-        var match = findResultById(resultId);
-        if (match) {
-            var bundle = match.scoreBundle || null;
-            return JSON.stringify({
-                version: 2, type: "score",
-                resultId: resultId, found: true,
-                scoreBundle: bundle ? ScoreBundle.toDebug(bundle) : null,
-                evidenceSummary: summarizeEvidence(match.evidence || []),
-                diagnostics: {}
-            });
-        }
-        var nodeId = resultId.replace(/^row:/, "");
-        var targetRoot = lastEvaluatedRoot;
-        var queryObj = lastQuery;
-        if (!targetRoot) {
-            var output = Engine.search(backends || [], nodeId, stateForSearch(),
-                Object.assign(searchOptions(), { showHidden: true }));
-            targetRoot = output.evaluatedRoot || null;
-            queryObj = output.query || null;
-        }
-        var matchInEval = findResultInEvaluated(targetRoot, nodeId);
-        if (!matchInEval)
-            matchInEval = findResultInEvaluated(targetRoot, resultId);
-        if (matchInEval) {
-            var bundle = matchInEval.scoreBundle || ScoreBundle.fromEvaluated(matchInEval, queryObj);
-            return JSON.stringify({
-                version: 2, type: "score",
-                resultId: resultId, found: true,
-                scoreBundle: ScoreBundle.toDebug(bundle),
-                evidenceSummary: summarizeEvidence(matchInEval.evidence || []),
-                diagnostics: {}
-            });
-        }
-        return JSON.stringify({ version: 2, type: "score", resultId: resultId, found: false });
-    }
-
-    function findResultById(resultId) {
-        var allResults = results || [];
-        for (var i = 0; i < allResults.length; i += 1) {
-            if (allResults[i].id === resultId || allResults[i].nodeId === resultId)
-                return allResults[i];
-            var found = findResultInChildren(allResults[i], resultId);
-            if (found) return found;
-        }
-        return null;
-    }
-
-    function findResultInChildren(row, resultId) {
-        if (!row || !row.children) return null;
-        for (var i = 0; i < row.children.length; i += 1) {
-            if (row.children[i].id === resultId || row.children[i].nodeId === resultId)
-                return row.children[i];
-            var found = findResultInChildren(row.children[i], resultId);
-            if (found) return found;
-        }
-        return null;
-    }
-
-    function shapedChainDepth(ev) {
-        if (!ev || !ev.node) return 0;
-        var depth = 0;
-        var n = ev.node;
-        while (n && n.kind !== "root") { depth += 1; n = n.parent; }
-        return Math.max(0, depth - 1);
-    }
-
-    function findResultInEvaluated(ev, resultId) {
-        if (!ev) return null;
-        if (ev.node && (ev.node.id === resultId)) return ev;
-        for (var i = 0; i < (ev.children || []).length; i += 1) {
-            var found = findResultInEvaluated(ev.children[i], resultId);
-            if (found) return found;
-        }
-        return null;
-    }
-
-    function summarizeEvidence(evidenceItems) {
-        var byKind = {};
-        for (var i = 0; i < (evidenceItems || []).length; i += 1) {
-            var e = evidenceItems[i];
-            var kind = e.kind || e.strategy || "unknown";
-            if (!byKind[kind]) byKind[kind] = { count: 0, totalEffective: 0 };
-            byKind[kind].count += 1;
-            byKind[kind].totalEffective += e.effective || 0;
-        }
-        return byKind;
-    }
-
-    function queryShape(text) {
-        text = _resolveQueryArg(text);
-        var output = Engine.search(backends || [], text || "", stateForSearch(), searchOptions());
-        var shapedResult = output.shapedResult;
-        var shapedItems = shapedResult && shapedResult.shaped ? shapedResult.shaped : [];
-        var ctx = searchOptions();
-        var shapedRows = shapedItems.map(function(item) {
-            var presCtx = PresentationContext.forShapedItem(item.ev, item);
-            var bundle = item.ev.scoreBundle;
-            var placement = item.placement || "standalone";
-            var decision = item.decision || {};
-            var showBreadcrumbs = presCtx.showBreadcrumbs;
-            return {
-                title: item.ev.node.label,
-                nodeId: item.ev.node.id,
-                placement: placement,
-                depth: item.depth,
-                sortScore: item.sortScore,
-                score: item.ev.score,
-                ownScore: item.ev.ownScore,
-                inheritedScore: item.ev.inheritedScore || 0,
-                descendantScore: item.ev.descendantScore || 0,
-                ranking: bundle ? bundle.ranking : item.sortScore,
-                group: bundle ? bundle.group : item.ev.ownScore,
-                activation: bundle ? bundle.activation : item.ev.ownScore,
-                confidence: bundle ? bundle.confidence : 0,
-                showParent: decision.showParent !== false,
-                showBreadcrumbs: showBreadcrumbs,
-                children: (item.childEvs || item.ev.children || []).length,
-                mode: decision.mode || "normal",
-                reason: decision.reason || "",
-                suppressParentActions: !!decision.suppressParentActions,
-                includeAllChildren: !!decision.includeAllChildren,
-                presentationContext: presCtx
-            };
-        });
-        return JSON.stringify({
-            version: 2, type: "shape",
-            query: text || "",
-            totalResults: shapedItems.length,
-            shapedResults: shapedRows
-        });
     }
 
     function queryCases() {

@@ -43,42 +43,46 @@ Key subcommands:
 
 ## IPC Debugging Shape
 
-Use `newshell ipc call query search '<query>'` for the full search payload and `newshell ipc call query visual '<query>'` for the UI-facing, truncated payload.
+Use `newshell ipc call query pipeline '<query>'` for the universal debug endpoint — returns rows, phases, backends, timings, and state in one call. Filter with `jq`: `jq '.rows[]'`, `jq '.phases[] | select(.name == "evaluation")'`, `jq '.backends.entries'`.
 
-Source of truth: `configs/quickshell/launcher/LauncherController.qml`, especially `querySearch()`, `queryVisual()`, `queryComplete()`, `queryBackends()`, and related `query*()` methods. Check that file before asserting the IPC JSON shape changed.
+Source of truth: `configs/quickshell/launcher/LauncherController.qml`, especially `queryPipeline()`. Check that file before asserting the IPC JSON shape changed.
 
-New debug endpoints (version 2): `queryPipeline()`, `queryPolicies()`, `queryScore()`, `queryShape()`, `queryCases()`, `queryRunCases()`. These are exposed through `Launcher.qml` as `queryPipeline()`, `queryPolicies()`, `queryScore()`, `queryShape()`, `queryCases()`, `queryRunCases()` and through `ShellState.qml` IPC as `pipeline`, `policies`, `score`, `shape`, `benchmark`, `cases`, `runCases`.
+Debug endpoints: `queryPipeline()` returns per-phase snapshots and serialized rows. `queryPolicies()` returns active policy catalog. `queryCases()` and `queryRunCases()` handle regression testing. These are exposed through `Launcher.qml` and `ShellState.qml` IPC as `pipeline`, `policies`, `benchmark`, `cases`, `runCases`.
 
 Pipeline model modules live in `configs/quickshell/launcher/logic/`: `PolicySpec.qml` (spec normalization), `PolicyChain.qml` (policy aggregation + `lookupPolicy` helper for normalized spec-aware lookups), `ScoreBundle.qml` (score parts with coverage), `ResultShaping.qml` (placement decisions retains placement/decision/shaped metadata), `PresentationContext.qml` (placement-sensitive display choices), `RenderedRows.qml` (row DTO construction consumes shaped items + presentation context). TokenFlowDecision is not implemented yet. ActionPolicy is not extracted yet.
 
-Current `search` and `visual` envelopes are defined there in this form:
+`pipeline` (version 3) is the universal debug endpoint. Shape:
 
 ```json
 {
-  "version": 1,
-  "type": "search|visual",
-  "query": { "raw": "audio", "tokens": [{ "raw": "audio", "normalized": "audio" }], "isEmpty": false, "lastTokenEmpty": false },
+  "version": 3, "type": "pipeline",
+  "query": "audio",
   "directive": { "active": false, "prefix": "", "label": "All", "backendIds": [] },
-  "totalResults": 2,
-  "maxResults": 12,
-  "results": [],
-  "navigationTargets": []
+  "timings": { "totalMs": 2.3, "shapeMs": 0.4, ... },
+  "phases": [
+    { "phase": 0, "name": "directive-tokenize", "tokens": [...], "activeBackendIds": [...] },
+    { "phase": 1, "name": "root-nodes", "roots": [...] },
+    { "phase": 2, "name": "candidates", "candidateCount": 42 },
+    { "phase": 3, "name": "evaluation", "childScoreBundles": [...] },
+    { "phase": 4, "name": "path-policies", "pathMs": 0.1 },
+    { "phase": 5, "name": "shaping", "shaped": [...], "placements": {...} }
+  ],
+  "rows": [{ "id": "...", "title": "...", "score": 0.8, ... }],
+  "totalResults": 5,
+  "backends": { "total": 8, "entries": [...], "routingTree": {...} },
+  "state": { "selectedIndex": 0, "resultCount": 5, "loading": false },
+  "diagnostics": {...}
 }
 ```
 
 Filtering notes:
 
-- `search` omits `maxResults` and `navigationTargets`.
-- Rows are under `.results[]`, not `.rows[]`.
-- `visual` is the rendered-launcher view; prefer it when checking explicit prefixes or zero-score browse rows such as `@apps`.
-- `search` can include rows with `ownVisible: false`; filter those out for ranking checks unless debugging hidden candidates.
-- `evidence` currently returns `{version,type,resultId,found,evidence}` and may return `found: false` if the IPC cache does not contain that result id.
-- `score` (version 2) returns `{version,type,resultId,found,scoreBundle,evidenceSummary}` with full `ScoreBundle` parts.
-- `pipeline` (version 2) returns `{version,type,query,directive,timings,stages,diagnostics}`.
+- Rows are under `.rows[]` — same shape as the old `search`/`visual` `.results[]`.
+- `.phases[]` — select by `.name` or `.phase` number. Phase 0 covers directive/tokens/backends, phase 3 covers scores, phase 5 covers shaping.
+- `.backends.entries[]` — full backend metadata.
+- Filter hidden candidates with `.rows[] | select(.ownVisible == true)`.
 - `policies` (version 2) returns `{version,type,query,activeBackends,policiesByKind,diagnostics}`.
-- `shape` (version 2) returns `{version,type,query,shapedResults}` with placement metadata per row from actual `ResultShaping` decisions. Fields: `title`, `nodeId`, `placement`, `depth`, `sortScore`, `score`, `ownScore`, `inheritedScore`, `descendantScore`, `ranking`, `group`, `activation`, `confidence`, `showParent`, `showBreadcrumbs`, `children`, `mode`, `reason`, `suppressParentActions`, `includeAllChildren`, `presentationContext`.
-- `pipeline` (version 2, extended) now includes `shapingSummary` with placement counts and `tokenFlow` placeholder.
-- `policies` (version 2, extended) now returns normalized policy specs with `name`, `baseName`, `args`, `priority`, `count` per kind.
+- `hitCount` and `hitCountUpper` live on the `scoreBundle` inside each row's `.scoreBundle` field.
 
 Useful row fields for `jq`: `id`, `title`, `subtitle`, `source`, `kind`, `score`, `ownScore`, `descendantScore`, `matchDepth`, `ownVisible`, `executable`, `dangerous`, `actions`, `evidence`, `children`, `switchState`, `control`, `breadcrumbs`, `breadcrumbText`, `placement`, `presentationContext`, `scoreBundle`.
 

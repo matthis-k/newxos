@@ -7,6 +7,7 @@ import "Evaluate.qml"
 import "ResultShaping.qml"
 import "RenderedRows.qml"
 import "Rows.qml"
+import "ScoreBundle.qml"
 import "RoutingTree.js" as JsRoutingTree
 
 Singleton {
@@ -116,6 +117,7 @@ Singleton {
         var directive = null;
         var query = null;
         var timings = null;
+        var phases = [];
         var syncResult = null;
 
         function abort() {
@@ -140,6 +142,17 @@ Singleton {
                 if (typeof b.shouldParticipate === "function" && !b.shouldParticipate(rawQuery, directive, query)) return false;
                 return !directive.active || directive.backendIds.indexOf(b.backendId) >= 0;
             }).sort(function(a, b) { return (b.priority || 0) - (a.priority || 0); });
+
+            if (ctx.trace) {
+                phases.push({
+                    phase: 0, name: "directive-tokenize",
+                    directive: { active: directive.active, prefix: directive.prefix || "", label: directive.label || "", backendIds: directive.backendIds || [] },
+                    tokens: query.tokens.map(function(t) { return { raw: t.raw, normalized: t.normalized }; }),
+                    searchRaw: directive.searchRaw,
+                    activeBackendIds: active.map(function(b) { return b.backendId || b.name || ""; }),
+                    routeEndpoints: route && route.endpoints ? route.endpoints.map(function(ep) { return { prefix: ep.prefix || "", nodeId: ep.node ? ep.node.id : "" }; }) : []
+                });
+            }
 
             schedule(phase1);
         }
@@ -166,6 +179,17 @@ Singleton {
             ctx.rootNodeMs = Tokenize.nowMs() - rootNodeStart;
             root = Tokenize.makeNode({ id: "root", kind: "root", label: "Root", children: children, evaluationProfile: { strategies: [] } });
 
+            if (ctx.trace) {
+                phases.push({
+                    phase: 1, name: "root-nodes",
+                    rootNodeMs: ctx.rootNodeMs,
+                    perBackendMs: ctx.backendTimings,
+                    roots: children.map(function(c) {
+                        return { backendId: c.backendId || "", label: c.label || "", kind: c.kind || "", childrenCount: (c.children || []).length };
+                    })
+                });
+            }
+
             schedule(phase2);
         }
 
@@ -176,6 +200,14 @@ Singleton {
             ctx.candidateIds = IndexBuilder.collectCandidateIdsForRoots(children, query, ctx.candidateCap || 256);
             ctx.candidateMs = Tokenize.nowMs() - candidateStart;
             ctx.candidateCount = Tokenize.countKeys(ctx.candidateIds);
+
+            if (ctx.trace) {
+                phases.push({
+                    phase: 2, name: "candidates",
+                    candidateMs: ctx.candidateMs,
+                    candidateCount: ctx.candidateCount
+                });
+            }
 
             schedule(phase3);
         }
@@ -188,6 +220,39 @@ Singleton {
             ctx.evaluateMs = Tokenize.nowMs() - evaluateStart;
             ctx.evaluated = evaluated;
 
+            if (ctx.trace) {
+                function countEval(ev) {
+                    if (!ev) return 0;
+                    var c = 1;
+                    for (var i = 0; i < (ev.children || []).length; i += 1)
+                        c += countEval(ev.children[i]);
+                    return c;
+                }
+                function countEvalVisible(ev) {
+                    if (!ev) return 0;
+                    var c = (ev.visible && ev.ownVisible && ev.node && ev.node.kind !== "root" && ev.node.kind !== "backend") ? 1 : 0;
+                    for (var i = 0; i < (ev.children || []).length; i += 1)
+                        c += countEvalVisible(ev.children[i]);
+                    return c;
+                }
+                var childScoreBundles = (evaluated && evaluated.children || []).map(function(ev) {
+                    var bundle = ev.scoreBundle || ScoreBundle.fromEvaluated(ev, query);
+                    return {
+                        label: ev.node ? ev.node.label : "", kind: ev.node ? ev.node.kind : "", backendId: ev.node ? ev.node.backendId : "",
+                        score: ev.score || 0, ownScore: ev.ownScore || 0, visible: !!ev.visible, childrenCount: (ev.children || []).length,
+                        scoreBundle: ScoreBundle.toDebug(bundle),
+                        evidenceCount: (ev.evidence || []).length
+                    };
+                });
+                phases.push({
+                    phase: 3, name: "evaluation",
+                    evaluateMs: ctx.evaluateMs,
+                    totalNodes: countEval(evaluated),
+                    visibleNodes: countEvalVisible(evaluated),
+                    childScoreBundles: childScoreBundles
+                });
+            }
+
             schedule(phase4);
         }
 
@@ -198,6 +263,13 @@ Singleton {
             if (ctx.includePath && !query.isEmpty)
                 Evaluate.applyInheritPolicies(ctx.evaluated, query, ctx);
             ctx.pathMs = Tokenize.nowMs() - pathStart;
+
+            if (ctx.trace) {
+                phases.push({
+                    phase: 4, name: "path-policies",
+                    pathMs: ctx.pathMs
+                });
+            }
 
             schedule(phase5);
         }
@@ -213,15 +285,47 @@ Singleton {
             var shapeMs = Tokenize.nowMs() - shapeStart;
 
             if (ctx.trace) {
+                var placements = {};
+                var shapedItems = [];
+                if (shapedResult && shapedResult.shaped) {
+                    for (var si = 0; si < shapedResult.shaped.length; si += 1) {
+                        var item = shapedResult.shaped[si];
+                        var pl = item.placement || "unknown";
+                        placements[pl] = (placements[pl] || 0) + 1;
+                        shapedItems.push({
+                            title: item.ev && item.ev.node ? item.ev.node.label : "",
+                            nodeId: item.ev && item.ev.node ? item.ev.node.id : "",
+                            kind: item.ev && item.ev.node ? item.ev.node.kind : "",
+                            backendId: item.ev && item.ev.node ? item.ev.node.backendId : "",
+                            placement: pl,
+                            depth: item.depth || 0,
+                            score: item.ev ? (item.ev.score || 0) : 0,
+                            ownScore: item.ev ? (item.ev.ownScore || 0) : 0,
+                            inheritedScore: item.ev ? (item.ev.inheritedScore || 0) : 0,
+                            descendantScore: item.ev ? (item.ev.descendantScore || 0) : 0,
+                            children: (item.childEvs || (item.ev && item.ev.children) || []).length,
+                            decision: item.decision ? { mode: item.decision.mode || "normal", reason: item.decision.reason || "", showParent: item.decision.showParent !== false, suppressParentActions: !!item.decision.suppressParentActions } : null
+                        });
+                    }
+                }
                 timings = {
                     totalMs: Tokenize.nowMs() - totalStart, rootNodeMs: ctx.rootNodeMs, candidateMs: ctx.candidateMs,
                     evaluateMs: ctx.evaluateMs, pathMs: ctx.pathMs, shapeMs: shapeMs,
                     activeBackends: active.length, backendRoots: children.length, candidateIds: ctx.candidateCount,
                     backends: ctx.backendTimings, rows: rows.length
                 };
+                phases.push({
+                    phase: 5, name: "shaping",
+                    shapeMs: shapeMs,
+                    shapedCount: shapedResult && shapedResult.shaped ? shapedResult.shaped.length : 0,
+                    placements: placements,
+                    shaped: shapedItems,
+                    rows: rows.length,
+                    totalMs: timings.totalMs
+                });
             }
 
-            var result = { rows: rows, query: query, directive: directive, route: route, evaluatedRoot: ctx.evaluated, shapedResult: shapedResult, timings: timings };
+            var result = { rows: rows, query: query, directive: directive, route: route, evaluatedRoot: ctx.evaluated, shapedResult: shapedResult, timings: timings, phases: phases };
             syncResult = result;
             if (onComplete) onComplete(result);
         }

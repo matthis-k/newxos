@@ -26,13 +26,8 @@ These examples are not a fixed regression suite; they describe the underlying ru
 Keep the launcher IPC available for manual checks:
 
 ```bash
-newshell ipc call query search 'audio'
-newshell ipc call query visual 'audio'
-newshell ipc call query evidence '<result-id>'
 newshell ipc call query pipeline 'audio'
 newshell ipc call query policies 'audio'
-newshell ipc call query score '<result-id>'
-newshell ipc call query shape 'audio'
 newshell ipc call query benchmark '{"queries":["zen","wifi"],"iterations":2}'
 newshell ipc call query cases
 newshell ipc call query runCases
@@ -41,8 +36,11 @@ newshell ipc call query runCases
 Use `jq` to reduce output before pasting or comparing results:
 
 ```bash
-newshell ipc call query search 'audio' | jq '.results[] | select(.ownVisible == true) | {title, subtitle, source, score, ownScore, matchDepth, actions, children: (.children // [] | length)}'
-newshell ipc call query visual 'audio' | jq '{query:.query.raw, totalResults, rows: [.results[] | {title, source, kind, score, children: (.children // [] | length)}], navigationTargets: [.navigationTargets[]? | {title, treeDepth}]}'
+newshell ipc call query pipeline 'audio' | jq '.rows[] | select(.ownVisible == true) | {title, subtitle, source, score, ownScore, matchDepth, children: (.children // [] | length)}'
+newshell ipc call query pipeline 'audio' | jq '.phases[] | {phase, name}'
+newshell ipc call query pipeline 'audio' | jq '.phases[] | select(.name == "evaluation").childScoreBundles[] | {label, score, ownScore}'
+newshell ipc call query pipeline 'audio' | jq '.phases[] | select(.name == "shaping").shaped[] | {title, placement, score}'
+newshell ipc call query pipeline 'audio' | jq '.backends.entries[] | {id, name, enabled}'
 ```
 
 Always record the visible query when debugging GUI-only missing-row reports. A row can be absent because the visible launcher query differs from the query sent through IPC, because prefix parsing changed the effective search query, or because the GUI is showing stale/filtered rows.
@@ -51,14 +49,13 @@ Always record the visible query when debugging GUI-only missing-row reports. A r
 
 Pipeline modules live in `configs/quickshell/launcher/logic/`: `Evaluate.qml` -> `ResultShaping.qml` (owns placement) -> `RenderedRows.qml` (builds rows from shaped items using `PresentationContext.qml`). `PolicyChain.lookupPolicy` provides normalized spec-aware lookups. TokenFlowDecision not implemented yet; ActionPolicy not extracted.
 
-1. `query routes` — check backend participation and directive parsing
-2. `query pipeline` — check staged pipeline data (backend roots, candidates, timings, shaping summary, token flow)
-3. `query visual` — check rendered rows and ordering (includes `placement`, `presentationContext`, `scoreBundle`)
-4. `query policies` — check normalized policy specs active per kind
-5. `query score <id>` — check full score bundle for a result
-6. `query evidence <id>` — check evidence items driving scores
-7. `query shape <query>` — compare evaluation vs shaped placement from actual shaping decisions
-8. `query benchmark` — run benchmarks with timing data
+1. `query pipeline` — universal endpoint. Check rows (`.rows`), phases (`.phases[]`), backends (`.backends`), timings (`.timings`).
+   - `.phases[] | select(.name == "directive-tokenize")` — directive, tokens, active backends
+   - `.phases[] | select(.name == "evaluation")` — score bundles per backend root
+   - `.phases[] | select(.name == "shaping")` — per-item placements
+   - `.rows[] | select(.ownVisible == true)` — final rendered rows
+2. `query policies` — check normalized policy specs active per kind
+3. `query benchmark` — run benchmarks with timing data
 
 ## When Logic Changes
 
