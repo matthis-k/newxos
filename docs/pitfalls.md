@@ -74,6 +74,12 @@ Frame height depended only on `resultsColumn.implicitHeight`, which can be 0 bri
 
 Fix: reserve a minimum height from model count whenever results exist.
 
+### QML subdirectory singleton imports not resolved in JS
+
+`import "subdir/Singleton.qml"` from a parent-file does not make `Singleton` available as a JS identifier. Only same-directory imports (`import "Singleton.qml"`) or directory imports (`import "subdir/"`) register the type name.
+
+Fix: keep `pragma Singleton` QML files in the same directory as their consumers, or use directory imports (`import "subdir/"`) instead of file imports. A directory import loads all `.qml` files in that directory.
+
 ## Build and shell
 
 ### `buildEnv` tool bundles cannot mix wrapped compiler toolchains
@@ -265,3 +271,9 @@ Evidence dedup changed from `(tokenIndex, fieldGroup)` to `(tokenIndex)` — onl
 If a node needs the old per-field-group dedup, set `profile.tokenDedup = "field-group"` in its `evaluationProfile.profile`.
 
 Default behavior is `"best-per-token"` (set in `Evaluate.qml:85`). The dedup function lives in `Evidence.qml:bestPerToken()`.
+
+### `buildChildTree` fallback bypassed shaping decision
+
+The shaping step (`ResultShaping.qml`) explicitly sets `childEvs: []` when it decides children should not be visible (e.g., when `childPassesVisible` returns false for `expand-on-trailing-space` policy). However, `buildRowsFromShaped` in `Engine.qml:88-92` treated empty `childEvs` the same as null, falling through to `buildChildTree` which re-added children based on a simpler filter (`visible || score >= 0.25`), bypassing the shaping decision entirely.
+
+Fix: check `item.childEvs != null` instead of `item.childEvs != null && item.childEvs.length > 0`. When `childEvs` is explicitly empty, respect the shaping decision and produce no child rows. Source: `Engine.qml:88-92`.

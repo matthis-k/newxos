@@ -5,7 +5,7 @@ import "Tokenize.qml"
 import "IndexBuilder.qml"
 import "Evidence.qml"
 import "PolicyChain.qml"
-import "pipeline/"
+import "ScoreBundle.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {

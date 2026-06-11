@@ -4,8 +4,8 @@ import Quickshell
 import "Tokenize.qml"
 import "IndexBuilder.qml"
 import "Evaluate.qml"
-import "pipeline/ResultShaping.qml"
-import "pipeline/RenderedRows.qml"
+import "ResultShaping.qml"
+import "RenderedRows.qml"
 import "Rows.qml"
 import "RoutingTree.js" as JsRoutingTree
 
@@ -85,11 +85,13 @@ Singleton {
         return shapedResult.shaped.map(function(item) {
             var includeAllChildren = item.options && item.options.includeAllChildren;
             var childRows;
-            if (item.childEvs != null && item.childEvs.length > 0) {
-                childRows = buildChildRows(item.childEvs, item.depth, maxTreeDepth, includeAllChildren);
+            if (item.childEvs != null) {
+                if (item.childEvs.length > 0)
+                    childRows = buildChildRows(item.childEvs, item.depth, maxTreeDepth, includeAllChildren);
             } else {
                 childRows = buildChildTree(item.ev, item.depth, maxTreeDepth, false);
             }
+            if (!childRows) childRows = [];
             return RenderedRows.toResultRow(item.ev, item.depth, state, ctx, childRows, item.options);
         });
     }
