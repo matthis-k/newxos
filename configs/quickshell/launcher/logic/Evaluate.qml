@@ -49,8 +49,9 @@ Singleton {
         if (directiveActive && !selfAllowed && !nodeTreeMayContainDirective(node, ctx))
             return { node: node, allowed: false, candidate: false, pruned: true, evidence: [], ownEvidence: [], inheritedEvidence: [], ownScore: 0, inheritedScore: 0, score: 0, visible: false, children: [] };
 
-        var directiveBrowse = directiveActive && query.isEmpty;
-        if (ctx.candidateIds && !ctx.candidateIds[node.id] && node.kind !== "root" && node.kind !== "backend" && !node.showWhenQueryEmpty && !(query.isEmpty && node.backendId === "backends" && directiveActive) && !directiveBrowse && !ctx.showHidden)
+        var qEmpty = query.isEmpty;
+        var directiveBrowse = directiveActive && qEmpty;
+        if (ctx.candidateIds && !ctx.candidateIds[node.id] && node.kind !== "root" && node.kind !== "backend" && !node.showWhenQueryEmpty && !(qEmpty && node.backendId === "backends" && directiveActive) && !directiveBrowse && !ctx.showHidden)
             return { node: node, allowed: selfAllowed, candidate: false, pruned: true, evidence: [], ownEvidence: [], inheritedEvidence: [], ownScore: 0, inheritedScore: 0, score: 0, visible: false, children: [] };
 
         var ep = node.evaluationProfile || {};
@@ -200,12 +201,14 @@ Singleton {
     }
 
     function collectParentChain(node) {
+        if (node.__parentChain) return node.__parentChain;
         var chain = [];
         var cur = node;
         while (cur && cur.kind !== "root") {
             chain.unshift(cur);
             cur = cur.parent;
         }
+        node.__parentChain = chain;
         return chain;
     }
 
@@ -221,8 +224,10 @@ Singleton {
     }
 
     function applyInheritPolicies(evaluated, query, ctx) {
-        for (var i = 0; i < evaluated.children.length; i += 1)
-            applyInheritPolicies(evaluated.children[i], query, ctx);
+        if (evaluated.pruned) return;
+        var children = evaluated.children;
+        for (var i = 0; i < children.length; i += 1)
+            applyInheritPolicies(children[i], query, ctx);
 
         var ep = evaluated.node.evaluationProfile || {};
         var profile = ep.profile || defaultProfile;

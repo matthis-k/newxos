@@ -14,41 +14,44 @@ Singleton {
         if (query.isEmpty) return [];
         var out = [];
         var ids = strategyIds || ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"];
+        var fieldPrimary = field.primary;
         for (var ti = 0; ti < query.tokens.length; ti += 1) {
             var token = query.tokens[ti];
+            var tokenNorm = token.normalized;
             if (ids.indexOf("exact") >= 0) {
-                if (field.normText.trim() === token.normalized)
+                if (field.normText === tokenNorm)
                     out.push(evidence("exact", field, "exact-field", 0.96, field.weight, [{ start: 0, end: field.text.length, kind: "exact" }], "field equals token", { tokenIndex: ti, exactness: "exact" }));
-                for (var wi = 0; wi < field.words.length; wi += 1) {
-                    var word = field.words[wi];
-                    if (word.norm === token.normalized)
-                        out.push(evidence("exact", field, "exact-word", 0.96, field.weight, [{ start: word.start, end: word.end, kind: "exact" }], "word equals token", { tokenIndex: ti, exactness: "exact" }));
+                var words = field.words;
+                for (var wi = 0; wi < words.length; wi += 1) {
+                    if (words[wi].norm === tokenNorm)
+                        out.push(evidence("exact", field, "exact-word", 0.96, field.weight, [{ start: words[wi].start, end: words[wi].end, kind: "exact" }], "word equals token", { tokenIndex: ti, exactness: "exact" }));
                 }
             }
             if (ids.indexOf("prefix") >= 0) {
-                var primary = /(^|-)label$/.test(field.field) || /(^|-)aliases$/.test(field.field);
-                if (token.normalized.length >= 2 || primary) {
+                if (tokenNorm.length >= 2 || fieldPrimary) {
                     for (var pwi = 0; pwi < field.words.length; pwi += 1) {
                         var pword = field.words[pwi];
-                        if (pword.norm.indexOf(token.normalized) === 0 && pword.norm !== token.normalized) {
-                            var coverage = token.normalized.length / Math.max(1, pword.norm.length);
+                        if (pword.norm.indexOf(tokenNorm) === 0 && pword.norm !== tokenNorm) {
+                            var coverage = tokenNorm.length / Math.max(1, pword.norm.length);
                             out.push(evidence("prefix", field, "prefix", 0.75 + coverage * 0.18, field.weight, [{ start: pword.start, end: pword.start + token.raw.length, kind: "prefix" }], "token prefixes word", { tokenIndex: ti, exactness: "prefix" }));
                         }
                     }
                 }
             }
-            if (ids.indexOf("substring") >= 0 && token.normalized.length >= 3) {
+            var tokenLen = tokenNorm.length;
+            if (ids.indexOf("substring") >= 0 && tokenLen >= 3) {
                 var start = 0;
+                var normText = field.normText;
                 while (true) {
-                    var idx = field.normText.indexOf(token.normalized, start);
+                    var idx = normText.indexOf(tokenNorm, start);
                     if (idx < 0) break;
-                    var isWordStart = idx === 0 || /[^a-z0-9]/.test(field.normText[idx - 1]);
+                    var isWordStart = idx === 0 || /[^a-z0-9]/.test(normText[idx - 1]);
                     out.push(evidence("substring", field, "substring", isWordStart ? 0.66 : 0.52, field.weight * 0.75, [{ start: idx, end: idx + token.raw.length, kind: "substring" }], "token occurs inside field", { tokenIndex: ti, exactness: "substring" }));
-                    start = idx + Math.max(1, token.normalized.length);
+                    start = idx + Math.max(1, tokenLen);
                 }
             }
-            if (ids.indexOf("compact") >= 0 && token.normalized.length >= 3) {
-                var compactToken = Tokenize.compactWithMap(token.raw).compact || token.normalized;
+            if (ids.indexOf("compact") >= 0 && tokenLen >= 3) {
+                var compactToken = Tokenize.compactWithMap(token.raw).compact || tokenNorm;
                 var cidx = field.compact.compact.indexOf(compactToken);
                 if (cidx >= 0) {
                     var cstart = field.compact.map[cidx];
@@ -60,20 +63,31 @@ Singleton {
                     out.push(evidence("compact", field, full ? "compact-exact" : cidx === 0 ? "compact-prefix" : "compact-substring", compactScore, compactWeight, [{ start: cstart, end: cend, kind: "compact" }], "token matches compacted field", { tokenIndex: ti, exactness: full ? "exact" : cidx === 0 ? "prefix" : "substring" }));
                 }
             }
-            if (ids.indexOf("acronym") >= 0 && token.normalized.length >= 2) {
-                var acronym = field.acronymLetters.map(function(x) { return x.char; }).join("");
-                if (acronym.length >= 2 && (acronym === token.normalized || acronym.indexOf(token.normalized) === 0)) {
-                    out.push(evidence("acronym", field, acronym === token.normalized ? "acronym-exact" : "acronym-prefix", acronym === token.normalized ? 0.91 : 0.82, field.weight * 0.92, field.acronymLetters.slice(0, token.normalized.length).map(function(x) { return { start: x.start, end: x.end, kind: "acronym" }; }), "token matches acronym", { tokenIndex: ti, exactness: acronym === token.normalized ? "exact" : "prefix" }));
+            if (ids.indexOf("acronym") >= 0 && tokenLen >= 2) {
+                var acronym = field._acronymStr || (function(f) {
+                    var al = f.acronymLetters;
+                    var s = "";
+                    for (var ai = 0; ai < al.length; ai += 1) s += al[ai].char;
+                    f._acronymStr = s;
+                    return s;
+                })(field);
+                if (acronym.length >= 2 && (acronym === tokenNorm || acronym.indexOf(tokenNorm) === 0)) {
+                    var acroRanges = field.acronymLetters;
+                    var acroLen = Math.min(tokenLen, acronym.length);
+                    var ranges = [];
+                    for (var ar = 0; ar < acroLen; ar += 1)
+                        ranges.push({ start: acroRanges[ar].start, end: acroRanges[ar].end, kind: "acronym" });
+                    out.push(evidence("acronym", field, acronym === tokenNorm ? "acronym-exact" : "acronym-prefix", acronym === tokenNorm ? 0.91 : 0.82, field.weight * 0.92, ranges, "token matches acronym", { tokenIndex: ti, exactness: acronym === tokenNorm ? "exact" : "prefix" }));
                 }
             }
-            if (ids.indexOf("fuzzy") >= 0 && token.normalized.length >= 3) {
+            if (ids.indexOf("fuzzy") >= 0 && tokenLen >= 3) {
                 for (var fwi = 0; fwi < field.words.length; fwi += 1) {
                     var fword = field.words[fwi];
-                    var maxDistance = Tokenize.fuzzyDistanceLimit(token.normalized, fword.norm);
-                    if (maxDistance <= 0 || Math.abs(fword.norm.length - token.normalized.length) > maxDistance || fword.norm === token.normalized) continue;
-                    var distance = Tokenize.boundedDamerauLevenshtein(token.normalized, fword.norm, maxDistance);
+                    var maxDistance = Tokenize.fuzzyDistanceLimit(tokenNorm, fword.norm);
+                    if (maxDistance <= 0 || Math.abs(fword.norm.length - tokenLen) > maxDistance || fword.norm === tokenNorm) continue;
+                    var distance = Tokenize.boundedDamerauLevenshtein(tokenNorm, fword.norm, maxDistance);
                     if (distance > maxDistance) continue;
-                    var similarity = 1 - distance / Math.max(token.normalized.length, fword.norm.length, 1);
+                    var similarity = 1 - distance / Math.max(tokenLen, fword.norm.length, 1);
                     out.push(evidence("fuzzy", field, "fuzzy-word", 0.44 + similarity * 0.16, field.weight * 0.55, [{ start: fword.start, end: fword.end, kind: "fuzzy" }], "token is within bounded edit distance of word", { tokenIndex: ti, exactness: "fuzzy" }));
                 }
             }
@@ -156,20 +170,30 @@ Singleton {
         return 50;
     }
 
+    property var _infHaystackCache: ({})
+
     function inferCoveredTokenIndexes(e, query) {
+        var cached = e.__coveredIdx;
+        if (cached) return cached;
         var covered = [];
-        for (var i = 0; i < query.tokens.length; i += 1) {
-            var token = query.tokens[i];
-            var haystack = Tokenize.normalizeText([e.fieldText, e.reason, e.field].join(" "));
-            if (haystack.indexOf(token.normalized) >= 0) covered.push(i);
+        var cacheKey = e.field + "|" + e.fieldText + "|" + (e.reason || "");
+        var haystack = _infHaystackCache[cacheKey];
+        if (!haystack) {
+            haystack = Tokenize.normalizeText(e.fieldText + " " + (e.reason || "") + " " + e.field);
+            _infHaystackCache[cacheKey] = haystack;
         }
+        for (var i = 0; i < query.tokens.length; i += 1) {
+            if (haystack.indexOf(query.tokens[i].normalized) >= 0) covered.push(i);
+        }
+        e.__coveredIdx = covered;
         return covered;
     }
 
     function coveredTokenIndexes(evidenceItems, query) {
         var covered = {};
         for (var ei = 0; ei < (evidenceItems || []).length; ei += 1) {
-            var tokenIndexes = evidenceItems[ei].tokenIndex !== undefined ? [evidenceItems[ei].tokenIndex] : inferCoveredTokenIndexes(evidenceItems[ei], query);
+            var e = evidenceItems[ei];
+            var tokenIndexes = e.tokenIndex !== undefined ? [e.tokenIndex] : inferCoveredTokenIndexes(e, query);
             for (var ci = 0; ci < tokenIndexes.length; ci += 1) {
                 if (typeof tokenIndexes[ci] === "number") covered[tokenIndexes[ci]] = true;
             }

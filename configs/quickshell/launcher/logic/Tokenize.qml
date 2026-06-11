@@ -3,19 +3,33 @@ import QtQml
 import Quickshell
 
 Singleton {
+    property var _normCache: ({})
+    property int _normCacheSize: 0
+    readonly property int _normCacheMax: 200
+
     function clamp(n, min, max) {
         return Math.max(min === undefined ? 0 : min, Math.min(max === undefined ? 1 : max, n));
     }
 
     function normalizeText(text) {
-        var value = String(text === undefined || text === null ? "" : text);
-        if (value.normalize)
-            value = value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
-        return value.toLowerCase();
+        var value = typeof text === "string" ? text : (text === undefined || text === null ? "" : String(text));
+        if (!value) return "";
+        var cached = _normCache[value];
+        if (cached !== undefined) return cached;
+        var result = value;
+        if (result.normalize)
+            result = result.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+        result = result.toLowerCase();
+        if (_normCacheSize < _normCacheMax) {
+            _normCache[value] = result;
+            _normCacheSize += 1;
+        }
+        return result;
     }
 
     function splitWordsWithRanges(text) {
-        var source = String(text === undefined || text === null ? "" : text);
+        var source = typeof text === "string" ? text : (text === undefined || text === null ? "" : String(text));
+        if (!source) return [];
         var words = [];
         var re = /[A-Za-z0-9]+/g;
         var match;
@@ -31,12 +45,20 @@ Singleton {
     }
 
     function compactWithMap(text) {
-        var source = String(text === undefined || text === null ? "" : text);
+        var source = typeof text === "string" ? text : (text === undefined || text === null ? "" : String(text));
+        if (!source) return { compact: "", map: [] };
         var chars = [];
         var map = [];
-        for (var i = 0; i < source.length; i += 1) {
-            var c = normalizeText(source[i]);
-            if (/^[a-z0-9]$/.test(c)) {
+        var len = source.length;
+        for (var i = 0; i < len; i += 1) {
+            var c = source[i];
+            if (c >= "a" && c <= "z") {
+                chars.push(c);
+                map.push(i);
+            } else if (c >= "A" && c <= "Z") {
+                chars.push(c.toLowerCase());
+                map.push(i);
+            } else if (c >= "0" && c <= "9") {
                 chars.push(c);
                 map.push(i);
             }
@@ -107,21 +129,27 @@ Singleton {
     }
 
     function getAcronymRanges(text) {
-        return splitWordsWithRanges(text).map(function(w) {
-            return { char: w.norm[0] || "", start: w.start, end: Math.min(w.start + 1, w.end), word: w };
-        }).filter(function(x) { return x.char; });
+        var words = splitWordsWithRanges(text);
+        if (!words.length) return [];
+        var out = [];
+        for (var i = 0; i < words.length; i += 1) {
+            var w = words[i];
+            var ch = w.norm[0];
+            if (ch) out.push({ char: ch, start: w.start, end: Math.min(w.start + 1, w.end), word: w });
+        }
+        return out;
     }
 
     function tokenize(rawQuery) {
-        var raw = String(rawQuery === undefined || rawQuery === null ? "" : rawQuery);
+        var raw = typeof rawQuery === "string" ? rawQuery : (rawQuery === undefined || rawQuery === null ? "" : String(rawQuery));
+        if (!raw) return { raw: "", normalized: "", tokens: [], isEmpty: true, lastTokenEmpty: false };
         var tokens = [];
         var re = /[^\s:/\\|,;]+/g;
         var match;
         while ((match = re.exec(raw)) !== null) {
             var rawToken = match[0];
-            var norm = normalizeText(rawToken).trim();
-            if (!norm)
-                continue;
+            var norm = normalizeText(rawToken);
+            if (!norm) continue;
             tokens.push({ raw: rawToken, normalized: norm, start: match.index, end: match.index + rawToken.length });
         }
         return {
@@ -129,7 +157,7 @@ Singleton {
             normalized: normalizeText(raw),
             tokens: tokens,
             isEmpty: tokens.length === 0,
-            lastTokenEmpty: /\s$/.test(raw) && tokens.length > 0
+            lastTokenEmpty: raw.charCodeAt(raw.length - 1) === 32 && tokens.length > 0
         };
     }
 
@@ -207,6 +235,6 @@ Singleton {
     }
 
     function nowMs() {
-        return Date.now ? Date.now() : new Date().getTime();
+        return Date.now();
     }
 }

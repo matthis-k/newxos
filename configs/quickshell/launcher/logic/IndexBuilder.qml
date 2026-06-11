@@ -18,9 +18,9 @@ Singleton {
         if (node.__searchableFields)
             return node.__searchableFields;
         var w = node.fieldWeights || {};
-        var fields = [{ field: "label", text: node.label, weight: w.label === undefined ? 1.0 : w.label, nodeId: node.id }];
+        var fields = [{ field: "label", text: node.label, weight: w.label === undefined ? 1.0 : w.label, nodeId: node.id, primary: true }];
         if (node.subtitle) fields.push({ field: "subtitle", text: node.subtitle, weight: w.subtitle === undefined ? 0.55 : w.subtitle, nodeId: node.id });
-        if (node.aliases && node.aliases.length) fields.push({ field: "aliases", text: node.aliases.join(" "), weight: w.aliases === undefined ? 0.72 : w.aliases, nodeId: node.id });
+        if (node.aliases && node.aliases.length) fields.push({ field: "aliases", text: node.aliases.join(" "), weight: w.aliases === undefined ? 0.72 : w.aliases, nodeId: node.id, primary: true });
         if (node.keywords && node.keywords.length) fields.push({ field: "keywords", text: node.keywords.join(" "), weight: w.keywords === undefined ? 0.45 : w.keywords, nodeId: node.id });
         if (node.command) fields.push({ field: "command", text: node.command, weight: w.command === undefined ? 0.25 : w.command, nodeId: node.id });
         if (node.path) fields.push({ field: "path", text: node.path, weight: w.path === undefined ? 0.38 : w.path, nodeId: node.id });
@@ -30,7 +30,15 @@ Singleton {
     }
 
     function buildSearchIndex(root) {
-        var index = { exact: {}, prefix: {}, compact: {}, compactPrefix: {}, acronym: {}, acronymPrefix: {}, terms: {}, nodesById: {} };
+        var index = { exact: {}, prefix: {}, compact: {}, compactPrefix: {}, acronym: {}, acronymPrefix: {}, terms: {}, termsByLength: {}, nodesById: {} };
+        var _termsSeen = {};
+        function addTermToTermsByLength(term) {
+            if (!term || _termsSeen[term]) return;
+            _termsSeen[term] = true;
+            var len = term.length;
+            if (!index.termsByLength[len]) index.termsByLength[len] = [];
+            index.termsByLength[len].push(term);
+        }
         function mergeMap(target, source) {
             for (var key in source) {
                 if (!target[key]) target[key] = [];
@@ -39,16 +47,6 @@ Singleton {
                     if (target[key].indexOf(nodes[ni]) < 0)
                         target[key].push(nodes[ni]);
             }
-        }
-        function mergeIndex(source) {
-            mergeMap(index.exact, source.exact || {});
-            mergeMap(index.prefix, source.prefix || {});
-            mergeMap(index.compact, source.compact || {});
-            mergeMap(index.compactPrefix, source.compactPrefix || {});
-            mergeMap(index.acronym, source.acronym || {});
-            mergeMap(index.acronymPrefix, source.acronymPrefix || {});
-            mergeMap(index.terms, source.terms || {});
-            for (var id in source.nodesById || {}) index.nodesById[id] = source.nodesById[id];
         }
         function visit(node, parentBreadcrumbAcro) {
             index.nodesById[node.id] = node;
@@ -80,6 +78,7 @@ Singleton {
                 if (!word) continue;
                 addIndexEntry(idx.exact, word, nd);
                 addIndexEntry(idx.terms, word, nd);
+                addTermToTermsByLength(word);
                 for (var pi = 1; pi <= word.length; pi += 1)
                     addIndexEntry(idx.prefix, word.slice(0, pi), nd);
             }
@@ -87,6 +86,7 @@ Singleton {
             if (compact.length >= 2) {
                 addIndexEntry(idx.compact, compact, nd);
                 addIndexEntry(idx.terms, compact, nd);
+                addTermToTermsByLength(compact);
                 for (var cpi = 2; cpi <= compact.length; cpi += 1)
                     addIndexEntry(idx.compactPrefix, compact.slice(0, cpi), nd);
             }
@@ -146,25 +146,40 @@ Singleton {
 
     function collectFuzzyHitsCapped(idx, token, marked, capState) {
         if (String(token || "").length < 3) return;
-        var maxDistance = 0;
-        for (var term in idx.terms) {
-            if (capState.hits >= capState.cap) return;
-            maxDistance = Tokenize.fuzzyDistanceLimit(token, term);
-            if (Math.abs(term.length - token.length) > maxDistance || term === token) continue;
-            if (Tokenize.boundedDamerauLevenshtein(token, term, maxDistance) > maxDistance) continue;
-            collectIndexHitsCapped(idx.terms, term, marked, capState);
+        var tokenLen = token.length;
+        var minLen = tokenLen - 2;
+        if (minLen < 3) minLen = 3;
+        var maxLen = tokenLen + 2;
+        for (var len = minLen; len <= maxLen; len += 1) {
+            var bucket = idx.termsByLength[len];
+            if (!bucket) continue;
+            for (var ti = 0; ti < bucket.length; ti += 1) {
+                if (capState.hits >= capState.cap) return;
+                var term = bucket[ti];
+                if (term === token) continue;
+                var maxDist = Tokenize.fuzzyDistanceLimit(token, term);
+                if (maxDist <= 0) continue;
+                if (Tokenize.boundedDamerauLevenshtein(token, term, maxDist) > maxDist) continue;
+                collectIndexHitsCapped(idx.terms, term, marked, capState);
+            }
         }
     }
 
     function markNodeAndAncestors(marked, node) {
         var cur = node;
-        while (cur) { marked[cur.id] = true; cur = cur.parent; }
+        while (cur) {
+            if (marked[cur.id]) break;
+            marked[cur.id] = true;
+            cur = cur.parent;
+        }
     }
 
     function markNodeAndDescendants(marked, node) {
         marked[node.id] = true;
-        for (var i = 0; i < (node.children || []).length; i += 1)
-            markNodeAndDescendants(marked, node.children[i]);
+        var children = node.children;
+        if (!children) return;
+        for (var i = 0; i < children.length; i += 1)
+            markNodeAndDescendants(marked, children[i]);
     }
 
     function markNodeFamily(marked, node) {

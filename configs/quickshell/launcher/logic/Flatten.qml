@@ -132,40 +132,51 @@ Singleton {
     }
 
     function copyRange(range) {
-        if (!range)
-            return null;
-        return { start: Number(range.start || 0), end: Number(range.end || 0) };
+        if (!range) return null;
+        var start = typeof range.start === "number" ? range.start : Number(range.start || 0);
+        var end = typeof range.end === "number" ? range.end : Number(range.end || 0);
+        return { start: start, end: end, kind: range.kind || "" };
     }
 
     function copyRanges(ranges) {
-        return (ranges || []).map(copyRange).filter(Boolean);
+        if (!ranges || !ranges.length) return [];
+        var out = [];
+        for (var i = 0; i < ranges.length; i += 1) {
+            var r = copyRange(ranges[i]);
+            if (r) out.push(r);
+        }
+        return out;
     }
 
     function copyEvidence(evidenceItems) {
-        return (evidenceItems || []).map(function(e) {
-            return {
+        if (!evidenceItems || !evidenceItems.length) return [];
+        var out = [];
+        for (var ei = 0; ei < evidenceItems.length; ei += 1) {
+            var e = evidenceItems[ei];
+            out.push({
                 strategy: e.strategy || "",
                 field: e.field || "",
                 fieldText: e.fieldText || "",
                 nodeId: e.nodeId || "",
                 originNodeId: e.originNodeId || e.nodeId || "",
                 originKind: e.originKind || "self",
-                depth: e.depth === undefined ? 0 : Number(e.depth || 0),
+                depth: e.depth === undefined ? 0 : e.depth,
                 tokenIndex: e.tokenIndex === undefined ? null : e.tokenIndex,
-                tokenIndexes: (e.tokenIndexes || []).slice(),
+                tokenIndexes: e.tokenIndexes ? e.tokenIndexes.slice() : [],
                 coverageCount: e.coverageCount || 0,
                 exactness: e.exactness || e.strategy || "",
                 actionId: e.actionId || null,
                 actionRole: e.actionRole || null,
                 isExecutable: !!e.isExecutable,
                 kind: e.kind || "",
-                score: Number(e.score || 0),
-                weight: Number(e.weight || 0),
-                effective: Number(e.effective || 0),
+                score: e.score || 0,
+                weight: e.weight || 0,
+                effective: e.effective || 0,
                 ranges: copyRanges(e.ranges),
                 reason: e.reason || ""
-            };
-        });
+            });
+        }
+        return out;
     }
 
     function negativeEvidenceForMissingTokens(ev, ctx) {
@@ -173,10 +184,18 @@ Singleton {
             return [];
         var covered = Evidence.coveredTokenIndexes(ev.evidence || [], ctx.query);
         var out = [];
-        for (var i = 0; i < ctx.query.tokens.length; i += 1) {
-            if (covered[i])
-                continue;
-            out.push({ strategy: "negative", field: "unmatched-token", fieldText: ctx.query.tokens[i].raw, nodeId: ev.node.id, originNodeId: ev.node.id, originKind: "self", depth: 0, tokenIndex: i, tokenIndexes: [i], coverageCount: 0, exactness: "missing", actionId: null, actionRole: null, isExecutable: false, kind: "negative-unmatched-token", score: -1, weight: 0, effective: 0, ranges: [], reason: "query token has no matching evidence" });
+        var tokens = ctx.query.tokens;
+        var nodeId = ev.node.id;
+        for (var i = 0; i < tokens.length; i += 1) {
+            if (covered[i]) continue;
+            out.push({
+                strategy: "negative", field: "unmatched-token", fieldText: tokens[i].raw,
+                nodeId: nodeId, originNodeId: nodeId, originKind: "self",
+                depth: 0, tokenIndex: i, tokenIndexes: [i], coverageCount: 0,
+                exactness: "missing", actionId: null, actionRole: null,
+                isExecutable: false, kind: "negative-unmatched-token",
+                score: -1, weight: 0, effective: 0, ranges: [], reason: "query token has no matching evidence"
+            });
         }
         return out;
     }
@@ -187,9 +206,8 @@ Singleton {
         var out = {};
         for (var key in payload) {
             var value = payload[key];
-            if (typeof value === "function")
-                continue;
-            else if (Array.isArray(value))
+            if (typeof value === "function") continue;
+            if (Array.isArray(value))
                 out[key] = value.slice();
             else if (!value || typeof value !== "object")
                 out[key] = value;
@@ -198,22 +216,27 @@ Singleton {
     }
 
     function copyAction(action, isDefault) {
-        if (!action)
-            return null;
+        if (!action) return null;
+        var label = action.label || action.title || action.id || "";
+        var payload = action.payload;
         return {
             id: action.id || "",
-            label: action.label || action.title || action.id || "",
+            label: label,
             icon: action.icon || null,
             default: isDefault === undefined ? !!action.default : !!isDefault,
             intent: action.intent || null,
-            payload: copyPayload(action.payload)
+            payload: payload ? copyPayload(payload) : null
         };
     }
 
     function copyActionList(actions, selectedAction) {
-        return (actions || []).map(function(action) {
-            return copyAction(action, selectedAction ? action.id === selectedAction.id : action.default);
-        }).filter(Boolean);
+        if (!actions || !actions.length) return [];
+        var out = [];
+        for (var ai = 0; ai < actions.length; ai += 1) {
+            var a = copyAction(actions[ai], selectedAction ? actions[ai].id === selectedAction.id : actions[ai].default);
+            if (a) out.push(a);
+        }
+        return out;
     }
 
     function copySwitchActions(switchActions, selectedAction) {
@@ -253,19 +276,22 @@ Singleton {
     }
 
     function breadcrumbTextFor(ev, breadcrumbs, policy, childRows) {
+        if (!policy || !breadcrumbs.length) return "";
         var mode = policy.breadcrumbMode || "default";
-        if (mode === "hidden" || !breadcrumbs.length)
-            return "";
-        if (mode === "when-parent-dominates") {
+        if (mode === "hidden") return "";
+        if (mode === "when-parent-dominates" && childRows) {
             var childMax = 0;
-            for (var i = 0; i < (childRows || []).length; i += 1)
-                childMax = Math.max(childMax, Number(childRows[i].ownScore || childRows[i].score || 0));
-            if (childMax > 0 && childMax > Number(ev.ownScore || 0))
-                return "";
+            var evScore = ev.ownScore || 0;
+            for (var i = 0; i < childRows.length; i += 1)
+                childMax = Math.max(childMax, childRows[i].ownScore || childRows[i].score || 0);
+            if (childMax > 0 && childMax > evScore) return "";
         } else if (mode !== "always") {
             return "";
         }
-        return breadcrumbs.concat([ev.node.label]).join(" > ");
+        var out = breadcrumbs.join(" > ");
+        if (out) out += " > " + ev.node.label;
+        else out = ev.node.label;
+        return out;
     }
 
     function defaultActionForNode(node, query, ownScore) {
@@ -349,25 +375,75 @@ Singleton {
         options = options || {};
         var node = ev.node;
         var chain = Evaluate.collectParentChain(node);
-        var breadcrumbs = chain.slice(0, -1).map(function(n) { return n.label; });
-        var brRoot = chain.find(function(n) { return n.behavior && n.behavior.visualRoot; });
-        if (brRoot)
-            breadcrumbs = breadcrumbs.slice(chain.indexOf(brRoot));
+        var breadcrumbs = chain;
+        var breadcrumbLen = breadcrumbs.length;
+        var brRootIdx = -1;
+        for (var ci = 0; ci < breadcrumbLen; ci += 1) {
+            if (breadcrumbs[ci].behavior && breadcrumbs[ci].behavior.visualRoot) {
+                brRootIdx = ci;
+                break;
+            }
+        }
+        var bcLabels;
+        if (brRootIdx >= 0) {
+            bcLabels = [];
+            var nLabels = breadcrumbLen - 1;
+            for (var bi = brRootIdx; bi < nLabels; bi += 1)
+                bcLabels.push(breadcrumbs[bi].label);
+        } else {
+            bcLabels = [];
+            for (var bi = 0; bi < breadcrumbLen - 1; bi += 1)
+                bcLabels.push(breadcrumbs[bi].label);
+        }
         var displayPolicy = displayPolicyFor(node);
-        var breadcrumbText = breadcrumbTextFor(ev, breadcrumbs, displayPolicy, childRows);
+        var breadcrumbText = breadcrumbTextFor(ev, bcLabels, displayPolicy, childRows);
         var action = defaultActionForNode(node, ctx.query, ev.ownScore);
-        var suppressOwnActions = action && childRows && childRows.length && ctx.query.tokens.length > 1 && (options.suppressParentActions || visibleFromChildrenOnly(ev));
-        if (suppressOwnActions)
-            action = null;
-        var sourceActions = suppressOwnActions ? [] : (node.actionList || []).slice();
-        if (node.switchActions) {
-            sourceActions = [node.switchActions.toggle, node.switchActions.on, node.switchActions.off].filter(Boolean);
+        var hasChildRows = childRows && childRows.length > 0;
+        var suppressOwnActions = action && hasChildRows && ctx.query.tokens.length > 1 && (options.suppressParentActions || visibleFromChildrenOnly(ev));
+        if (suppressOwnActions) action = null;
+        var sourceActions;
+        if (suppressOwnActions) {
+            sourceActions = [];
+        } else if (node.switchActions) {
+            var sw = node.switchActions;
+            sourceActions = [];
+            if (sw.toggle) sourceActions.push(sw.toggle);
+            if (sw.on) sourceActions.push(sw.on);
+            if (sw.off) sourceActions.push(sw.off);
+        } else {
+            sourceActions = node.actionList || [];
         }
         var actions = copyActionList(sourceActions, action);
         var enterAction = action ? copyAction(action, true) : null;
+        var nodeId = node.id;
+        var evidence = ev.evidence || [];
+        var combinedEvidence = negativeEvidenceForMissingTokens(ev, ctx);
+        if (combinedEvidence.length) {
+            var evCopy = evidence.slice();
+            for (var ei = 0; ei < combinedEvidence.length; ei += 1)
+                evCopy.push(combinedEvidence[ei]);
+            combinedEvidence = evCopy;
+        } else {
+            combinedEvidence = evidence;
+        }
+        var riskVal;
+        if (node.risk) {
+            riskVal = { level: node.risk.level || "none", activation: node.risk.activation || "normal" };
+        } else if (node.dangerous) {
+            riskVal = { level: "state-change", activation: "confirm" };
+        } else {
+            riskVal = null;
+        }
+        var isFilterable = !!(node.behavior && node.behavior.filterable);
+        var alwaysExpanded;
+        if (hasExplicitAlwaysExpanded(node)) {
+            alwaysExpanded = node.behavior.alwaysExpanded !== false;
+        } else {
+            alwaysExpanded = parentMatchShowsChildren(ev, ctx) || childHasGoodMatch(childRows);
+        }
         return {
-            id: "row:" + node.id,
-            nodeId: node.id,
+            id: "row:" + nodeId,
+            nodeId: nodeId,
             source: node.backendId,
             backendId: node.backendId,
             kind: node.kind,
@@ -383,30 +459,24 @@ Singleton {
             descendantScore: ev.descendantScore || 0,
             ownVisible: !!ev.ownVisible,
             matchDepth: ev.matchDepth === undefined ? depth : ev.matchDepth,
-            evidence: copyEvidence((ev.evidence || []).concat(negativeEvidenceForMissingTokens(ev, ctx))),
-            selected: state.selectedNodeId === node.id,
-            expandable: childRows ? childRows.length > 0 : (ev.children && ev.children.length > 0),
-            expanded: state.expandedNodeIds[node.id] || node.kind === "backend",
-            breadcrumbs: breadcrumbs,
+            evidence: copyEvidence(combinedEvidence),
+            selected: state.selectedNodeId === nodeId,
+            expandable: hasChildRows || (ev.children && ev.children.length > 0),
+            expanded: state.expandedNodeIds[nodeId] || node.kind === "backend",
+            breadcrumbs: bcLabels,
             breadcrumbText: breadcrumbText,
             display: Object.assign({ breadcrumbText: breadcrumbText }, displayPolicy),
-            labelMatches: copyRanges(rangesForField(ev.evidence, "label", node.id)),
-            subtitleMatches: copyRanges(rangesForField(ev.evidence, "subtitle", node.id)),
+            labelMatches: copyRanges(rangesForField(evidence, "label", nodeId)),
+            subtitleMatches: copyRanges(rangesForField(evidence, "subtitle", nodeId)),
             actions: actions,
             enter: enterAction ? (enterAction.payload && enterAction.payload.replaceQuery ? { type: "sequence", steps: [{ type: "activate", action: enterAction }] } : { type: "sequence", steps: [{ type: "activate", action: enterAction }, { type: "close" }] }) : { type: "noop" },
             shiftEnter: { type: "noop" },
             executable: !!action,
             dangerous: !!node.dangerous,
-            risk: node.risk ? {
-                level: node.risk.level || "none",
-                activation: node.risk.activation || "normal"
-            } : node.dangerous ? {
-                level: "state-change",
-                activation: "confirm"
-            } : null,
-            filterable: !!(node.behavior && node.behavior.filterable),
+            risk: riskVal,
+            filterable: isFilterable,
             lazy: !!node.lazy,
-            alwaysExpanded: hasExplicitAlwaysExpanded(node) ? node.behavior.alwaysExpanded !== false : (parentMatchShowsChildren(ev, ctx) || childHasGoodMatch(childRows)),
+            alwaysExpanded: alwaysExpanded,
             children: childRows || [],
             switchActions: copySwitchActions(node.switchActions, action),
             switchState: node.switchState === undefined ? null : node.switchState,
@@ -420,6 +490,9 @@ Singleton {
         var collected = [];
         function structuralDepth(ev) {
             return Math.max(0, Evaluate.collectParentChain(ev.node).length - 2);
+        }
+        function compareEvalFn(a, b) {
+            return Evaluate.compareEvaluated(a, b);
         }
         function canInclude(ev) {
             if (ctx.directive && ctx.directive.active && !ev.allowed) return false;

@@ -10,37 +10,49 @@ QtObject {
         if (!inherited.length)
             return;
 
+        var ownEv = evaluated.ownEvidence || [];
         var directTokens = {};
-        for (var ei = 0; ei < (evaluated.ownEvidence || []).length; ei += 1) {
-            var covered = Evidence.inferCoveredTokenIndexes(evaluated.ownEvidence[ei], query);
+        for (var ei = 0; ei < ownEv.length; ei += 1) {
+            var covered = Evidence.inferCoveredTokenIndexes(ownEv[ei], query);
             for (var ci = 0; ci < covered.length; ci += 1) {
                 if (typeof covered[ci] === "number")
                     directTokens[covered[ci]] = true;
             }
         }
 
-        var filtered = inherited.filter(function(e) {
-            var covered = Evidence.inferCoveredTokenIndexes(e, query);
-            for (var ci = 0; ci < covered.length; ci += 1) {
-                if (typeof covered[ci] === "number" && directTokens[covered[ci]])
-                    return false;
+        var filtered;
+        if (Object.keys(directTokens).length === 0) {
+            filtered = inherited;
+        } else {
+            filtered = [];
+            for (var fi = 0; fi < inherited.length; fi += 1) {
+                var e = inherited[fi];
+                var covered = Evidence.inferCoveredTokenIndexes(e, query);
+                var hasDirect = false;
+                for (var ci = 0; ci < covered.length; ci += 1) {
+                    if (typeof covered[ci] === "number" && directTokens[covered[ci]]) {
+                        hasDirect = true;
+                        break;
+                    }
+                }
+                if (!hasDirect) filtered.push(e);
             }
-            return true;
-        });
+        }
 
         if (!filtered.length)
             return;
 
-        var mapped = filtered.map(function(e) {
-            return Object.assign({}, e, { kind: "path-" + e.kind, originKind: "ancestor", depth: -1, weight: e.weight * 0.7, effective: e.score * e.weight * 0.7 });
-        });
+        var mapped = [];
+        for (var mi = 0; mi < filtered.length; mi += 1) {
+            var fe = filtered[mi];
+            mapped.push(Object.assign({}, fe, { kind: "path-" + fe.kind, originKind: "ancestor", depth: -1, weight: fe.weight * 0.7, effective: fe.score * fe.weight * 0.7 }));
+        }
 
         var addedInherited = evaluated.inheritedEvidence || [];
-        addedInherited = addedInherited.concat(mapped);
-        evaluated.inheritedEvidence = addedInherited;
-        evaluated.evidence = (evaluated.ownEvidence || []).concat(addedInherited);
+        evaluated.inheritedEvidence = addedInherited.concat(mapped);
+        evaluated.evidence = ownEv.concat(evaluated.inheritedEvidence);
 
-        var inheritedResult = Evidence.scoreEvidence(addedInherited, evaluated.node, ctx);
+        var inheritedResult = Evidence.scoreEvidence(evaluated.inheritedEvidence, evaluated.node, ctx);
         evaluated.inheritedScore = Tokenize.clamp(Math.max(evaluated.inheritedScore || 0, inheritedResult.value));
         evaluated.score = Tokenize.clamp(Math.max(evaluated.ownScore || 0, evaluated.inheritedScore, evaluated.descendantScore || 0));
         evaluated.visible = evaluated.visible || inheritedResult.visible;
@@ -49,30 +61,23 @@ QtObject {
     function pathEvidenceFromAncestorsInner(node, query, ctx) {
         if (!ctx.includePath || query.isEmpty)
             return [];
-        var chain = collectParentChain(node).slice(0, -1);
+        var chain = Evaluate.collectParentChain(node);
+        var chainLen = chain.length;
+        if (chainLen <= 1) return [];
         var out = [];
         var weight = 0.24;
-        for (var i = 0; i < chain.length; i += 1) {
-            var fields = IndexBuilder.searchableFields(chain[i]).filter(function(f) {
-                return ["label", "aliases", "keywords"].indexOf(f.field) >= 0;
-            });
+        for (var i = 0; i < chainLen - 1; i += 1) {
+            var ancestor = chain[i];
+            var fields = IndexBuilder.searchableFields(ancestor);
             for (var fi = 0; fi < fields.length; fi += 1) {
-                var inherited = Object.assign({}, fields[fi], { field: "ancestor-" + fields[fi].field, weight: weight * Math.min(1, fields[fi].weight) });
+                var f = fields[fi];
+                if (f.field !== "label" && f.field !== "aliases" && f.field !== "keywords") continue;
+                var inherited = Object.assign({}, f, { field: "ancestor-" + f.field, weight: weight * Math.min(1, f.weight) });
                 out = out.concat(Evidence.matchField(inherited, query, ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"]));
             }
             weight *= 0.72;
         }
         return out;
-    }
-
-    function collectParentChain(node) {
-        var chain = [];
-        var cur = node;
-        while (cur && cur.kind !== "root") {
-            chain.unshift(cur);
-            cur = cur.parent;
-        }
-        return chain;
     }
 
     Component.onCompleted: {
