@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import qs.animations as Animations
 import qs.services
 
 Item {
@@ -19,14 +20,19 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: Config.styling.bg3
+        color: rowMouse.containsMouse && root.enabled ? Config.styling.bg4 : Config.styling.bg3
         radius: Config.styling.radius
+
+        Animations.StateColorBehavior on color {
+        }
     }
 
     MouseArea {
+        id: rowMouse
         anchors.fill: parent
         z: 2
         enabled: root.enabled
+        hoverEnabled: root.enabled
         cursorShape: Qt.PointingHandCursor
         onClicked: {
             root.checked = !root.checked;

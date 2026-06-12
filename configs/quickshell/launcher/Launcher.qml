@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
+import qs.animations as Animations
 import qs.services
 import "backends" as Backends
 import "delegates" as Delegates
@@ -88,7 +89,15 @@ PanelWindow {
     Component.onCompleted: {
         if (WlrLayershell)
             WlrLayershell.layer = WlrLayer.Overlay;
-        controller.resultView = resultRepeater;
+        controller.resultView = resultViewAdapter;
+    }
+
+    QtObject {
+        id: resultViewAdapter
+
+        function itemAt(index) {
+            return resultsList.itemAtIndex(index);
+        }
     }
 
     HyprlandFocusGrab {
@@ -253,32 +262,27 @@ PanelWindow {
 
                 visible: controller.results.length > 0
                 Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(resultsColumn.implicitHeight, root.rowHeight * root.visibleResultRows)
+                Layout.preferredHeight: Math.min(Math.max(resultsList.contentHeight, controller.results.length * root.rowHeight), root.rowHeight * root.visibleResultRows)
                 Layout.maximumHeight: root.rowHeight * root.visibleResultRows
                 clip: true
 
                 function ensureActiveVisible() {
-                    if (controller.selectedIndex < 0 || controller.selectedIndex >= resultRepeater.count)
+                    if (controller.selectedIndex < 0 || controller.selectedIndex >= resultsList.count)
                         return;
-                    var y = 0;
-                    for (var i = 0; i < controller.selectedIndex; i += 1) {
-                        var previous = resultRepeater.itemAt(i);
-                        if (previous && previous.visible)
-                            y += previous.height + resultsColumn.spacing;
-                    }
-                    var current = resultRepeater.itemAt(controller.selectedIndex);
+                    var current = resultsList.itemAtIndex(controller.selectedIndex);
+                    var y = current ? current.y : controller.selectedIndex * (root.rowHeight + resultsList.spacing);
                     var height = current ? current.height : root.rowHeight;
                     if (controller.isInTree()) {
                         var treeRowH = 44;
                         if (current && current.item && current.item.treeRowHeight)
                             treeRowH = current.item.treeRowHeight;
-                        y += root.rowHeight + resultsColumn.spacing + Math.max(0, controller.treeVisualRow) * treeRowH;
+                        y += root.rowHeight + resultsList.spacing + Math.max(0, controller.treeVisualRow) * treeRowH;
                         height = treeRowH;
                     }
-                    if (y < resultsFlickable.contentY)
-                        resultsFlickable.contentY = y;
-                    else if (y + height > resultsFlickable.contentY + resultsFlickable.height)
-                        resultsFlickable.contentY = Math.max(0, y + height - resultsFlickable.height);
+                    if (y < resultsList.contentY)
+                        resultsList.contentY = y;
+                    else if (y + height > resultsList.contentY + resultsList.height)
+                        resultsList.contentY = Math.max(0, y + height - resultsList.height);
                 }
 
                 Connections {
@@ -288,58 +292,72 @@ PanelWindow {
                     function onResultsChanged() { Qt.callLater(resultsFrame.ensureActiveVisible); }
                 }
 
-                Flickable {
-                    id: resultsFlickable
+                ListView {
+                    id: resultsList
                     anchors.fill: parent
                     boundsBehavior: Flickable.StopAtBounds
                     clip: true
-                    contentWidth: width
-                    contentHeight: resultsColumn.implicitHeight
+                    model: controller.results
+                    spacing: Config.spacing.xxs
+                    reuseItems: false
 
-                    ColumnLayout {
-                        id: resultsColumn
-                        width: resultsFlickable.width
-                        spacing: Config.spacing.xxs
+                    add: Transition {
+                        Animations.FadeInAnimation {
+                            properties: "opacity"
+                            from: 0
+                            to: 1
+                        }
+                        Animations.PropertyAnimation {
+                            properties: "y"
+                            kind: Animations.PropertyAnimation.Kind.Layout
+                        }
+                    }
 
-                        Repeater {
-                            id: resultRepeater
-                            model: controller.results.length
+                    remove: Transition {
+                        Animations.FadeOutAnimation {
+                            properties: "opacity"
+                            from: 1
+                            to: 0
+                        }
+                    }
 
-                            Loader {
-                                id: delegateLoader
-                                required property int index
+                    displaced: Transition {
+                        Animations.PropertyAnimation {
+                            properties: "y"
+                            kind: Animations.PropertyAnimation.Kind.Layout
+                        }
+                    }
 
-                                readonly property var resultData: index < controller.results.length ? controller.results[index] : null
+                    delegate: Loader {
+                        id: delegateLoader
 
-                                sourceComponent: resultData ? root.resultDelegate : null
+                        readonly property var resultData: modelData
 
-                                visible: !!resultData
-                                Layout.fillWidth: true
-                                Layout.preferredHeight: visible && item ? item.implicitHeight : 0
+                        width: ListView.view ? ListView.view.width : 0
+                        height: visible && item ? item.implicitHeight : 0
+                        sourceComponent: resultData ? root.resultDelegate : null
+                        visible: !!resultData
 
-                                onLoaded: {
-                                    item.result = Qt.binding(function() { return delegateLoader.resultData; });
-                                    if ("resultIndex" in item)
-                                        item.resultIndex = Qt.binding(function() { return index; });
-                                    item.selected = Qt.binding(function() {
-                                        var result = delegateLoader.resultData || {};
-                                        return controller.activeNodeKey === (result.id || result.nodeId || "");
-                                    });
-                                    item.iconSize = Qt.binding(function() { return root.iconSize; });
-                                    item.showSubtitle = Qt.binding(function() { return root.showSubtitles; });
-                                    item.showActionHint = root.showActionHint;
-                                    if ("showEvidence" in item)
-                                        item.showEvidence = root.showEvidence;
-                                    if ("controller" in item)
-                                        item.controller = controller;
-                                    if (item.activated)
-                                        item.activated.connect(function(result) {
-                                            controller.selectedIndex = index;
-                                            if (controller.activateSelected(false))
-                                                root.close();
-                                        });
-                                }
-                            }
+                        onLoaded: {
+                            item.result = Qt.binding(function() { return delegateLoader.resultData; });
+                            if ("resultIndex" in item)
+                                item.resultIndex = Qt.binding(function() { return index; });
+                            item.selected = Qt.binding(function() {
+                                return controller.selectedIndex === index;
+                            });
+                            item.iconSize = Qt.binding(function() { return root.iconSize; });
+                            item.showSubtitle = Qt.binding(function() { return root.showSubtitles; });
+                            item.showActionHint = root.showActionHint;
+                            if ("showEvidence" in item)
+                                item.showEvidence = root.showEvidence;
+                            if ("controller" in item)
+                                item.controller = controller;
+                            if (item.activated)
+                                item.activated.connect(function(result) {
+                                    controller.selectedIndex = index;
+                                    if (controller.activateSelected(false))
+                                        root.close();
+                                });
                         }
                     }
                 }

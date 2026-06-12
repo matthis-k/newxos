@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import qs.animations as Animations
 import qs.services
 
 Rectangle {
@@ -14,6 +15,10 @@ Rectangle {
     property bool showHeader: title !== "" || subtitle !== "" || summary !== null || headerAccessory !== null || collapsible
     property int sectionPadding: Config.spacing.xs
     property int contentSpacing: Config.spacing.xs
+    readonly property real bodyHeight: bodyClip.implicitHeight
+    readonly property bool showingBody: bodyHeight > 0
+    readonly property int separatorHeight: showHeader && showingBody ? 1 : 0
+    readonly property int bodyTopGap: showHeader && showingBody ? Config.spacing.xs : 0
     default property alias content: body.data
 
     color: Config.styling.bg1
@@ -21,45 +26,51 @@ Rectangle {
     clip: true
     Layout.fillWidth: true
     implicitWidth: Math.max(header.implicitWidth, body.implicitWidth) + sectionPadding * 2
-    implicitHeight: layout.implicitHeight + sectionPadding * 2
+    implicitHeight: sectionPadding * 2
+        + (showHeader ? header.implicitHeight : 0)
+        + bodyTopGap
+        + separatorHeight
+        + bodyTopGap
+        + bodyHeight
 
-    Behavior on height {
-        NumberAnimation {
-            duration: Config.behaviour.animation.enabled
-                ? Config.behaviour.animation.calc(0.18)
-                : 0
-            easing.type: Easing.OutCubic
+    DashboardSectionHeader {
+        id: header
+        x: root.sectionPadding
+        y: root.sectionPadding
+        width: Math.max(0, root.width - root.sectionPadding * 2)
+        visible: root.showHeader
+        title: root.title
+        subtitle: root.subtitle
+        accessory: headerAccessoryComponent
+    }
+
+    Rectangle {
+        id: separator
+        x: root.sectionPadding
+        y: header.y + (root.showHeader ? header.implicitHeight : 0) + root.bodyTopGap
+        width: Math.max(0, root.width - root.sectionPadding * 2)
+        height: root.separatorHeight
+        visible: root.showHeader && (height > 0 || bodyClip.progress > 0)
+        color: Config.styling.bg3
+        opacity: bodyClip.progress
+
+        Animations.RevealBehavior on opacity {
+            duration: Config.motion.micro
         }
     }
 
-    ColumnLayout {
-        id: layout
-        anchors.fill: parent
-        anchors.margins: root.sectionPadding
-        spacing: Config.spacing.xs
+    Expander {
+        id: bodyClip
 
-        DashboardSectionHeader {
-            id: header
-            Layout.fillWidth: true
-            visible: root.showHeader
-            title: root.title
-            subtitle: root.subtitle
-            accessory: headerAccessoryComponent
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            visible: root.showHeader && !root.collapsed
-            implicitHeight: 1
-            color: Config.styling.bg3
-        }
+        x: root.sectionPadding
+        y: separator.y + separator.height + root.bodyTopGap
+        width: Math.max(0, root.width - root.sectionPadding * 2)
+        expanded: !root.collapsed
+        slideDistance: Config.spacing.sm
 
         DashboardSectionContent {
             id: body
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.alignment: Qt.AlignTop
-            visible: !root.collapsed
+            width: parent.width
             contentSpacing: root.contentSpacing
         }
     }
@@ -100,6 +111,9 @@ Rectangle {
                 fillOnHover: true
                 indicatorOnHover: false
                 onClicked: root.collapsed = !root.collapsed
+
+                Animations.StateColorBehavior on iconColor {
+                }
             }
         }
     }

@@ -4,6 +4,7 @@ import QtQuick.Controls.Basic
 import Quickshell
 import Quickshell.Io
 
+import qs.animations as Animations
 import qs.services
 import qs.components
 
@@ -233,17 +234,8 @@ DashboardPage {
         readonly property bool needsPskPrompt: hasNetwork && !network.connected && !root.isOpenNetwork(network) && root.securityNeedsPsk(network.security)
 
         implicitWidth: root.contentWidth
-        implicitHeight: header.implicitHeight + (expanded ? details.implicitHeight + root.itemSpacing : 0)
+        implicitHeight: header.implicitHeight + (details.implicitHeight > 0 ? details.implicitHeight + root.itemSpacing : 0)
         height: implicitHeight
-
-        Behavior on height {
-            NumberAnimation {
-                duration: Config.behaviour.animation.enabled
-                    ? Config.behaviour.animation.calc(0.18)
-                    : 0
-                easing.type: Easing.OutCubic
-            }
-        }
 
         onHasNetworkChanged: {
             if (!hasNetwork && expanded)
@@ -329,37 +321,32 @@ DashboardPage {
                 }
             }
 
-            Rectangle {
+            Expander {
                 id: details
+
                 Layout.fillWidth: true
-                visible: rowRoot.expanded || opacity > 0
-                color: Config.styling.bg1
-                clip: true
-                opacity: rowRoot.expanded ? 1 : 0
-                implicitHeight: visible ? detailsColumn.implicitHeight + root.horizontalPadding * 2 : 0
+                expanded: rowRoot.expanded
+                slideDistance: Config.spacing.sm
 
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: Config.behaviour.animation.enabled
-                            ? Config.behaviour.animation.calc(0.14)
-                            : 0
-                        easing.type: Easing.OutCubic
-                    }
-                }
+                Rectangle {
+                    width: parent.width
+                    height: implicitHeight
+                    color: Config.styling.bg1
+                    implicitHeight: detailsColumn.implicitHeight + root.horizontalPadding * 2
 
-                ColumnLayout {
-                    id: detailsColumn
-                    anchors.fill: parent
-                    anchors.margins: root.horizontalPadding
-                    spacing: Config.spacing.xxs
+                    ColumnLayout {
+                        id: detailsColumn
+                        anchors.fill: parent
+                        anchors.margins: root.horizontalPadding
+                        spacing: Config.spacing.xxs
 
-                    Text {
-                        Layout.fillWidth: true
-                        text: root.primaryNetworkInfo(rowRoot.network)
-                        color: Config.styling.text1
-                        font.pixelSize: 12
-                        wrapMode: Text.Wrap
-                    }
+                        Text {
+                            Layout.fillWidth: true
+                            text: root.primaryNetworkInfo(rowRoot.network)
+                            color: Config.styling.text1
+                            font.pixelSize: 12
+                            wrapMode: Text.Wrap
+                        }
 
                     TextField {
                         id: passwordField
@@ -427,6 +414,7 @@ DashboardPage {
                         color: Config.styling.text2
                         font.pixelSize: 12
                         wrapMode: Text.Wrap
+                    }
                     }
                 }
             }
@@ -600,12 +588,8 @@ DashboardPage {
                     implicitSize: root.itemIconSize
                     rotation: NordVPN.connecting ? 360 : 0
 
-                    RotationAnimation on rotation {
+                    Animations.SpinAnimation on rotation {
                         running: NordVPN.connecting
-                        loops: Animation.Infinite
-                        from: 0
-                        to: 360
-                        duration: Config.behaviour.animation.enabled ? Config.behaviour.animation.calc(0.9) : 0
                     }
                 }
 

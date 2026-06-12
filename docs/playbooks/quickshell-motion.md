@@ -92,14 +92,18 @@ Recipes are finished animation choices composed from foundations. Prefer these f
 | `Animations.ExpandBehavior` | `NumberBehavior(Short)` | button width/height expansion |
 | `Animations.PanelBehavior` | `NumberBehavior(Medium)` | dashboard/panel open, width, opacity |
 | `Animations.LayoutBehavior` | `NumberBehavior(Layout)` | size/layout interpolation |
+| `Animations.ScaleBehavior` | `NumberBehavior(Micro)` | restrained hover/press scale feedback |
 | `Animations.FadeInAnimation` | `PropertyAnimation(Enter)` | explicit fade-in in sequences |
 | `Animations.FadeOutAnimation` | `PropertyAnimation(Exit)` | explicit fade-out in sequences |
+| `Animations.SpinAnimation` | `RotationAnimation` | sustained loading/connecting spinner |
 | `Animations.SettledShiftBehavior` | `ShiftBehavior` with delayed enable | state that must snap on creation, then animate later |
 | `Animations.SettledStateColorBehavior` | `StateColorBehavior` with delayed enable | color state that must snap on creation, then animate later |
 
 Each foundation and recipe exposes override properties (`duration` / `easingType` for behaviors, `motionDuration` / `motionEasingType` for explicit animations) for component-specific cases.
 
 Use settled recipes for controls whose initial state comes from live data. Example: a Wi-Fi switch created while Wi-Fi is already enabled must appear on immediately; only later state changes should animate.
+
+Use `Animations.ScaleBehavior` only for restrained feedback. Preferred ranges are `0.92 -> 1.0`, `0.96 -> 1.0`, or at most `1.0 -> 1.02`.
 
 ## Preferred Easing
 
@@ -157,6 +161,39 @@ Reference implementation: `configs/quickshell/components/ExpandableButton.qml`.
 Bar status icons remain icon-only. The right-side cluster expansion is owned by `ShellState.barExpandedForDashboard` and `Bar.qml`; `StatusIcon.qml` keeps icon, badge, overlay, hover, and active feedback only.
 
 Do not duplicate dashboard open/close/tab state in animated button components. Buttons delegate to `screenState.toggleDashboard(tab)`.
+
+## Dashboard Expanders
+
+Use `configs/quickshell/components/Expander.qml` for clipped expand/collapse reveals. It owns the standard settled initial state, height progress, content-height changes, and slide-down/up motion so content appears to come from the parent.
+
+Use `DashboardSection { collapsible: true }` for dashboard sections such as NordVPN/VPN. It delegates body reveal to `Expander`.
+
+For row-level expanders such as Wi-Fi and Bluetooth device details, keep the expansion state local to the page and wrap details in `Expander`. Do not reorder live rows while a row is expanded; freeze row order if needed.
+
+## Launcher Frontend Motion
+
+Launcher motion is UI-only. Do not change matching, evidence, scoring, ranking, row shaping, backend participation, or policy logic.
+
+Safe launcher targets:
+
+- top-level result `ListView` add/remove/displaced transitions
+- selected row background and border color
+- breadcrumb opacity
+- action hint opacity
+- top-level tree reveal height/slide through `Expander`
+- tree row panel height/color/border
+- tree row entry opacity for visible child rows
+- switch controls through `DashboardToggleSwitch`
+
+`TreeView` inherits `TableView`, not `ListView`; do not add unsupported `add`/`remove`/`displaced` transitions to it. Animate tree expand/collapse through the containing clipped wrapper and row delegates instead.
+
+When launcher results spawn already expanded, the initial tree state must snap into place. Enable tree reveal, row-height, and child-entry animations only after the initial model/default expansion layout settles, so motion only communicates later state changes.
+
+Tree parents stay visually stationary. Do not stretch a parent row background over its descendants; collapse and reveal only the child area below it.
+
+For tree expand/collapse, animate all affected heights. Use `Expander { scaleContentHeight: false }` for the outer launcher tree reveal, use a `TreeView.rowHeightProvider` for child row growth/shrink, and delay the real `TreeView.collapse()` until the shrink finishes; otherwise Qt removes child rows immediately while the parent area is still animating. Pair the height animation with a small upward-to-settled `y` offset so children slide down/up as if produced by the parent.
+
+Avoid adding a second behavior to the outer launcher delegate height when child row heights already drive the reveal. Double-animating parent and child heights makes collapse look sequential instead of simultaneous.
 
 ## Validation
 

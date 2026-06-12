@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import qs.animations as Animations
 import qs.services
 
 ActionButton {
@@ -65,9 +66,12 @@ ActionButton {
                     sourceComponent: Icon {
                         iconName: root.iconName
                         fallbackIconName: root.fallbackIconName
-                        color: root.iconColor
-                        implicitSize: root.iconSize
+                    color: root.iconColor
+                    implicitSize: root.iconSize
+
+                    Animations.StateColorBehavior on color {
                     }
+                }
                 }
             }
 
@@ -83,6 +87,9 @@ ActionButton {
                     font.bold: true
                     font.pixelSize: root.titleSize
                     elide: Text.ElideRight
+
+                    Animations.StateColorBehavior on color {
+                    }
                 }
 
                 Text {
@@ -91,6 +98,9 @@ ActionButton {
                     color: root.subtitleColor
                     font.pixelSize: root.subtitleSize
                     elide: Text.ElideRight
+
+                    Animations.StateColorBehavior on color {
+                    }
                 }
             }
 
@@ -101,6 +111,9 @@ ActionButton {
                 color: root.statusColor
                 font.pixelSize: root.statusSize
                 font.bold: true
+
+                Animations.StateColorBehavior on color {
+                }
             }
         }
     }

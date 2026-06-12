@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import qs.animations as Animations
 import qs.services
 import qs.components
 
@@ -42,6 +43,9 @@ Rectangle {
                 elide: Text.ElideRight
 
                 property bool hoverHighlight: false
+
+                Animations.StateColorBehavior on color {
+                }
 
                 MouseArea {
                     anchors.fill: parent

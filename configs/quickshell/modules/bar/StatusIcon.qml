@@ -30,7 +30,7 @@ ActionButton {
     scaleIcon: true
     iconScaleTarget: statusIcon
     hoveredScale: 1.0
-    unhoveredScale: active ? 1.0 : 0.8
+    unhoveredScale: active ? 1.0 : 0.92
 
     contentItem: Item {
         implicitWidth: root.implicitWidth
@@ -43,6 +43,10 @@ ActionButton {
             fallbackIconName: root.fallbackIconName
             color: root.iconColor
             implicitSize: (parent ? parent.height : root.implicitHeight) * 0.7
+
+            Animations.ScaleBehavior on scale {
+                duration: root.transitionMs > 0 ? Config.motion.micro : 0
+            }
         }
 
         Badge {

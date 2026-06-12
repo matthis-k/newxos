@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Controls.Basic
 import Quickshell.Services.Pipewire
 import Qt.labs.qmlmodels
+import qs.animations as Animations
 import qs.components
 import qs.services
 
@@ -38,6 +39,9 @@ Rectangle {
     readonly property bool confirming: controller && result.id ? controller.pendingConfirmId === result.id : false
     property int _expandedOverride: 0 // 0=use policy, 1=force collapse, 2=force expand
     property bool expanded: _expandedOverride === 1 ? false : (_expandedOverride === 2 ? true : (result.alwaysExpanded !== false && hasTreeChildren))
+    readonly property real treeRevealProgress: treeReveal.progress
+    property bool treeAnimationSettled: false
+    property int treeAnimationGeneration: 0
     signal activated(var result)
 
     Component.onCompleted: syncControllerTreeView()
@@ -45,6 +49,7 @@ Rectangle {
     onControllerChanged: syncControllerTreeView()
     onResultChanged: { _expandedOverride = 0; syncControllerTreeView(); reloadTreeModel(); }
     onSelectedChanged: syncControllerTreeView()
+    onTreeRevealProgressChanged: Qt.callLater(function() { if (childTreeView) childTreeView.forceLayout(); })
 
     function collapseTree() { _expandedOverride = 1; }
     function expandTree() { _expandedOverride = 2; }
@@ -63,14 +68,22 @@ Rectangle {
     }
 
     implicitHeight: Math.max(56, mainLayout.implicitHeight + Config.spacing.xs * 2)
-    color: Config.styling.bg2
+    color: selected ? Config.styling.bg3 : Config.styling.bg2
     border.color: selected ? Config.styling.primaryAccent : Config.styling.bg4
     border.width: 1
     radius: Config.styling.radius
 
+    Animations.StateColorBehavior on color {
+    }
+
+    Animations.StateColorBehavior on border.color {
+    }
+
     ColumnLayout {
         id: mainLayout
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
         anchors.margins: Config.spacing.xs
         spacing: Config.spacing.xxs
 
@@ -106,7 +119,12 @@ Rectangle {
                 RowLayout {
                     spacing: Config.spacing.xxs
                     Layout.fillWidth: true
-                    visible: (root.result.breadcrumbText || (root.result.breadcrumbs || root.result.path || []).length > 0)
+                    readonly property bool hasBreadcrumbs: (root.result.breadcrumbText || (root.result.breadcrumbs || root.result.path || []).length > 0)
+                    visible: hasBreadcrumbs || opacity > 0
+                    opacity: hasBreadcrumbs ? 1 : 0
+
+                    Animations.RevealBehavior on opacity {
+                    }
 
                     Text {
                         text: root.result.breadcrumbText || ""
@@ -185,8 +203,13 @@ Rectangle {
                 Rectangle {
                     anchors.fill: parent
                     visible: root.confirming
+                        || opacity > 0
+                    opacity: root.confirming ? 1 : 0
                     color: Config.colors.red
                     radius: Config.styling.radius
+
+                    Animations.RevealBehavior on opacity {
+                    }
 
                     Text {
                         anchors.centerIn: parent
@@ -202,11 +225,15 @@ Rectangle {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     text: root.showActionHint && root.defaultAction && !root.confirming ? root.defaultAction.label : ""
-                    visible: text.length > 0 && !switchColumn.visible && !sliderColumn.visible
+                    visible: (text.length > 0 && !switchColumn.visible && !sliderColumn.visible) || opacity > 0
+                    opacity: text.length > 0 && !switchColumn.visible && !sliderColumn.visible ? 1 : 0
                     color: Config.styling.text1
                     font.pixelSize: 12
                     elide: Text.ElideRight
                     horizontalAlignment: Text.AlignRight
+
+                    Animations.RevealBehavior on opacity {
+                    }
                 }
             }
 
@@ -270,23 +297,57 @@ Rectangle {
             }
         }
 
-        ColumnLayout {
-            visible: root.expanded && root.hasTreeChildren
+        Expander {
+            id: treeReveal
+
             Layout.fillWidth: true
-            spacing: Config.spacing.xxs
+            expanded: root.expanded && root.hasTreeChildren
+            animationEnabled: root.treeAnimationSettled
+            scaleContentHeight: false
+            slideDistance: Config.spacing.sm
+
+            ColumnLayout {
+                id: treeContent
+
+                anchors.left: parent.left
+                anchors.right: parent.right
+                spacing: Config.spacing.xxs
 
                 TreeView {
                     id: childTreeView
                     visible: treeModel.rows && treeModel.rows.length > 0
                     interactive: false
+                    animate: Config.behaviour.animation.enabled
                     keyNavigationEnabled: false
                     clip: false
+                    reuseItems: false
                     selectionModel: ItemSelectionModel {}
                     Layout.fillWidth: true
-                    implicitHeight: rows * root.treeRowHeight + Config.spacing.xs
+                    implicitHeight: effectiveContentHeight
                     columnWidthProvider: function(column) { return column === 0 ? width : 0; }
+                    rowHeightProvider: function(row) { return childTreeView.rowRevealHeight(row); }
 
+                    property int animatedParentRow: -1
+                    property int animatedParentDepth: -1
+                    property bool collapseAfterAnimation: false
+                    property real childRevealProgress: 1
+                    readonly property real effectiveContentHeight: childTreeView.totalRevealHeight()
+
+                    onRowsChanged: Qt.callLater(function() { childTreeView.forceLayout(); })
+                    onChildRevealProgressChanged: forceLayout()
                     onWidthChanged: forceLayout()
+
+                    Animations.LayoutBehavior on childRevealProgress {
+                        enabled: root.treeAnimationSettled
+                    }
+
+                    Timer {
+                        id: childCollapseFinish
+
+                        interval: Config.motion.medium
+                        repeat: false
+                        onTriggered: childTreeView.finishAnimatedCollapse()
+                    }
 
                     model: TreeModel {
                         id: treeModel
@@ -314,25 +375,108 @@ Rectangle {
                         Component.onCompleted: root.reloadTreeModel()
                     }
 
-                delegate: TreeRowDelegate {
-                    controller: root.controller
-                    rowHeight: root.treeRowHeight
+                    delegate: TreeRowDelegate {
+                        controller: root.controller
+                        animateEntry: root.treeAnimationSettled
+                        rowHeight: root.treeRowHeight
+                    }
+
+                    onExpanded: function(row, depth) {
+                    }
+
+                    function rowRevealHeight(row) {
+                        return root.treeRowHeight * childTreeView.rowRevealProgress(row);
+                    }
+
+                    function rowRevealProgress(row) {
+                        var progress = root.treeRevealProgress;
+                        if (childTreeView.isAnimatedDescendant(row))
+                            progress *= childTreeView.childRevealProgress;
+                        return Math.max(0, Math.min(1, progress));
+                    }
+
+                    function totalRevealHeight() {
+                        var total = 0;
+                        for (var row = 0; row < childTreeView.rows; row += 1)
+                            total += childTreeView.rowRevealHeight(row);
+                        return total + Config.spacing.xs * root.treeRevealProgress;
+                    }
+
+                    function isAnimatedDescendant(row) {
+                        return childTreeView.animatedParentRow >= 0
+                            && row > childTreeView.animatedParentRow
+                            && childTreeView.depth(row) > childTreeView.animatedParentDepth;
+                    }
+
+                    function expandAnimated(row) {
+                        if (!root.treeAnimationSettled || !Config.behaviour.animation.enabled) {
+                            childTreeView.expand(row);
+                            return;
+                        }
+                        if (childTreeView.isExpanded(row))
+                            return;
+                        childCollapseFinish.stop();
+                        childTreeView.animatedParentRow = row;
+                        childTreeView.animatedParentDepth = childTreeView.depth(row);
+                        childTreeView.collapseAfterAnimation = false;
+                        childTreeView.childRevealProgress = 0;
+                        childTreeView.expand(row);
+                        childTreeView.forceLayout();
+                        Qt.callLater(function() {
+                            childTreeView.childRevealProgress = 1;
+                            childTreeView.forceLayout();
+                        });
+                    }
+
+                    function collapseAnimated(row) {
+                        if (!root.treeAnimationSettled || !Config.behaviour.animation.enabled) {
+                            childTreeView.collapse(row);
+                            return;
+                        }
+                        if (!childTreeView.isExpanded(row))
+                            return;
+                        childCollapseFinish.stop();
+                        childTreeView.animatedParentRow = row;
+                        childTreeView.animatedParentDepth = childTreeView.depth(row);
+                        childTreeView.collapseAfterAnimation = true;
+                        childTreeView.childRevealProgress = 1;
+                        childTreeView.forceLayout();
+                        Qt.callLater(function() {
+                            childTreeView.childRevealProgress = 0;
+                            childTreeView.forceLayout();
+                            childCollapseFinish.restart();
+                        });
+                    }
+
+                    function toggleExpandedAnimated(row) {
+                        if (childTreeView.isExpanded(row))
+                            childTreeView.collapseAnimated(row);
+                        else
+                            childTreeView.expandAnimated(row);
+                    }
+
+                    function finishAnimatedCollapse() {
+                        if (childTreeView.collapseAfterAnimation && childTreeView.animatedParentRow >= 0)
+                            childTreeView.collapse(childTreeView.animatedParentRow);
+                        childTreeView.animatedParentRow = -1;
+                        childTreeView.animatedParentDepth = -1;
+                        childTreeView.collapseAfterAnimation = false;
+                        childTreeView.childRevealProgress = 1;
+                        childTreeView.forceLayout();
+                    }
                 }
 
-                onExpanded: function(row, depth) {
-                }
-            }
+                Item {
+                    visible: !(treeModel.rows && treeModel.rows.length > 0) && root.hasTreeChildren
+                    Layout.preferredHeight: root.treeRowHeight
+                    Layout.fillWidth: true
 
-            Item {
-                visible: !(treeModel.rows && treeModel.rows.length > 0) && root.hasTreeChildren
-                Layout.preferredHeight: root.treeRowHeight
-                Layout.fillWidth: true
-
-                Text {
-                    anchors.centerIn: parent
-                    text: qsTr("No matching children")
-                    color: Config.styling.text2
-                    font.pixelSize: 11
+                    Text {
+                        anchors.centerIn: parent
+                        text: qsTr("No matching children")
+                        color: Config.styling.text2
+                        font.pixelSize: 11
+                    }
                 }
             }
         }
@@ -341,8 +485,25 @@ Rectangle {
     function reloadTreeModel() {
         if (!treeModel)
             return;
+        var generation = root.resetTreeAnimation();
         treeModel.rows = root.buildTreeRows(root.result.children || []);
-        Qt.callLater(root.expandDefaultTreeRows);
+        Qt.callLater(function() {
+            root.expandDefaultTreeRows();
+            root.settleTreeAnimationLater(generation);
+        });
+    }
+
+    function resetTreeAnimation() {
+        root.treeAnimationSettled = false;
+        root.treeAnimationGeneration += 1;
+        return root.treeAnimationGeneration;
+    }
+
+    function settleTreeAnimationLater(generation) {
+        Qt.callLater(function() {
+            if (root.treeAnimationGeneration === generation)
+                root.treeAnimationSettled = true;
+        });
     }
 
     function expandDefaultTreeRows() {

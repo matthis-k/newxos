@@ -1023,7 +1023,10 @@ Item {
         }
         if (treeVisualRow >= 0) {
             if (currentTreeView.isExpanded(treeVisualRow)) {
-                currentTreeView.collapse(treeVisualRow);
+                if (typeof currentTreeView.collapseAnimated === "function")
+                    currentTreeView.collapseAnimated(treeVisualRow);
+                else
+                    currentTreeView.collapse(treeVisualRow);
                 if (root.debugEnabled)
                     DebugLogger.log("switch", "treeCollapseSelected collapsed current row", {
                         row: treeVisualRow,
@@ -1045,7 +1048,10 @@ Item {
                 return false;
             var parentIdx = currentTreeView.model.parent(idx);
             if (parentIdx.valid) {
-                currentTreeView.collapse(parentIdx.row);
+                if (typeof currentTreeView.collapseAnimated === "function")
+                    currentTreeView.collapseAnimated(parentIdx.row);
+                else
+                    currentTreeView.collapse(parentIdx.row);
                 currentTreeView.selectionModel.setCurrentIndex(parentIdx, ItemSelectionModel.SelectCurrent);
                 treeVisualRow = parentIdx.row;
                 var keyIdx = currentTreeView.index(parentIdx.row, 9);
@@ -1087,7 +1093,10 @@ Item {
                 });
             return false;
         }
-        currentTreeView.expand(treeVisualRow);
+        if (typeof currentTreeView.expandAnimated === "function")
+            currentTreeView.expandAnimated(treeVisualRow);
+        else
+            currentTreeView.expand(treeVisualRow);
         if (root.debugEnabled)
             DebugLogger.log("switch", "treeExpandSelected expanded current row", {
                 row: treeVisualRow,

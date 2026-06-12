@@ -49,7 +49,7 @@ All UI must follow the flat-design contract: no gradients, shadows, or 3D. Use p
 - Colors: `Colours.palette.*` and `Appearance.*`.
 - Spacing: 4/8/12/16 px scale from `Config.spacing`.
 - Animations: state transitions only, 100-320ms via `qs.animations` recipes such as `Animations.RevealBehavior`, `Animations.StateColorBehavior`, `Animations.PanelBehavior`, or `Config.motion.*` tokens. `Easing.OutCubic` for enter, `Easing.InCubic` for exit. See `docs/playbooks/quickshell-motion.md`.
-- Respect `behaviourObj.animation.enabled`; motion tokens handle this automatically.
+- Respect `Config.behaviour.animation.enabled`; motion tokens handle this automatically.
 - One primary accent (`blue`) and one secondary (`sky`) per view max.
 
 ## QML Rules

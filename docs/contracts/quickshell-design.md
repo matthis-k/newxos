@@ -32,8 +32,8 @@ Keep spacing consistent within a component. Read `Config.spacing` for exact valu
 - Only for state transitions (hover, focus, toggle, open/close), not decoration.
 - 100-250ms for micro-interactions, up to 400ms for panel open/close.
 - Prefer `Easing.InOutQuad` or `Easing.OutCubic`.
-- Respect `behaviourObj.animation.enabled`; skip animations when disabled.
-- Use `behaviourObj.animation.calc(baseSeconds)` for duration calculation.
+- Respect `Config.behaviour.animation.enabled`; skip animations when disabled.
+- Prefer `qs.animations` recipes or `Config.motion.*` tokens for duration selection.
 
 ## Layout
 

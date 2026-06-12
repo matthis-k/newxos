@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
 import Quickshell.Services.Pipewire
+import qs.animations as Animations
 import qs.components
 import qs.services
 
@@ -43,11 +44,15 @@ Rectangle {
     readonly property real sliderValue: sliderValueFor(control, sliderNode)
     readonly property bool liveSwitchState: switchStateFor(control, sliderNode)
     readonly property bool active: root.controller && root.controller.activeNodeKey === root.key
-    readonly property int containedRows: root.hasChildren && root.expanded ? 1 + root.visibleDescendantRows() : 1
+    readonly property real revealProgress: root.treeView && typeof root.treeView.rowRevealProgress === "function" ? root.treeView.rowRevealProgress(root.row) : 1
+    readonly property real revealSlideOffset: -Config.spacing.sm * (1 - revealProgress)
     readonly property int depthInset: root.depth * Config.spacing.xs
-    readonly property real rowPanelHeight: root.rowHeight - Math.max(Config.spacing.xxs, root.depthGap(root.depth) - Config.spacing.xxs)
-    readonly property real rowPanelY: (root.rowHeight - root.rowPanelHeight) / 2
+    readonly property real rowPanelHeight: Math.max(0, root.height - Math.max(Config.spacing.xxs, root.depthGap(root.depth) - Config.spacing.xxs))
+    readonly property real rowPanelY: root.height <= 0 ? 0 : (root.height - root.rowPanelHeight) / 2
     readonly property real contentInsetY: Config.spacing.xxs
+    property bool animateEntry: false
+    property bool entryAnimationActive: false
+    property bool entryReady: false
 
     function cell(column) {
         if (!root.treeView || !root.treeView.model)
@@ -60,39 +65,24 @@ Rectangle {
         return root.treeView.model.data(idx, "display");
     }
 
-    function rowDepth(row) {
-        if (!root.treeView || !root.treeView.model || row < 0 || row >= root.treeView.rows)
-            return -1;
-        var idx = root.treeView.index(row, 0);
-        if (!idx.valid)
-            return -1;
-        var depth = 0;
-        var parent = root.treeView.model.parent(idx);
-        while (parent && parent.valid) {
-            depth += 1;
-            parent = root.treeView.model.parent(parent);
-        }
-        return depth;
-    }
-
-    function visibleDescendantRows() {
-        if (!root.treeView)
-            return 0;
-        var count = 0;
-        for (var nextRow = root.row + 1; nextRow < root.treeView.rows; nextRow += 1) {
-            if (root.rowDepth(nextRow) <= root.depth)
-                break;
-            count += 1;
-        }
-        return count;
-    }
-
     function depthGap(depth) {
         return Math.max(Config.spacing.xxs, Config.spacing.xs - depth * 2);
     }
 
     implicitHeight: root.rowHeight
+    opacity: !entryAnimationActive || entryReady ? 1 : 0
+    clip: true
     z: root.depth
+
+    Component.onCompleted: {
+        if (root.animateEntry && Config.behaviour.animation.enabled) {
+            root.entryAnimationActive = true;
+            Qt.callLater(function() { root.entryReady = true; });
+        }
+    }
+
+    Animations.RevealBehavior on opacity {
+    }
 
     onCurrentChanged: {
         if (root.current && root.controller) {
@@ -108,21 +98,25 @@ Rectangle {
     Rectangle {
         id: depthPanel
         x: root.depthInset
-        y: root.rowPanelY
+        y: root.rowPanelY + root.revealSlideOffset
         width: root.width - root.depthInset * 2
-        height: root.hasChildren && root.expanded
-            ? root.containedRows * root.rowHeight + root.rowPanelY
-            : root.rowPanelHeight
-        color: root.depth % 2 === 0 ? Config.styling.bg3 : Config.styling.bg4
+        height: root.rowPanelHeight
+        color: root.active ? Config.styling.selectionBackground : (root.depth % 2 === 0 ? Config.styling.bg3 : Config.styling.bg4)
         border.color: root.active ? Config.styling.primaryAccent : Config.styling.bg5
         border.width: 1
         radius: Config.styling.radius
+
+        Animations.StateColorBehavior on color {
+        }
+
+        Animations.StateColorBehavior on border.color {
+        }
     }
 
     Item {
         id: contentFrame
         x: Config.spacing.xs
-        y: root.rowPanelY
+        y: root.rowPanelY + root.revealSlideOffset
         width: parent.width - Config.spacing.xs * 2
         height: root.rowPanelHeight
 
@@ -142,6 +136,9 @@ Rectangle {
                     visible: root.hasChildren
                     iconName: root.expanded ? "pan-down-symbolic" : "pan-end-symbolic"
                     color: Config.styling.text1
+
+                    Animations.StateColorBehavior on color {
+                    }
                 }
 
                 TapHandler {
@@ -153,7 +150,10 @@ Rectangle {
                             if (root.controller)
                                 root.controller.loadLazyChildren(root.key);
                         } else {
-                            root.treeView.toggleExpanded(root.row);
+                            if (root.treeView && typeof root.treeView.toggleExpandedAnimated === "function")
+                                root.treeView.toggleExpandedAnimated(root.row);
+                            else
+                                root.treeView.toggleExpanded(root.row);
                         }
                     }
                 }
@@ -168,6 +168,9 @@ Rectangle {
                 Layout.preferredWidth: 20
                 Layout.preferredHeight: 20
                 Layout.alignment: Qt.AlignVCenter
+
+                Animations.StateColorBehavior on color {
+                }
             }
 
             ColumnLayout {
@@ -200,13 +203,18 @@ Rectangle {
 
             Text {
                 text: root.defaultActionLabel
-                visible: root.hasActions && text.length > 0 && !switchColumn.visible && !sliderColumn.visible
+                readonly property bool hintVisible: root.hasActions && text.length > 0 && !switchColumn.visible && !sliderColumn.visible
+                visible: hintVisible || opacity > 0
+                opacity: hintVisible ? 1 : 0
                 color: Config.styling.text1
                 font.pixelSize: 12
                 elide: Text.ElideRight
                 horizontalAlignment: Text.AlignRight
                 Layout.preferredWidth: 92
                 Layout.alignment: Qt.AlignVCenter
+
+                Animations.RevealBehavior on opacity {
+                }
             }
 
             ColumnLayout {

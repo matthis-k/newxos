@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
+import qs.animations as Animations
 
 Button {
     id: root
@@ -46,6 +47,11 @@ Button {
 
     Item {
         id: defaultContent
+
+        Animations.ScaleBehavior on scale {
+            duration: root.scaleAnimationDuration
+            easingType: root.scaleAnimationEasing
+        }
     }
 
     HoverHandler {

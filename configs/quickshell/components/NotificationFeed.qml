@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import Quickshell.Services.Notifications
 
+import qs.animations as Animations
 import qs.services
 
 Item {
@@ -69,12 +70,21 @@ Item {
                         delegate: Rectangle {
                             required property var modelData
                             readonly property var notification: modelData
+                            readonly property bool hovered: rowHover.hovered
 
                             Layout.fillWidth: true
-                            color: Config.styling.bg2
+                            color: hovered ? Config.styling.bg3 : Config.styling.bg2
                             radius: Config.styling.radius
                             implicitWidth: feedColumn.width
                             implicitHeight: body.implicitHeight + Config.spacing.xs * 2
+
+                            Animations.StateColorBehavior on color {
+                            }
+
+                            HoverHandler {
+                                id: rowHover
+                                cursorShape: Qt.PointingHandCursor
+                            }
 
                             TapHandler {
                                 acceptedButtons: Qt.LeftButton
@@ -176,8 +186,12 @@ Item {
                 id: emptyState
                 anchors.fill: parent
                 visible: root.orderedNotifications.length === 0
+                opacity: visible ? 1 : 0
                 title: root.emptyTitle
                 description: root.emptyDescription
+
+                Animations.RevealBehavior on opacity {
+                }
             }
         }
     }

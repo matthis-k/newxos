@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import qs.animations as Animations
 import qs.services
 
 Rectangle {
@@ -27,6 +28,9 @@ Rectangle {
     radius: Config.styling.radius
     implicitHeight: content.implicitHeight + Config.spacing.xs * 2
 
+    Animations.StateColorBehavior on color {
+    }
+
     ColumnLayout {
         id: content
         anchors.fill: parent
@@ -53,6 +57,9 @@ Rectangle {
                     iconName: root.iconName
                     color: root.iconColor
                     implicitSize: 18
+
+                    Animations.StateColorBehavior on color {
+                    }
                 }
             }
 
@@ -71,6 +78,9 @@ Rectangle {
                 color: Config.colors.blue
                 font.pixelSize: 12
                 font.bold: true
+
+                Animations.RevealBehavior on opacity {
+                }
             }
         }
 
