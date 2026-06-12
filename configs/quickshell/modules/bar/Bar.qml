@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import qs.animations as Animations
 import qs.services
 import qs.components
 import qs.modules.quickmenu
@@ -46,8 +47,12 @@ Rectangle {
         spacing: root.rightExpanded ? Config.spacing.xxs : 0
         clip: true
 
-        Behavior on width { NumberAnimation { duration: root.transitionMs; easing.type: Easing.OutCubic } }
-        Behavior on spacing { NumberAnimation { duration: root.transitionMs; easing.type: Easing.OutCubic } }
+        Animations.PanelBehavior on width {
+            duration: root.transitionMs
+        }
+        Animations.PanelBehavior on spacing {
+            duration: root.transitionMs
+        }
 
         // Icon order must match ShellState.dashboardTabs and quickmenu/Window.qml SwipeView pages.
         OverviewIcon   { screenState: root.screenState; Layout.fillWidth: root.rightExpanded }

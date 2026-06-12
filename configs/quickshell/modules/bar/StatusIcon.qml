@@ -1,4 +1,5 @@
 import QtQuick
+import qs.animations as Animations
 import qs.services
 import qs.components
 
@@ -20,7 +21,7 @@ ActionButton {
     readonly property bool expanded: !!screenState && screenState.barExpandedForDashboard
     readonly property int transitionMs: screenState
         ? screenState.dashboardTransitionMs
-        : (Config.behaviour.animation.enabled ? Config.behaviour.animation.calc(0.18) : 0)
+        : Config.motion.short
 
     implicitWidth: parent ? parent.height : 24
     implicitHeight: parent ? parent.height : 24
@@ -65,18 +66,12 @@ ActionButton {
         }
     }
 
-    Behavior on x {
-        NumberAnimation {
-            duration: root.transitionMs
-            easing.type: Easing.OutCubic
-        }
+    Animations.ShiftBehavior on x {
+        duration: root.transitionMs
     }
 
-    Behavior on width {
-        NumberAnimation {
-            duration: root.transitionMs
-            easing.type: Easing.OutCubic
-        }
+    Animations.ShiftBehavior on width {
+        duration: root.transitionMs
     }
 
     onClicked: {

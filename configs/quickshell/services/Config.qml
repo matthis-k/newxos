@@ -220,6 +220,10 @@ Singleton {
             function calc(baseDurationSeconds) {
                 return baseDurationSeconds * 1000 * (duration_multiplier || 0);
             }
+            readonly property int micro: enabled ? calc(0.10) : 0
+            readonly property int short: enabled ? calc(0.16) : 0
+            readonly property int medium: enabled ? calc(0.22) : 0
+            readonly property int long: enabled ? calc(0.32) : 0
         }
     }
 
@@ -318,6 +322,13 @@ Singleton {
     }
 
     readonly property Palette palette: styling
+
+    readonly property QtObject motion: QtObject {
+        readonly property int micro: behaviour.animation.micro
+        readonly property int short: behaviour.animation.short
+        readonly property int medium: behaviour.animation.medium
+        readonly property int long: behaviour.animation.long
+    }
 
     readonly property alias colors: colorsObj
     readonly property alias wallpaper: styleState.wallpaper

@@ -1,7 +1,9 @@
 import QtQuick
+import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import Quickshell.Services.UPower
 
+import qs.animations as Animations
 import qs.services
 import qs.services as Services
 import qs.components
@@ -71,92 +73,47 @@ ColumnLayout {
             }));
     }
 
-    component ProfileButton: ActionButton {
-        id: option
+    function modeIndex(mode) {
+        switch (mode) {
+        case PowerProfile.PowerSaver:
+            return 0;
+        case PowerProfile.Performance:
+            return 2;
+        default:
+            return 1;
+        }
+    }
 
-        required property int mode
-        required property color optionColor
+    function modeFromIndex(index) {
+        switch (Math.round(index)) {
+        case 0:
+            return PowerProfile.PowerSaver;
+        case 2:
+            return PowerProfile.Performance;
+        default:
+            return PowerProfile.Balanced;
+        }
+    }
 
-        readonly property bool isActive: PowerProfiles.profile === mode
+    function modeLabel(mode) {
+        switch (mode) {
+        case PowerProfile.PowerSaver:
+            return "Power Saver";
+        case PowerProfile.Performance:
+            return "Performance";
+        default:
+            return "Balanced";
+        }
+    }
 
-        implicitWidth: root.contentWidth
-        implicitHeight: root.rowHeight
-        active: isActive
-        accentColor: optionColor
-        fillOpacity: isActive ? 0.28 : Config.behaviour.hoverBgOpacity
-        highlightSide: ActiveIndicator.Side.Left
-        highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAlong
-        highlightThickness: Config.spacing.xxs
-        scaleText: true
-        textScaleTarget: profileLabel
-        hoveredScale: 1.0
-        unhoveredScale: 0.8
-
-        onClicked: PowerProfiles.profile = mode
-
-        contentItem: Item {
-            implicitWidth: row.implicitWidth + 2 * root.horizontalPadding
-            implicitHeight: row.implicitHeight + 2 * root.verticalPadding
-
-            RowLayout {
-                id: row
-                anchors {
-                    left: parent.left
-                    leftMargin: root.horizontalPadding
-                    right: parent.right
-                    rightMargin: root.horizontalPadding
-                    top: parent.top
-                    topMargin: root.verticalPadding
-                    bottom: parent.bottom
-                    bottomMargin: root.verticalPadding
-                }
-                spacing: root.iconTextGap
-
-                Item {
-                    Layout.preferredWidth: root.buttonIconSlotWidth
-                    Layout.minimumWidth: root.buttonIconSlotWidth
-                    Layout.maximumWidth: root.buttonIconSlotWidth
-                    Layout.preferredHeight: root.buttonIconSize
-                    Layout.alignment: Qt.AlignVCenter
-
-                    Icon {
-                        id: profileIcon
-                        anchors.fill: parent
-                        iconName: option.iconName
-                        color: option.optionColor
-                        implicitSize: root.buttonIconSize
-                        smooth: true
-                        scale: option.hovered ? 1.15 : 1.0
-
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: option.scaleAnimationDuration
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                    }
-                }
-
-                Text {
-                    id: profileLabel
-                    Layout.fillWidth: true
-                    Layout.alignment: Qt.AlignVCenter
-                    text: option.text
-                    color: option.isActive ? option.optionColor : Config.styling.text0
-                    font.bold: true
-                    font.pixelSize: root.buttonTextPixelSize
-                    transformOrigin: Item.Left
-
-                    Behavior on scale {
-                        enabled: Config.behaviour.animation.enabled
-                        NumberAnimation {
-                            duration: Config.behaviour.animation.calc(0.1)
-                            easing.type: Easing.Bezier
-                            easing.bezierCurve: [0.4, 0.0, 0.2, 1.0]
-                        }
-                    }
-                }
-            }
+    function modeColor(mode) {
+        switch (mode) {
+        case PowerProfile.PowerSaver:
+            return Config.styling.good;
+        case PowerProfile.Performance:
+            return Config.styling.critical;
+        default:
+            return Config.colors.yellow;
         }
     }
 
@@ -217,38 +174,140 @@ ColumnLayout {
 
     component PowerModesBlock: ColumnLayout {
         Layout.fillWidth: true
-        spacing: root.buttonSpacing
+        spacing: Config.spacing.xs
 
-        Text {
+        Item {
+            id: modeLabelSlot
+
             Layout.fillWidth: true
-            text: "Power mode"
-            color: Config.styling.text1
-            font.pixelSize: 14
-            font.bold: true
+            Layout.preferredHeight: modeLabel.implicitHeight
+            clip: true
+
+            property int displayedIndex: root.modeIndex(PowerProfiles.profile)
+            property string displayedText: root.modeLabel(PowerProfiles.profile)
+            property color displayedColor: root.modeColor(PowerProfiles.profile)
+
+            function labelX() {
+                if (displayedIndex === 0)
+                    return 0;
+                if (displayedIndex === 2)
+                    return Math.max(0, width - modeLabel.implicitWidth);
+                return Math.round((width - modeLabel.implicitWidth) / 2);
+            }
+
+            function syncLabel() {
+                displayedIndex = root.modeIndex(PowerProfiles.profile);
+                displayedText = root.modeLabel(PowerProfiles.profile);
+                displayedColor = root.modeColor(PowerProfiles.profile);
+            }
+
+            Connections {
+                target: PowerProfiles
+
+                function onProfileChanged() {
+                    if (labelMorph.running)
+                        labelMorph.restart();
+                    else
+                        labelMorph.start();
+                }
+            }
+
+            Text {
+                id: modeLabel
+
+                x: modeLabelSlot.labelX()
+                text: modeLabelSlot.displayedText
+                color: modeLabelSlot.displayedColor
+                font.pixelSize: root.buttonTextPixelSize
+                font.bold: true
+
+                Animations.ShiftBehavior on x {
+                }
+
+                Animations.StateColorBehavior on color {
+                }
+            }
+
+            SequentialAnimation {
+                id: labelMorph
+
+                Animations.FadeOutAnimation {
+                    target: modeLabel
+                    property: "opacity"
+                    to: 0
+                }
+
+                ScriptAction {
+                    script: modeLabelSlot.syncLabel()
+                }
+
+                Animations.FadeInAnimation {
+                    target: modeLabel
+                    property: "opacity"
+                    to: 1
+                }
+            }
         }
 
-        ProfileButton {
+        RowLayout {
             Layout.fillWidth: true
-            mode: PowerProfile.PowerSaver
-            text: "Power Saver"
-            iconName: "power-profile-power-saver-symbolic"
-            optionColor: Config.styling.good
-        }
+            spacing: Config.spacing.sm
 
-        ProfileButton {
-            Layout.fillWidth: true
-            mode: PowerProfile.Balanced
-            text: "Balanced"
-            iconName: "power-profile-balanced-symbolic"
-            optionColor: Config.colors.yellow
-        }
+            Icon {
+                iconName: "power-profile-power-saver-symbolic"
+                color: Config.styling.good
+                implicitSize: root.buttonIconSize
+                Layout.preferredWidth: root.buttonIconSlotWidth
+                Layout.preferredHeight: root.buttonIconSize
+                Layout.alignment: Qt.AlignVCenter
+            }
 
-        ProfileButton {
-            Layout.fillWidth: true
-            mode: PowerProfile.Performance
-            text: "Performance"
-            iconName: "power-profile-performance-symbolic"
-            optionColor: Config.styling.critical
+            Item {
+                Layout.fillWidth: true
+                Layout.preferredHeight: modeSlider.implicitHeight
+                Layout.alignment: Qt.AlignVCenter
+
+                StyledSlider {
+                    id: modeSlider
+                    anchors.fill: parent
+                    from: 0
+                    to: 2
+                    stepSize: 1
+                    snapMode: Slider.SnapAlways
+                    accentColor: root.modeColor(PowerProfiles.profile)
+
+                    Binding {
+                        target: modeSlider
+                        property: "value"
+                        value: root.modeIndex(PowerProfiles.profile)
+                        when: !modeSlider.pressed
+                    }
+
+                    onMoved: PowerProfiles.profile = root.modeFromIndex(value)
+                    onPressedChanged: {
+                        if (!pressed)
+                            PowerProfiles.profile = root.modeFromIndex(value);
+                    }
+                }
+
+                Rectangle {
+                    width: 2
+                    height: 8
+                    radius: width / 2
+                    color: Config.styling.bg8
+                    x: Math.round(parent.width / 2 - width / 2)
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+
+            Icon {
+                iconName: "power-profile-performance-symbolic"
+                color: Config.styling.critical
+                implicitSize: root.buttonIconSize
+                Layout.preferredWidth: root.buttonIconSlotWidth
+                Layout.preferredHeight: root.buttonIconSize
+                Layout.alignment: Qt.AlignVCenter
+            }
         }
     }
 

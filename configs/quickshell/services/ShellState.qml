@@ -28,7 +28,7 @@ Singleton {
         property string dashboardPhase: "closed"
         readonly property bool dashboardOpen: dashboardPhase !== "closed"
         readonly property bool barExpandedForDashboard: dashboardOpen
-        readonly property int dashboardTransitionMs: Config.behaviour.animation.enabled ? Config.behaviour.animation.calc(0.18) : 0
+        readonly property int dashboardTransitionMs: Config.motion.medium
 
         function normalizeTab(tabName) {
             const normalized = tabName || "overview";

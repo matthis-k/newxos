@@ -2,7 +2,9 @@ import QtQuick
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Wayland
+import qs.animations as Animations
 import qs.services
+import qs.components
 
 PanelWindow {
     id: root
@@ -95,13 +97,7 @@ PanelWindow {
         color: Config.colorWithOpacity(Config.styling.bg0, 1)
         opacity: root.backdropOpacity
 
-        Behavior on opacity {
-            NumberAnimation {
-                duration: Config.behaviour.animation.enabled
-                    ? Config.behaviour.animation.calc(0.18)
-                    : 0
-                easing.type: Easing.OutCubic
-            }
+        Animations.PanelBehavior on opacity {
         }
     }
 
@@ -115,24 +111,12 @@ PanelWindow {
         width: root.targetWidth * root.panelProgress
         height: root.targetHeight
 
-        Behavior on width {
-            NumberAnimation {
-                duration: Config.behaviour.animation.enabled
-                    ? Config.behaviour.animation.calc(0.18)
-                    : 0
-                easing.type: Easing.OutCubic
-            }
+        Animations.PanelBehavior on width {
         }
 
         opacity: root.panelProgress
 
-        Behavior on opacity {
-            NumberAnimation {
-                duration: Config.behaviour.animation.enabled
-                    ? Config.behaviour.animation.calc(0.18)
-                    : 0
-                easing.type: Easing.OutCubic
-            }
+        Animations.PanelBehavior on opacity {
         }
 
         scale: 1

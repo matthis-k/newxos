@@ -14,6 +14,7 @@ All UI must follow the flat-design contract: no gradients, shadows, or 3D. Use p
 - `docs/contracts/quickshell-design.md` — visual style, spacing scale, animation rules, QML conventions
 - `docs/pitfalls.md` — Quickshell section
 - `docs/playbooks/dashboard-change.md` — dashboard/quickmenu tab state, ShellState ownership, tab order, and validation
+- `docs/playbooks/quickshell-motion.md` — motion tokens, easing rules, expanding button pattern, reduced-animation rule
 - `modules/desktop/wrappers/quickshell.nix` — wrapper, newshell binary, dev mode routing
 - Nearby QML components for import conventions and pattern matching
 
@@ -47,8 +48,8 @@ All UI must follow the flat-design contract: no gradients, shadows, or 3D. Use p
 - Flat design: no gradients, shadows, 3D effects.
 - Colors: `Colours.palette.*` and `Appearance.*`.
 - Spacing: 4/8/12/16 px scale from `Config.spacing`.
-- Animations: state transitions only, 100-400ms, `Easing.InOutQuad` or `Easing.OutCubic`.
-- Respect `behaviourObj.animation.enabled`; skip animations when disabled.
+- Animations: state transitions only, 100-320ms via `qs.animations` recipes such as `Animations.RevealBehavior`, `Animations.StateColorBehavior`, `Animations.PanelBehavior`, or `Config.motion.*` tokens. `Easing.OutCubic` for enter, `Easing.InCubic` for exit. See `docs/playbooks/quickshell-motion.md`.
+- Respect `behaviourObj.animation.enabled`; motion tokens handle this automatically.
 - One primary accent (`blue`) and one secondary (`sky`) per view max.
 
 ## QML Rules

@@ -1,4 +1,5 @@
 import QtQuick
+import qs.animations as Animations
 import qs.services
 
 Item {
@@ -24,7 +25,7 @@ Item {
     property int side: ActiveIndicator.Side.Top
     property int animationMode: ActiveIndicator.AnimationMode.GrowAll
 
-    property real duration: Config.behaviour.animation.calc(0.2)
+    property real duration: Config.motion.medium
     property real bgOpacity: 0.3
     property color color: Config.styling.activeIndicator
 
@@ -45,11 +46,9 @@ Item {
 
         property real t: bgActive ? 1 : 0
 
-        Behavior on t {
-            NumberAnimation {
-                duration: root.duration
-                easing.type: Easing.OutCubic
-            }
+        Animations.NumberBehavior on t {
+            duration: root.duration
+            easingType: Easing.OutCubic
         }
 
         readonly property real normalScale: root.animateNormalAxis ? t : 1.0
@@ -78,11 +77,9 @@ Item {
 
         property real t: active ? 1 : 0
 
-        Behavior on t {
-            NumberAnimation {
-                duration: root.duration
-                easing.type: Easing.OutCubic
-            }
+        Animations.NumberBehavior on t {
+            duration: root.duration
+            easingType: Easing.OutCubic
         }
 
         readonly property real normalScale: root.animateNormalAxis ? t : 1.0
