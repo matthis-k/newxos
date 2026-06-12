@@ -307,9 +307,9 @@ PanelWindow {
                             from: 0
                             to: 1
                         }
-                        Animations.PropertyAnimation {
+                        Animations.MotionAnimation {
                             properties: "y"
-                            kind: Animations.PropertyAnimation.Kind.Layout
+                            kind: Animations.MotionAnimation.Kind.Layout
                         }
                     }
 
@@ -322,9 +322,9 @@ PanelWindow {
                     }
 
                     displaced: Transition {
-                        Animations.PropertyAnimation {
+                        Animations.MotionAnimation {
                             properties: "y"
-                            kind: Animations.PropertyAnimation.Kind.Layout
+                            kind: Animations.MotionAnimation.Kind.Layout
                         }
                     }
 

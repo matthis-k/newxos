@@ -107,68 +107,73 @@ PanelWindow {
         visible: root.dashboardVisible
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        x: parent.width - width
-        width: root.targetWidth * root.panelProgress
+        anchors.right: parent.right
+        width: root.targetWidth
         height: root.targetHeight
+        clip: true
 
-        Animations.PanelBehavior on width {
-        }
+        Item {
+            id: contentLayer
+            width: parent.width
+            height: parent.height
+            x: (1 - root.panelProgress) * Config.spacing.lg
+            opacity: root.panelProgress
 
-        opacity: root.panelProgress
+            Animations.PanelBehavior on x {
+            }
 
-        Animations.PanelBehavior on opacity {
-        }
+            Animations.PanelBehavior on opacity {
+            }
 
-        scale: 1
+            Rectangle {
+                anchors.fill: parent
+                color: Config.styling.bg0
+                radius: Config.styling.radius
+            }
 
-        Rectangle {
-            anchors.fill: parent
-            color: Config.styling.bg0
-            radius: Config.styling.radius
-        }
+            SwipeView {
+                id: selection
+                anchors.fill: parent
+                interactive: false
+                clip: true
+                Component.onCompleted: root.syncCurrentTab()
 
-        SwipeView {
-            id: selection
-            anchors.fill: parent
-            interactive: false
-            clip: true
-            Component.onCompleted: root.syncCurrentTab()
+                WheelHandler {
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    orientation: Qt.Horizontal
+                    blocking: false
 
-            WheelHandler {
-                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                orientation: Qt.Horizontal
-                blocking: false
+                    onActiveChanged: {
+                        if (!active)
+                            root.resetTabSwipe();
+                    }
 
-                onActiveChanged: {
-                    if (!active)
-                        root.resetTabSwipe();
+                    onWheel: event => root.queueTabSwipeFromWheelEvent(event)
                 }
 
-                onWheel: event => root.queueTabSwipeFromWheelEvent(event)
-            }
-
-            // Page order must match ShellState.dashboardTabs and bar dashboard icon order.
-            Overview {
-                screenState: root.shellScreenState
-                tabSwipeTarget: root
-            }
-            Audio {
-                tabSwipeTarget: root
-            }
-            Notifications {
-                tabSwipeTarget: root
-            }
-            Bluetooth {
-                tabSwipeTarget: root
-            }
-            Network {
-                tabSwipeTarget: root
-            }
-            Energy {
-                tabSwipeTarget: root
-            }
-            SystemStats {
-                tabSwipeTarget: root
+                // Page order must match ShellState.dashboardTabs and bar dashboard icon order.
+                Overview {
+                    screenState: root.shellScreenState
+                    tabSwipeTarget: root
+                }
+                Audio {
+                    tabSwipeTarget: root
+                }
+                Notifications {
+                    tabSwipeTarget: root
+                }
+                Bluetooth {
+                    tabSwipeTarget: root
+                }
+                Network {
+                    tabSwipeTarget: root
+                }
+                Energy {
+                    tabSwipeTarget: root
+                }
+                SystemStats {
+                    tabSwipeTarget: root
+                }
             }
         }
 

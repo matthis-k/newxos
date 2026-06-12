@@ -113,7 +113,7 @@ Item {
     P.ExpandOnTrailingSpace {}
 
     QtObject {
-        Component.onCompleted: P.PolicyRegistry.registerBaseNameAliases()
+        Component.onCompleted: PolicyRegistry.registerBaseNameAliases()
     }
 
     onQueryUpdateRequested: function(text) {
@@ -491,7 +491,8 @@ Item {
     }
 
     function setResults(newResults, sourceQuery) {
-        console.warn("[NAV] setResults: count=" + (newResults ? newResults.length : 0) + " query=" + sourceQuery + " prevCount=" + results.length);
+        if (root.debugEnabled)
+            console.warn("[NAV] setResults: count=" + (newResults ? newResults.length : 0) + " query=" + sourceQuery + " prevCount=" + results.length);
         var previousCollapsedByKey = {};
         for (var previousIndex = 0; previousIndex < results.length; previousIndex += 1) {
             var previousKey = root.rowKey(results[previousIndex]);
@@ -513,24 +514,29 @@ Item {
             } else {
                 collapsedResultIndices[i] = true;
             }
-            console.warn("[NAV] setResults: result[" + i + "] key=" + key + " alwaysExpanded=" + results[i].alwaysExpanded + " collapsed=" + !!collapsedResultIndices[i] + " children=" + (results[i].children ? results[i].children.length : 0));
+            if (root.debugEnabled)
+                console.warn("[NAV] setResults: result[" + i + "] key=" + key + " alwaysExpanded=" + results[i].alwaysExpanded + " collapsed=" + !!collapsedResultIndices[i] + " children=" + (results[i].children ? results[i].children.length : 0));
         }
         var targets = root.navigationTargets();
-        console.warn("[NAV] setResults: selecting first target=" + (targets.length > 0 ? targets[0].key : "NONE"));
+        if (root.debugEnabled)
+            console.warn("[NAV] setResults: selecting first target=" + (targets.length > 0 ? targets[0].key : "NONE"));
         root.applyNavigationTarget(targets.length > 0 ? targets[0] : null);
     }
 
     function registerResultTreeView(index, treeView) {
         if (index < 0 || !treeView) return;
-        console.warn("[NAV] registerResultTreeView index=" + index + " rows=" + treeView.rows + " selectedIndex=" + selectedIndex + " activeNodeKey=" + activeNodeKey);
+        if (root.debugEnabled)
+            console.warn("[NAV] registerResultTreeView index=" + index + " rows=" + treeView.rows + " selectedIndex=" + selectedIndex + " activeNodeKey=" + activeNodeKey);
         resultTreeViews[index] = treeView;
         if (index === selectedIndex && activeNodeKey) {
             var row = root.findTreeVisualRow(treeView, activeNodeKey);
-            console.warn("[NAV] registerResultTreeView: matched selected, looking up activeNodeKey=" + activeNodeKey + " found row=" + row);
+            if (root.debugEnabled)
+                console.warn("[NAV] registerResultTreeView: matched selected, looking up activeNodeKey=" + activeNodeKey + " found row=" + row);
             if (row >= 0) {
                 var idx = treeView.index(row, 0);
                 if (!idx.valid) {
-                    console.warn("[NAV] registerResultTreeView: idx invalid, bailing");
+                    if (root.debugEnabled)
+                        console.warn("[NAV] registerResultTreeView: idx invalid, bailing");
                     return;
                 }
                 currentTreeView = treeView;
@@ -837,14 +843,16 @@ Item {
     function moveSelection(delta) {
         var targets = root.navigationTargets();
         if (targets.length === 0) {
-            console.warn("[NAV] moveSelection: no targets, clearing");
+            if (root.debugEnabled)
+                console.warn("[NAV] moveSelection: no targets, clearing");
             root.applyNavigationTarget(null);
             return;
         }
 
         var current = Math.max(0, targets.findIndex(function(target) { return target.key === root.activeNodeKey; }));
         var next = (current + delta + targets.length) % targets.length;
-        console.warn("[NAV] moveSelection delta=" + delta + " activeNodeKey=" + activeNodeKey + " targets=" + targets.length + " current=" + current + " next=" + next + " nextKey=" + targets[next].key + " nextTitle=" + targets[next].row.title + " nextDepth=" + targets[next].treeDepth + " nextParent=" + targets[next].parentIndex);
+        if (root.debugEnabled)
+            console.warn("[NAV] moveSelection delta=" + delta + " activeNodeKey=" + activeNodeKey + " targets=" + targets.length + " current=" + current + " next=" + next + " nextKey=" + targets[next].key + " nextTitle=" + targets[next].row.title + " nextDepth=" + targets[next].treeDepth + " nextParent=" + targets[next].parentIndex);
         root.applyNavigationTarget(targets[next]);
     }
 
@@ -862,23 +870,28 @@ Item {
         }
         for (var i = 0; i < results.length; i += 1)
             visit(results[i], i, 0);
-        console.warn("[NAV] navigationTargets: results=" + results.length + " targets=" + out.length + " collapsed=" + Object.keys(collapsedResultIndices).join(",") + " targets=" + out.map(function(t) { return t.key + "(d=" + t.treeDepth + " p=" + t.parentIndex + ")"; }).join(" | "));
+        if (root.debugEnabled)
+            console.warn("[NAV] navigationTargets: results=" + results.length + " targets=" + out.length + " collapsed=" + Object.keys(collapsedResultIndices).join(",") + " targets=" + out.map(function(t) { return t.key + "(d=" + t.treeDepth + " p=" + t.parentIndex + ")"; }).join(" | "));
         return out;
     }
 
     function resolveTreeViewAtIndex(index) {
         if (resultTreeViews[index]) {
-            console.warn("[NAV] resolveTreeView: cache hit index=" + index + " rows=" + resultTreeViews[index].rows);
+            if (root.debugEnabled)
+                console.warn("[NAV] resolveTreeView: cache hit index=" + index + " rows=" + resultTreeViews[index].rows);
             return resultTreeViews[index];
         }
-        console.warn("[NAV] resolveTreeView: cache miss index=" + index + " resultView=" + !!resultView);
+        if (root.debugEnabled)
+            console.warn("[NAV] resolveTreeView: cache miss index=" + index + " resultView=" + !!resultView);
         if (!resultView || index < 0)
             return null;
         var loader = resultView.itemAt(index);
-        console.warn("[NAV] resolveTreeView: loader=" + !!loader + " item=" + !!(loader && loader.item) + " treeView=" + !!(loader && loader.item && loader.item.treeView));
+        if (root.debugEnabled)
+            console.warn("[NAV] resolveTreeView: loader=" + !!loader + " item=" + !!(loader && loader.item) + " treeView=" + !!(loader && loader.item && loader.item.treeView));
         if (loader && loader.item && loader.item.treeView) {
             resultTreeViews[index] = loader.item.treeView;
-            console.warn("[NAV] resolveTreeView: resolved from UI rows=" + loader.item.treeView.rows);
+            if (root.debugEnabled)
+                console.warn("[NAV] resolveTreeView: resolved from UI rows=" + loader.item.treeView.rows);
             return loader.item.treeView;
         }
         return null;
@@ -886,7 +899,8 @@ Item {
 
     function applyNavigationTarget(target) {
         if (!target) {
-            console.warn("[NAV] applyNavigationTarget: null target, clearing");
+            if (root.debugEnabled)
+                console.warn("[NAV] applyNavigationTarget: null target, clearing");
             selectedIndex = -1;
             activeNodeKey = "";
             exitTree();
@@ -896,22 +910,28 @@ Item {
         selectedActionIndex = 0;
         activeNodeKey = target.key;
         if (target.treeDepth > 0) {
-            console.warn("[NAV] applyNav: treeDepth=" + target.treeDepth + " parentIndex=" + target.parentIndex + " key=" + target.key);
+            if (root.debugEnabled)
+                console.warn("[NAV] applyNav: treeDepth=" + target.treeDepth + " parentIndex=" + target.parentIndex + " key=" + target.key);
             currentTreeView = resolveTreeViewAtIndex(target.parentIndex);
             currentTreeKey = target.key;
-            console.warn("[NAV] applyNav: currentTreeView=" + !!currentTreeView + " model=" + !!(currentTreeView && currentTreeView.model) + " viewRows=" + (currentTreeView ? currentTreeView.rows : "N/A"));
+            if (root.debugEnabled)
+                console.warn("[NAV] applyNav: currentTreeView=" + !!currentTreeView + " model=" + !!(currentTreeView && currentTreeView.model) + " viewRows=" + (currentTreeView ? currentTreeView.rows : "N/A"));
             treeVisualRow = currentTreeView ? root.findTreeVisualRow(currentTreeView, target.key) : -1;
-            console.warn("[NAV] applyNav: treeVisualRow=" + treeVisualRow);
+            if (root.debugEnabled)
+                console.warn("[NAV] applyNav: treeVisualRow=" + treeVisualRow);
             if (currentTreeView && treeVisualRow >= 0) {
                 var idx = currentTreeView.index(treeVisualRow, 0);
-                console.warn("[NAV] applyNav: idx.valid=" + idx.valid + " setting currentIndex");
+                if (root.debugEnabled)
+                    console.warn("[NAV] applyNav: idx.valid=" + idx.valid + " setting currentIndex");
                 if (idx.valid)
                     currentTreeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
             } else {
-                console.warn("[NAV] applyNav: SKIP setCurrentIndex — treeView=" + !!currentTreeView + " row=" + treeVisualRow);
+                if (root.debugEnabled)
+                    console.warn("[NAV] applyNav: SKIP setCurrentIndex — treeView=" + !!currentTreeView + " row=" + treeVisualRow);
             }
         } else {
-            console.warn("[NAV] applyNav: treeDepth=" + target.treeDepth + " exiting tree");
+            if (root.debugEnabled)
+                console.warn("[NAV] applyNav: treeDepth=" + target.treeDepth + " exiting tree");
             exitTree();
         }
     }

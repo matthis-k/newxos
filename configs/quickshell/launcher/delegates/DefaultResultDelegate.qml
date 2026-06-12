@@ -49,7 +49,7 @@ Rectangle {
     onControllerChanged: syncControllerTreeView()
     onResultChanged: { _expandedOverride = 0; syncControllerTreeView(); reloadTreeModel(); }
     onSelectedChanged: syncControllerTreeView()
-    onTreeRevealProgressChanged: Qt.callLater(function() { if (childTreeView) childTreeView.forceLayout(); })
+    onTreeRevealProgressChanged: Qt.callLater(function() { if (root && childTreeView) childTreeView.forceLayout(); })
 
     function collapseTree() { _expandedOverride = 1; }
     function expandTree() { _expandedOverride = 2; }
@@ -62,7 +62,6 @@ Rectangle {
     }
 
     function syncControllerTreeView() {
-        console.warn("[NAV] delegate sync: resultIndex=" + root.resultIndex + " controller=" + !!controller + " treeView=" + !!root.treeView + " treeViewRows=" + (root.treeView ? root.treeView.rows : "N/A"));
         if (controller && root.resultIndex >= 0 && root.treeView)
             controller.registerResultTreeView(root.resultIndex, root.treeView);
     }
@@ -333,9 +332,9 @@ Rectangle {
                     property real childRevealProgress: 1
                     readonly property real effectiveContentHeight: childTreeView.totalRevealHeight()
 
-                    onRowsChanged: Qt.callLater(function() { childTreeView.forceLayout(); })
-                    onChildRevealProgressChanged: forceLayout()
-                    onWidthChanged: forceLayout()
+                    onRowsChanged: Qt.callLater(function() { if (childTreeView) childTreeView.forceLayout(); })
+                    onChildRevealProgressChanged: if (childTreeView) forceLayout()
+                    onWidthChanged: if (childTreeView) forceLayout()
 
                     Animations.LayoutBehavior on childRevealProgress {
                         enabled: root.treeAnimationSettled
@@ -423,6 +422,8 @@ Rectangle {
                         childTreeView.expand(row);
                         childTreeView.forceLayout();
                         Qt.callLater(function() {
+                            if (!childTreeView)
+                                return;
                             childTreeView.childRevealProgress = 1;
                             childTreeView.forceLayout();
                         });
@@ -442,6 +443,8 @@ Rectangle {
                         childTreeView.childRevealProgress = 1;
                         childTreeView.forceLayout();
                         Qt.callLater(function() {
+                            if (!childTreeView)
+                                return;
                             childTreeView.childRevealProgress = 0;
                             childTreeView.forceLayout();
                             childCollapseFinish.restart();
@@ -501,7 +504,7 @@ Rectangle {
 
     function settleTreeAnimationLater(generation) {
         Qt.callLater(function() {
-            if (root.treeAnimationGeneration === generation)
+            if (root && root.treeAnimationGeneration === generation)
                 root.treeAnimationSettled = true;
         });
     }

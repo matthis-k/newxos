@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import Quickshell.Widgets
+import qs.animations as Animations
 import qs.services
 import qs.components
 import qs.modules.hyprlandPreview
@@ -15,6 +16,9 @@ Item {
 
     implicitHeight: parent.height
     implicitWidth: row.implicitWidth
+
+    Animations.LayoutBehavior on implicitWidth {
+    }
 
     function workspaceNumber(workspace) {
         const id = Number(workspace?.id);
@@ -49,9 +53,22 @@ Item {
     component WorkspaceOverview: Item {
         required property HyprlandWorkspace modelData
         property HyprlandWorkspace workspace: modelData
+        property bool appeared: false
 
         implicitHeight: root.height
         implicitWidth: ws.implicitWidth + toplevels.implicitWidth
+        opacity: appeared ? 1 : 0
+
+        Animations.LayoutBehavior on implicitWidth {
+        }
+
+        Animations.ShiftBehavior on x {
+        }
+
+        Animations.RevealBehavior on opacity {
+        }
+
+        Component.onCompleted: appeared = true
 
         ActionButton {
             id: ws
@@ -63,8 +80,8 @@ Item {
             scaleText: true
             textScaleTarget: wsLabel
             hoveredScale: 1.0
-            unhoveredScale: 0.8
-            baseScale: Hyprland.focusedWorkspace?.id === workspace?.id ? 1.0 : 0.8
+            unhoveredScale: 0.92
+            baseScale: Hyprland.focusedWorkspace?.id === workspace?.id ? 1.0 : 0.92
 
             onClicked: {
                 if (workspace && Hyprland.focusedWorkspace?.id !== workspace.id) {
@@ -80,6 +97,12 @@ Item {
             color: (Hyprland.focusedWorkspace?.id === workspace?.id) ? Config.styling.activeIndicator : Config.styling.text0
             font.pixelSize: parent.height
             font.bold: true
+
+            Animations.ScaleBehavior on scale {
+            }
+
+            Animations.StateColorBehavior on color {
+            }
         }
 
         RowLayout {
@@ -102,6 +125,7 @@ Item {
         id: tl
         required property HyprlandToplevel modelData
         property HyprlandToplevel toplevel: modelData
+        property bool appeared: false
         property Component previewComponent: previewFactory
         Component {
             id: previewFactory
@@ -118,6 +142,7 @@ Item {
 
         implicitHeight: root.height
         implicitWidth: root.height
+        opacity: appeared ? 1 : 0
         active: toplevel.activated && Hyprland.focusedWorkspace?.id === toplevel?.workspace.id
         highlightSide: ActiveIndicator.Side.Top
         highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAcross
@@ -125,12 +150,25 @@ Item {
         scaleIcon: true
         iconScaleTarget: tlIcon
         hoveredScale: 1.0
-        unhoveredScale: 0.8
+        unhoveredScale: 0.92
+
+        Animations.LayoutBehavior on implicitWidth {
+        }
+
+        Animations.ShiftBehavior on x {
+        }
+
+        Animations.RevealBehavior on opacity {
+        }
+
+        Component.onCompleted: appeared = true
 
         onHoveredChanged: {
             const previewWindow = ShellState.getScreenByName(screen.name).hyprlandPreview;
-            if (hovered)
-                previewWindow.showPreview(tl.previewComponent);
+            if (hovered) {
+                const scenePos = tl.mapToItem(null, tl.width / 2, 0);
+                previewWindow.showPreview(tl.previewComponent, scenePos.x);
+            }
             previewWindow.externalHovers += hovered ? 1 : -1;
         }
 
@@ -143,6 +181,9 @@ Item {
             anchors.centerIn: parent
             source: iconSource
             implicitSize: parent.height * 0.9
+
+            Animations.ScaleBehavior on scale {
+            }
         }
 
         TapHandler {

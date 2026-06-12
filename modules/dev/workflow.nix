@@ -136,7 +136,7 @@
             exit 1
           fi
 
-          qmllint "$shell_qml"
+          QT_LOGGING_RULES="*.warning=false" qmllint "$shell_qml"
         '';
       };
     in

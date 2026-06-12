@@ -15,15 +15,15 @@ NumberAnimation {
         Neutral
     }
 
-    property int kind: PropertyAnimation.Kind.Short
+    property int kind: MotionAnimation.Kind.Short
     property int motionDuration: {
         switch (kind) {
-        case PropertyAnimation.Kind.Micro:
+        case MotionAnimation.Kind.Micro:
             return Config.motion.micro;
-        case PropertyAnimation.Kind.Medium:
-        case PropertyAnimation.Kind.Layout:
+        case MotionAnimation.Kind.Medium:
+        case MotionAnimation.Kind.Layout:
             return Config.motion.medium;
-        case PropertyAnimation.Kind.Long:
+        case MotionAnimation.Kind.Long:
             return Config.motion.long;
         default:
             return Config.motion.short;
@@ -31,11 +31,11 @@ NumberAnimation {
     }
     property int motionEasingType: {
         switch (kind) {
-        case PropertyAnimation.Kind.Exit:
+        case MotionAnimation.Kind.Exit:
             return Easing.InCubic;
-        case PropertyAnimation.Kind.Layout:
+        case MotionAnimation.Kind.Layout:
             return Easing.InOutCubic;
-        case PropertyAnimation.Kind.Neutral:
+        case MotionAnimation.Kind.Neutral:
             return Easing.InOutQuad;
         default:
             return Easing.OutCubic;

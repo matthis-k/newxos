@@ -1,4 +1,6 @@
-PropertyAnimation {
-    kind: PropertyAnimation.Kind.Exit
+import qs.services
+
+MotionAnimation {
+    kind: MotionAnimation.Kind.Exit
     motionDuration: Config.motion.micro
 }
