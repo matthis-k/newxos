@@ -147,6 +147,7 @@ Singleton {
 
         property HyprlandPreview.Window hyprlandPreview: HyprlandPreview.Window {
             screen: screenState.screen
+            topInset: bar.implicitHeight
         }
 
         property Launcher.Launcher launcher: Launcher.Launcher {

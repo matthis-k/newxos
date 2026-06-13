@@ -12,12 +12,14 @@ Item {
     id: root
 
     required property HyprlandToplevel toplevel
+    property bool captureActive: true
     property real screenFraction: 0.3
 
     readonly property real screenWidth: screen.width
     readonly property real screenHeight: screen.height
     readonly property real maxViewWidth: screenWidth * screenFraction
     readonly property real maxViewHeight: screenHeight * screenFraction
+    readonly property bool hasPreviewContent: screencopyView.hasContent
 
     implicitWidth: (screencopyView.implicitWidth || maxViewWidth)
     implicitHeight: (screencopyView.implicitHeight || maxViewHeight) + header.height
@@ -90,18 +92,47 @@ Item {
 
     ScreencopyView {
         id: screencopyView
-        captureSource: root.toplevel?.wayland
+        captureSource: root.captureActive ? root.toplevel?.wayland : null
         constraintSize: Qt.size(root.maxViewWidth, root.maxViewHeight)
         width: implicitWidth || root.maxViewWidth
         height: implicitHeight || root.maxViewHeight
         anchors.top: header.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        live: true
+        live: root.captureActive
+        paintCursor: false
+        visible: root.hasPreviewContent
 
         TapHandler {
             onSingleTapped: {
                 root.toplevel?.wayland?.activate();
                 ShellState.getScreenByName(screen.name).hyprlandPreview.clearPreview();
+            }
+        }
+    }
+
+    Item {
+        anchors.fill: screencopyView
+        visible: !root.hasPreviewContent
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            spacing: Config.spacing.xs
+
+            Icon {
+                Layout.alignment: Qt.AlignHCenter
+                implicitSize: 48
+                source: appIcon.source
+                mipmap: false
+            }
+
+            Text {
+                Layout.maximumWidth: root.maxViewWidth - Config.spacing.md
+                text: root.toplevel?.title || root.toplevel?.wayland?.title || qsTr("Window preview unavailable")
+                color: Config.styling.text0
+                font.pixelSize: 14
+                font.bold: true
+                elide: Text.ElideRight
+                horizontalAlignment: Text.AlignHCenter
             }
         }
     }

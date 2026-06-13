@@ -7,7 +7,6 @@ import Quickshell.Widgets
 import qs.animations as Animations
 import qs.services
 import qs.components
-import qs.modules.hyprlandPreview
 
 Item {
     id: root
@@ -126,14 +125,6 @@ Item {
         required property HyprlandToplevel modelData
         property HyprlandToplevel toplevel: modelData
         property bool appeared: false
-        property Component previewComponent: previewFactory
-        Component {
-            id: previewFactory
-
-            HyprlandToplevelView {
-                toplevel: tl.toplevel
-            }
-        }
         property DesktopEntry entry: {
             DesktopEntries.applications?.values;
             return DesktopEntries.heuristicLookup(toplevel.wayland?.appId);
@@ -150,7 +141,7 @@ Item {
         scaleIcon: true
         iconScaleTarget: tlIcon
         hoveredScale: 1.0
-        unhoveredScale: 0.92
+        unhoveredScale: active ? 1.0 : 0.92
 
         Animations.LayoutBehavior on implicitWidth {
         }
@@ -166,8 +157,8 @@ Item {
         onHoveredChanged: {
             const previewWindow = ShellState.getScreenByName(screen.name).hyprlandPreview;
             if (hovered) {
-                const scenePos = tl.mapToItem(null, tl.width / 2, 0);
-                previewWindow.showPreview(tl.previewComponent, scenePos.x);
+                const globalPos = tl.mapToGlobal(Qt.point(tl.width / 2, 0));
+                previewWindow.showPreviewAtGlobal(tl.toplevel, globalPos.x);
             }
             previewWindow.externalHovers += hovered ? 1 : -1;
         }
