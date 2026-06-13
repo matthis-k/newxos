@@ -493,11 +493,15 @@ Item {
     function setResults(newResults, sourceQuery) {
         if (root.debugEnabled)
             console.warn("[NAV] setResults: count=" + (newResults ? newResults.length : 0) + " query=" + sourceQuery + " prevCount=" + results.length);
+        var sameQuery = (sourceQuery || "") === (resultsQuery || "");
+        var previousActiveKey = sameQuery ? activeNodeKey : "";
         var previousCollapsedByKey = {};
         for (var previousIndex = 0; previousIndex < results.length; previousIndex += 1) {
             var previousKey = root.rowKey(results[previousIndex]);
             if (previousKey)
                 previousCollapsedByKey[previousKey] = !!collapsedResultIndices[previousIndex];
+            if (!previousActiveKey && sameQuery && previousIndex === selectedIndex)
+                previousActiveKey = previousKey;
         }
         resultTreeViews = {};
         results = newResults || [];
@@ -518,9 +522,12 @@ Item {
                 console.warn("[NAV] setResults: result[" + i + "] key=" + key + " alwaysExpanded=" + results[i].alwaysExpanded + " collapsed=" + !!collapsedResultIndices[i] + " children=" + (results[i].children ? results[i].children.length : 0));
         }
         var targets = root.navigationTargets();
+        var selectedTarget = previousActiveKey
+            ? targets.find(function(target) { return target.key === previousActiveKey; })
+            : null;
         if (root.debugEnabled)
-            console.warn("[NAV] setResults: selecting first target=" + (targets.length > 0 ? targets[0].key : "NONE"));
-        root.applyNavigationTarget(targets.length > 0 ? targets[0] : null);
+            console.warn("[NAV] setResults: selecting target=" + (selectedTarget ? selectedTarget.key : (targets.length > 0 ? targets[0].key : "NONE")));
+        root.applyNavigationTarget(selectedTarget || (targets.length > 0 ? targets[0] : null));
     }
 
     function registerResultTreeView(index, treeView) {
@@ -834,6 +841,47 @@ Item {
         Qt.callLater(function() {
             searchRequested(query, generation);
         });
+    }
+
+    function debugVisualRows(text) {
+        text = _resolveQueryArg(text);
+        var output = Engine.search(backends || [], text || "", stateForSearch(), searchOptions());
+        return root.debugVisualOutput(text, output);
+    }
+
+    function debugApplyQuery(text) {
+        text = _resolveQueryArg(text);
+        query = text || "";
+        generation += 1;
+        if (!query || query.trim().length === 0) {
+            resultsClearRequested();
+            return { query: query, rows: [], timings: {} };
+        }
+        var output = Engine.search(backends || [], query, stateForSearch(), searchOptions());
+        lastQuery = output.query;
+        lastDirective = output.directive;
+        lastEvaluatedRoot = output.evaluatedRoot;
+        setResults((output.rows || []).slice(0, maxResults), query);
+        return root.debugVisualOutput(query, output);
+    }
+
+    function debugVisualOutput(text, output) {
+        var rows = output && output.rows ? output.rows.slice(0, maxResults) : [];
+        return {
+            query: output && output.query ? output.query.raw : text,
+            timings: output ? output.timings || {} : {},
+            rows: rows.map(function(row, index) {
+                return {
+                    key: root.rowKey(row),
+                    rank: index,
+                    zValue: 10000 - index,
+                    title: row ? row.title || "" : "",
+                    source: row ? row.source || row.backendId || "" : "",
+                    placement: row ? row.placement || "" : "",
+                    children: row && row.children ? row.children.length : 0
+                };
+            })
+        };
     }
 
     function isRowSelectable(row) {

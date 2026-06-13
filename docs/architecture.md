@@ -112,6 +112,7 @@ The Quickshell launcher uses a composite search pipeline:
 - **ResultShaping** (`logic/ResultShaping.qml`) centralizes decidePlacement() logic that was previously in Flatten.qml, supporting placements: hidden, standalone, group, filtered-group, group-child, flattened, promoted-child, nested-group. Owns placement decisions and shaped item metadata. Shaped items retain `placement`, `decision`, and `presentationHints`.
 - **PresentationContext** (`logic/PresentationContext.qml`) owns placement-sensitive display decisions: breadcrumb visibility, backend badge visibility, action hint visibility, and density. Provides `forShapedItem()` to build a serializable context from a shaped item.
 - **RenderedRows** (`logic/RenderedRows.qml`) provides toResultRow() DTO construction for the shaped pipeline output. Consumes shaped item data and PresentationContext instead of re-inferring placement locally.
+- **Visual result coordination** (`configs/quickshell/launcher/visual/`) sits between ordered row snapshots and QML rendering. `VisualResultCoordinator` diffs stable row keys into a `ListModel`; animated list/delegate components own enter, remove, move, and z-order transitions without feeding animation state back into ranking, policies, evidence, or backend gating.
 - **PolicySpec** (`logic/PolicySpec.qml`) normalizes legacy strings, tuple specs, and object specs into a canonical shape. Full parameterized policy semantics are still incremental — threshold/dominance policies can consume spec args but most policies still rely on legacy string names.
 - **PolicyChain** (`logic/PolicyChain.qml`) chains and aggregates policy results. Provides `lookupPolicy(registry, spec)` for normalized spec-aware lookups, and `run(names, callback, mode)` which passes `(legacyName, spec)` to each callback.
 - **TokenFlowDecision** is not implemented yet.
@@ -132,6 +133,7 @@ The Quickshell launcher uses a composite search pipeline:
 Available IPC endpoints through `ShellState.qml`:
 
 - `pipeline <query>` — universal query debug endpoint. Returns per-phase snapshots (`.phases[]`), serialized rows (`.rows`), backend metadata (`.backends`), timings (`.timings`), and launcher state (`.state`). Use `jq` to select: `jq '.phases[] | select(.name == "evaluation")'`, `jq '.rows[] | {title, score}'`, `jq '.backends.entries'`.
+- `visual <query>` / `visualState` / `visualApply <query>` / `visualDebug <on|off>` — visual-result debug endpoints. Use `visual` to compare a pure ordered row preview with current visual model state, `visualApply` to drive the live visual coordinator through the same snapshot path as typing, and `visualState` to inspect row phases, z-values, operations, and frame/list heights.
 - `policies <query>` — resolved policy specs for active backends/nodes (version 2).
 - `benchmark <json-or-query>` — run benchmark queries via `debugBenchmark()`.
 - `cases` — active regression query list.

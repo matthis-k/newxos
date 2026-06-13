@@ -5,10 +5,10 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.animations as Animations
-import qs.components as Components
 import qs.services
 import "backends" as Backends
 import "delegates" as Delegates
+import "visual" as Visual
 
 PanelWindow {
     id: root
@@ -49,8 +49,7 @@ PanelWindow {
         closeTimer.stop();
         closing = false;
         launcherRevealed = false;
-        if (resultsFrame)
-            resultsFrame.resetSeenKeys();
+        visualResults.resetTransientState();
         visible = true;
         if (Config.behaviour.animation.enabled)
             Qt.callLater(function() {
@@ -106,6 +105,39 @@ PanelWindow {
         return controller.queryRunCases();
     }
 
+    function queryVisual(text) {
+        return JSON.stringify({
+            version: 1,
+            type: "visual",
+            preview: controller.debugVisualRows(text || ""),
+            current: visualResults.debugState(root.visualMetrics())
+        });
+    }
+
+    function queryVisualState() {
+        return JSON.stringify({
+            version: 1,
+            type: "visualState",
+            current: visualResults.debugState(root.visualMetrics())
+        });
+    }
+
+    function queryVisualApply(text) {
+        const preview = controller.debugApplyQuery(text || "");
+        return JSON.stringify({
+            version: 1,
+            type: "visualApply",
+            preview: preview,
+            current: visualResults.debugState(root.visualMetrics())
+        });
+    }
+
+    function queryVisualDebug(arg) {
+        const value = String(arg === undefined ? "" : arg).toLowerCase();
+        visualResults.debugEnabled = value === "1" || value === "true" || value === "on" || value === "yes";
+        return root.queryVisualState();
+    }
+
     anchors {
         top: true
         left: true
@@ -137,6 +169,50 @@ PanelWindow {
         function itemAt(index) {
             return resultsList.itemAtIndex(index);
         }
+    }
+
+    Visual.VisualResultCoordinator {
+        id: visualResults
+    }
+
+    function visualContextKey() {
+        return (root.backends || []).map(function(backend) {
+            return backend ? backend.backendId || "" : "";
+        }).join("|");
+    }
+
+    function applyVisualSnapshot() {
+        visualResults.applySnapshot(controller.results, visualResults.animationModeForSnapshot(controller.query, root.visualContextKey()));
+    }
+
+    function visualMetrics() {
+        const items = [];
+        if (resultsList) {
+            for (let i = 0; i < resultsList.count; i += 1) {
+                const delegate = resultsList.itemAtIndex(i);
+                items.push({
+                    index: i,
+                    y: delegate ? delegate.y : null,
+                    height: delegate ? delegate.height : null,
+                    fullHeight: delegate ? delegate.fullHeight : null,
+                    reveal: delegate ? delegate.reveal : null,
+                    phase: delegate ? delegate.phase : "",
+                    key: delegate ? delegate.key : ""
+                });
+            }
+        }
+        return {
+            query: controller.query || "",
+            resultsCount: controller.results.length,
+            selectedIndex: controller.selectedIndex,
+            cardHeight: card ? card.height : 0,
+            frameHeight: resultsFrame ? resultsFrame.height : 0,
+            frameTargetHeight: resultsFrame ? resultsFrame.targetHeight : 0,
+            listHeight: resultsList ? resultsList.height : 0,
+            listContentHeight: resultsList ? resultsList.contentHeight : 0,
+            listContentY: resultsList ? resultsList.contentY : 0,
+            items: items
+        };
     }
 
     HyprlandFocusGrab {
@@ -220,9 +296,6 @@ PanelWindow {
         border.width: 1
         radius: Config.styling.radius
         clip: true
-
-        Animations.PanelBehavior on height {
-        }
 
         Animations.PanelBehavior on opacity {
         }
@@ -315,22 +388,19 @@ PanelWindow {
                 }
             }
 
-            Components.ListReveal {
+            Item {
                 id: resultsFrame
-                property var seenResultKeys: ({})
-
-                targetHeight: controller.results.length > 0
-                    ? Math.min(Math.max(resultsList.contentHeight, controller.results.length * root.rowHeight), root.rowHeight * root.visibleResultRows)
-                    : 0
-                maximumHeight: root.rowHeight * root.visibleResultRows
-
-                function resetSeenKeys() {
-                    seenResultKeys = ({});
+                readonly property real targetHeight: {
+                    const contentHeight = resultsList.contentHeight || 0;
+                    const bootstrapHeight = visualResults.model.count > 0 ? root.rowHeight : 0;
+                    return Math.min(Math.max(contentHeight, bootstrapHeight), root.rowHeight * root.visibleResultRows);
                 }
 
-                function visualKey(row, index) {
-                    return controller.rowKey(row) || [row.kind || "row", row.title || "", row.subtitle || "", index].join(":");
-                }
+                visible: targetHeight > 0 || resultsList.contentHeight > 0
+                clip: true
+                Layout.fillWidth: true
+                Layout.preferredHeight: targetHeight
+                Layout.maximumHeight: root.rowHeight * root.visibleResultRows
 
                 function ensureActiveVisible() {
                     if (controller.selectedIndex < 0 || controller.selectedIndex >= resultsList.count)
@@ -355,86 +425,27 @@ PanelWindow {
                     target: controller
                     function onActiveNodeKeyChanged() { Qt.callLater(resultsFrame.ensureActiveVisible); }
                     function onTreeVisualRowChanged() { Qt.callLater(resultsFrame.ensureActiveVisible); }
-                    function onResultsChanged() { Qt.callLater(resultsFrame.ensureActiveVisible); }
+                    function onResultsChanged() {
+                        root.applyVisualSnapshot();
+                        Qt.callLater(resultsFrame.ensureActiveVisible);
+                    }
                 }
 
-                ListView {
+                Visual.AnimatedResultList {
                     id: resultsList
                     anchors.fill: parent
-                    boundsBehavior: Flickable.StopAtBounds
-                    clip: true
-                    model: controller.results
-                    spacing: Config.spacing.xxs
-                    reuseItems: false
+                    visualResults: visualResults
+                    resultDelegate: root.resultDelegate
+                    controller: controller
+                    iconSize: root.iconSize
+                    visibleResultRows: root.visibleResultRows
+                    showSubtitles: root.showSubtitles
+                    showActionHint: root.showActionHint
+                    showEvidence: root.showEvidence
+                    rowSpacing: Config.spacing.xxs
+                    estimatedRowHeight: root.rowHeight
 
-                    function pinContentToTopIfNeeded() {
-                        if (contentHeight <= height || (!controller.isInTree() && count <= root.visibleResultRows))
-                            contentY = 0;
-                    }
-
-                    onCountChanged: Qt.callLater(pinContentToTopIfNeeded)
-                    onContentHeightChanged: Qt.callLater(pinContentToTopIfNeeded)
-                    onHeightChanged: Qt.callLater(pinContentToTopIfNeeded)
-
-                    removeDisplaced: Transition {
-                        Animations.MotionAnimation {
-                            properties: "y"
-                            kind: Animations.MotionAnimation.Kind.Layout
-                        }
-                    }
-
-                    displaced: Transition {
-                        Animations.MotionAnimation {
-                            properties: "y"
-                            kind: Animations.MotionAnimation.Kind.Layout
-                        }
-                    }
-
-                    move: Transition {
-                        Animations.MotionAnimation {
-                            properties: "y"
-                            kind: Animations.MotionAnimation.Kind.Layout
-                        }
-                    }
-
-                    moveDisplaced: Transition {
-                        Animations.MotionAnimation {
-                            properties: "y"
-                            kind: Animations.MotionAnimation.Kind.Layout
-                        }
-                    }
-
-                    delegate: Components.AnimatedListDelegate {
-                        id: delegateLoader
-
-                        readonly property var resultData: modelData
-
-                        sourceComponent: resultData ? root.resultDelegate : null
-                        animationKey: resultsFrame.visualKey(resultData, index)
-                        seenKeys: resultsFrame.seenResultKeys
-
-                        onLoaded: {
-                            item.result = Qt.binding(function() { return delegateLoader.resultData; });
-                            if ("resultIndex" in item)
-                                item.resultIndex = Qt.binding(function() { return index; });
-                            item.selected = Qt.binding(function() {
-                                return controller.selectedIndex === index;
-                            });
-                            item.iconSize = Qt.binding(function() { return root.iconSize; });
-                            item.showSubtitle = Qt.binding(function() { return root.showSubtitles; });
-                            item.showActionHint = root.showActionHint;
-                            if ("showEvidence" in item)
-                                item.showEvidence = root.showEvidence;
-                            if ("controller" in item)
-                                item.controller = controller;
-                            if (item.activated)
-                                item.activated.connect(function(result) {
-                                    controller.selectedIndex = index;
-                                    if (controller.activateSelected(false))
-                                        root.close();
-                                });
-                        }
-                    }
+                    onCloseRequested: root.close()
                 }
             }
         }

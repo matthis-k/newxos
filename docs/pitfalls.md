@@ -82,6 +82,8 @@ Fix: animate only the clipped wrapper height and keep the content item/layout at
 
 For `ListView` removals, set `ListView.delayRemove` on the delegate wrapper and clear it after the clipped wrapper height animates to zero. Prefer `configs/quickshell/components/AnimatedListDelegate.qml` for list rows so normal height changes and removals share the same top-clipped behavior.
 
+When inserting replacement launcher rows and removing old rows in the same snapshot, do not remove variable-height `ListView` rows immediately. Mark them as leaving, collapse their clipped delegate height, then remove them from the model after the collapse settles; immediate removal can leave new delegates with stale `y` geometry and an oversized results frame. Source: `configs/quickshell/launcher/visual/`.
+
 If a launcher row replays its add/expand animation on every keystroke, the view is probably receiving snapshot-array resets for the same logical row. Fix: pass stable row ids into `AnimatedListDelegate.animationKey` with a shared `seenKeys` object so only genuinely new ids run add animation.
 
 ### QML subdirectory singleton imports not resolved in JS

@@ -248,6 +248,22 @@ Singleton {
             const state = root.instances[0];
             return state ? state.launcher.queryRunCases() : "{}";
         }
+        function visual(query: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.queryVisual(query) : "{}";
+        }
+        function visualState(): string {
+            const state = root.instances[0];
+            return state ? state.launcher.queryVisualState() : "{}";
+        }
+        function visualApply(query: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.queryVisualApply(query) : "{}";
+        }
+        function visualDebug(enabled: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.queryVisualDebug(enabled) : "{}";
+        }
     }
 
     function getScreenByName(screenName: string): ScreenState {
