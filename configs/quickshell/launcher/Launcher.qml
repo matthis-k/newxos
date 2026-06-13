@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.animations as Animations
+import qs.components as Components
 import qs.services
 import "backends" as Backends
 import "delegates" as Delegates
@@ -30,6 +31,8 @@ PanelWindow {
     property int visibleResultRows: 12
     property int rowHeight: 56
     property int iconSize: 32
+    property bool launcherRevealed: false
+    property bool closing: false
 
     function open(arg) {
         if (arg === undefined) {
@@ -43,14 +46,42 @@ PanelWindow {
             else
                 root.backends = arg;
         }
+        closeTimer.stop();
+        closing = false;
+        launcherRevealed = false;
+        if (resultsFrame)
+            resultsFrame.resetSeenKeys();
         visible = true;
+        if (Config.behaviour.animation.enabled)
+            Qt.callLater(function() {
+                if (root.visible && !root.closing)
+                    root.launcherRevealed = true;
+            });
+        else
+            launcherRevealed = true;
         focusGrab.active = true;
         input.forceActiveFocus();
     }
 
     function close() {
+        if (!root.visible && !closing)
+            return;
+        if (closing)
+            return;
+
+        closing = true;
         focusGrab.active = false;
+        launcherRevealed = false;
+        if (Config.behaviour.animation.enabled)
+            closeTimer.restart();
+        else
+            finishClose();
+    }
+
+    function finishClose() {
+        closeTimer.stop();
         visible = false;
+        closing = false;
         controller.reset();
         input.text = "";
     }
@@ -85,6 +116,14 @@ PanelWindow {
     visible: false
     focusable: true
     color: "transparent"
+
+    Timer {
+        id: closeTimer
+
+        interval: Config.motion.medium
+        repeat: false
+        onTriggered: root.finishClose()
+    }
 
     Component.onCompleted: {
         if (WlrLayershell)
@@ -168,21 +207,40 @@ PanelWindow {
 
     Rectangle {
         id: card
+        property real revealOffset: root.launcherRevealed ? 0 : -Config.spacing.sm
+
         width: Math.min(640, Math.max(360, root.width * 0.42))
         height: content.implicitHeight + Config.spacing.sm * 2
+        opacity: root.launcherRevealed ? 1 : 0
         anchors.top: parent.top
-        anchors.topMargin: Math.max(Config.spacing.xxl, root.height * 0.16)
+        anchors.topMargin: Math.max(Config.spacing.xxl, root.height * 0.16) + revealOffset
         anchors.horizontalCenter: parent.horizontalCenter
         color: Config.styling.bg1
         border.color: Config.styling.bg4
         border.width: 1
         radius: Config.styling.radius
+        clip: true
+
+        Animations.PanelBehavior on height {
+        }
+
+        Animations.PanelBehavior on opacity {
+        }
+
+        Animations.PanelBehavior on revealOffset {
+        }
 
         ColumnLayout {
             id: content
-            anchors.fill: parent
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
             anchors.margins: Config.spacing.sm
+            height: implicitHeight
             spacing: resultsFrame.visible ? Config.spacing.sm : 0
+
+            Animations.LayoutBehavior on spacing {
+            }
 
             TextField {
                 id: input
@@ -257,14 +315,22 @@ PanelWindow {
                 }
             }
 
-            Item {
+            Components.ListReveal {
                 id: resultsFrame
+                property var seenResultKeys: ({})
 
-                visible: controller.results.length > 0
-                Layout.fillWidth: true
-                Layout.preferredHeight: Math.min(Math.max(resultsList.contentHeight, controller.results.length * root.rowHeight), root.rowHeight * root.visibleResultRows)
-                Layout.maximumHeight: root.rowHeight * root.visibleResultRows
-                clip: true
+                targetHeight: controller.results.length > 0
+                    ? Math.min(Math.max(resultsList.contentHeight, controller.results.length * root.rowHeight), root.rowHeight * root.visibleResultRows)
+                    : 0
+                maximumHeight: root.rowHeight * root.visibleResultRows
+
+                function resetSeenKeys() {
+                    seenResultKeys = ({});
+                }
+
+                function visualKey(row, index) {
+                    return controller.rowKey(row) || [row.kind || "row", row.title || "", row.subtitle || "", index].join(":");
+                }
 
                 function ensureActiveVisible() {
                     if (controller.selectedIndex < 0 || controller.selectedIndex >= resultsList.count)
@@ -301,23 +367,19 @@ PanelWindow {
                     spacing: Config.spacing.xxs
                     reuseItems: false
 
-                    add: Transition {
-                        Animations.FadeInAnimation {
-                            properties: "opacity"
-                            from: 0
-                            to: 1
-                        }
+                    function pinContentToTopIfNeeded() {
+                        if (contentHeight <= height || (!controller.isInTree() && count <= root.visibleResultRows))
+                            contentY = 0;
+                    }
+
+                    onCountChanged: Qt.callLater(pinContentToTopIfNeeded)
+                    onContentHeightChanged: Qt.callLater(pinContentToTopIfNeeded)
+                    onHeightChanged: Qt.callLater(pinContentToTopIfNeeded)
+
+                    removeDisplaced: Transition {
                         Animations.MotionAnimation {
                             properties: "y"
                             kind: Animations.MotionAnimation.Kind.Layout
-                        }
-                    }
-
-                    remove: Transition {
-                        Animations.FadeOutAnimation {
-                            properties: "opacity"
-                            from: 1
-                            to: 0
                         }
                     }
 
@@ -328,15 +390,28 @@ PanelWindow {
                         }
                     }
 
-                    delegate: Loader {
+                    move: Transition {
+                        Animations.MotionAnimation {
+                            properties: "y"
+                            kind: Animations.MotionAnimation.Kind.Layout
+                        }
+                    }
+
+                    moveDisplaced: Transition {
+                        Animations.MotionAnimation {
+                            properties: "y"
+                            kind: Animations.MotionAnimation.Kind.Layout
+                        }
+                    }
+
+                    delegate: Components.AnimatedListDelegate {
                         id: delegateLoader
 
                         readonly property var resultData: modelData
 
-                        width: ListView.view ? ListView.view.width : 0
-                        height: visible && item ? item.implicitHeight : 0
                         sourceComponent: resultData ? root.resultDelegate : null
-                        visible: !!resultData
+                        animationKey: resultsFrame.visualKey(resultData, index)
+                        seenKeys: resultsFrame.seenResultKeys
 
                         onLoaded: {
                             item.result = Qt.binding(function() { return delegateLoader.resultData; });

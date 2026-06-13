@@ -95,6 +95,9 @@ Recipes are finished animation choices composed from foundations. Prefer these f
 | `Animations.ScaleBehavior` | `NumberBehavior(Micro)` | restrained hover/press scale feedback |
 | `Animations.FadeInAnimation` | `PropertyAnimation(Enter)` | explicit fade-in in sequences |
 | `Animations.FadeOutAnimation` | `PropertyAnimation(Exit)` | explicit fade-out in sequences |
+| `Animations.AppearAnimation` | `FadeInAnimation` + `MotionAnimation(Layout)` | top-anchored list/delegate insertion by expanding wrapper height and fading in |
+| `Animations.DisappearAnimation` | `MotionAnimation(Layout)` | top-anchored list/delegate removal by shrinking wrapper height to zero |
+| `Animations.RetainedDisappearAnimation` | `ListView.delayRemove` + height shrink | keep a removed `ListView` delegate alive until its height reaches zero |
 | `Animations.SpinAnimation` | `RotationAnimation` | sustained loading/connecting spinner |
 | `Animations.SettledShiftBehavior` | `ShiftBehavior` with delayed enable | state that must snap on creation, then animate later |
 | `Animations.SettledStateColorBehavior` | `StateColorBehavior` with delayed enable | color state that must snap on creation, then animate later |
@@ -191,9 +194,15 @@ When launcher results spawn already expanded, the initial tree state must snap i
 
 Tree parents stay visually stationary. Do not stretch a parent row background over its descendants; collapse and reveal only the child area below it.
 
-For tree expand/collapse, animate all affected heights. Use `Expander { scaleContentHeight: false }` for the outer launcher tree reveal, use a `TreeView.rowHeightProvider` for child row growth/shrink, and delay the real `TreeView.collapse()` until the shrink finishes; otherwise Qt removes child rows immediately while the parent area is still animating. Pair the height animation with a small upward-to-settled `y` offset so children slide down/up as if produced by the parent.
+For tree expand/collapse, animate all affected heights. Use `Expander` for the outer launcher tree reveal and `AnimatedListDelegate` for the parent `ListView` row height. For nested `TreeView` branches, use `TreeView.rowHeightProvider` for child row growth/shrink and delay the real `TreeView.collapse()` until the shrink finishes; otherwise Qt removes child rows immediately while the parent area is still animating. Pair the height animation with a small upward-to-settled `y` offset so children slide down/up as if produced by the parent.
 
-Avoid adding a second behavior to the outer launcher delegate height when child row heights already drive the reveal. Double-animating parent and child heights makes collapse look sequential instead of simultaneous.
+For `ListView` delegate add/remove, wrap composed rows in `components/AnimatedListDelegate.qml`. Fade-only removal leaves invisible rows occupying space while the outer frame shrinks.
+
+If a `ListView` is backed by snapshot arrays that reset on every query, pass a stable `animationKey` and shared `seenKeys` object to `AnimatedListDelegate`; otherwise unchanged rows replay their add animation on every snapshot.
+
+When `ListView` removals need exit animation, use `ListView.delayRemove` through `Animations.RetainedDisappearAnimation` so Qt keeps the delegate alive until its clipped wrapper height animates to zero. Do not fade removed list rows unless the design specifically calls for it; height-only removal matches the containing background resize.
+
+Avoid adding a second behavior to nested `TreeView` row heights when child row heights already drive the reveal. Double-animating parent and child heights makes collapse look sequential instead of simultaneous.
 
 ## Validation
 

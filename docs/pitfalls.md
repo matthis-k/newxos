@@ -74,6 +74,16 @@ Frame height depended only on `resultsColumn.implicitHeight`, which can be 0 bri
 
 Fix: reserve a minimum height from model count whenever results exist.
 
+### Animated list reveals looked vertically centered
+
+Resizing the list/content item itself during shrink/grow makes QML preserve internal position, so a short result set can appear vertically centered after filtering. Letting a layout fill an animated parent height has the same effect: the layout can redistribute children during the intermediate shrink frames.
+
+Fix: animate only the clipped wrapper height and keep the content item/layout at its real target height, top-anchored. Source: `configs/quickshell/components/Expander.qml`, `configs/quickshell/components/ListReveal.qml`.
+
+For `ListView` removals, set `ListView.delayRemove` on the delegate wrapper and clear it after the clipped wrapper height animates to zero. Prefer `configs/quickshell/components/AnimatedListDelegate.qml` for list rows so normal height changes and removals share the same top-clipped behavior.
+
+If a launcher row replays its add/expand animation on every keystroke, the view is probably receiving snapshot-array resets for the same logical row. Fix: pass stable row ids into `AnimatedListDelegate.animationKey` with a shared `seenKeys` object so only genuinely new ids run add animation.
+
 ### QML subdirectory singleton imports not resolved in JS
 
 `import "subdir/Singleton.qml"` from a parent-file does not make `Singleton` available as a JS identifier. Only same-directory imports (`import "Singleton.qml"`) or directory imports (`import "subdir/"`) register the type name.

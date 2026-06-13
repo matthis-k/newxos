@@ -42,12 +42,13 @@ Rectangle {
     readonly property real treeRevealProgress: treeReveal.progress
     property bool treeAnimationSettled: false
     property int treeAnimationGeneration: 0
+    property string resultTreeKey: ""
     signal activated(var result)
 
     Component.onCompleted: syncControllerTreeView()
 
     onControllerChanged: syncControllerTreeView()
-    onResultChanged: { _expandedOverride = 0; syncControllerTreeView(); reloadTreeModel(); }
+    onResultChanged: refreshForResult()
     onSelectedChanged: syncControllerTreeView()
     onTreeRevealProgressChanged: Qt.callLater(function() { if (root && childTreeView) childTreeView.forceLayout(); })
 
@@ -64,6 +65,22 @@ Rectangle {
     function syncControllerTreeView() {
         if (controller && root.resultIndex >= 0 && root.treeView)
             controller.registerResultTreeView(root.resultIndex, root.treeView);
+    }
+
+    function stableResultTreeKey(row) {
+        if (!row)
+            return "";
+        return row.id || row.nodeId || [row.kind || "row", row.title || "", row.subtitle || ""].join(":");
+    }
+
+    function refreshForResult() {
+        var nextKey = root.stableResultTreeKey(root.result);
+        var sameTree = nextKey !== "" && nextKey === root.resultTreeKey;
+        root.resultTreeKey = nextKey;
+        if (!sameTree)
+            _expandedOverride = 0;
+        syncControllerTreeView();
+        reloadTreeModel(!sameTree);
     }
 
     implicitHeight: Math.max(56, mainLayout.implicitHeight + Config.spacing.xs * 2)
@@ -302,7 +319,6 @@ Rectangle {
             Layout.fillWidth: true
             expanded: root.expanded && root.hasTreeChildren
             animationEnabled: root.treeAnimationSettled
-            scaleContentHeight: false
             slideDistance: Config.spacing.sm
 
             ColumnLayout {
@@ -388,17 +404,16 @@ Rectangle {
                     }
 
                     function rowRevealProgress(row) {
-                        var progress = root.treeRevealProgress;
                         if (childTreeView.isAnimatedDescendant(row))
-                            progress *= childTreeView.childRevealProgress;
-                        return Math.max(0, Math.min(1, progress));
+                            return Math.max(0, Math.min(1, childTreeView.childRevealProgress));
+                        return 1;
                     }
 
                     function totalRevealHeight() {
                         var total = 0;
                         for (var row = 0; row < childTreeView.rows; row += 1)
                             total += childTreeView.rowRevealHeight(row);
-                        return total + Config.spacing.xs * root.treeRevealProgress;
+                        return total + Config.spacing.xs;
                     }
 
                     function isAnimatedDescendant(row) {
@@ -485,14 +500,16 @@ Rectangle {
         }
     }
 
-    function reloadTreeModel() {
+    function reloadTreeModel(resetAnimation) {
         if (!treeModel)
             return;
-        var generation = root.resetTreeAnimation();
+        var shouldResetAnimation = resetAnimation === undefined ? true : resetAnimation;
+        var generation = shouldResetAnimation ? root.resetTreeAnimation() : root.treeAnimationGeneration;
         treeModel.rows = root.buildTreeRows(root.result.children || []);
         Qt.callLater(function() {
             root.expandDefaultTreeRows();
-            root.settleTreeAnimationLater(generation);
+            if (shouldResetAnimation)
+                root.settleTreeAnimationLater(generation);
         });
     }
 
