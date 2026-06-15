@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import qs.services
+import "../animation" as Animation
 
 Item {
     id: root
@@ -27,7 +28,6 @@ Item {
     property real reveal: 1
     property real contentOpacity: 1
     property real contentScale: 1
-    property bool enterStarted: false
     property bool removing: false
     property bool delayModelRemove: false
     property real fullHeight: Math.max(content.implicitHeight, root.estimatedRowHeight) + root.spacing
@@ -56,10 +56,23 @@ Item {
     }
 
     onPhaseChanged: {
-        if (root.phase === "leaving")
-            root.startLeaveAnimation(false);
-        else if (root.phase === "live" && !root.removing && !enterAnimation.running)
-            root.finishVisualState();
+        if (root.phase === "entering") {
+            animator.animateIn();
+        } else if (root.phase === "leaving") {
+            root.removing = true;
+            animator.animateOut();
+        } else if (root.phase === "live") {
+            if (root.removing) {
+                root.removing = false;
+                root.delayModelRemove = false;
+                root.removeFallbackTimer.stop();
+                if (root.delayModelRemove)
+                    root.ListView.delayRemove = false;
+                animator.animateIn();
+            } else {
+                animator.snapToLive();
+            }
+        }
     }
 
     ListView.onAdd: root.startEnterAnimation()
@@ -74,15 +87,14 @@ Item {
     }
 
     function startEnterAnimation() {
-        if (root.enterStarted || root.phase !== "entering") {
-            if (!root.removing && root.phase !== "entering")
-                root.finishVisualState();
+        if (root.phase !== "entering") {
+            if (!root.removing)
+                animator.snapToLive();
             return;
         }
 
-        root.enterStarted = true;
         if (root.enterDuration <= 0) {
-            root.finishVisualState();
+            animator.snapToLive();
             return;
         }
 
@@ -92,22 +104,19 @@ Item {
         Qt.callLater(function() {
             if (!root || root.removing)
                 return;
-            enterAnimation.restart();
+            animator.animateIn();
         });
     }
 
     function finishVisualState() {
         root.removing = false;
         root.delayModelRemove = false;
-        root.reveal = 1;
-        root.contentOpacity = 1;
-        root.contentScale = 1;
+        animator.snapToLive();
     }
 
     function startLeaveAnimation(delayRemove) {
         root.removing = true;
         root.delayModelRemove = delayRemove;
-        enterAnimation.stop();
         if (delayRemove) {
             root.ListView.delayRemove = true;
             removeFallbackTimer.restart();
@@ -120,7 +129,7 @@ Item {
             return;
         }
 
-        removeAnimation.restart();
+        animator.animateOut();
     }
 
     function finishLeaveAnimation() {
@@ -179,63 +188,13 @@ Item {
             });
     }
 
-    ParallelAnimation {
-        id: enterAnimation
-
-        NumberAnimation {
-            target: root
-            property: "reveal"
-            to: 1
-            duration: root.enterDuration
-            easing.type: Easing.OutCubic
-        }
-
-        NumberAnimation {
-            target: root
-            property: "contentOpacity"
-            to: 1
-            duration: root.transformDuration
-            easing.type: Easing.OutCubic
-        }
-
-        NumberAnimation {
-            target: root
-            property: "contentScale"
-            to: 1
-            duration: root.transformDuration
-            easing.type: Easing.OutCubic
-        }
-    }
-
-    ParallelAnimation {
-        id: removeAnimation
-
-        NumberAnimation {
-            target: root
-            property: "reveal"
-            to: 0
-            duration: root.removeDuration
-            easing.type: Easing.InCubic
-        }
-
-        NumberAnimation {
-            target: root
-            property: "contentOpacity"
-            to: 0
-            duration: root.removeDuration
-            easing.type: Easing.InCubic
-        }
-
-        NumberAnimation {
-            target: root
-            property: "contentScale"
-            to: 0.96
-            duration: root.removeDuration
-            easing.type: Easing.InCubic
-        }
-
-        alwaysRunToEnd: true
-        onFinished: root.finishLeaveAnimation()
+    Animation.ItemAnimator {
+        id: animator
+        target: root
+        enterDuration: root.enterDuration
+        removeDuration: root.removeDuration
+        transformDuration: root.transformDuration
+        onLeaveFinished: root.finishLeaveAnimation()
     }
 
     Loader {

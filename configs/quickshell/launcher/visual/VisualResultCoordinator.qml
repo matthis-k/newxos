@@ -25,6 +25,7 @@ QtObject {
     property string _lastQuery: ""
     property string _lastContextKey: ""
     property var _recentlyRemovedKeys: ({})
+    property bool hasActiveItems: false
 
     property Timer _enteringSettleTimer: Timer {
         interval: root.enteringSettleDelay()
@@ -59,6 +60,7 @@ QtObject {
         moveRowsToTargetOrder(rows);
         removeMissingRows(rows);
         scheduleEnteringSettle();
+        recomputeHasActiveItems();
         logSnapshot(rows);
         snapshotApplied();
     }
@@ -71,7 +73,9 @@ QtObject {
         let mode = VisualResultCoordinator.AnimationMode.Full;
 
         if (nextQuery.trim().length === 0) {
-            mode = VisualResultCoordinator.AnimationMode.None;
+            mode = visualModel.count > 0
+                ? VisualResultCoordinator.AnimationMode.Light
+                : VisualResultCoordinator.AnimationMode.None;
         } else if (previousContextKey !== "" && nextContextKey !== previousContextKey) {
             mode = VisualResultCoordinator.AnimationMode.Full;
         } else if (previousQuery.trim().length === 0) {
@@ -95,6 +99,7 @@ QtObject {
     function resetModel() {
         for (let i = visualModel.count - 1; i >= 0; i -= 1)
             visualModel.remove(i);
+        root.hasActiveItems = false;
         resetTransientState();
     }
 
@@ -312,6 +317,17 @@ QtObject {
             if (visualModel.get(i).phase === "leaving")
                 visualModel.remove(i);
         }
+        root.recomputeHasActiveItems();
+    }
+
+    function recomputeHasActiveItems() {
+        for (let i = 0; i < visualModel.count; i += 1) {
+            if (visualModel.get(i).phase !== "leaving") {
+                root.hasActiveItems = true;
+                return;
+            }
+        }
+        root.hasActiveItems = false;
     }
 
     function recordOperation(type, details) {

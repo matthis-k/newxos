@@ -392,7 +392,7 @@ PanelWindow {
                 id: resultsFrame
                 readonly property real targetHeight: {
                     const contentHeight = resultsList.contentHeight || 0;
-                    const bootstrapHeight = visualResults.model.count > 0 ? root.rowHeight : 0;
+                    const bootstrapHeight = visualResults.hasActiveItems ? root.rowHeight : 0;
                     return Math.min(Math.max(contentHeight, bootstrapHeight), root.rowHeight * root.visibleResultRows);
                 }
 
