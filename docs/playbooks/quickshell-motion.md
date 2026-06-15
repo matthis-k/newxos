@@ -188,6 +188,13 @@ Safe launcher targets:
 - tree row entry opacity for visible child rows
 - switch controls through `DashboardToggleSwitch`
 
+The launcher uses the shared transition layer:
+
+- `TransitionListCoordinator` manages the visual model lifecycle (insert, move, remove, phase transitions).
+- `LauncherCoordinatorAdapter` adapts `controller.results` into generic coordinator items.
+- `TransitionPolicy.modeForSnapshot()` handles fast-input adaptation (typing, deleting, backend switches).
+- `LauncherResultList` and `LauncherResultDelegate` wire launcher-specific properties to the generic animated list/delegate.
+
 `TreeView` inherits `TableView`, not `ListView`; do not add unsupported `add`/`remove`/`displaced` transitions to it. Animate tree expand/collapse through the containing clipped wrapper and row delegates instead.
 
 When launcher results spawn already expanded, the initial tree state must snap into place. Enable tree reveal, row-height, and child-entry animations only after the initial model/default expansion layout settles, so motion only communicates later state changes.
@@ -204,6 +211,131 @@ When `ListView` removals need exit animation, use `ListView.delayRemove` through
 
 Avoid adding a second behavior to nested `TreeView` row heights when child row heights already drive the reveal. Double-animating parent and child heights makes collapse look sequential instead of simultaneous.
 
+## Shared Transition Policy
+
+`configs/quickshell/animations/TransitionPolicy.qml` centralizes transition mode selection, duration/easing derivation, and fast-input adaptation.
+
+Modes:
+
+| Mode | Use |
+|------|-----|
+| `None` | snap; no animation |
+| `Light` | short/subtle animation |
+| `Full` | normal animation |
+| `FastInput` | typing/search churn; minimal animation |
+
+Kinds: `Micro`, `Short`, `Medium`, `Long`, `Enter`, `Exit`, `Layout`, `Move`, `Color`, `Scale`, `Panel`, `ListInsert`, `ListRemove`, `ListMove`.
+
+API:
+
+```qml
+TransitionPolicy {
+    id: policy
+}
+
+policy.duration(kind, mode)
+policy.easing(kind, direction, mode)
+policy.settleDelay(mode)
+policy.removalDelay(mode)
+policy.shouldAnimate(kind, mode)
+policy.modeForSnapshot(context)
+```
+
+The policy respects `Config.behaviour.animation.enabled`. When disabled, all modes produce zero-duration transitions.
+
+## Fast-Input Adaptation
+
+`modeForSnapshot(context)` derives transition mode from context:
+
+```js
+{
+    inputText, previousInputText,
+    contextKey, previousContextKey,
+    reason,              // query, contextSwitch, reset, open, close
+    timeSinceLastSnapshot,
+    activeItemCount, previousItemCount
+}
+```
+
+Behavior:
+
+- Initial open: `Full` (or `Light` if items already present).
+- Empty query reset: `Light` or `None`.
+- Backend/context switch: `Full`.
+- Single-character edit in quick succession: `FastInput` or `Light`.
+- Repeated snapshot churn: retargets existing animations, does not queue.
+- Recently removed keys that reappear: snap to `live` phase instead of replaying enter.
+
+## Generic Visual List Coordinator
+
+`configs/quickshell/animations/TransitionListCoordinator.qml` manages stable-keyed visual list lifecycle:
+
+- Normalize incoming items with stable keys.
+- Update survivors, insert new rows, move to target order.
+- Mark missing rows as `leaving`, remove after configured delay.
+- Track recently removed keys to avoid replaying enter animation.
+- Assign z-values by rank (higher rank = higher z).
+- Expose debug state and last operations.
+
+Generic item shape:
+
+```js
+{ key: string, payload: var, rank: int, animationRole: string }
+```
+
+Usage:
+
+```qml
+Animations.TransitionListCoordinator {
+    id: coordinator
+}
+
+coordinator.applySnapshot(items, {
+    inputText: query,
+    contextKey: contextKey,
+    reason: "query"
+});
+```
+
+## Generic Animated List and Delegate
+
+`configs/quickshell/animations/AnimatedTransitionList.qml` and `TransitionListDelegate.qml` consume the coordinator model and animate insert/remove/move through the shared transition policy.
+
+The list accepts a `payloadDelegate` component. The delegate handles phase lifecycle (`entering`, `live`, `leaving`) using `TransitionItemAnimator`.
+
+Launcher-specific wiring stays in `launcher/visual/LauncherResultList.qml` and `LauncherResultDelegate.qml`, which adapt the generic components with launcher properties (controller, result, selected, iconSize, etc.).
+
+## Generic Item Animator
+
+`configs/quickshell/animations/TransitionItemAnimator.qml` animates reveal, opacity, and scale for enter/exit transitions. It derives durations and easing from `TransitionPolicy` based on the current animation mode.
+
+## When to Use Each Component
+
+| Component | Use |
+|-----------|-----|
+| `Expander` | clipped reveal/collapse for sections, expanders |
+| `ListReveal` | top-anchored list/frame reveal |
+| `AnimatedListDelegate` | simple list row lifecycle (add/remove height animation) |
+| `TransitionListCoordinator` + `AnimatedTransitionList` | snapshot-driven lists with stable keys, reorder, fast-input adaptation |
+| `TransitionItemAnimator` | enter/exit reveal/fade/scale for individual items |
+
+## Launcher Migration Notes
+
+Launcher uses:
+
+- `TransitionListCoordinator` for visual model lifecycle.
+- `LauncherCoordinatorAdapter` to adapt `controller.results` into generic items.
+- `LauncherResultList` (extends `ListView` with launcher-specific delegate wiring).
+- `LauncherResultDelegate` (extends generic delegate with launcher properties).
+
+Search/ranking/scoring/evidence/backends remain untouched. Only the visual layer consumes the shared transition policy.
+
+## Avoiding Local Animations
+
+Prefer shared recipes over local `NumberAnimation`, `Behavior`, or `Transition` blocks. If a local animation is needed, check whether it belongs in `configs/quickshell/animations/` as a new recipe.
+
+Do not scatter duration literals. Derive from `Config.motion.*` or `TransitionPolicy`.
+
 ## Validation
 
 Check these states for any animated component:
@@ -214,6 +346,7 @@ Check these states for any animated component:
 4. Active/selected.
 5. Expanded (if applicable).
 6. With animations disabled (`duration_multiplier = 0`).
+7. Fast input (for snapshot-driven lists).
 
 ## Do Not
 

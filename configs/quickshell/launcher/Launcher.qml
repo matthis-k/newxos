@@ -49,7 +49,7 @@ PanelWindow {
         closeTimer.stop();
         closing = false;
         launcherRevealed = false;
-        visualResults.resetTransientState();
+        coordinatorAdapter.resetTransientState();
         visible = true;
         if (Config.behaviour.animation.enabled)
             Qt.callLater(function() {
@@ -110,7 +110,7 @@ PanelWindow {
             version: 1,
             type: "visual",
             preview: controller.debugVisualRows(text || ""),
-            current: visualResults.debugState(root.visualMetrics())
+            current: coordinatorAdapter.debugState(root.visualMetrics())
         });
     }
 
@@ -118,7 +118,7 @@ PanelWindow {
         return JSON.stringify({
             version: 1,
             type: "visualState",
-            current: visualResults.debugState(root.visualMetrics())
+            current: coordinatorAdapter.debugState(root.visualMetrics())
         });
     }
 
@@ -128,13 +128,13 @@ PanelWindow {
             version: 1,
             type: "visualApply",
             preview: preview,
-            current: visualResults.debugState(root.visualMetrics())
+            current: coordinatorAdapter.debugState(root.visualMetrics())
         });
     }
 
     function queryVisualDebug(arg) {
         const value = String(arg === undefined ? "" : arg).toLowerCase();
-        visualResults.debugEnabled = value === "1" || value === "true" || value === "on" || value === "yes";
+        transitionCoordinator.debugEnabled = value === "1" || value === "true" || value === "on" || value === "yes";
         return root.queryVisualState();
     }
 
@@ -171,8 +171,14 @@ PanelWindow {
         }
     }
 
-    Visual.VisualResultCoordinator {
-        id: visualResults
+    Visual.LauncherCoordinatorAdapter {
+        id: coordinatorAdapter
+        controller: controller
+        coordinator: transitionCoordinator
+    }
+
+    Animations.TransitionListCoordinator {
+        id: transitionCoordinator
     }
 
     function visualContextKey() {
@@ -182,7 +188,11 @@ PanelWindow {
     }
 
     function applyVisualSnapshot() {
-        visualResults.applySnapshot(controller.results, visualResults.animationModeForSnapshot(controller.query, root.visualContextKey()));
+        coordinatorAdapter.applySnapshot({
+            inputText: controller.query,
+            contextKey: root.visualContextKey(),
+            reason: "query"
+        });
     }
 
     function visualMetrics() {
@@ -392,7 +402,7 @@ PanelWindow {
                 id: resultsFrame
                 readonly property real targetHeight: {
                     const contentHeight = resultsList.contentHeight || 0;
-                    const bootstrapHeight = visualResults.hasActiveItems ? root.rowHeight : 0;
+                    const bootstrapHeight = transitionCoordinator.hasActiveItems ? root.rowHeight : 0;
                     return Math.min(Math.max(contentHeight, bootstrapHeight), root.rowHeight * root.visibleResultRows);
                 }
 
@@ -431,10 +441,10 @@ PanelWindow {
                     }
                 }
 
-                Visual.AnimatedResultList {
+                Visual.LauncherResultList {
                     id: resultsList
                     anchors.fill: parent
-                    visualResults: visualResults
+                    coordinator: transitionCoordinator
                     resultDelegate: root.resultDelegate
                     controller: controller
                     iconSize: root.iconSize
