@@ -111,12 +111,11 @@ in
           QT_WAYLAND_DISABLE_WINDOWDECORATION = "1";
         };
 
-        nix.settings.substituters = [
-          "https://hyprland.cachix.org"
-        ];
-        nix.settings.trusted-public-keys = [
-          "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioJM7ypFP8PwtkuGc="
-        ];
+        nix.settings = {
+          substituters = [ "https://hyprland.cachix.org" ];
+          trusted-substituters = [ "https://hyprland.cachix.org" ];
+          trusted-public-keys = [ "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc=" ];
+        };
 
         programs.hyprland = {
           enable = true;
@@ -152,14 +151,6 @@ in
             Type = "simple";
             ExecStart = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";
           };
-        };
-
-        home-manager.users.matthisk = lib.mkIf cfg.enableRuntimeLuaImport {
-          home.file.".config/hypr/nix-import.lua".source = lib.mkForce (
-            pkgs.runCommand "nix-import-symlink" { } ''
-              ln -s /run/newxos/hypr/nix-import.lua "$out"
-            ''
-          );
         };
 
         system.activationScripts.hyprland-nix-import = lib.mkIf cfg.enableRuntimeLuaImport (

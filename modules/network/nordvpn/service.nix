@@ -1,50 +1,8 @@
 { inputs, ... }:
+let
+  boolToEnabled = v: if v then "enabled" else "disabled";
+in
 {
-  flake-file.inputs.nordvpn-flake = {
-    # Newer revisions fail because the packaged 4.2.0 .deb URL now returns 404.
-    url = "github:connerohnesorge/nordvpn-flake/f802a2efd8225116158371a8c85db28e7b0846dd";
-    inputs.nixpkgs.follows = "nixpkgs";
-  };
-
-  perSystem =
-    { pkgs, ... }:
-    let
-      nordvpnLinux = pkgs.fetchFromGitHub {
-        owner = "NordSecurity";
-        repo = "nordvpn-linux";
-        rev = "9d0e414d9490b1dd475f67e46c64ed80b623c1dc";
-        hash = "sha256-i0y8oDf3trTMoiGwe5SGF6aG4Csx5b+GqGIZUS72XXY=";
-      };
-    in
-    {
-      packages.nordvpn-watch = pkgs.writeShellApplication {
-        name = "nordvpn-watch";
-        runtimeInputs = [
-          pkgs.grpcurl
-          pkgs.jq
-        ];
-        text = ''
-          set -euo pipefail
-
-          grpcurl \
-            -plaintext \
-            -emit-defaults \
-            -import-path ${nordvpnLinux}/protobuf/daemon \
-            -import-path ${nordvpnLinux}/protobuf \
-            -proto service.proto \
-            unix:///run/nordvpn/nordvpnd.sock \
-            pb.Daemon/SubscribeToStateChanges \
-            | jq --unbuffered -c '
-                if has("connectionStatus") then { type: "status" }
-                elif has("settingsChange") then { type: "settings" }
-                elif has("updateEvent") then { type: "destinations" }
-                else { type: "event" }
-                end
-              '
-        '';
-      };
-    };
-
   flake.modules.nixos.nordvpn =
     {
       config,
@@ -62,7 +20,6 @@
           builtins.head cfg.users
         else
           "";
-      boolToEnabled = v: if v then "enabled" else "disabled";
       autoConnectGroupArgs =
         lib.optional (cfg.settings.autoConnect.group != null) "--group"
         ++ lib.optional (cfg.settings.autoConnect.group != null) cfg.settings.autoConnect.group;

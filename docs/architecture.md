@@ -79,6 +79,14 @@ This repo prefers wrapper packages when it owns opinionated config:
 - Host-specific user deltas: `modules/hosts/<hostname>/users/<name>.nix`
 - If `disko` manages storage, it is the source of truth — do not duplicate `fileSystems`.
 
+## Desktop / theming / configs ownership
+
+| Location | Owns |
+|---|---|
+| `modules/desktop/<app>.nix` | Installation, launch integration, services, runtime enablement |
+| `modules/theming/<app>.nix` | Generated theme files and palette-derived config |
+| `configs/<app>/` | Handwritten upstream app config (not generated, not installed) |
+
 ## Theming
 
 - Stylix is the theme backbone.

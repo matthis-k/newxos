@@ -224,7 +224,7 @@
           "repo-flake-check"
           "repo-update-knowledge-index"
         ];
-        files = "^modules/workflow\\.nix$";
+        files = "^modules/dev/workflow\\.nix$";
         pass_filenames = false;
       };
 
