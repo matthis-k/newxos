@@ -75,6 +75,7 @@ in
       quickshell
       sops
       stylix
+      wayland-tools
       zen-browser
     ];
 

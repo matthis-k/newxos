@@ -14,6 +14,7 @@
       security
       sops
       stylix
+      wayland-tools
     ];
   };
 }

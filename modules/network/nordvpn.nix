@@ -54,6 +54,7 @@
     }:
     let
       cfg = config.services.nordvpn;
+      nxCfg = config.newxos.nordvpn;
       cliUser =
         if cfg.cliUser != null then
           cfg.cliUser
@@ -402,109 +403,156 @@
         };
       };
 
-      config = lib.mkIf cfg.enable {
-        assertions = [
-          {
-            assertion = cfg.users != [ ] || cfg.cliUser != null;
-            message = "services.nordvpn requires at least one user or an explicit cliUser.";
-          }
-          {
-            assertion = cfg.cliUser == null || lib.elem cfg.cliUser cfg.users;
-            message = "services.nordvpn.cliUser must also be listed in services.nordvpn.users.";
-          }
-          {
-            assertion = builtins.length cfg.settings.dnsServers <= 3;
-            message = "services.nordvpn.settings.dnsServers can contain at most 3 servers.";
-          }
-          {
-            assertion = !(cfg.settings.dnsServers != [ ] && cfg.settings.threatProtectionLite);
-            message = "services.nordvpn.settings.dnsServers cannot be used together with threatProtectionLite.";
-          }
-          {
-            assertion = !(cfg.settings.postQuantum && cfg.settings.meshnet);
-            message = "services.nordvpn.settings.postQuantum is incompatible with meshnet.";
-          }
-          {
-            assertion = lib.all (entry: entry.from <= entry.to) cfg.settings.allowlist.portRanges;
-            message = "services.nordvpn.settings.allowlist.portRanges entries must have from <= to.";
-          }
-        ];
-
-        systemd.services.nordvpn-bootstrap = {
-          description = "Bootstrap NordVPN login and settings";
-          after = networkOnlineServices ++ [ "nordvpn.service" ];
-          wants = networkOnlineServices ++ [ "nordvpn.service" ];
-          wantedBy = [ "multi-user.target" ];
-          restartTriggers = [
-            "${cfg.settings.technology}"
-            "${boolToEnabled cfg.settings.firewall}"
-            "${toString cfg.settings.fwmark}"
-            "${boolToEnabled cfg.settings.routing}"
-            "${boolToEnabled cfg.settings.analytics}"
-            "${boolToEnabled cfg.settings.killSwitch}"
-            "${boolToEnabled cfg.settings.threatProtectionLite}"
-            "${boolToEnabled cfg.settings.notify}"
-            "${boolToEnabled cfg.settings.tray}"
-            "${boolToEnabled cfg.settings.ipv6}"
-            "${boolToEnabled cfg.settings.meshnet}"
-            "${boolToEnabled cfg.settings.lanDiscovery}"
-            "${boolToEnabled cfg.settings.virtualLocation}"
-            "${boolToEnabled cfg.settings.postQuantum}"
-            "${boolToEnabled cfg.settings.resetDefaults}"
-            "${boolToEnabled cfg.settings.autoConnect.enable}"
-            "${toString cfg.settings.autoConnect.group}"
-            "${lib.concatStrings cfg.settings.autoConnect.target}"
-            "${lib.concatStrings cfg.settings.dnsServers}"
-            "${builtins.toJSON cfg.settings.allowlist.ports}"
-            "${builtins.toJSON cfg.settings.allowlist.portRanges}"
-            "${builtins.toJSON cfg.settings.allowlist.subnets}"
-            cliUser
-          ];
-          serviceConfig = {
-            RemainAfterExit = true;
-            Restart = "on-failure";
-            RestartSec = "30s";
-            Type = "oneshot";
-          };
-          script = ''
-            set -euo pipefail
-
-            nordvpn() {
-              ${pkgs.util-linux}/bin/runuser -u ${lib.escapeShellArg cliUser} -- /run/current-system/sw/bin/nordvpn "$@"
-            }
-
-            fail_bootstrap() {
-              printf 'error: %s\n' "$1" >&2
-              exit 1
-            }
-
-            attempt=0
-            until nordvpn settings >/dev/null 2>&1; do
-              attempt=$((attempt + 1))
-
-              if [ "$attempt" -ge 30 ]; then
-                fail_bootstrap "nordvpn CLI did not become ready"
-              fi
-
-              sleep 1
-            done
-
-            ${lib.optionalString cfg.settings.resetDefaults ''
-              nordvpn set defaults
-            ''}
-
-            if ! nordvpn account >/dev/null 2>&1; then
-              token="$(${pkgs.coreutils}/bin/tr -d '\r\n' < /run/secrets/nordvpn_token)"
-              if ! nordvpn login --token "$token"; then
-                fail_bootstrap "nordvpn login failed"
-              fi
-            fi
-
-            ${pkgs.util-linux}/bin/runuser -u ${lib.escapeShellArg cliUser} -- ${configureNordvpn}
-          '';
+      options.newxos.nordvpn = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Enable NordVPN with newxos common settings and sops secret.";
         };
 
-        systemd.services.nordvpn.path = [ pkgs.e2fsprogs ];
+        technology = lib.mkOption {
+          type = lib.types.enum [
+            "NORDLYNX"
+            "OPENVPN"
+            "NORDWHISPER"
+          ];
+          default = "OPENVPN";
+          description = "NordVPN connection technology.";
+        };
+
+        dedicatedIp = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Use Dedicated_IP autoconnect group.";
+        };
       };
+
+      config = lib.mkMerge [
+        (lib.mkIf cfg.enable {
+          assertions = [
+            {
+              assertion = cfg.users != [ ] || cfg.cliUser != null;
+              message = "services.nordvpn requires at least one user or an explicit cliUser.";
+            }
+            {
+              assertion = cfg.cliUser == null || lib.elem cfg.cliUser cfg.users;
+              message = "services.nordvpn.cliUser must also be listed in services.nordvpn.users.";
+            }
+            {
+              assertion = builtins.length cfg.settings.dnsServers <= 3;
+              message = "services.nordvpn.settings.dnsServers can contain at most 3 servers.";
+            }
+            {
+              assertion = !(cfg.settings.dnsServers != [ ] && cfg.settings.threatProtectionLite);
+              message = "services.nordvpn.settings.dnsServers cannot be used together with threatProtectionLite.";
+            }
+            {
+              assertion = !(cfg.settings.postQuantum && cfg.settings.meshnet);
+              message = "services.nordvpn.settings.postQuantum is incompatible with meshnet.";
+            }
+            {
+              assertion = lib.all (entry: entry.from <= entry.to) cfg.settings.allowlist.portRanges;
+              message = "services.nordvpn.settings.allowlist.portRanges entries must have from <= to.";
+            }
+          ];
+
+          systemd.services.nordvpn-bootstrap = {
+            description = "Bootstrap NordVPN login and settings";
+            after = networkOnlineServices ++ [ "nordvpn.service" ];
+            wants = networkOnlineServices ++ [ "nordvpn.service" ];
+            wantedBy = [ "multi-user.target" ];
+            restartTriggers = [
+              "${cfg.settings.technology}"
+              "${boolToEnabled cfg.settings.firewall}"
+              "${toString cfg.settings.fwmark}"
+              "${boolToEnabled cfg.settings.routing}"
+              "${boolToEnabled cfg.settings.analytics}"
+              "${boolToEnabled cfg.settings.killSwitch}"
+              "${boolToEnabled cfg.settings.threatProtectionLite}"
+              "${boolToEnabled cfg.settings.notify}"
+              "${boolToEnabled cfg.settings.tray}"
+              "${boolToEnabled cfg.settings.ipv6}"
+              "${boolToEnabled cfg.settings.meshnet}"
+              "${boolToEnabled cfg.settings.lanDiscovery}"
+              "${boolToEnabled cfg.settings.virtualLocation}"
+              "${boolToEnabled cfg.settings.postQuantum}"
+              "${boolToEnabled cfg.settings.resetDefaults}"
+              "${boolToEnabled cfg.settings.autoConnect.enable}"
+              "${toString cfg.settings.autoConnect.group}"
+              "${lib.concatStrings cfg.settings.autoConnect.target}"
+              "${lib.concatStrings cfg.settings.dnsServers}"
+              "${builtins.toJSON cfg.settings.allowlist.ports}"
+              "${builtins.toJSON cfg.settings.allowlist.portRanges}"
+              "${builtins.toJSON cfg.settings.allowlist.subnets}"
+              cliUser
+            ];
+            serviceConfig = {
+              RemainAfterExit = true;
+              Restart = "on-failure";
+              RestartSec = "30s";
+              Type = "oneshot";
+            };
+            script = ''
+              set -euo pipefail
+
+              nordvpn() {
+                ${pkgs.util-linux}/bin/runuser -u ${lib.escapeShellArg cliUser} -- /run/current-system/sw/bin/nordvpn "$@"
+              }
+
+              fail_bootstrap() {
+                printf 'error: %s\n' "$1" >&2
+                exit 1
+              }
+
+              attempt=0
+              until nordvpn settings >/dev/null 2>&1; do
+                attempt=$((attempt + 1))
+
+                if [ "$attempt" -ge 30 ]; then
+                  fail_bootstrap "nordvpn CLI did not become ready"
+                fi
+
+                sleep 1
+              done
+
+              ${lib.optionalString cfg.settings.resetDefaults ''
+                nordvpn set defaults
+              ''}
+
+              if ! nordvpn account >/dev/null 2>&1; then
+                token="$(${pkgs.coreutils}/bin/tr -d '\r\n' < /run/secrets/nordvpn_token)"
+                if ! nordvpn login --token "$token"; then
+                  fail_bootstrap "nordvpn login failed"
+                fi
+              fi
+
+              ${pkgs.util-linux}/bin/runuser -u ${lib.escapeShellArg cliUser} -- ${configureNordvpn}
+            '';
+          };
+
+          systemd.services.nordvpn.path = [ pkgs.e2fsprogs ];
+        })
+
+        (lib.mkIf nxCfg.enable {
+          services.nordvpn = {
+            enable = true;
+            users = [ "matthisk" ];
+            settings.technology = nxCfg.technology;
+            settings.autoConnect = lib.mkIf nxCfg.dedicatedIp {
+              group = "Dedicated_IP";
+              target = [ ];
+            };
+            settings.allowlist = {
+              ports = [
+                {
+                  port = 5353;
+                  protocol = "UDP";
+                }
+              ];
+              subnets = [ "224.0.0.0/24" ];
+            };
+          };
+        })
+      ];
     };
 }

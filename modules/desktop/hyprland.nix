@@ -4,6 +4,14 @@
   withSystem,
   ...
 }:
+let
+  hyprlandWrapper = inputs.self.lib.wrapper-modules.hyprland;
+
+  configDir = builtins.path {
+    name = "hyprland-config";
+    path = ../../configs/hypr;
+  };
+in
 {
   flake-file.inputs.hyprland = {
     url = "github:hyprwm/Hyprland";
@@ -17,196 +25,84 @@
       ...
     }:
     let
+      cfg = config.newxos.hyprland;
+
       hyprlandPackages = withSystem pkgs.stdenv.hostPlatform.system (
         { inputs', ... }: inputs'.hyprland.packages
       );
 
-      screenShotBin = pkgs.writeShellScriptBin "screen-shot" ''
-        set -euo pipefail
-
-        mode="''${1:-region}"
-        screenshots_dir="''${XDG_SCREENSHOTS_DIR:-$HOME/Pictures/Screenshots}"
-
-        ${pkgs.coreutils}/bin/mkdir -p "$screenshots_dir"
-
-        case "$mode" in
-          region)
-            output_file="$screenshots_dir/screen-shot-region-$(date +%Y%m%d-%H%M%S).png"
-            ${pkgs.grimblast}/bin/grimblast --freeze --filetype ppm save area - | ${pkgs.satty}/bin/satty \
-              --filename - \
-              --fullscreen \
-              --output-filename "$output_file"
-            ;;
-          region-direct)
-            output_file="$screenshots_dir/screen-shot-region-$(date +%Y%m%d-%H%M%S).png"
-            ${pkgs.grimblast}/bin/grimblast --notify --freeze copysave area "$output_file"
-            ;;
-          output)
-            output_file="$screenshots_dir/screen-shot-output-$(date +%Y%m%d-%H%M%S).png"
-            ${pkgs.grimblast}/bin/grimblast --filetype ppm save output - | ${pkgs.satty}/bin/satty \
-              --filename - \
-              --fullscreen \
-              --output-filename "$output_file"
-            ;;
-          window)
-            output_file="$screenshots_dir/screen-shot-window-$(date +%Y%m%d-%H%M%S).png"
-            ${pkgs.grimblast}/bin/grimblast --filetype ppm save active - | ${pkgs.satty}/bin/satty \
-              --filename - \
-              --fullscreen \
-              --output-filename "$output_file"
-            ;;
-          *)
-            printf 'usage: screen-shot [region|region-direct|output|window]\n' >&2
-            exit 2
-            ;;
-        esac
-      '';
-
-      screenShotCompletion = pkgs.writeTextDir "share/fish/vendor_completions.d/screen-shot.fish" ''
-        complete -c screen-shot -f
-        complete -c screen-shot -n 'not __fish_seen_subcommand_from region region-direct output window' -a 'region region-direct output window'
-      '';
-
-      screenShot = pkgs.symlinkJoin {
-        name = "screen-shot";
-        paths = [
-          screenShotBin
-          screenShotCompletion
-        ];
-      };
-
-      screenReadRegion = pkgs.writeShellScriptBin "screen-read-region" ''
-        set -euo pipefail
-
-        tmp_png="$(${pkgs.coreutils}/bin/mktemp --suffix .png)"
-        trap '${pkgs.coreutils}/bin/rm -f "$tmp_png"' EXIT
-
-        ${pkgs.grimblast}/bin/grimblast --freeze save area - > "$tmp_png"
-
-        text="$(${pkgs.tesseract}/bin/tesseract "$tmp_png" stdout -l ''${OCR_LANG:-eng} 2>/dev/null | ${pkgs.gnused}/bin/sed '/^[[:space:]]*$/d')"
-
-        if [ -z "$text" ]; then
-          ${pkgs.libnotify}/bin/notify-send "Screen OCR" "No text detected"
-          exit 1
-        fi
-
-        printf '%s' "$text" | ${pkgs.wl-clipboard}/bin/wl-copy
-        printf '%s\n' "$text"
-        ${pkgs.libnotify}/bin/notify-send "Screen OCR" "Copied text to clipboard"
-      '';
-
-      screenEditClipboard = pkgs.writeShellScriptBin "screen-edit-clipboard" ''
-        set -euo pipefail
-
-        screenshots_dir="''${XDG_SCREENSHOTS_DIR:-$HOME/Pictures/Screenshots}"
-        output_file="$screenshots_dir/screen-edit-$(date +%Y%m%d-%H%M%S).png"
-        image_type=""
-
-        ${pkgs.coreutils}/bin/mkdir -p "$screenshots_dir"
-
-        while IFS= read -r candidate; do
-          case "$candidate" in
-            image/*)
-              image_type="$candidate"
-              break
-              ;;
-          esac
-        done <<EOF
-        $(${pkgs.wl-clipboard}/bin/wl-paste --list-types 2>/dev/null || true)
-        EOF
-
-        if [ -z "$image_type" ]; then
-          ${pkgs.libnotify}/bin/notify-send "Satty" "Clipboard has no image"
-          exit 1
-        fi
-
-        ${pkgs.wl-clipboard}/bin/wl-paste --type "$image_type" | ${pkgs.satty}/bin/satty \
-          --filename - \
-          --fullscreen \
-          --output-filename "$output_file"
-      '';
-
-      readImage = pkgs.writeShellScriptBin "read-image" ''
-        set -euo pipefail
-
-        if [ ''${1:-} = "--clipboard" ]; then
-          shift
-          img_type="$(${pkgs.wl-clipboard}/bin/wl-paste --list-types 2>/dev/null | ${pkgs.gnugrep}/bin/grep '^image/' | ${pkgs.coreutils}/bin/head -1)"
-          if [ -z "$img_type" ]; then
-            ${pkgs.libnotify}/bin/notify-send "read-image" "Clipboard has no image"
-            exit 1
-          fi
-          ${pkgs.wl-clipboard}/bin/wl-paste --type "$img_type" | "$0" "$@"
-          exit
-        fi
-
-        tmp="$(${pkgs.coreutils}/bin/mktemp --suffix .png)"
-        trap '${pkgs.coreutils}/bin/rm -f "$tmp"' EXIT
-
-        ${pkgs.coreutils}/bin/cat > "$tmp"
-
-        text="$(${pkgs.tesseract}/bin/tesseract "$tmp" stdout -l ''${OCR_LANG:-eng} 2>/dev/null | ${pkgs.gnused}/bin/sed '/^[[:space:]]*$/d')"
-
-        if [ -z "$text" ]; then
-          ${pkgs.libnotify}/bin/notify-send "read-image" "No text detected"
-          exit 1
-        fi
-
-        printf '%s\n' "$text"
-      '';
-
-      annotate = pkgs.writeShellScriptBin "annotate" ''
-        set -euo pipefail
-
-        if [ ''${1:-} = "--clipboard" ]; then
-          shift
-          img_type="$(${pkgs.wl-clipboard}/bin/wl-paste --list-types 2>/dev/null | ${pkgs.gnugrep}/bin/grep '^image/' | ${pkgs.coreutils}/bin/head -1)"
-          if [ -z "$img_type" ]; then
-            ${pkgs.libnotify}/bin/notify-send "annotate" "Clipboard has no image"
-            exit 1
-          fi
-          ${pkgs.wl-clipboard}/bin/wl-paste --type "$img_type" | "$0" "$@"
-          exit
-        fi
-
-        screenshots_dir="''${XDG_SCREENSHOTS_DIR:-$HOME/Pictures/Screenshots}"
-        output_file="$screenshots_dir/annotate-$(date +%Y%m%d-%H%M%S).png"
-
-        ${pkgs.coreutils}/bin/mkdir -p "$screenshots_dir"
-
-        ${pkgs.coreutils}/bin/cat | ${pkgs.satty}/bin/satty \
-          --filename - \
-          --fullscreen \
-          --output-filename "$output_file"
-      '';
+      wrappedPackage = withSystem pkgs.stdenv.hostPlatform.system (
+        { inputs', ... }:
+        hyprlandWrapper.wrap {
+          pkgs = inputs.nixpkgs.legacyPackages.${pkgs.stdenv.hostPlatform.system};
+          configDirectory = configDir;
+          package = inputs'.hyprland.packages.hyprland;
+          luaVariables = {
+            inherit (cfg) monitors;
+          };
+        }
+      );
 
       hyprctlFishCompletion = pkgs.runCommand "hyprctl-fish-completion" { } ''
         mkdir -p hyprctl $out/share/fish/vendor_completions.d
         cp ${hyprlandPackages.hyprland}/share/fish/vendor_completions.d/hyprctl.fish hyprctl/hyprctl.fish
         chmod u+w hyprctl/hyprctl.fish
-        patch -p1 < ${./../../patches/hyprctl-fish-completions.patch}
+        patch -p1 < ${../../patches/hyprctl-fish-completions.patch}
         cp hyprctl/hyprctl.fish $out/share/fish/vendor_completions.d/hyprctl.fish
       '';
     in
     {
+      options.newxos.hyprland = {
+        monitors = lib.mkOption {
+          type = lib.types.nullOr (
+            lib.types.listOf (
+              lib.types.submodule {
+                options = {
+                  output = lib.mkOption {
+                    type = lib.types.str;
+                    description = "Output name.";
+                  };
+                  mode = lib.mkOption {
+                    type = lib.types.str;
+                    default = "preferred";
+                    description = "Output mode resolution.";
+                  };
+                  position = lib.mkOption {
+                    type = lib.types.str;
+                    default = "auto";
+                    description = "Output position.";
+                  };
+                  scale = lib.mkOption {
+                    type = lib.types.number;
+                    default = 1;
+                    description = "Output scale factor.";
+                  };
+                };
+              }
+            )
+          );
+          default = null;
+          description = "Monitor list for the wrapped Hyprland package. Null disables the wrapper.";
+        };
+
+        enableRuntimeLuaImport = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Copy nix-import.lua to /run/newxos/hypr on activation for live reload.";
+        };
+      };
+
       config = {
-        environment.systemPackages = with pkgs; [
-          brightnessctl
-          grimblast
-          hyprpolkitagent
-          (lib.hiPrio hyprctlFishCompletion)
-          libnotify
-          playerctl
-          satty
-          tesseract
-          wl-clipboard
-          wireplumber
-          screenShot
-          screenReadRegion
-          screenEditClipboard
-          readImage
-          annotate
-        ];
+        environment.systemPackages =
+          with pkgs;
+          [
+            brightnessctl
+            hyprpolkitagent
+            (lib.hiPrio hyprctlFishCompletion)
+            playerctl
+            wireplumber
+          ]
+          ++ lib.optional (cfg.monitors != null) wrappedPackage;
 
         environment.variables = {
           QT_QPA_PLATFORM = "wayland";
@@ -219,12 +115,14 @@
           "https://hyprland.cachix.org"
         ];
         nix.settings.trusted-public-keys = [
-          "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioiJM7ypFP8PwtkuGc="
+          "hyprland.cachix.org-1:a7pgxzMz7+chwVL3/pzj6jIBMioJM7ypFP8PwtkuGc="
         ];
 
         programs.hyprland = {
           enable = true;
-          package = lib.mkDefault hyprlandPackages.hyprland;
+          package = lib.mkDefault (
+            if cfg.monitors != null then wrappedPackage else hyprlandPackages.hyprland
+          );
           portalPackage = hyprlandPackages.xdg-desktop-portal-hyprland;
           withUWSM = true;
         };
@@ -255,22 +153,25 @@
             ExecStart = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";
           };
         };
+
+        home-manager.users.matthisk = lib.mkIf cfg.enableRuntimeLuaImport {
+          home.file.".config/hypr/nix-import.lua".source = lib.mkForce (
+            pkgs.runCommand "nix-import-symlink" { } ''
+              ln -s /run/newxos/hypr/nix-import.lua "$out"
+            ''
+          );
+        };
+
+        system.activationScripts.hyprland-nix-import = lib.mkIf cfg.enableRuntimeLuaImport (
+          lib.stringAfter [ "etc" ] ''
+            mkdir -p /run/newxos/hypr
+            cp -f ${wrappedPackage.passthru.nixImportLua} /run/newxos/hypr/nix-import.lua
+          ''
+        );
       };
     };
 
   flake.modules.homeManager.hyprland = _: {
-    config = {
-      xdg.configFile."satty/config.toml".text = ''
-        [general]
-        copy-command = "wl-copy"
-        corner-roundness = 10
-        early-exit = true
-        fullscreen = true
-        initial-tool = "arrow"
-        actions-on-enter = ["save-to-clipboard", "save-to-file", "exit"]
-        actions-on-escape = ["exit"]
-        actions-on-right-click = ["save-to-clipboard", "save-to-file", "exit"]
-      '';
-    };
+    config = { };
   };
 }
