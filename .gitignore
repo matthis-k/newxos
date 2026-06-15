@@ -6,3 +6,4 @@
 
 # Generated Hyprland Nix import
 /configs/hypr/nix-import.lua
+/packages/newxos-cli/target
