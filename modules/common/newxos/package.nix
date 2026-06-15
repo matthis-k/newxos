@@ -11,23 +11,33 @@
       inherit (pkgs.stdenv.hostPlatform) system;
       diskoPackage = inputs.disko.packages.${system}.disko or inputs.disko.packages.${system}.default;
 
-      runtimeInputs =
-        with pkgs;
-        [
-          bash
-          coreutils
-          diskoPackage
-          gnugrep
-          jq
-          nh
-          nix
-          nixos-install-tools
-          nix-output-monitor
-          ripgrep
-          util-linux
-          self'.packages.basic-memory-uv2nix
-        ]
-        ++ (lib.optionals (self'.packages ? opencode) [ self'.packages.opencode ]);
+      baseRuntimeInputs = with pkgs; [
+        bash
+        coreutils
+        diskoPackage
+        git
+        gnugrep
+        nh
+        nix
+        nixos-install-tools
+        nix-output-monitor
+        ripgrep
+        systemd
+        util-linux
+      ];
+
+      # sudo is intentionally excluded: on NixOS, effective privilege
+      # escalation requires the system-managed setuid wrapper at
+      # /run/wrappers/bin/sudo, not the non-setuid pkgs.sudo binary.
+
+      repoRuntimeInputs = [
+        self'.packages.basic-memory-uv2nix
+      ]
+      ++ lib.optionals (self'.packages ? opencode) [
+        self'.packages.opencode
+      ];
+
+      runtimeInputs = baseRuntimeInputs ++ repoRuntimeInputs;
 
       newxos-cli = pkgs.rustPlatform.buildRustPackage {
         pname = "newxos";
