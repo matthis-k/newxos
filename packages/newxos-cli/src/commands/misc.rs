@@ -12,7 +12,8 @@ pub fn ai() -> Result<i32> {
 
     which("opencode").map_err(|e| {
         CliError::Message(format!(
-            "opencode not available: {} (build this system with the opencode module, or add packages.opencode to the wrapper PATH)",
+            "opencode not available: {} (rebuild with the opencode module; \
+             run 'nix flake check' to detect evaluation errors)",
             e,
         ))
     })?;

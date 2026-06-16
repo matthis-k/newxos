@@ -32,8 +32,6 @@
 
       repoRuntimeInputs = [
         self'.packages.basic-memory-uv2nix
-      ]
-      ++ lib.optionals (self'.packages ? opencode) [
         self'.packages.opencode
       ];
 

@@ -216,7 +216,7 @@
               imagemagick
               lsof
             ]
-            ++ lib.optional (self'.packages ? opencode) self'.packages.opencode;
+            ++ [ self'.packages.opencode ];
 
           specs.plugins.data = map pluginPackage pluginManifest;
         };

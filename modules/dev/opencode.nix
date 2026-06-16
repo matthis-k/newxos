@@ -179,10 +179,27 @@
       };
     in
     {
-      packages = lib.optionalAttrs wrappedOpencode.success {
-        opencode = opencodeWithEnv;
+      packages = {
         basic-memory-mcp-newxos = basicMemoryMcpNewxos;
-      };
+      }
+      // (
+        if wrappedOpencode.success then
+          {
+            opencode = opencodeWithEnv;
+          }
+        else
+          {
+            opencode = pkgs.writeShellApplication {
+              name = "opencode";
+              text = ''
+                echo "error: opencode package evaluation failed" >&2
+                echo "The nix-wrapper-modules wrapper could not be evaluated." >&2
+                echo "Run 'nix flake check' to find evaluation errors in modules/dev/opencode.nix" >&2
+                exit 1
+              '';
+            };
+          }
+      );
     };
 
   flake.modules.homeManager.opencode =
@@ -190,7 +207,7 @@
     {
       home.packages = withSystem pkgs.stdenv.hostPlatform.system (
         { self', ... }:
-        lib.optionals (self'.packages ? opencode) [
+        [
           self'.packages.opencode
           self'.packages.basic-memory-mcp-newxos
         ]
