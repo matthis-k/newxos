@@ -1,4 +1,6 @@
 use std::env;
+use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 use std::process::Command;
 
 use crate::error::{CliError, Result};
@@ -8,11 +10,12 @@ use crate::support::repo::repo_root;
 pub fn ai() -> Result<i32> {
     let root = repo_root()?;
 
-    if which("opencode").is_err() {
-        return Err(CliError::Message(
-            "opencode not available (build this system with the opencode module)".to_string(),
-        ));
-    }
+    which("opencode").map_err(|e| {
+        CliError::Message(format!(
+            "opencode not available: {} (build this system with the opencode module, or add packages.opencode to the wrapper PATH)",
+            e,
+        ))
+    })?;
 
     env::set_current_dir(&root)?;
     exec_replace("opencode", &[] as &[&str])?;
@@ -55,15 +58,27 @@ pub fn dev_mode() -> Result<i32> {
 }
 
 fn which(program: &str) -> Result<()> {
-    let status = Command::new("command")
-        .args(["-v", program])
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()?;
+    let path =
+        env::var_os("PATH").ok_or_else(|| CliError::Message("PATH is not set".to_string()))?;
 
-    if status.success() {
-        Ok(())
-    } else {
-        Err(CliError::Message(format!("{} not found in PATH", program)))
+    let count = env::split_paths(&path).count();
+
+    for dir in env::split_paths(&path) {
+        let candidate = dir.join(program);
+        if candidate.is_file() && is_executable(&candidate) {
+            return Ok(());
+        }
     }
+
+    Err(CliError::Message(format!(
+        "{program} not found in PATH (checked {count} directories)",
+    )))
+}
+
+#[cfg(unix)]
+fn is_executable(path: &Path) -> bool {
+    path.metadata()
+        .ok()
+        .map(|m| m.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false)
 }
