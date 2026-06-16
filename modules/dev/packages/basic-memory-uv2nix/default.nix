@@ -5,10 +5,7 @@
 }:
 {
   perSystem =
-    {
-      pkgs,
-      ...
-    }:
+    { pkgs, ... }:
     let
       workspaceRoot = ../../../../packages/basic-memory-uv2nix;
 
@@ -42,8 +39,18 @@
             pybarsOverride
           ]
         );
+
+      basicMemoryEnv = pythonSet.mkVirtualEnv "basic-memory-env" workspace.deps.default;
     in
     {
-      packages.basic-memory-uv2nix = pythonSet.mkVirtualEnv "basic-memory-env" workspace.deps.default;
+      options.newxos.basicMemoryUv2nix = lib.mkOption {
+        type = lib.types.package;
+        internal = true;
+      };
+
+      config = {
+        newxos.basicMemoryUv2nix = basicMemoryEnv;
+        packages.basic-memory-uv2nix = basicMemoryEnv;
+      };
     };
 }

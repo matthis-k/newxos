@@ -144,11 +144,6 @@
       pre-commit.check.enable = false;
 
       treefmt = {
-        projectRoot = builtins.path {
-          path = self;
-          name = "newxos-treefmt-source";
-          filter = path: _type: builtins.baseNameOf path != ".git";
-        };
         projectRootFile = "flake.nix";
         programs.nixfmt.enable = true;
         programs.stylua.enable = true;
