@@ -6,9 +6,11 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.animations as Animations
 import qs.services
-import "backends" as Backends
+        import "backends" as Backends
 import "delegates" as Delegates
 import "visual" as Visual
+import "logic/DebugLogger.js" as DebugLogger
+import "logic/KeybindPresets.js" as KeybindPresets
 
 PanelWindow {
     id: root
@@ -348,53 +350,152 @@ PanelWindow {
                 onTextEdited: controller.updateQuery(text)
 
                 Keys.onPressed: function(event) {
-                    if (event.key === Qt.Key_Down || (event.modifiers & Qt.ControlModifier && (event.key === Qt.Key_N || event.key === Qt.Key_J))) {
+                    if (!handleLauncherKey(event))
+                        return;
+                    event.accepted = true;
+                }
+
+                function handleLauncherKey(event) {
+                    DebugLogger.log("key", "pressed", {
+                        key: event.key,
+                        text: event.text,
+                        modifiers: event.modifiers,
+                        activeNodeKey: controller.activeNodeKey,
+                        currentTreeKey: controller.currentTreeKey,
+                        selectedIndex: controller.selectedIndex,
+                        queryLength: text.length
+                    });
+
+                    if (event.key === Qt.Key_Escape)
+                        return handleEscapeKey(event);
+
+                    if (event.modifiers & Qt.AltModifier) {
+                        var target = controller.selectedActionTarget();
+                        var action = KeybindPresets.altActionForKey(target, event.key);
+                        if (action) {
+                            if (action === "switch-on" || action === "slider-inc")
+                                { controller.adjustSelectedValue(1); return true; }
+                            if (action === "switch-off" || action === "slider-dec")
+                                { controller.adjustSelectedValue(-1); return true; }
+                            if (action === "switch-toggle")
+                                { controller.toggleSelectedMute(); return true; }
+                        }
+                        return handleAltInteractionKey(event);
+                    }
+
+                    if (event.modifiers & Qt.ControlModifier)
+                        return handleCtrlKey(event);
+
+                    if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                        return handleActivationKey(event);
+
+                    if (event.key === Qt.Key_Tab && !(event.modifiers & Qt.ShiftModifier))
+                        return handleTabKey(event);
+
+                    return false;
+                }
+
+                function handleEscapeKey(event) {
+                    if (text.length > 0) {
+                        text = "";
+                        controller.reset();
+                    } else {
+                        root.close();
+                    }
+                    return true;
+                }
+
+                function handleActivationKey(event) {
+                    if (event.modifiers & Qt.ShiftModifier && controller.isInTree()) {
+                        controller.treeToggleSelected();
+                        return true;
+                    }
+
+                    var target = controller.selectedActionTarget();
+                    DebugLogger.log("activate", "enter", {
+                        targetId: target ? target.id || target.nodeId || "" : "none",
+                        targetKind: target ? target.kind || "" : "",
+                        inTree: controller.isInTree()
+                    });
+
+                    var result = controller._handleActivationWithConfirm();
+                    DebugLogger.log("activate", "result", {
+                        closeRequested: result ? result.closeRequested : false,
+                        close: result ? result.close : false
+                    });
+                    if (result && result.close !== false && result.closeRequested)
+                        root.close();
+                    return true;
+                }
+
+                function handleTabKey(event) {
+                    var result = controller.runRecipeSlot("complete");
+                    return true;
+                }
+
+                function handleCtrlKey(event) {
+                    switch (event.key) {
+                    case Qt.Key_Down:
+                    case Qt.Key_N:
+                    case Qt.Key_J:
                         controller.moveSelection(1);
-                        event.accepted = true;
-                    } else if (event.key === Qt.Key_Up || (event.modifiers & Qt.ControlModifier && (event.key === Qt.Key_P || event.key === Qt.Key_K))) {
+                        return true;
+                    case Qt.Key_Up:
+                    case Qt.Key_P:
+                    case Qt.Key_K:
                         controller.moveSelection(-1);
-                        event.accepted = true;
-                    } else if (event.key === Qt.Key_Tab) {
-                        if (!(event.modifiers & Qt.ShiftModifier))
-                            controller.completeSelected();
-                        event.accepted = true;
-                    } else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_H) {
+                        return true;
+                    case Qt.Key_H:
                         if (controller.isInTree())
                             controller.treeCollapseSelected();
                         else
                             controller.toggleCollapseResultTree();
-                        event.accepted = true;
-                    } else if (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_L) {
+                        return true;
+                    case Qt.Key_L:
                         if (controller.isInTree())
                             controller.treeExpandSelected();
                         else
                             controller.toggleExpandResultTree();
-                        event.accepted = true;
-                    } else if (event.modifiers & Qt.AltModifier && event.key === Qt.Key_H) {
-                        controller.adjustSelectedValue(-1);
-                        event.accepted = true;
-                    } else if (event.modifiers & Qt.AltModifier && event.key === Qt.Key_L) {
-                        controller.adjustSelectedValue(1);
-                        event.accepted = true;
-                    } else if (event.modifiers & Qt.AltModifier && event.key === Qt.Key_M) {
-                        controller.toggleSelectedMute();
-                        event.accepted = true;
-                    } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-                        if (event.modifiers & Qt.ShiftModifier && controller.isInTree()) {
-                            controller.treeToggleSelected();
-                        } else if (controller.activateSelected(false)) {
-                            root.close();
-                        }
-                        event.accepted = true;
-                    } else if (event.key === Qt.Key_Escape) {
-                        if (text.length > 0) {
-                            text = "";
-                            controller.reset();
-                        } else {
-                            root.close();
-                        }
-                        event.accepted = true;
+                        return true;
                     }
+                    return false;
+                }
+
+                function handleAltInteractionKey(event) {
+                    var keyName = keyNameFromEvent(event);
+                    if (!keyName)
+                        return false;
+
+                    var target = controller.selectedActionTarget();
+                    DebugLogger.log("alt-interaction", "dispatch", {
+                        keyName: keyName,
+                        targetId: target ? target.id || target.nodeId || "" : "none",
+                        targetKind: target ? target.kind || "" : "",
+                        availableKeys: target ? Object.keys(RecipeResolver.effectiveInteractions(target)) : []
+                    });
+
+                    var result = controller.runInteractionForKey(keyName);
+                    DebugLogger.log("alt-interaction", "result", {
+                        keyName: keyName,
+                        close: result ? result.close : false,
+                        success: result ? result.success : false
+                    });
+                    return true;
+                }
+
+                function keyNameFromEvent(event) {
+                    var map = {};
+                    map[String(Qt.Key_H)] = "h";
+                    map[String(Qt.Key_L)] = "l";
+                    map[String(Qt.Key_M)] = "m";
+                    map[String(Qt.Key_J)] = "j";
+                    map[String(Qt.Key_K)] = "k";
+
+                    var lower = String.fromCharCode(event.key).toLowerCase();
+                    if (lower.length === 1)
+                        return lower;
+
+                    return map[String(event.key)] || lower;
                 }
             }
 

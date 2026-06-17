@@ -1,11 +1,14 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
+import Quickshell
 import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
 import Qt.labs.qmlmodels
 import qs.animations as Animations
 import qs.components
 import qs.services
+import ".." as Launcher
 
 Rectangle {
     id: root
@@ -25,7 +28,16 @@ Rectangle {
     readonly property bool hasSlider: !!result.control && result.control.kind === "slider"
     readonly property var sliderNode: sliderNodeFor(result.control)
     readonly property real sliderValue: sliderValueFor(result.control, sliderNode)
-    readonly property bool liveSwitchState: switchStateFor(result.control, sliderNode)
+    property bool liveSwitchState: switchStateFor(result.control, sliderNode)
+    property string liveIcon: root.result.icon || "application-x-executable"
+    property var liveIconColor: root.result.iconColor || undefined
+
+    function syncLiveValues() {
+        root.liveSwitchState = switchStateFor(root.result?.control, sliderNode);
+        root.liveIcon = root.result?.icon || "application-x-executable";
+        root.liveIconColor = root.result?.iconColor || undefined;
+        Launcher.BindingRegistry.applyBindings(root, root.result?.nodeId || "");
+    }
 
     readonly property var defaultAction: {
         var actions = result.actions || [];
@@ -74,6 +86,7 @@ Rectangle {
     }
 
     function refreshForResult() {
+        root.syncLiveValues();
         var nextKey = root.stableResultTreeKey(root.result);
         var sameTree = nextKey !== "" && nextKey === root.resultTreeKey;
         root.resultTreeKey = nextKey;
@@ -119,9 +132,9 @@ Rectangle {
             }
 
             Icon {
-                iconName: root.result.icon || "application-x-executable"
+                iconName: root.liveIcon
                 fallbackIconName: "application-x-executable"
-                color: root.result.iconColor || undefined
+                color: root.liveIconColor
                 implicitSize: root.iconSize
                 Layout.preferredWidth: root.iconSize
                 Layout.preferredHeight: root.iconSize
@@ -291,6 +304,7 @@ Rectangle {
 
                 AudioLevelSlider {
                     id: resultSliderControl
+                    visible: !root.result.control || root.result.control.target !== "power-profile"
                     from: root.result.control ? root.result.control.from || 0 : 0
                     to: root.result.control ? root.result.control.to || 100 : 100
                     stepSize: root.result.control ? root.result.control.step || 1 : 1
@@ -309,6 +323,13 @@ Rectangle {
                             root.sliderNode.audio.muted = !root.sliderNode.audio.muted;
                     }
                     onValueModified: root.applySliderValue(value)
+                }
+
+                PowerProfileSlider {
+                    visible: root.result.control && root.result.control.target === "power-profile"
+                    value: root.sliderValue
+                    onValueModified: root.applySliderValue(value)
+                    Layout.fillWidth: true
                 }
             }
         }
@@ -639,6 +660,8 @@ Rectangle {
             return Brightness.percent;
         if (control.target === "pipewire" && node && node.audio)
             return Math.round((node.audio.volume || 0) * 100);
+        if (control.target === "power-profile")
+            return root.modeIndex(PowerProfiles.profile);
         return control.value || 0;
     }
 
@@ -647,6 +670,8 @@ Rectangle {
             return false;
         if (root.result.control.target === "brightness")
             return Brightness.available;
+        if (root.result.control.target === "power-profile")
+            return true;
         return !!(root.sliderNode && root.sliderNode.audio);
     }
 
@@ -660,6 +685,26 @@ Rectangle {
         }
         if (control.target === "pipewire" && root.sliderNode && root.sliderNode.audio)
             root.sliderNode.audio.volume = Math.max(0, Math.min((control.to || 100) / 100, value / 100));
+        if (control.target === "power-profile") {
+            PowerProfiles.profile = root.modeFromIndex(value);
+            return;
+        }
+    }
+
+    function modeIndex(mode) {
+        switch (mode) {
+        case PowerProfile.PowerSaver: return 0;
+        case PowerProfile.Performance: return 2;
+        default: return 1;
+        }
+    }
+
+    function modeFromIndex(index) {
+        switch (Math.round(index)) {
+        case 0: return PowerProfile.PowerSaver;
+        case 2: return PowerProfile.Performance;
+        default: return PowerProfile.Balanced;
+        }
     }
 
     function hasSwitchAction(row, actionId) {

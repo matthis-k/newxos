@@ -4,7 +4,8 @@ import Quickshell.Bluetooth
 import Quickshell.Services.Pipewire
 import Quickshell.Services.UPower
 
-import qs.services
+    import qs.services
+    import ".." as Launcher
 
 TreeBackendBase {
     id: root
@@ -51,8 +52,53 @@ TreeBackendBase {
         function onGroupsChanged() { root.invalidateCompositeRootCache(); }
     }
 
+    property Timer _btRefreshTimer: Timer {
+        interval: 200; repeat: false
+        onTriggered: {
+            root.invalidateCompositeRootCache();
+            if (root.controller)
+                root.controller.searchRequested(root.controller.query, root.controller.generation);
+        }
+    }
+
+    Connections {
+        target: Bluetooth
+        function onDefaultAdapterChanged() { root._btRefreshTimer.restart(); }
+    }
+    Connections {
+        id: btAdapterConn
+        function onEnabledChanged() { root._btRefreshTimer.restart(); }
+        function onDevicesChanged() { root._btRefreshTimer.restart(); }
+        function onDiscoveringChanged() { root._btRefreshTimer.restart(); }
+    }
+    property var btAdapterWatch: Bluetooth.defaultAdapter
+    onBtAdapterWatchChanged: {
+        btAdapterConn.target = Bluetooth.defaultAdapter;
+        root._btRefreshTimer.restart();
+    }
+
+    Connections {
+        target: PowerProfiles
+        function onProfileChanged() { root.invalidateCompositeRootCache(); }
+    }
+
+    Connections {
+        target: NotificationCenter
+        function onDoNotDisturbEnabledChanged() { root.invalidateCompositeRootCache(); }
+        function onHasCriticalChanged() { root.invalidateCompositeRootCache(); }
+    }
+
+    Connections {
+        target: NetworkService
+        function onWifiEnabledChanged() { root.invalidateCompositeRootCache(); }
+        function onWifiHardwareEnabledChanged() { root.invalidateCompositeRootCache(); }
+        function onConnectedSsidChanged() { root.invalidateCompositeRootCache(); }
+        function onHasWiredConnectionChanged() { root.invalidateCompositeRootCache(); }
+        function onConnectedNetworkChanged() { root.invalidateCompositeRootCache(); }
+    }
+
     function effectiveTreeRoots() {
-        var roots = [audioTree(), brightnessTree()];
+        var roots = [audioTree(), brightnessTree(), root.powerProfileTree()];
         for (var ni = 0; ni < root.nodes.length; ni += 1) {
             var node = root.nodes[ni];
             if (node && typeof node.toTreeObject === "function")
@@ -353,6 +399,11 @@ TreeBackendBase {
             onAction: function() { setBluetooth(true); }
             offAction: function() { setBluetooth(false); }
             toggleAction: function() { setBluetooth(null); }
+            Component.onCompleted: {
+                Launcher.BindingRegistry.register("bluetooth", "liveIcon", BluetoothService, "iconName");
+                Launcher.BindingRegistry.register("bluetooth", "liveIconColor", BluetoothService, "iconColor");
+                Launcher.BindingRegistry.register("bluetooth", "liveSwitchState", BluetoothService, "enabled");
+            }
         }
     }
 
@@ -387,63 +438,6 @@ TreeBackendBase {
             iconColor: Config.styling.critical
             actionId: "clear-notifications"
             action: function() { NotificationCenter.clearAll(); }
-        }
-    }
-
-    FlatActionGroupNode {
-        name: "power"
-        aliases: ["power", "energy"]
-        title: qsTr("Power")
-        icon: "battery-symbolic"
-        iconColor: Config.styling.good
-        groupOptions: ({
-            flattenAllChildrenOnParentMatch: true,
-            maxNestedChildren: 8
-        })
-        behavior: ({ filterable: true })
-        FlatActionGroupNode {
-            name: "powermode"
-            aliases: ["powermode", "power-mode", "profile"]
-            title: qsTr("Power Mode")
-            icon: "power-profile-balanced-symbolic"
-            iconColor: Config.styling.urgent
-            groupOptions: ({
-                flattenAllChildrenOnParentMatch: true,
-                maxNestedChildren: 8
-            })
-
-            ActionNode {
-                name: "powersaver"
-                aliases: ["powersaver", "power-saver", "save"]
-                title: qsTr("Power Saver")
-                icon: "power-profile-power-saver-symbolic"
-                iconColor: Config.styling.good
-                actionId: "powermode"
-                actionProps: ({ mode: PowerProfile.PowerSaver })
-                action: function() { PowerProfiles.profile = PowerProfile.PowerSaver; }
-            }
-
-            ActionNode {
-                name: "balanced"
-                aliases: ["balanced", "balance"]
-                title: qsTr("Balanced")
-                icon: "power-profile-balanced-symbolic"
-                iconColor: Config.styling.primaryAccent
-                actionId: "powermode"
-                actionProps: ({ mode: PowerProfile.Balanced })
-                action: function() { PowerProfiles.profile = PowerProfile.Balanced; }
-            }
-
-            ActionNode {
-                name: "performance"
-                aliases: ["performance", "perf", "high"]
-                title: qsTr("Performance")
-                icon: "power-profile-performance-symbolic"
-                iconColor: Config.styling.urgent
-                actionId: "powermode"
-                actionProps: ({ mode: PowerProfile.Performance })
-                action: function() { PowerProfiles.profile = PowerProfile.Performance; }
-            }
         }
     }
 
@@ -536,6 +530,26 @@ TreeBackendBase {
                 iconColor: Brightness.available ? Config.styling.primaryAccent : Config.styling.text2,
                 control: { kind: "slider", target: "brightness", from: 0, to: 100, step: 5, value: Brightness.percent }
             }]
+        };
+    }
+
+    function powerProfileTree() {
+        return {
+            id: "power-profile",
+            aliases: ["powermode", "power-mode", "profile", "power", "energy"],
+            title: qsTr("Power Mode"),
+            subtitle: root.powerModeLabel(),
+            icon: root.powerModeIconName(),
+            iconColor: root.powerModeIconColor(),
+            control: {
+                kind: "slider",
+                target: "power-profile",
+                from: 0,
+                to: 2,
+                step: 1,
+                value: root.powerModeIndex()
+            },
+            behavior: { filterable: true }
         };
     }
 
@@ -792,6 +806,46 @@ TreeBackendBase {
         if (connectedNetwork)
             return NetworkService.wifiIconName(connectedNetwork);
         return NetworkService.wifiEnabled ? "network-wireless-offline-symbolic" : "network-wireless-disabled-symbolic";
+    }
+
+    function powerModeIndex() {
+        switch (PowerProfiles.profile) {
+        case PowerProfile.PowerSaver: return 0;
+        case PowerProfile.Performance: return 2;
+        default: return 1;
+        }
+    }
+
+    function powerModeFromIndex(index) {
+        switch (Math.round(index)) {
+        case 0: return PowerProfile.PowerSaver;
+        case 2: return PowerProfile.Performance;
+        default: return PowerProfile.Balanced;
+        }
+    }
+
+    function powerModeLabel() {
+        switch (PowerProfiles.profile) {
+        case PowerProfile.PowerSaver: return qsTr("Power Saver");
+        case PowerProfile.Performance: return qsTr("Performance");
+        default: return qsTr("Balanced");
+        }
+    }
+
+    function powerModeIconName() {
+        switch (PowerProfiles.profile) {
+        case PowerProfile.PowerSaver: return "power-profile-power-saver-symbolic";
+        case PowerProfile.Performance: return "power-profile-performance-symbolic";
+        default: return "power-profile-balanced-symbolic";
+        }
+    }
+
+    function powerModeIconColor() {
+        switch (PowerProfiles.profile) {
+        case PowerProfile.PowerSaver: return Config.styling.good;
+        case PowerProfile.Performance: return Config.styling.critical;
+        default: return Config.colors.yellow;
+        }
     }
 
     function energyIconName() {

@@ -1,12 +1,17 @@
 import QtQuick
 import QtQml
 import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
 import qs.services
 import "logic/"
 import "logic/pipeline/"
 import "logic/PolicySpec.qml"
 import "logic/RoutingTree.js" as RoutingTree
 import "logic/DebugLogger.js" as DebugLogger
+import "logic/ActionSpec.qml"
+import "logic/ActionRegistry.qml"
+import "logic/RecipeResolver.qml"
+import "logic/InteractionResolver.qml"
 import "policies" as P
 
 Item {
@@ -302,6 +307,21 @@ Item {
             out.switchActions = {};
             for (var k in row.switchActions)
                 out.switchActions[k] = { id: row.switchActions[k].id, label: row.switchActions[k].label };
+        }
+        if (row.recipes) {
+            out.recipes = {};
+            for (var rk in row.recipes) {
+                if (Array.isArray(row.recipes[rk]))
+                    out.recipes[rk] = row.recipes[rk].slice();
+            }
+        }
+        if (row.interactions) {
+            out.interactions = {};
+            for (var ik in row.interactions) {
+                var entry = row.interactions[ik];
+                if (entry && typeof entry === "object")
+                    out.interactions[ik] = { label: entry.label || "", recipe: (entry.recipe || []).slice() };
+            }
         }
         return out;
     }
@@ -802,6 +822,16 @@ Item {
             return true;
         }
 
+        if (control.target === "power-profile") {
+            var modes = [PowerProfile.PowerSaver, PowerProfile.Balanced, PowerProfile.Performance];
+            var pIdx = modes.indexOf(PowerProfiles.profile);
+            if (pIdx < 0) pIdx = 1;
+            var pStep = control.step || 1;
+            var nextIdx = Math.max(control.from || 0, Math.min(control.to || 2, pIdx + delta * pStep));
+            PowerProfiles.profile = modes[nextIdx];
+            return true;
+        }
+
         return false;
     }
 
@@ -1258,6 +1288,93 @@ Item {
         if (root.currentTreeKey)
             return root.activateTreeRowByKey(root.currentTreeKey, null);
         return false;
+    }
+
+    // ── Recipe-based action execution ──────────────────────────────────
+
+    function runRecipe(recipe, target) {
+        if (!recipe || !target)
+            return { close: false };
+        return ActionRegistry.executeRecipe(recipe, target, root);
+    }
+
+    function runRecipeSlot(slotName) {
+        var target = selectedActionTarget();
+        if (!target)
+            return { close: false };
+
+        var recipe = effectiveRecipeForTarget(target, slotName);
+        if (!recipe || recipe.length === 0)
+            return { close: false };
+
+        return runRecipe(recipe, target);
+    }
+
+    function runInteractionForKey(keyName) {
+        var target = selectedActionTarget();
+        if (!target)
+            return { close: false, success: false };
+
+        var interactions = effectiveInteractionsForTarget(target);
+        if (!interactions || !interactions[keyName]) {
+            if (debugEnabled)
+                console.warn("[Actions] no interaction for key: " + keyName);
+            return { close: false, success: false };
+        }
+
+        return runRecipe(interactions[keyName].recipe, target);
+    }
+
+    function effectiveRecipeForTarget(target, slotName) {
+        return RecipeResolver.effectiveRecipe(target, slotName, {
+            parentInteractions: target.interactions || {}
+        });
+    }
+
+    function effectiveInteractionsForTarget(target) {
+        return RecipeResolver.effectiveInteractions(target, {
+            parentInteractions: null
+        });
+    }
+
+    // ── Backward compat helpers ────────────────────────────────────────
+
+    function _legacyApplyIntent(result, intent) {
+        return root.applyIntent(result, intent);
+    }
+
+    function _alignedControlValue(current, delta, step, from, to) {
+        return root.alignedControlValue(current, delta, step, from, to);
+    }
+
+    function _handleActivationWithConfirm() {
+        if (root.isInTree()) {
+            if (root.currentTreeKey)
+                return root.activateTreeRowByKey(root.currentTreeKey, null);
+            return { close: false };
+        }
+
+        var result = selectedResult();
+        if (!result)
+            return { close: false };
+
+        if (result.risk && result.risk.activation) {
+            if (result.id === root.pendingConfirmId) {
+                root.pendingConfirmId = null;
+                pendingConfirmTimer.stop();
+                var recipeResult = runRecipeSlot("activate");
+                return { close: recipeResult.close, closeRequested: recipeResult.close };
+            }
+            if (root.requiresConfirm(result.risk.activation)) {
+                root.pendingConfirmId = result.id;
+                pendingConfirmTimer.restart();
+                resultsRefreshRequested();
+                return { close: false, closeRequested: false };
+            }
+        }
+
+        var recipeResult = runRecipeSlot("activate");
+        return { close: recipeResult.close, closeRequested: recipeResult.close };
     }
 
     function selectedActionTarget() {

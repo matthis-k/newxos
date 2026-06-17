@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
 import Quickshell.Services.Pipewire
+import Quickshell.Services.UPower
 import qs.animations as Animations
 import qs.components
 import qs.services
@@ -254,6 +255,7 @@ Rectangle {
 
                 AudioLevelSlider {
                     id: sliderControl
+                    visible: !root.control || root.control.target !== "power-profile"
                     from: root.control ? root.control.from || 0 : 0
                     to: root.control ? root.control.to || 100 : 100
                     stepSize: root.control ? root.control.step || 1 : 1
@@ -272,6 +274,13 @@ Rectangle {
                             root.sliderNode.audio.muted = !root.sliderNode.audio.muted;
                     }
                     onValueModified: root.applySliderValue(value)
+                }
+
+                PowerProfileSlider {
+                    visible: root.control && root.control.target === "power-profile"
+                    value: root.sliderValue
+                    onValueModified: root.applySliderValue(value)
+                    Layout.fillWidth: true
                 }
             }
 
@@ -316,6 +325,8 @@ Rectangle {
             return Brightness.percent;
         if (control.target === "pipewire" && node && node.audio)
             return Math.round((node.audio.volume || 0) * 100);
+        if (control.target === "power-profile")
+            return root.modeIndex(PowerProfiles.profile);
         return control.value || 0;
     }
 
@@ -324,6 +335,8 @@ Rectangle {
             return false;
         if (root.control.target === "brightness")
             return Brightness.available;
+        if (root.control.target === "power-profile")
+            return true;
         return !!(root.sliderNode && root.sliderNode.audio);
     }
 
@@ -336,6 +349,26 @@ Rectangle {
         }
         if (root.control.target === "pipewire" && root.sliderNode && root.sliderNode.audio)
             root.sliderNode.audio.volume = Math.max(0, Math.min((root.control.to || 100) / 100, value / 100));
+        if (root.control.target === "power-profile") {
+            PowerProfiles.profile = root.modeFromIndex(value);
+            return;
+        }
+    }
+
+    function modeIndex(mode) {
+        switch (mode) {
+        case PowerProfile.PowerSaver: return 0;
+        case PowerProfile.Performance: return 2;
+        default: return 1;
+        }
+    }
+
+    function modeFromIndex(index) {
+        switch (Math.round(index)) {
+        case 0: return PowerProfile.PowerSaver;
+        case 2: return PowerProfile.Performance;
+        default: return PowerProfile.Balanced;
+        }
     }
 
     function buildHighlightedText(text, matches) {
