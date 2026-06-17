@@ -43,7 +43,9 @@ Singleton {
 
         var placement = shapedItem ? shapedItem.placement : presCtx.placement;
 
-        return {
+        var hasReplaceQuery = !!(node.meta && node.meta.replaceQuery);
+
+        var row = {
             id: "row:" + node.id,
             nodeId: node.id,
             source: node.backendId,
@@ -97,8 +99,23 @@ Singleton {
             presentation: node.presentation || null,
             presentationContext: PresentationContext.toDebug(presCtx),
             metadata: copyMetadata(node.meta, node, action),
-            scoreBundle: ev.scoreBundle || null
+            scoreBundle: ev.scoreBundle || null,
+            interactions: node.interactions || null
         };
+
+        if (hasReplaceQuery)
+            row.recipes = { activate: [["edit-query", { mode: "replace", from: "metadata.replaceQuery" }]] };
+        else if (action)
+            row.recipes = { activate: [["run-action", { action: "default" }], ["close"]] };
+
+        if (hasReplaceQuery || (node.behavior && node.behavior.filterable))
+            row.recipes = row.recipes || {};
+        if (hasReplaceQuery && (!row.recipes || !row.recipes.complete))
+            row.recipes = row.recipes || {};
+        if (hasReplaceQuery && row.recipes && !row.recipes.complete)
+            row.recipes.complete = [["edit-query", { mode: "replace", from: "metadata.replaceQuery" }]];
+
+        return row;
     }
 
     function displayPolicyFor(node) {
@@ -295,7 +312,10 @@ Singleton {
             id: row.id, title: row.title, source: row.source, kind: row.kind,
             score: row.score, ownScore: row.ownScore, ownVisible: row.ownVisible,
             depth: row.depth, placement: row.placement, children: (row.children || []).length,
-            actions: (row.actions || []).length
+            actions: (row.actions || []).length,
+            hasRecipes: !!row.recipes,
+            hasInteractions: !!row.interactions,
+            interactionKeys: row.interactions ? Object.keys(row.interactions) : []
         };
     }
 }

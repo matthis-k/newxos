@@ -81,7 +81,8 @@ ListView {
             if (!root.controller)
                 return;
             root.controller.selectedIndex = rank;
-            if (root.controller.activateSelected(false))
+            var result = root.controller._handleActivationWithConfirm();
+            if (result && result.closeRequested)
                 root.closeRequested();
         }
     }
