@@ -7,7 +7,99 @@ Item {
 
     property var controller: null
 
-    function serializeRow(row) {
+    function copyJsonValue(value, depth) {
+        depth = depth === undefined ? 0 : depth;
+        if (depth > 6 || value === undefined || typeof value === "function")
+            return null;
+        if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean")
+            return value;
+        if (Array.isArray(value))
+            return value.map(function(item) { return root.copyJsonValue(item, depth + 1); });
+        if (typeof value === "object") {
+            var out = {};
+            for (var key in value) {
+                if (key === "raw" || key === "parent" || key === "execute")
+                    continue;
+                var copied = root.copyJsonValue(value[key], depth + 1);
+                if (copied !== null)
+                    out[key] = copied;
+            }
+            return out;
+        }
+        return null;
+    }
+
+    function jsonPreview(value) {
+        if (value === undefined)
+            return "undefined";
+        if (value === null)
+            return "null";
+        if (typeof value === "string")
+            return value.slice(0, 80);
+        if (typeof value === "number" || typeof value === "boolean")
+            return String(value);
+        if (Array.isArray(value))
+            return "array(" + value.length + ")";
+        if (typeof value === "function")
+            return "function";
+        if (typeof value === "object")
+            return Object.keys(value).slice(0, 8).join(",");
+        return typeof value;
+    }
+
+    function findInvalidJsonValue(value, path, seen, seenPaths) {
+        if (value === undefined)
+            return { path: path, reason: "undefined", preview: root.jsonPreview(value) };
+        if (typeof value === "function")
+            return { path: path, reason: "function", preview: root.jsonPreview(value) };
+        if (typeof value === "number" && !isFinite(value))
+            return { path: path, reason: "non-finite number", preview: root.jsonPreview(value) };
+        if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean")
+            return null;
+        if (typeof value !== "object")
+            return { path: path, reason: typeof value, preview: root.jsonPreview(value) };
+
+        var seenIndex = seen.indexOf(value);
+        if (seenIndex >= 0)
+            return { path: path, reason: "cycle", preview: "first seen at " + seenPaths[seenIndex] };
+        seen.push(value);
+        seenPaths.push(path);
+
+        if (Array.isArray(value)) {
+            for (var ai = 0; ai < value.length; ai += 1) {
+                var arrInvalid = root.findInvalidJsonValue(value[ai], path + "[" + ai + "]", seen, seenPaths);
+                if (arrInvalid)
+                    return arrInvalid;
+            }
+        } else {
+            for (var key in value) {
+                var childValue = value[key];
+                if ((key === "raw" || key === "parent" || key === "execute") && childValue && typeof childValue === "object")
+                    return { path: path + "." + key, reason: "forbidden reference key", preview: root.jsonPreview(value[key]) };
+                if (key === "execute" && typeof childValue === "function")
+                    return { path: path + "." + key, reason: "forbidden executable function", preview: root.jsonPreview(value[key]) };
+                var invalid = root.findInvalidJsonValue(childValue, path + "." + key, seen, seenPaths);
+                if (invalid)
+                    return invalid;
+            }
+        }
+
+        seen.pop();
+        seenPaths.pop();
+        return null;
+    }
+
+    function logJsonValidation(label, value) {
+        var invalid = root.findInvalidJsonValue(value, "$", [], []);
+        if (invalid) {
+            console.warn("[LAUNCHER PIPELINE DTO INVALID] " + label + " path=" + invalid.path + " reason=" + invalid.reason + " preview=" + invalid.preview);
+            return false;
+        }
+        return true;
+    }
+
+    function serializeRow(row, depth) {
+        depth = depth === undefined ? 0 : depth;
         if (!row) return null;
         var out = {
             id: row.id || "",
@@ -30,7 +122,7 @@ Item {
             kind: row.kind || "",
             executable: !!row.executable,
             dangerous: !!row.dangerous,
-            risk: row.risk || null,
+            risk: root.copyJsonValue(row.risk),
             selectable: controller.isSelectable(row),
             breadcrumbs: row.breadcrumbs || [],
             breadcrumbText: row.breadcrumbText || "",
@@ -39,8 +131,9 @@ Item {
             alwaysExpanded: row.alwaysExpanded !== false,
             expandable: !!(row.children && row.children.length > 0) || !!row.lazy,
             switchState: row.switchState === undefined ? null : row.switchState,
-            control: row.control || null,
-            presentation: row.presentation || null,
+            control: root.copyJsonValue(row.control),
+            presentation: root.copyJsonValue(row.presentation),
+            defaultAction: root.copyJsonValue(row.defaultAction),
             actions: (row.actions || []).map(function(a) {
                 return { id: a.id || "", label: a.label || "", icon: a.icon || null, default: !!a.default };
             }),
@@ -68,25 +161,29 @@ Item {
             })
         };
         if (row.children && row.children.length)
-            out.children = row.children.map(root.serializeRow);
+            out.children = row.children.map(function(child) { return root.serializeRow(child, depth + 1); }).filter(Boolean);
+        if (depth > 0) {
+            out.evidence = [];
+            out.scoreBundle = null;
+        }
         if (row.switchActions) {
             out.switchActions = {};
             for (var k in row.switchActions)
                 out.switchActions[k] = { id: row.switchActions[k].id, label: row.switchActions[k].label };
         }
-        if (row.recipes) {
+        if (depth === 0 && row.recipes) {
             out.recipes = {};
             for (var rk in row.recipes) {
                 if (Array.isArray(row.recipes[rk]))
-                    out.recipes[rk] = row.recipes[rk].slice();
+                    out.recipes[rk] = root.copyJsonValue(row.recipes[rk]);
             }
         }
-        if (row.interactions) {
+        if (depth === 0 && row.interactions) {
             out.interactions = {};
             for (var ik in row.interactions) {
                 var entry = row.interactions[ik];
                 if (entry && typeof entry === "object")
-                    out.interactions[ik] = { label: entry.label || "", recipe: (entry.recipe || []).slice() };
+                    out.interactions[ik] = { label: entry.label || "", recipe: root.copyJsonValue(entry.recipe || []) };
             }
         }
         return out;
@@ -95,7 +192,7 @@ Item {
     function serializeRowsForQuery(rows, queryInfo) {
         var previousLastQuery = controller.lastQuery;
         controller.lastQuery = queryInfo || null;
-        var out = (rows || []).map(root.serializeRow);
+        var out = (rows || []).map(function(row) { return root.serializeRow(row, 0); }).filter(Boolean);
         controller.lastQuery = previousLastQuery;
         return out;
     }
@@ -223,55 +320,141 @@ Item {
         };
     }
 
+    function parsePipelineConfig(arg) {
+        var config = { query: root.resolveQueryArg(arg), focusNodeId: "", showHidden: controller.showHidden };
+        if (!arg)
+            return config;
+        var trimmed = String(arg).trim();
+        if (trimmed.length === 0 || (trimmed[0] !== "{" && trimmed[0] !== "["))
+            return config;
+        try {
+            var parsed = JSON.parse(trimmed);
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+                return config;
+            if (parsed.query !== undefined)
+                config.query = String(parsed.query);
+            config.focusNodeId = String(parsed.focusNodeId || parsed.nodeId || parsed.id || "");
+            if (parsed.showHidden !== undefined)
+                config.showHidden = !!parsed.showHidden;
+            else if (config.focusNodeId)
+                config.showHidden = true;
+        } catch (error) {}
+        return config;
+    }
+
+    function nodeIdMatchesFocus(nodeId, focusNodeId) {
+        if (!focusNodeId)
+            return true;
+        nodeId = nodeId || "";
+        return nodeId === focusNodeId || nodeId.indexOf(focusNodeId + ":") === 0;
+    }
+
+    function filterRowForFocus(row, focusNodeId) {
+        if (!row)
+            return null;
+        if (root.nodeIdMatchesFocus(row.nodeId || row.id || "", focusNodeId))
+            return row;
+        var children = (row.children || []).map(function(child) { return root.filterRowForFocus(child, focusNodeId); }).filter(Boolean);
+        if (children.length === 0)
+            return null;
+        return Object.assign({}, row, { children: children });
+    }
+
+    function filterRowsForFocus(rows, focusNodeId) {
+        if (!focusNodeId)
+            return rows || [];
+        return (rows || []).map(function(row) { return root.filterRowForFocus(row, focusNodeId); }).filter(Boolean);
+    }
+
+    function filterPhasesForFocus(phases, focusNodeId) {
+        if (!focusNodeId)
+            return phases || [];
+        var focusBackend = focusNodeId.split(":")[0] || "";
+        return (phases || []).map(function(phase) {
+            var out = Object.assign({}, phase);
+            if (Array.isArray(out.roots) && focusBackend)
+                out.roots = out.roots.filter(function(item) { return item.backendId === focusBackend; });
+            if (Array.isArray(out.childScoreBundles) && focusBackend)
+                out.childScoreBundles = out.childScoreBundles.filter(function(item) { return item.backendId === focusBackend; });
+            if (Array.isArray(out.shaped))
+                out.shaped = out.shaped.filter(function(item) { return root.nodeIdMatchesFocus(item.nodeId || "", focusNodeId); });
+            return out;
+        });
+    }
+
     function queryPipeline(text) {
-        text = root.resolveQueryArg(text);
-        var output = Engine.search(controller.backends || [], text || "", controller.stateForSearch(),
-            Object.assign(controller.searchOptions(), { showHidden: true, trace: true }));
-        var diag = PolicyDiagnostics.empty();
-        var rows = output.rows ? output.rows.slice(0, controller.maxResults) : [];
-        var serializedRows = root.serializeRowsForQuery(rows, output.query);
+        var stage = "resolve";
+        try {
+            var pipelineConfig = root.parsePipelineConfig(text);
+            text = pipelineConfig.query;
+            stage = "search";
+            var output = Engine.search(controller.backends || [], text || "", controller.stateForSearch(),
+                Object.assign(controller.searchOptions(), { showHidden: pipelineConfig.showHidden, trace: true }));
+            var diag = PolicyDiagnostics.empty();
+            var allRows = output.rows || [];
+            var rows = pipelineConfig.focusNodeId
+                ? root.filterRowsForFocus(allRows, pipelineConfig.focusNodeId).slice(0, controller.maxResults)
+                : allRows.slice(0, controller.maxResults);
+            stage = "serialize-rows";
+            var serializedRows = root.serializeRowsForQuery(rows, output.query);
 
-        var backendEntries = (controller.backends || []).filter(function(b) { return !!b; }).map(function(b) {
-            var routes = [];
-            if (typeof b.routes !== "undefined")
-                routes = b.routes || [];
-            var helpPrefixes = [];
-            if (typeof b.helpPrefixes !== "undefined")
-                helpPrefixes = b.helpPrefixes || [];
-            return {
-                id: b.backendId || "",
-                name: b.name || "",
-                description: b.helpDescription || "",
-                enabled: !!b.enabled,
-                priority: b.priority || 0,
-                routes: routes,
-                helpPrefixes: helpPrefixes,
-                hasAsyncResults: typeof b.resultsAsync === "function",
-                hasRootNode: typeof b.rootNode === "function",
-                hasStreamUpdates: typeof b.applyStreamUpdate === "function"
+            stage = "serialize-backends";
+            var backendEntries = (controller.backends || []).filter(function(b) { return !!b; }).map(function(b) {
+                var routes = [];
+                if (typeof b.routes !== "undefined")
+                    routes = b.routes || [];
+                var helpPrefixes = [];
+                if (typeof b.helpPrefixes !== "undefined")
+                    helpPrefixes = b.helpPrefixes || [];
+                return {
+                    id: b.backendId || "",
+                    name: b.name || "",
+                    description: b.helpDescription || "",
+                    enabled: !!b.enabled,
+                    priority: b.priority || 0,
+                    routes: routes,
+                    helpPrefixes: helpPrefixes,
+                    hasAsyncResults: typeof b.resultsAsync === "function",
+                    hasRootNode: typeof b.rootNode === "function",
+                    hasStreamUpdates: typeof b.applyStreamUpdate === "function"
+                };
+            });
+
+            var payload = {
+                version: 3, type: "pipeline",
+                query: output.query ? output.query.raw : text,
+                directive: output.directive ? { active: output.directive.active, prefix: output.directive.prefix || "", label: output.directive.label || "", backendIds: output.directive.backendIds || [] } : { active: false },
+                timings: output.timings || {},
+                phases: root.filterPhasesForFocus(output.phases || [], pipelineConfig.focusNodeId),
+                rows: serializedRows,
+                totalResults: rows.length,
+                debug: {
+                    focusNodeId: pipelineConfig.focusNodeId || null,
+                    showHidden: !!pipelineConfig.showHidden,
+                    unfilteredResults: allRows.length
+                },
+                backends: {
+                    total: backendEntries.length,
+                    entries: backendEntries,
+                    routingTree: { endpointCount: (controller.routingTree || {}).endpoints ? controller.routingTree.endpoints.length : 0 }
+                },
+                state: {
+                    selectedIndex: controller.selectedIndex,
+                    resultCount: controller.results.length,
+                    loading: controller.loading
+                },
+                diagnostics: PolicyDiagnostics.toDebug(diag)
             };
-        });
-
-        return JSON.stringify({
-            version: 3, type: "pipeline",
-            query: output.query ? output.query.raw : text,
-            directive: output.directive ? { active: output.directive.active, prefix: output.directive.prefix || "", label: output.directive.label || "", backendIds: output.directive.backendIds || [] } : { active: false },
-            timings: output.timings || {},
-            phases: output.phases || [],
-            rows: serializedRows,
-            totalResults: rows.length,
-            backends: {
-                total: backendEntries.length,
-                entries: backendEntries,
-                routingTree: { endpointCount: (controller.routingTree || {}).endpoints ? controller.routingTree.endpoints.length : 0 }
-            },
-            state: {
-                selectedIndex: controller.selectedIndex,
-                resultCount: controller.results.length,
-                loading: controller.loading
-            },
-            diagnostics: PolicyDiagnostics.toDebug(diag)
-        });
+            root.logJsonValidation("query=" + (text || "") + " rows=" + serializedRows.length, payload);
+            stage = "stringify";
+            var encoded = JSON.stringify(payload);
+            if (encoded.length > 100000)
+                console.warn("[LAUNCHER PIPELINE DTO OVERSIZE] query=" + (text || "") + " bytes=" + encoded.length + " focus=" + (pipelineConfig.focusNodeId || ""));
+            return encoded;
+        } catch (error) {
+            console.warn("[LAUNCHER PIPELINE DTO ERROR] stage=" + stage + " query=" + (text || "") + " error=" + String(error));
+            return JSON.stringify({ version: 3, type: "pipeline", query: text || "", error: String(error), stage: stage });
+        }
     }
 
     function queryPolicies(text) {

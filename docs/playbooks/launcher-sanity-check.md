@@ -26,7 +26,8 @@ These examples are not a fixed regression suite; they describe the underlying ru
 Keep the launcher IPC available for manual checks:
 
 ```bash
-newshell ipc call query pipeline '<query>'    # Universal debug — rows, phases, backends, timings
+newshell ipc call query pipeline '<query>'    # Compact visible rows plus phases, backends, timings
+newshell ipc call query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta"}' # Focus one hidden/evaluated node family
 newshell ipc call query policies '<query>'    # Active policy specs per kind
 newshell ipc call query benchmark '{"queries":["zen","wifi"],"iterations":2}'
 newshell ipc call query cases
@@ -35,7 +36,7 @@ newshell ipc call query runCases
 
 ## Pipeline JSON Schema (version 3)
 
-The `pipeline` endpoint is the universal debug output. Shape:
+The `pipeline` endpoint is the universal debug output. Plain string queries use normal visible-row filtering. Use JSON with `focusNodeId` (or `nodeId`/`id`) when you need hidden/full evaluation for one specific node family; focused mode enables hidden evaluation but filters returned rows and phase details to matching node ids and descendants. Shape:
 
 ```json
 {
@@ -53,11 +54,22 @@ The `pipeline` endpoint is the universal debug output. Shape:
   ],
   "rows": [{ "id": "...", "title": "...", "score": 0.8 }],
   "totalResults": 5,
+  "debug": { "focusNodeId": null, "showHidden": false, "unfilteredResults": 5 },
   "backends": { "total": 8, "entries": [], "routingTree": {} },
   "state": { "selectedIndex": 0, "resultCount": 5, "loading": false },
   "diagnostics": {}
 }
 ```
+
+Focused pipeline calls:
+
+```bash
+# Inspect how one desktop entry family is evaluated for a query, including hidden state.
+newshell ipc call query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta"}' \
+  | jq '{debug, rows: [.rows[] | {title, nodeId, childTitles: [.children[]?.title]}], shaped: (.phases[] | select(.name == "shaping") | .shaped)}'
+```
+
+Do not use focused mode as a broad snapshot mechanism. If a payload is too large, narrow `focusNodeId` instead of enabling hidden output for all rows.
 
 ### Row Fields
 
@@ -71,6 +83,10 @@ Useful fields for `jq` filtering:
 # Visible rows with key fields
 newshell ipc call query pipeline 'audio' \
   | jq '.rows[] | select(.ownVisible == true) | {title, subtitle, source, kind, score, ownScore, matchDepth, children: (.children // [] | length)}'
+
+# Actual child rows for visible groups
+newshell ipc call query pipeline 'zen ' \
+  | jq '.rows[] | {title, children: [.children[]?.title]}'
 
 # Phase listing
 newshell ipc call query pipeline 'audio' | jq '.phases[] | {phase, name}'
@@ -130,11 +146,12 @@ Always record the visible query when debugging GUI-only missing-row reports. A r
 
 Pipeline modules live in `configs/quickshell/launcher/logic/`: `Evaluate.qml` -> `ResultShaping.qml` (owns placement) -> `RenderedRows.qml` (builds rows from shaped items using `PresentationContext.qml`). `PolicyChain.lookupPolicy` provides normalized spec-aware lookups. `LauncherController.qml` is a compatibility façade; search/session behavior lives in `controllers/LauncherSearchSession.qml`, result/tree selection in `controllers/LauncherNavigationState.qml`, activation in `controllers/LauncherActionController.qml`, and IPC/debug serialization in `controllers/LauncherDebugController.qml`. TokenFlowDecision not implemented yet; ActionPolicy remains incremental.
 
-1. `query pipeline` — universal endpoint. Check rows (`.rows`), phases (`.phases[]`), backends (`.backends`), timings (`.timings`).
+1. `query pipeline` — universal endpoint. Check visible rows (`.rows`), phases (`.phases[]`), backends (`.backends`), timings (`.timings`). Use JSON `focusNodeId` when debugging a specific hidden or over-filtered entry.
    - `.phases[] | select(.name == "directive-tokenize")` — directive, tokens, active backends
    - `.phases[] | select(.name == "evaluation")` — score bundles per backend root
    - `.phases[] | select(.name == "shaping")` — per-item placements
    - `.rows[] | select(.ownVisible == true)` — final rendered rows
+   - focused form: `query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta"}'`
 2. `query policies` — check normalized policy specs active per kind
 3. `query benchmark` — run benchmarks with timing data
 

@@ -1,6 +1,6 @@
 # Launcher ranking expectations
 
-Use `newshell ipc call query search '<query>'` or `newshell ipc call query visual '<query>'` after `systemctl --user restart newshell` to verify results. Source: `configs/quickshell/launcher/logic/` (QML pipeline modules).
+Use `newshell ipc call query pipeline '<query>'` or `newshell ipc call query visual '<query>'` after `systemctl --user restart newshell` to verify results. Plain `pipeline` calls are compact/visible-only; use `newshell ipc call query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta"}'` for focused hidden evaluation of one node family. Source: `configs/quickshell/launcher/logic/` (QML pipeline modules).
 
 ## Core checklist
 
@@ -17,6 +17,7 @@ Run these queries after any launcher search change:
 - `zen priv` — when one child clearly beats the parent, show it at top level; irrelevant partial matches (`zen browser`) must not appear as top results (that case broke when partial-match boosting leaked unrelated results)
 - `zen new` — when multiple children are equally relevant, keep them nested under the parent; don't surface unrelated results that happen to match a substring (broke when a substring boost pulled in a flake result)
 - `zen win` — action keywords should route to the correct action type, not fall through to general search
+- `ze` with focused `desktop:apps:zen_beta` pipeline debug — targeted hidden evaluation should show only the Zen entry family, not every hidden calculation for every desktop entry
 - `wifi` / `wifi on` / `wifi off` / `wifi toggle` — action state queries should resolve to the matching action; typing extra tokens shouldn't demote the action result
 - `wo` / `wt` — two-letter acronym matching should select the intended action, not a partial match of something else (broke when short-token scoring was too aggressive)
 - `:` — prefix gate should activate desktop-action mode, not leak to other backends

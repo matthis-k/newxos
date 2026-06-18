@@ -150,7 +150,7 @@ Singleton {
                     tokens: query.tokens.map(function(t) { return { raw: t.raw, normalized: t.normalized }; }),
                     searchRaw: directive.searchRaw,
                     activeBackendIds: active.map(function(b) { return b.backendId || b.name || ""; }),
-                    routeEndpoints: route && route.endpoints ? route.endpoints.map(function(ep) { return { prefix: ep.prefix || "", nodeId: ep.node ? ep.node.id : "" }; }) : []
+                    routeEndpoints: route && route.endpoints ? route.endpoints.map(function(ep) { return { prefix: ep.prefix || "", nodeId: ep.node && ep.node.id ? ep.node.id : "" }; }) : []
                 });
             }
 
