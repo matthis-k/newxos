@@ -40,11 +40,11 @@ Run these queries after any launcher search change:
 - Evidence scoring and field matching: `configs/quickshell/launcher/logic/Evidence.qml`
 - Evaluation tree construction and inherit policies: `configs/quickshell/launcher/logic/Evaluate.qml`
 - Presentation decisions and group display: `configs/quickshell/launcher/policies/presentation/PresentationPolicy.qml`, `PresentationPresets.qml`
-- Shaping and row generation: `configs/quickshell/launcher/logic/ResultShaping.qml` + `configs/quickshell/launcher/logic/RenderedRows.qml`
+- Shaping, default action selection, and row generation: `configs/quickshell/launcher/logic/ResultShaping.qml` + `ActionPolicy.qml` + `RenderedRows.qml`
 - Row post-processing and sorting: `configs/quickshell/launcher/logic/Rows.qml`
 - Policy registry: `configs/quickshell/launcher/logic/CompositeSearchPolicyRegistry.js`, `configs/quickshell/launcher/PolicyRegistry.qml`
 - Policy chaining and aggregation: `configs/quickshell/launcher/logic/PolicyChain.qml` (includes `lookupPolicy(registry, spec)` helper for normalized spec-aware lookups)
-- Pipeline model/utility modules: `configs/quickshell/launcher/logic/ScoreBundle.qml`, `ResultShaping.qml`, `PresentationContext.qml`, `RenderedRows.qml`, `PolicySpec.qml`
+- Pipeline model/utility modules: `configs/quickshell/launcher/logic/ScoreBundle.qml`, `ResultShaping.qml`, `PresentationContext.qml`, `ActionPolicy.qml`, `RenderedRows.qml`, `PolicySpec.qml`
 - Controller/session ownership: `configs/quickshell/launcher/controllers/` for debounce/async, result navigation, activation, and debug endpoints; `LauncherController.qml` remains the public compatibility façade
-- Current gaps: TokenFlowDecision not implemented; ActionPolicy integration and PolicySpec parameterized semantics still incremental
+- Current gaps: TokenFlowDecision not implemented; PolicySpec parameterized semantics still incremental
 - Routing tree: `configs/quickshell/launcher/logic/RoutingTree.js`

@@ -34,6 +34,9 @@ Launcher behavior changes should be policy-driven. Backend data must cross the D
 | `launcher/Logic/Evaluate.qml` | Evidence collection, scoring, default dedup mode |
 | `launcher/Logic/ResultShaping.qml` | Placement decisions (hidden, standalone, group, flattened, etc) |
 | `launcher/Logic/RenderedRows.qml` | Row DTO construction from shaped items |
+| `launcher/Logic/ActionPolicy.qml` | Default action candidate selection and scoring |
+| `launcher/Logic/ActionRegistry.qml` | Recipe step execution and service payload dispatch |
+| `launcher/Logic/RecipeResolver.qml` | Effective recipe and interaction resolution |
 | `launcher/Logic/PresentationContext.qml` | Placement-sensitive display choices |
 | `launcher/Logic/PolicyChain.qml` | Policy aggregation, `lookupPolicy()` |
 | `launcher/Logic/PolicySpec.qml` | Policy spec normalization (legacy strings → canonical) |
@@ -82,7 +85,7 @@ For the full pipeline JSON schema, detailed `jq` filter recipes, capability use 
 - Treat permission alone as evidence of relevance.
 - Prewarm backends whose source model populates asynchronously.
 - Let web fallback compete when non-web visible rows exist.
-- Put ranking logic in UI delegates.
+- Put ranking or action-selection logic in UI delegates.
 - Serialize raw QML objects in IPC responses.
 - Remove legacy policy names without migration path.
 
@@ -91,7 +94,6 @@ For the full pipeline JSON schema, detailed `jq` filter recipes, capability use 
 Do not implement unless repeated concrete need:
 
 - TokenFlowDecision
-- ActionPolicy extraction
 - Generic rule engine
 
 ## Done Criteria

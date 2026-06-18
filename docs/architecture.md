@@ -127,12 +127,13 @@ The Quickshell launcher uses a composite search pipeline:
 - **ScoreBundle** (`logic/ScoreBundle.qml`) wraps own/inherited/children/aggregate score parts with coverage info, alongside legacy score fields.
 - **ResultShaping** (`logic/ResultShaping.qml`) centralizes decidePlacement() logic that was previously in Flatten.qml, supporting placements: hidden, standalone, group, filtered-group, group-child, flattened, promoted-child, nested-group. Owns placement decisions and shaped item metadata. Shaped items retain `placement`, `decision`, and `presentationHints`.
 - **PresentationContext** (`logic/PresentationContext.qml`) owns placement-sensitive display decisions: breadcrumb visibility, backend badge visibility, action hint visibility, and density. Provides `forShapedItem()` to build a serializable context from a shaped item.
-- **RenderedRows** (`logic/RenderedRows.qml`) provides toResultRow() DTO construction for the shaped pipeline output. Consumes shaped item data and PresentationContext instead of re-inferring placement locally.
+- **RenderedRows** (`logic/RenderedRows.qml`) provides toResultRow() DTO construction for the shaped pipeline output. Consumes shaped item data, PresentationContext, and selected ActionPolicy metadata instead of re-inferring placement or action intent locally.
 - **Visual result coordination** (`configs/quickshell/launcher/visual/`) sits between ordered row snapshots and QML rendering. `VisualResultCoordinator` diffs stable row keys into a `ListModel`; animated list/delegate components own enter, remove, move, and z-order transitions without feeding animation state back into ranking, policies, evidence, or backend gating.
 - **PolicySpec** (`logic/PolicySpec.qml`) normalizes legacy strings, tuple specs, and object specs into a canonical shape. Full parameterized policy semantics are still incremental — threshold/dominance policies can consume spec args but most policies still rely on legacy string names.
 - **PolicyChain** (`logic/PolicyChain.qml`) chains and aggregates policy results. Provides `lookupPolicy(registry, spec)` for normalized spec-aware lookups, and `run(names, callback, mode)` which passes `(legacyName, spec)` to each callback.
 - **TokenFlowDecision** is not implemented yet.
-- **ActionPolicy** is not extracted yet.
+- **ActionPolicy** (`logic/ActionPolicy.qml`) selects the default action for a normalized node/row from plain action candidates. It does not execute actions or hold service/backend references. Its pipeline is: node/row + query + evidence/context -> action candidates -> policy scoring -> selected default action -> rendered-row action metadata.
+- **ActionRegistry** (`logic/ActionRegistry.qml`) executes recipe steps and dispatches service payloads. **RecipeResolver** (`logic/RecipeResolver.qml`) resolves effective recipes and interactions. **LauncherActionController** (`controllers/LauncherActionController.qml`) owns activation flow, confirmation, selected target handling, and recipe/action invocation. `RenderedRows.qml` consumes selected action metadata; it should not grow action-selection heuristics.
 - **Normalized result rows** carry only primitive fields, actions, and evidence metadata — no raw tree objects or evaluated nodes.
 - **UI delegates** render normalized row data; they do not recompute scoring or hold backend references.
 - **Update coalescing** (`controllers/LauncherSearchSession.qml`) prevents per-keystroke re-entrance. Async backends check query and generation counters before applying results.
@@ -162,3 +163,11 @@ Launcher visual intent:
 - Switch rows represent stateful choices visually as switches. Slider rows represent adjustable values visually as sliders; their rows still remain plain normalized launcher rows.
 - Slider rows render through a shared `AudioLevelSlider` component keyed on the `control` field; mute state is reflected via accent color and Alt-M interaction, not via a visible switch.
 - Result rows must communicate intent through title, subtitle, icon, action hint, switch, slider, and direct children. Delegates render those fields; scoring and tree-flattening decide which fields appear.
+
+## QuickShell service state
+
+Stateful services that run commands or mutate system state expose a normalized operation shape: `currentOperationKind`, `currentOperationTarget`, `currentOperationRunning`, `currentOperationLastError`, and `operation`. UI code should read service busy/error state from these properties instead of local logs or synthetic placeholders.
+
+Primary owners: `configs/quickshell/services/NetworkService.qml`, `BluetoothService.qml`, `AudioService.qml`, `PowerService.qml`, `Brightness.qml`, `NordVPN.qml`, and the `VpnService.qml` façade.
+
+Current complexity audit: `docs/audits/quickshell-state-singletons.md`.
