@@ -25,9 +25,14 @@ Rectangle {
     readonly property string subtitle: cell(1) || ""
     readonly property string iconName: cell(2) || ""
     readonly property var iconColor: cell(3) || undefined
-    readonly property string effectiveIconName: (root.control && root.control.target === "pipewire" && root.sliderNode)
-        ? root.sliderIconName() : root.iconName
-    readonly property var effectiveIconColor: (root.control && root.control.target === "pipewire" && root.sliderNode && root.sliderNode.audio)
+    readonly property bool isPipewireControl: !!root.control && root.control.target === "pipewire"
+    readonly property bool isPowerProfileControl: !!root.control && root.control.target === "power-profile"
+    readonly property string effectiveIconName: root.isPowerProfileControl
+        ? PowerService.profileIconName(PowerService.profile)
+        : (root.isPipewireControl && root.sliderNode ? root.sliderIconName() : root.iconName)
+    readonly property var effectiveIconColor: root.isPowerProfileControl
+        ? PowerService.profileColor(PowerService.profile)
+        : (root.isPipewireControl && root.sliderNode && root.sliderNode.audio)
         ? (root.sliderNode.audio.muted ? Config.styling.critical : Config.styling.secondaryAccent)
         : root.iconColor
     readonly property var switchState: cell(4)

@@ -142,6 +142,7 @@ Item {
         setResults(rows, text);
     }
 
+    // Navigation/state façade
     function clearSearchOutputState() { navigation.clearSearchOutputState(); }
     function queryIsEmptyForSelection() { return navigation.queryIsEmptyForSelection(); }
     function hasActivation(row) { return navigation.hasActivation(row); }
@@ -171,6 +172,7 @@ Item {
     function findParentResultByKey(key) { return navigation.findParentResultByKey(key); }
     function loadLazyChildren(key) { navigation.loadLazyChildren(key); }
 
+    // Debug/IPC façade
     function serializeRow(row) { return debugController.serializeRow(row); }
     function serializeRowsForQuery(rows, queryInfo) { return debugController.serializeRowsForQuery(rows, queryInfo); }
     function _resolveQueryArg(text) { return debugController.resolveQueryArg(text); }
@@ -191,6 +193,7 @@ Item {
     function regressionCaseQueries() { return debugController.regressionCaseQueries(); }
     function summarizeCaseResults(results) { return debugController.summarizeCaseResults(results); }
 
+    // Search/session façade
     function stateForSearch() {
         return {
             selectedNodeId: selectedResult() ? selectedResult().nodeId : null,
@@ -214,6 +217,7 @@ Item {
     function reset() { resetRequested(); }
     function backendId(backend) { return backend ? backend.backendId || "" : ""; }
 
+    // Activation/action façade
     function activateSelected(shiftPressed) { return actions.activateSelected(shiftPressed); }
     function requiresConfirm(activation) { return actions.requiresConfirm(activation); }
     function completeSelected() { return actions.completeSelected(); }
@@ -233,7 +237,6 @@ Item {
     function effectiveRecipeForTarget(target, slotName) { return actions.effectiveRecipeForTarget(target, slotName); }
     function effectiveInteractionsForTarget(target) { return actions.effectiveInteractionsForTarget(target); }
     function _legacyApplyIntent(result, intent) { return actions._legacyApplyIntent(result, intent); }
-    function _alignedControlValue(current, delta, step, from, to) { return actions._alignedControlValue(current, delta, step, from, to); }
     function _handleActivationWithConfirm() { return actions._handleActivationWithConfirm(); }
     function selectedActionTarget() { return actions.selectedActionTarget(); }
 }

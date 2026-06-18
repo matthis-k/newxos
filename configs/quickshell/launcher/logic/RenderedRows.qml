@@ -29,10 +29,14 @@ Singleton {
         var breadcrumbText = presCtx.showBreadcrumbs
             ? presCtx.breadcrumbText
             : breadcrumbTextFor(ev, breadcrumbs, displayPolicy, childRows);
-        var action = ActionPolicy.defaultActionForNode(node, ctx.query, ev.ownScore);
+        var selectedAction = ActionPolicy.selectDefaultAction(node, ctx.query, ev, ctx);
+        var action = selectedAction ? selectedAction.action : null;
         var suppressOwnActions = action && childRows && childRows.length && ctx.query.tokens.length > 1
             && (options.suppressParentActions || visibleFromChildrenOnly(ev));
-        if (suppressOwnActions) action = null;
+        if (suppressOwnActions) {
+            action = null;
+            selectedAction = null;
+        }
 
         var sourceActions = suppressOwnActions ? [] : (node.actionList || []).slice();
         if (node.switchActions) {
@@ -94,6 +98,7 @@ Singleton {
                 : (parentMatchShowsChildren(ev, ctx) || childHasGoodMatch(childRows)),
             children: childRows || [],
             switchActions: copySwitchActions(node.switchActions, action),
+            defaultAction: ActionPolicy.selectedActionMetadata(selectedAction),
             switchState: node.switchState === undefined ? null : node.switchState,
             control: node.control || null,
             presentation: node.presentation || null,
@@ -278,6 +283,7 @@ Singleton {
             actions: (row.actions || []).length,
             hasRecipes: !!row.recipes,
             hasInteractions: !!row.interactions,
+            defaultAction: row.defaultAction,
             interactionKeys: row.interactions ? Object.keys(row.interactions) : []
         };
     }

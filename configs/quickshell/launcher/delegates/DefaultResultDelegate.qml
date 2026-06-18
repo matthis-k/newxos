@@ -31,6 +31,9 @@ Rectangle {
     property bool liveSwitchState: switchStateFor(result.control, sliderNode)
     property string liveIcon: root.result.icon || "application-x-executable"
     property var liveIconColor: root.result.iconColor || undefined
+    readonly property bool isPowerProfileControl: !!root.result.control && root.result.control.target === "power-profile"
+    readonly property string effectiveIconName: root.isPowerProfileControl ? PowerService.profileIconName(PowerService.profile) : root.liveIcon
+    readonly property var effectiveIconColor: root.isPowerProfileControl ? PowerService.profileColor(PowerService.profile) : root.liveIconColor
 
     function syncLiveValues() {
         root.liveSwitchState = switchStateFor(root.result?.control, sliderNode);
@@ -132,9 +135,9 @@ Rectangle {
             }
 
             Icon {
-                iconName: root.liveIcon
+                iconName: root.effectiveIconName
                 fallbackIconName: "application-x-executable"
-                color: root.liveIconColor
+                color: root.effectiveIconColor
                 implicitSize: root.iconSize
                 Layout.preferredWidth: root.iconSize
                 Layout.preferredHeight: root.iconSize
