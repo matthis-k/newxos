@@ -2,13 +2,21 @@ pragma Singleton
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQml
 import Quickshell
 import Quickshell.Io
+import "network"
 
 Singleton {
     id: root
 
     readonly property var backend: root
+
+    readonly property QtObject networkModels: NetworkModels {}
+
+    readonly property QtObject networkPresentation: NetworkPresentation {}
+
+    readonly property QtObject nmcliParser: NmcliParser {}
 
     property bool wifiEnabled: false
     property bool wifiHardwareEnabled: true
@@ -24,16 +32,31 @@ Singleton {
     readonly property bool available: wifiHardwareEnabled || hasWiredConnection
     readonly property bool connected: connectedSsid !== "" || hasWiredConnection
     readonly property bool online: connectivity === "full"
-    readonly property bool scanning: false
-    readonly property bool busy: false
-    readonly property bool connecting: false
+    property string currentOperationKind: ""
+    property string currentOperationTarget: ""
+    property bool currentOperationRunning: false
+    property string currentOperationLastError: ""
+
+    readonly property var operation: ({
+            kind: currentOperationKind,
+            target: currentOperationTarget,
+            running: currentOperationRunning,
+            lastError: currentOperationLastError
+        })
+    readonly property bool scanning: currentOperationRunning && currentOperationKind === "scan"
+    readonly property bool busy: currentOperationRunning
+    readonly property bool connecting: currentOperationRunning && currentOperationKind === "connect"
     readonly property bool wifiAvailable: wifiHardwareEnabled && wifiEnabled
 
     readonly property string state: {
-        if (!available) return "unavailable";
-        if (hasWiredConnection) return "wired";
-        if (connectedSsid) return "wireless";
-        if (wifiEnabled) return "disconnected";
+        if (!available)
+            return "unavailable";
+        if (hasWiredConnection)
+            return "wired";
+        if (connectedSsid)
+            return "wireless";
+        if (wifiEnabled)
+            return "disconnected";
         return "disabled";
     }
 
@@ -52,9 +75,12 @@ Singleton {
 
     readonly property string label: "Network"
     readonly property string statusText: {
-        if (hasWiredConnection) return "Wired";
-        if (connectedSsid) return connectedSsid;
-        if (wifiEnabled) return "No connection";
+        if (hasWiredConnection)
+            return "Wired";
+        if (connectedSsid)
+            return connectedSsid;
+        if (wifiEnabled)
+            return "No connection";
         return "Wi-Fi off";
     }
 
@@ -96,6 +122,18 @@ Singleton {
 
     property var _pendingScanCallback: null
 
+    function beginOperation(kind, target) {
+        currentOperationKind = kind || "";
+        currentOperationTarget = target || "";
+        currentOperationRunning = true;
+        currentOperationLastError = "";
+    }
+
+    function finishOperation(success, message) {
+        currentOperationRunning = false;
+        currentOperationLastError = success ? "" : (message || `${currentOperationKind || "operation"} failed`);
+    }
+
     function _findConnected() {
         for (let i = 0; i < rNetworks.length; ++i) {
             if (rNetworks[i].connected)
@@ -104,118 +142,44 @@ Singleton {
         return null;
     }
 
-    function _parseSignal(signalStr) {
-        const num = parseInt(signalStr, 10);
-        if (isNaN(num))
-            return 0;
-        return Math.max(0, Math.min(100, num)) / 100;
-    }
-
-    function _parseSecurity(secStr) {
-        if (!secStr || secStr === "--")
-            return "Open";
-        return secStr;
-    }
-
     function signalBucket(strength) {
-        const normalized = Math.max(0, Math.min(1, strength || 0));
-        const percent = Math.round(normalized * 100);
-        if (percent === 0)
-            return "none";
-        if (percent < 25)
-            return "weak";
-        if (percent < 50)
-            return "ok";
-        if (percent < 75)
-            return "good";
-        return "excellent";
+        return networkPresentation.signalBucket(strength);
     }
 
     function wifiIconName(network) {
-        return `network-wireless-signal-${signalBucket(network ? network.signalStrength : 0)}-symbolic`;
+        return networkPresentation.wifiIconName(network);
     }
 
     function securityNeedsPsk(security) {
-        return security.includes("WPA") || security.includes("WPA2") || security.includes("SAE") || security.includes("wpa-psk") || security.includes("wpa2-psk") || security.includes("sae");
+        return networkPresentation.securityNeedsPsk(security || "");
     }
 
     function isOpenNetwork(network) {
-        return network && (network.security === "Open" || network.security === "--" || !network.security);
+        return networkPresentation.isOpenNetwork(network);
+    }
+
+    function securityLabel(network) {
+        return networkPresentation.securityLabel(network);
     }
 
     function wifiBand(frequency) {
-        const mhz = parseInt(frequency || "0", 10);
-        if (mhz >= 5925) return "6 GHz";
-        if (mhz >= 5000) return "5 GHz";
-        if (mhz >= 2400) return "2.4 GHz";
-        return "unknown";
+        return networkPresentation.wifiBand(frequency);
     }
 
     function wifiChannel(frequency) {
-        const mhz = parseInt(frequency || "0", 10);
-        if (mhz === 2484) return 14;
-        if (mhz >= 2412 && mhz <= 2472) return Math.floor((mhz - 2407) / 5);
-        if (mhz >= 5000 && mhz <= 5895) return Math.floor((mhz - 5000) / 5);
-        if (mhz >= 5955 && mhz <= 7115) return Math.floor((mhz - 5950) / 5);
-        return "unknown";
+        return networkPresentation.wifiChannel(frequency);
     }
 
     function connectivityLabel() {
-        const conn = root.connectivity;
-        if (conn === "full") return "Connected";
-        if (conn === "portal") return "Captive portal";
-        if (conn === "limited") return "Limited";
-        if (conn === "none") return "No internet";
-        return conn;
+        return networkPresentation.connectivityLabel(root.connectivity);
     }
 
     function primaryNetworkInfo(network) {
-        if (!network) return "Network unavailable";
-        return [
-            `Frequency: ${network.frequency || "unknown"} MHz`,
-            `Channel: ${wifiChannel(network.frequency)}`,
-            `Band: ${wifiBand(network.frequency)}`
-        ].join(" | ");
+        return networkPresentation.primaryNetworkInfo(network);
     }
 
     function advancedNetworkInfo(network) {
-        if (!network) return "Network unavailable";
-        return [
-            `SSID: ${network.ssid || "unknown"}`,
-            `BSSID: ${network.bssid || "unknown"}`
-        ].join("\n");
-    }
-
-    function _splitEscaped(text, separator) {
-        const result = [];
-        let current = "";
-        let escaped = false;
-
-        for (let i = 0; i < text.length; ++i) {
-            const ch = text[i];
-
-            if (escaped) {
-                current += ch;
-                escaped = false;
-                continue;
-            }
-
-            if (ch === "\\") {
-                escaped = true;
-                continue;
-            }
-
-            if (ch === separator) {
-                result.push(current);
-                current = "";
-                continue;
-            }
-
-            current += ch;
-        }
-
-        result.push(current);
-        return result;
+        return networkPresentation.advancedNetworkInfo(network);
     }
 
     function _syncConnectedState() {
@@ -225,77 +189,14 @@ Singleton {
     }
 
     function _parseNetworks(output) {
-        const lines = output.trim().split("\n");
-        const newMap = new Map();
-        const result = [];
-
-        for (let i = 0; i < lines.length; ++i) {
-            const line = lines[i];
-            if (!line)
-                continue;
-
-            const parts = _splitEscaped(line, ":");
-            if (parts.length < 6)
-                continue;
-
-            const active = parts[0] === "yes";
-            const signal = _parseSignal(parts[1]);
-            const freq = parts[2];
-            const ssid = parts[3] || "Hidden network";
-            const bssid = parts[4];
-            const security = _parseSecurity(parts[5]);
-
-            const key = `${freq}:${ssid}:${bssid}`;
-            newMap.set(key, true);
-
-            const existing = rNetworks.find(n => `${n.frequency}:${n.ssid}:${n.bssid}` === key);
-            if (existing) {
-                existing.connected = active;
-                existing.signalStrength = signal;
-                existing.frequency = freq;
-                existing.ssid = ssid;
-                existing.bssid = bssid;
-                existing.security = security;
-                result.push(existing);
-            } else {
-                const id = `wifi-${bssid || freq}-${ssid}`;
-                result.push({
-                    id: id,
-                    connected: active,
-                    signalStrength: signal,
-                    frequency: freq,
-                    ssid: ssid,
-                    bssid: bssid,
-                    security: security,
-                    name: ssid,
-                    known: false,
-                    secured: security !== "Open" && security !== "--",
-                    strength: Math.round(signal * 100),
-                    band: wifiBand(freq),
-                    channel: wifiChannel(freq),
-                    iconName: root.wifiIconName({ signalStrength: signal }),
-                    statusText: active ? "Connected" : (security !== "Open" ? "Secured" : "Open")
-                });
-            }
-        }
-
-        for (let i = rNetworks.length - 1; i >= 0; --i) {
-            const rn = rNetworks[i];
-            const key = `${rn.frequency}:${rn.ssid}:${rn.bssid}`;
-            if (!newMap.has(key)) {
-                rNetworks.splice(i, 1);
-            }
-        }
-
-        rNetworks = result;
+        rNetworks = networkModels.mergeWifiNetworks(rNetworks, nmcliParser.parseWifiNetworks(output), networkPresentation);
         _syncConnectedState();
     }
 
     function _updateConnectivity(output) {
-        const trimmed = output.trim();
-        const values = trimmed.includes(":") ? trimmed.split(":") : trimmed.split("\n");
-        root.wifiHardwareEnabled = values.length > 0 ? values[0].trim() === "enabled" : true;
-        root.wifiEnabled = values.length > 1 ? values[1].trim() === "enabled" : false;
+        const state = nmcliParser.parseRadioState(output);
+        root.wifiHardwareEnabled = state.wifiHardwareEnabled;
+        root.wifiEnabled = state.wifiEnabled;
     }
 
     function _updateNetworkingState(output) {
@@ -314,10 +215,18 @@ Singleton {
     }
 
     function _refreshAll() {
-        networkingStateProcess.exec({ command: ["nmcli", "networking"] });
-        statusProcess.exec({ command: ["nmcli", "-g", "WIFI-HW,WIFI", "radio"] });
-        generalProcess.exec({ command: ["nmcli", "-g", "CONNECTIVITY", "general"] });
-        getNetworksProcess.exec({ command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "wifi"] });
+        networkingStateProcess.exec({
+            command: ["nmcli", "networking"]
+        });
+        statusProcess.exec({
+            command: ["nmcli", "-g", "WIFI-HW,WIFI", "radio"]
+        });
+        generalProcess.exec({
+            command: ["nmcli", "-g", "CONNECTIVITY", "general"]
+        });
+        getNetworksProcess.exec({
+            command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "wifi"]
+        });
         root._checkWiredConnection();
     }
 
@@ -325,12 +234,18 @@ Singleton {
 
     function setNetworkingEnabled(value) {
         const cmd = value ? "on" : "off";
-        nmcliNetworkingProcess.exec({ command: ["nmcli", "networking", cmd] });
+        beginOperation("toggle", "networking");
+        nmcliNetworkingProcess.exec({
+            command: ["nmcli", "networking", cmd]
+        });
     }
 
     function scan(callback) {
         root._pendingScanCallback = callback;
-        rescanProcess.exec({ command: ["nmcli", "dev", "wifi", "list", "--rescan", "yes" ] });
+        beginOperation("scan", "wifi");
+        rescanProcess.exec({
+            command: ["nmcli", "dev", "wifi", "list", "--rescan", "yes"]
+        });
     }
 
     function connectNetwork(id, options) {
@@ -340,14 +255,21 @@ Singleton {
         const args = ["nmcli", "dev", "wifi", "connect", ssid];
         if (password)
             args.push("password", password);
-        connectProcess.exec({ command: args });
+        beginOperation("connect", ssid);
+        connectProcess.exec({
+            command: args
+        });
     }
 
     function disconnectNetwork(id) {
         const network = rawNetworkById(id);
         if (network && network.connected) {
-            if (wifiDeviceName)
-                disconnectProcess.exec({ command: ["nmcli", "dev", "disconnect", wifiDeviceName] });
+            if (wifiDeviceName) {
+                beginOperation("disconnect", network.ssid || id);
+                disconnectProcess.exec({
+                    command: ["nmcli", "dev", "disconnect", wifiDeviceName]
+                });
+            }
         }
     }
 
@@ -356,20 +278,26 @@ Singleton {
     }
 
     function rescan(callback) {
-        root._pendingScanCallback = callback;
-        rescanProcess.exec({ command: ["nmcli", "dev", "wifi", "list", "--rescan", "yes"] });
+        scan(callback);
     }
 
     function connectToNetwork(ssid, password) {
         const args = ["nmcli", "dev", "wifi", "connect", ssid];
         if (password)
             args.push("password", password);
-        connectProcess.exec({ command: args });
+        beginOperation("connect", ssid);
+        connectProcess.exec({
+            command: args
+        });
     }
 
     function disconnectDevice(deviceName) {
-        if (deviceName)
-            disconnectProcess.exec({ command: ["nmcli", "dev", "disconnect", deviceName] });
+        if (deviceName) {
+            beginOperation("disconnect", deviceName);
+            disconnectProcess.exec({
+                command: ["nmcli", "dev", "disconnect", deviceName]
+            });
+        }
     }
 
     function disconnectWifi() {
@@ -382,13 +310,19 @@ Singleton {
 
     function forgetNetwork(uuid) {
         if (uuid) {
-            forgetProcess.exec({ command: ["nmcli", "con", "delete", "uuid", uuid] });
+            beginOperation("forget", uuid);
+            forgetProcess.exec({
+                command: ["nmcli", "con", "delete", "uuid", uuid]
+            });
         }
     }
 
     function setWifiEnabled(enabled) {
         const cmd = enabled ? "on" : "off";
-        wifiToggleProcess.exec({ command: ["nmcli", "radio", "wifi", cmd] });
+        beginOperation("toggle", "wifi");
+        wifiToggleProcess.exec({
+            command: ["nmcli", "radio", "wifi", cmd]
+        });
     }
 
     function toggleWifi() {
@@ -423,10 +357,15 @@ Singleton {
         id: rescanProcess
         function onExited(exitCode) {
             if (exitCode === 0) {
-                getNetworksProcess.exec({ command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "wifi"] });
+                getNetworksProcess.exec({
+                    command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "wifi"]
+                });
             } else if (root._pendingScanCallback) {
+                root.finishOperation(false, `scan failed (${exitCode})`);
                 root._pendingScanCallback(false);
                 root._pendingScanCallback = null;
+            } else {
+                root.finishOperation(false, `scan failed (${exitCode})`);
             }
         }
     }
@@ -437,6 +376,8 @@ Singleton {
             waitForEnd: true
             onStreamFinished: {
                 root._parseNetworks(text);
+                if (root.currentOperationKind === "scan")
+                    root.finishOperation(true, "");
                 if (root._pendingScanCallback) {
                     root._pendingScanCallback(true);
                     root._pendingScanCallback = null;
@@ -450,35 +391,11 @@ Singleton {
         stdout: StdioCollector {
             waitForEnd: true
             onStreamFinished: {
-                const lines = text.trim().split("\n");
-                let foundWired = false;
-                let wifiName = "";
-                let wiredName = "";
-                let wiredAddr = "";
-
-                for (let i = 0; i < lines.length; ++i) {
-                    const line = lines[i];
-                    const parts = line.split(":");
-                    if (parts.length >= 3) {
-                        const device = parts[0];
-                        const type = parts[1];
-                        const state = parts[2];
-                        const address = parts[3] || "";
-
-                        if (type === "wifi" && state === "connected") {
-                            wifiName = device;
-                        } else if (type === "ethernet" && state === "connected" && !foundWired) {
-                            foundWired = true;
-                            wiredName = device;
-                            wiredAddr = address;
-                        }
-                    }
-                }
-
-                root.hasWiredConnection = foundWired;
-                root.wifiDeviceName = wifiName;
-                root.wiredDeviceName = wiredName;
-                root.wiredAddress = wiredAddr;
+                const state = nmcliParser.parseDeviceStatus(text);
+                root.hasWiredConnection = state.hasWiredConnection;
+                root.wifiDeviceName = state.wifiDeviceName;
+                root.wiredDeviceName = state.wiredDeviceName;
+                root.wiredAddress = state.wiredAddress;
             }
         }
     }
@@ -498,6 +415,7 @@ Singleton {
     Process {
         id: nmcliNetworkingProcess
         function onExited(exitCode) {
+            root.finishOperation(exitCode === 0, `networking toggle failed (${exitCode})`);
             if (exitCode === 0)
                 root._refreshAll();
         }
@@ -506,6 +424,7 @@ Singleton {
     Process {
         id: connectProcess
         function onExited(exitCode) {
+            root.finishOperation(exitCode === 0, `connect failed (${exitCode})`);
             if (exitCode === 0)
                 root._refreshAll();
         }
@@ -514,6 +433,7 @@ Singleton {
     Process {
         id: disconnectProcess
         function onExited(exitCode) {
+            root.finishOperation(exitCode === 0, `disconnect failed (${exitCode})`);
             if (exitCode === 0)
                 root._refreshAll();
         }
@@ -522,6 +442,7 @@ Singleton {
     Process {
         id: forgetProcess
         function onExited(exitCode) {
+            root.finishOperation(exitCode === 0, `forget failed (${exitCode})`);
             if (exitCode === 0)
                 root._refreshAll();
         }
@@ -530,6 +451,7 @@ Singleton {
     Process {
         id: wifiToggleProcess
         function onExited(exitCode) {
+            root.finishOperation(exitCode === 0, `wifi toggle failed (${exitCode})`);
             if (exitCode === 0)
                 root._refreshAll();
         }
@@ -547,7 +469,9 @@ Singleton {
         id: monitorRestartTimer
         interval: 2000
         onTriggered: {
-            monitorProcess.exec({ command: ["nmcli", "monitor"] });
+            monitorProcess.exec({
+                command: ["nmcli", "monitor"]
+            });
         }
     }
 
@@ -556,7 +480,9 @@ Singleton {
         interval: 100
         onTriggered: {
             root._refreshAll();
-            monitorProcess.exec({ command: ["nmcli", "monitor"] });
+            monitorProcess.exec({
+                command: ["nmcli", "monitor"]
+            });
         }
     }
 
