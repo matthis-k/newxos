@@ -10,45 +10,49 @@ Item {
     property var pendingConfirmId: null
     property int pendingConfirmTimeoutMs: 1600
 
-    Timer {
-        id: pendingConfirmTimer
-        interval: root.pendingConfirmTimeoutMs
-        onTriggered: root.pendingConfirmId = null
+    ActivationConfirmation {
+        id: confirmHandler
+        controller: root.controller
+    }
+
+    property alias pendingConfirmId: confirmHandler.pendingConfirmId
+    property alias pendingConfirmTimeoutMs: confirmHandler.pendingConfirmTimeoutMs
+
+    SelectedTargetResolver {
+        id: targetResolver
+        controller: root.controller
+    }
+
+    ControlInteractionController {
+        id: controlHandler
+        controller: root.controller
+        targetResolver: targetResolver
     }
 
     function activateSelected(shiftPressed) {
-        if (controller.isInTree()) {
-            if (controller.currentTreeKey)
-                return root.activateTreeRowByKey(controller.currentTreeKey, null);
+        if (root.controller && root.controller.isInTree()) {
+            if (root.controller.currentTreeKey)
+                return targetResolver.activateTreeRowByKey(root.controller.currentTreeKey, null);
             return false;
         }
-        var result = controller.selectedResult();
+
+        var result = root.controller ? root.controller.selectedResult() : null;
         if (!result)
             return false;
 
-        if (result.risk && result.risk.activation) {
-            if (result.id === root.pendingConfirmId) {
-                root.pendingConfirmId = null;
-                pendingConfirmTimer.stop();
-                return root.executeRecipeSlot(result, shiftPressed ? "complete" : "activate");
-            }
-            if (root.requiresConfirm(result.risk.activation)) {
-                root.pendingConfirmId = result.id;
-                pendingConfirmTimer.restart();
-                controller.resultsRefreshRequested();
-                return false;
-            }
-        }
+        var check = confirmHandler.checkActivation(result);
+        if (!check.confirmed)
+            return false;
 
         return root.executeRecipeSlot(result, shiftPressed ? "complete" : "activate");
     }
 
     function requiresConfirm(activation) {
-        return activation === "confirm" || activation === "confirm-and-explicit-prefix" || activation === "terminal-confirm-or-explicit-prefix";
+        return confirmHandler.requiresConfirm(activation);
     }
 
     function completeSelected() {
-        var result = controller.selectedResult();
+        var result = root.controller ? root.controller.selectedResult() : null;
         if (!result)
             return false;
         return root.executeRecipeSlot(result, "complete");
@@ -59,14 +63,15 @@ Item {
             return false;
 
         if (result.metadata && result.metadata.replaceQuery) {
-            controller.queryReplacementRequested(result.metadata.replaceQuery);
+            if (root.controller)
+                root.controller.queryReplacementRequested(result.metadata.replaceQuery);
             return false;
         }
 
         var backend = null;
-        for (var i = 0; i < (controller.backends || []).length; i += 1) {
-            if (controller.backends[i] && controller.backendId(controller.backends[i]) === result.source) {
-                backend = controller.backends[i];
+        for (var i = 0; i < (root.controller ? root.controller.backends || [] : []).length; i += 1) {
+            if (root.controller.backends[i] && root.controller.backendId(root.controller.backends[i]) === result.source) {
+                backend = root.controller.backends[i];
                 break;
             }
         }
@@ -75,20 +80,22 @@ Item {
 
         try {
             backend.activate(result, action);
-            if (controller.debugEnabled)
+            if (root.controller && root.controller.debugEnabled)
                 DebugLogger.logExecute(result.id, action ? action.id : "", false, true);
             return true;
         } catch (error) {
-            if (controller.debugEnabled)
+            if (root.controller && root.controller.debugEnabled)
                 DebugLogger.logError("Activation failed for " + result.id, error);
             return false;
         }
     }
 
     function executeRecipeSlot(target, slotName) {
+        if (!target)
+            return { close: false };
         var recipe = RecipeResolver.effectiveRecipe(target, slotName || "activate", {});
-        var recipeResult = ActionRegistry.executeRecipe(recipe, target, controller);
-        return !!recipeResult.close;
+        var recipeResult = ActionRegistry.executeRecipe(recipe, target, root.controller);
+        return { close: !!recipeResult.close, success: recipeResult.success };
     }
 
     function applyIntent(result, intent) {
@@ -107,7 +114,8 @@ Item {
         case "close":
             return true;
         case "replace-query":
-            controller.queryReplacementRequested(intent.text || "");
+            if (root.controller)
+                root.controller.queryReplacementRequested(intent.text || "");
             return false;
         case "noop":
             return false;
@@ -126,52 +134,52 @@ Item {
 
     function activateResultAction(result, actionId) {
         if (!result) {
-            if (controller.debugEnabled)
-                DebugLogger.log("switch", "activateResultAction without result", { actionId: actionId || "" });
+            if (root.controller && root.controller.debugEnabled)
+                console.warn("[Actions] activateResultAction without result", { actionId: actionId || "" });
             return false;
         }
         var actions = result.actions || [];
-        if (controller.debugEnabled)
-            DebugLogger.log("switch", "activateResultAction", {
+        if (root.controller && root.controller.debugEnabled)
+            console.warn("[Actions] activateResultAction", {
                 resultId: result.id || result.nodeId || "",
                 title: result.title || "",
                 source: result.source || result.backendId || "",
                 actionId: actionId || "",
-                actionIds: actions.map(function(action) { return action ? action.id || "" : ""; }),
+                actionIds: actions.map(function(a) { return a ? a.id || "" : ""; }),
                 hasSwitchActions: !!result.switchActions,
                 switchActionIds: result.switchActions ? Object.keys(result.switchActions) : [],
                 switchState: result.switchState
             });
         for (var i = 0; i < actions.length; i += 1) {
             if (actions[i] && actions[i].id === actionId) {
-                var recipeResult = ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, controller);
-                if (controller.debugEnabled)
-                    DebugLogger.log("switch", "activateResultAction matched action list", {
+                var recipeResult = ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root.controller);
+                if (root.controller && root.controller.debugEnabled)
+                    console.warn("[Actions] activateResultAction matched action list", {
                         resultId: result.id || result.nodeId || "",
                         actionId: actionId || "",
                         activated: recipeResult.success,
                         payloadState: actions[i].payload ? actions[i].payload.state : undefined
                     });
                 if (recipeResult.success && result.switchActions)
-                    root.refreshSwitchResult(result, actions[i]);
+                    controlHandler.refreshSwitchResult(result, actions[i]);
                 return recipeResult.success;
             }
         }
         if (result.switchActions && result.switchActions[actionId]) {
-            var switchResult = ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, controller);
-            if (controller.debugEnabled)
-                DebugLogger.log("switch", "activateResultAction matched switchActions", {
+            var switchResult = ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root.controller);
+            if (root.controller && root.controller.debugEnabled)
+                console.warn("[Actions] activateResultAction matched switchActions", {
                     resultId: result.id || result.nodeId || "",
                     actionId: actionId || "",
                     activated: switchResult.success,
                     payloadState: result.switchActions[actionId].payload ? result.switchActions[actionId].payload.state : undefined
                 });
             if (switchResult.success)
-                root.refreshSwitchResult(result, result.switchActions[actionId]);
+                controlHandler.refreshSwitchResult(result, result.switchActions[actionId]);
             return switchResult.success;
         }
-        if (controller.debugEnabled)
-            DebugLogger.log("switch", "activateResultAction no matching action", {
+        if (root.controller && root.controller.debugEnabled)
+            console.warn("[Actions] activateResultAction no matching action", {
                 resultId: result.id || result.nodeId || "",
                 actionId: actionId || ""
             });
@@ -179,129 +187,33 @@ Item {
     }
 
     function adjustSelectedValue(delta) {
-        var result = root.selectedActionTarget();
-        if (!result) {
-            if (controller.debugEnabled)
-                DebugLogger.log("switch", "adjustSelectedValue without target", { delta: delta });
-            return false;
-        }
-
-        if (result.control) {
-            var controlResult = ActionRegistry.executeRecipe([["adjust-control", { delta: delta }]], result, controller);
-            if (controlResult.success)
-                return true;
-        }
-
-        var preferredIds = delta < 0
-            ? ["off", "decrease", "decrement", "left"]
-            : ["on", "increase", "increment", "right"];
-        if (controller.debugEnabled)
-            DebugLogger.log("switch", "adjustSelectedValue", {
-                delta: delta,
-                preferredIds: preferredIds,
-                inTree: controller.isInTree(),
-                activeNodeKey: controller.activeNodeKey,
-                targetId: result.id || result.nodeId || "",
-                title: result.title || "",
-                source: result.source || result.backendId || "",
-                hasSwitchActions: !!result.switchActions,
-                switchState: result.switchState
-            });
-        for (var i = 0; i < preferredIds.length; i += 1) {
-            if (root.activateResultAction(result, preferredIds[i])) {
-                if (controller.isInTree() && controller.currentTreeKey && result.switchActions && controller.selectedIndex >= 0) {
-                    var treeRow = controller.findTreeRowData(controller.currentTreeKey);
-                    if (treeRow)
-                        treeRow.switchState = result.switchState;
-                    controller.treeSwitchRefreshRequested(controller.selectedIndex);
-                    if (controller.debugEnabled)
-                        DebugLogger.log("switch", "adjustSelectedValue refreshed tree switch", {
-                            rowKey: controller.currentTreeKey,
-                            switchState: result.switchState
-                        });
-                }
-                return true;
-            }
-        }
-        if (controller.debugEnabled)
-            DebugLogger.log("switch", "adjustSelectedValue no action activated", {
-                delta: delta,
-                targetId: result.id || result.nodeId || "",
-                preferredIds: preferredIds
-            });
-        return false;
+        return controlHandler.adjustSelectedValue(delta);
     }
 
     function toggleSelectedMute() {
-        var result = root.selectedActionTarget();
-        if (!result)
-            return false;
-        if (result.switchActions && (result.switchActions.toggle || result.switchActions.on || result.switchActions.off)) {
-            var toggleResult = ActionRegistry.executeRecipe([["toggle"]], result, controller);
-            return !!toggleResult.success;
-        }
-        return false;
+        return controlHandler.toggleSelectedMute();
     }
 
     function alignedControlValue(current, delta, step, from, to) {
-        var base = delta < 0 ? Math.floor(current / step) * step : Math.ceil(current / step) * step;
-        if (Math.abs(base - current) < 0.0001)
-            base += delta * step;
-        return Math.max(from, Math.min(to, base));
+        return controlHandler.alignedControlValue(current, delta, step, from, to);
     }
 
     function refreshSwitchResult(result, action) {
-        var payload = action && action.payload || {};
-        var state = payload.state;
-        var previous = result ? result.switchState : undefined;
-        if (state === true || state === false) {
-            result.switchState = state;
-        } else if (state === null) {
-            result.switchState = result.switchState === true ? false : true;
-        }
-        if (controller.debugEnabled)
-            DebugLogger.log("switch", "refreshSwitchResult", {
-                resultId: result ? result.id || result.nodeId || "" : "",
-                actionId: action ? action.id || "" : "",
-                payloadState: state,
-                previousState: previous,
-                nextState: result ? result.switchState : undefined
-            });
-        controller.resultsRefreshRequested();
-        Qt.callLater(function() {
-            controller.searchRequested(controller.query, controller.generation);
-        });
+        controlHandler.refreshSwitchResult(result, action);
     }
 
     function activateTreeRowByKey(key, actionId) {
-        var row = controller.findTreeRowData(key);
-        if (!row) return false;
-        var parent = controller.findParentResultByKey(key);
-        var target = Object.assign({}, row, {
-            source: row.source || (parent ? parent.source || parent.backendId : ""),
-            category: row.category || (parent ? parent.category : "")
-        });
-        if (actionId) {
-            var activated = root.activateResultAction(target, actionId);
-            if (activated && target.switchActions && controller.selectedIndex >= 0) {
-                row.switchState = target.switchState;
-                controller.treeSwitchRefreshRequested(controller.selectedIndex);
-            }
-            return activated;
-        }
-        return root.applyIntent(target, target.enter);
+        return targetResolver.activateTreeRowByKey(key, actionId);
     }
 
     function treeActivateCurrent() {
-        if (controller.currentTreeKey)
-            return root.activateTreeRowByKey(controller.currentTreeKey, null);
-        return false;
+        return targetResolver.treeActivateCurrent();
     }
 
     function runRecipe(recipe, target) {
         if (!recipe || !target)
             return { close: false };
-        return ActionRegistry.executeRecipe(recipe, target, controller);
+        return ActionRegistry.executeRecipe(recipe, target, root.controller);
     }
 
     function runRecipeSlot(slotName) {
@@ -323,7 +235,7 @@ Item {
 
         var interactions = root.effectiveInteractionsForTarget(target);
         if (!interactions || !interactions[keyName]) {
-            if (controller.debugEnabled)
+            if (root.controller && root.controller.debugEnabled)
                 console.warn("[Actions] no interaction for key: " + keyName);
             return { close: false, success: false };
         }
@@ -348,46 +260,25 @@ Item {
     }
 
     function _handleActivationWithConfirm() {
-        if (controller.isInTree()) {
-            if (controller.currentTreeKey)
-                return root.activateTreeRowByKey(controller.currentTreeKey, null);
+        if (root.controller && root.controller.isInTree()) {
+            if (root.controller.currentTreeKey)
+                return { close: targetResolver.activateTreeRowByKey(root.controller.currentTreeKey, null), closeRequested: false };
             return { close: false };
         }
 
-        var result = controller.selectedResult();
+        var result = root.controller ? root.controller.selectedResult() : null;
         if (!result)
             return { close: false };
 
-        if (result.risk && result.risk.activation) {
-            if (result.id === root.pendingConfirmId) {
-                root.pendingConfirmId = null;
-                pendingConfirmTimer.stop();
-                var recipeResult = root.runRecipeSlot("activate");
-                return { close: recipeResult.close, closeRequested: recipeResult.close };
-            }
-            if (root.requiresConfirm(result.risk.activation)) {
-                root.pendingConfirmId = result.id;
-                pendingConfirmTimer.restart();
-                controller.resultsRefreshRequested();
-                return { close: false, closeRequested: false };
-            }
-        }
+        var check = confirmHandler.checkActivation(result);
+        if (!check.confirmed)
+            return { close: false, closeRequested: false, needsConfirm: check.needsConfirm };
 
         var recipeResult = root.runRecipeSlot("activate");
         return { close: recipeResult.close, closeRequested: recipeResult.close };
     }
 
     function selectedActionTarget() {
-        if (controller.isInTree() && controller.currentTreeKey) {
-            var treeRow = controller.findTreeRowData(controller.currentTreeKey);
-            if (treeRow) {
-                var parent = controller.results[controller.selectedIndex];
-                return Object.assign({}, treeRow, {
-                    source: treeRow.source || (parent ? parent.source || parent.backendId : ""),
-                    category: treeRow.category || (parent ? parent.category : "")
-                });
-            }
-        }
-        return controller.selectedResult();
+        return targetResolver.selectedActionTarget();
     }
 }

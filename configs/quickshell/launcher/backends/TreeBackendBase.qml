@@ -1,4 +1,5 @@
 import QtQml
+import "tree"
 import "../logic/"
 
 LauncherBackendBase {
@@ -12,6 +13,20 @@ LauncherBackendBase {
     property bool prewarmCompositeRootCache: true
     property bool dynamicCompositeRoot: false
 
+    property TreeNodeDefaults nodeDefaults: TreeNodeDefaults {
+        defaultPriority: root.priority || 0
+    }
+    property SwitchActionInferer switchInferer: SwitchActionInferer {
+        nodeFactory: root
+    }
+    property TreeNodeMaterializer nodeMaterializer: TreeNodeMaterializer {
+        defaults: root.nodeDefaults
+        switchInferer: root.switchInferer
+        nodeFactory: root
+        backendId: root.backendId
+        priority: root.priority || 0
+        helpIcon: root.helpIcon || "system-search"
+    }
     Component.onCompleted: {
         if (root.prewarmCompositeRootCache)
             Qt.callLater(root.prewarmCompositeRoot);
@@ -29,7 +44,7 @@ LauncherBackendBase {
             return root.compositeRootCache;
 
         root.compositeRootCacheKey = cacheKey;
-        const compositeRoot = root.backendRootDto(roots.map(function(node) { return compositeNode(node, []); }), {
+        const compositeRoot = root.backendRootDto(roots.map(function(node) { return root.nodeMaterializer.compositeNode(node, []); }), {
             tags: [root.backendId],
             evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "switch-action", "semantic", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], childBypass: ["own-score-beats-parent", "score-dominates:0.03"] } }
         });
@@ -60,182 +75,24 @@ LauncherBackendBase {
         return node && typeof node.toTreeObject === "function" ? node.toTreeObject() : node;
     }
 
-    function compositeNode(node, path) {
-        const children = (node.children || []).map(function(child) {
-            return compositeNode(child, path.concat([node]));
-        });
-        const action = defaultAction(node);
-        const rawSwitchActions = node.switchActions || (node.switchState === undefined ? null : switchActionMap(node, children));
-        const switchActions = actionDtosForSwitchActions(rawSwitchActions);
-        const kind = switchActions && children.length === 0 ? "switch" : (children.length > 0 || node.template === "action-group" || node.template === "flat-action-group") ? "action-group" : "desktop-action";
-        const switchProfile = kind === "switch" && !node.evaluationProfile ? {
-            mode: "generic+custom",
-            strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"],
-            scorePolicy: "default",
-            profile: {
-                evidence: ["field-match:primary", "field-match:breadcrumb", "switch-action"],
-                inherit: [],
-                boost: ["descendant-boost", "switch-aliases"],
-                childVisible: ["has-own-score"],
-                childBypass: ["score-dominates:0.03"]
-            }
-        } : null;
-        const actions = switchActions
-            ? [switchActions.toggle, switchActions.on, switchActions.off].filter(Boolean)
-            : action ? [root.actionDto(action.actionId || action.id || "run", action.title || qsTr("Run"), action)] : [];
-        if (switchActions && actions.length > 0)
-            actions[0].default = true;
-
-        const nodeBehavior = behaviorForNode(node, children);
-        const flattenPolicy = nodeBehavior.flattenPolicy || (children.length > 0 ? {
-            modeHint: "group-dominance",
-            priority: root.priority || 0,
-            groupDisplay: {
-                parentWinsMargin: 0.08,
-                childWinsMargin: 0.03,
-                childDominatesMargin: 0.18,
-                maxFlattenedChildren: 3,
-                minChildScore: 0.25,
-                showGroupHeaderInFilteredMode: true,
-                showAllChildrenOnParentMatch: true,
-                parentMatchMinScore: 0.15
-            }
-        } : null);
-
-        return root.nodeDto({
-            id: root.backendId + ":" + path.concat([node]).map(function(item) { return item.id || item.title; }).join(":"),
-            kind: kind,
-            label: node.title || node.id,
-            subtitle: node.subtitle || "",
-            icon: node.icon || root.helpIcon || "system-search",
-            iconColor: node.iconColor || null,
-            aliases: node.aliases || [],
-            keywords: node.keywords || [],
-            tags: [root.backendId, root.category || ""].filter(Boolean),
-            actionList: actions,
-            switchActions: switchActions,
-            switchState: node.switchState === undefined ? null : node.switchState,
-            control: node.control || null,
-            presentation: node.presentation || null,
-            dangerous: !!node.dangerous,
-            risk: node.risk || null,
-            children: children,
-            showWhenQueryEmpty: path.length === 0,
-            usageCount: node.usageCount || 0,
-            lastUsedDaysAgo: node.lastUsedDaysAgo === undefined ? 9999 : node.lastUsedDaysAgo,
-            behavior: Object.assign({
-                tokenPolicy: node.tokenPolicy ? node.tokenPolicy : node.aliases && node.aliases.length ? { tokens: node.aliases, weight: 0.62 } : null,
-                flattenPolicy: flattenPolicy,
-                displayPolicy: nodeBehavior.displayPolicy || null
-            }, node.behavior || {}),
-            semanticTerms: semanticTermsForNode(node),
-            evaluationProfile: node.evaluationProfile || switchProfile || { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default" },
-            meta: {
-                action: action,
-                commandPath: path.concat([node]).map(function(item) { return item.id || item.title; }),
-                replaceQuery: node.replaceQuery || null
-            }
-        });
-    }
-
     function defaultAction(node) {
-        return node.defaultAction || node.action || null;
+        return root.nodeDefaults.defaultAction(node);
     }
 
     function behaviorForNode(node, children) {
-        var extra = {};
-        if (node.template === "action-group" || node.template === "flat-action-group" || node.template === "switch")
-            extra = categoryGroupBehavior(node.groupOptions || {});
-        if (node.behavior)
-            return Object.assign({}, extra, node.behavior);
-        return extra;
-    }
-
-    function switchActionMap(node, children) {
-        const byState = {};
-        for (const child of children || []) {
-            const leafAction = child.actionList && child.actionList[0];
-            const payload = leafAction && leafAction.payload || {};
-            const id = String(child.label || child.id || "").toLowerCase();
-            if (!leafAction)
-                continue;
-            if (!byState.toggle && (payload.state === null || id.indexOf("toggle") >= 0))
-                byState.toggle = root.actionDto("toggle", qsTr("Toggle"), leafAction.payload || leafAction);
-            else if (!byState.off && (payload.state === false || payload.state === "disconnect" || id.indexOf("off") >= 0 || id.indexOf("disable") >= 0 || id.indexOf("disconnect") >= 0))
-                byState.off = root.actionDto("off", qsTr("Off"), leafAction.payload || leafAction);
-            else if (!byState.on && (payload.state === true || payload.state === "connect" || id.indexOf("on") >= 0 || id.indexOf("enable") >= 0 || id.indexOf("connect") >= 0))
-                byState.on = root.actionDto("on", qsTr("On"), leafAction.payload || leafAction);
-        }
-        return byState.on && byState.off && byState.toggle ? byState : null;
-    }
-
-    function actionDtosForSwitchActions(switchActions) {
-        if (!switchActions)
-            return null;
-        var out = {};
-        for (var key in switchActions) {
-            var action = switchActions[key];
-            if (!action)
-                continue;
-            out[key] = root.actionDto(action.id || key, action.title || action.label || key, action.payload || action);
-        }
-        return out;
-    }
-
-    function semanticTermsForNode(node) {
-        const aliases = node.aliases || [];
-        return aliases.map(function(alias) {
-            return { triggers: [String(alias).toLowerCase()], matches: [String(alias).toLowerCase(), String(node.title || "").toLowerCase()], field: "semantic", score: 0.74, weight: 0.32 };
-        });
-    }
-
-    function actionPayload(actionId, props, executor) {
-        var payload = Object.assign({ actionId: actionId }, props || {});
-        if (executor)
-            payload.execute = executor;
-        return payload;
-    }
-
-    function actionNode(options) {
-        var opts = options || {};
-        var actionId = opts.actionId || opts.id || "run";
-        return {
-            id: opts.id || actionId,
-            aliases: opts.aliases || [],
-            keywords: opts.keywords || [],
-            title: opts.title || opts.id || actionId,
-            subtitle: opts.subtitle || "",
-            icon: opts.icon || root.helpIcon || "system-run",
-            iconColor: opts.iconColor || null,
-            action: actionPayload(actionId, opts.actionProps || {}, opts.execute),
-            dangerous: !!opts.dangerous,
-            risk: opts.risk || null,
-            behavior: opts.behavior || null,
-            children: opts.children || []
-        };
+        return root.nodeDefaults.behaviorForNode(node, children, {});
     }
 
     function categoryGroupBehavior(options) {
-        var opts = options || {};
-        return {
-            flattenPolicy: {
-                modeHint: "group-dominance",
-                priority: opts.priority === undefined ? root.priority || 0 : opts.priority,
-                groupDisplay: {
-                    parentWinsMargin: opts.parentWinsMargin === undefined ? 0.08 : opts.parentWinsMargin,
-                    childWinsMargin: opts.childWinsMargin === undefined ? 0.03 : opts.childWinsMargin,
-                    childDominatesMargin: opts.childDominatesMargin === undefined ? 0.18 : opts.childDominatesMargin,
-                    maxFlattenedChildren: opts.maxFlattenedChildren === undefined ? 3 : opts.maxFlattenedChildren,
-                    minChildScore: opts.minChildScore === undefined ? 0.25 : opts.minChildScore,
-                    showGroupHeaderInFilteredMode: opts.showGroupHeaderInFilteredMode === undefined ? true : opts.showGroupHeaderInFilteredMode,
-                    showAllChildrenOnParentMatch: opts.showAllChildrenOnParentMatch === undefined ? true : opts.showAllChildrenOnParentMatch,
-                    flattenAllChildrenOnParentMatch: !!opts.flattenAllChildrenOnParentMatch,
-                    parentMatchMinScore: opts.parentMatchMinScore === undefined ? 0.25 : opts.parentMatchMinScore,
-                    maxNestedChildren: opts.maxNestedChildren
-                }
-            },
-            displayPolicy: opts.displayPolicy || (opts.breadcrumbMode ? { breadcrumbMode: opts.breadcrumbMode } : null)
-        };
+        return root.nodeDefaults.categoryGroupBehavior(options);
+    }
+
+    function switchActionMap(node, children) {
+        return root.switchInferer.switchActionMap(node, children);
+    }
+
+    function actionDtosForSwitchActions(switchActions) {
+        return root.switchInferer.actionDtosForSwitchActions(switchActions);
     }
 
     function originalNodeForPath(commandPath) {
@@ -259,7 +116,7 @@ LauncherBackendBase {
     }
 
     function actionPayloadForPath(commandPath, actionId) {
-        var node = originalNodeForPath(commandPath);
+        var node = root.originalNodeForPath(commandPath);
         if (!node)
             return null;
 
@@ -280,4 +137,29 @@ LauncherBackendBase {
         return ownAction;
     }
 
+    function actionPayload(actionId, props, executor) {
+        var payload = Object.assign({ actionId: actionId }, props || {});
+        if (executor)
+            payload.execute = executor;
+        return payload;
+    }
+
+    function actionNode(options) {
+        var opts = options || {};
+        var actionId = opts.actionId || opts.id || "run";
+        return {
+            id: opts.id || actionId,
+            aliases: opts.aliases || [],
+            keywords: opts.keywords || [],
+            title: opts.title || opts.id || actionId,
+            subtitle: opts.subtitle || "",
+            icon: opts.icon || root.helpIcon || "system-run",
+            iconColor: opts.iconColor || null,
+            action: root.actionPayload(actionId, opts.actionProps || {}, opts.execute),
+            dangerous: !!opts.dangerous,
+            risk: opts.risk || null,
+            behavior: opts.behavior || null,
+            children: opts.children || []
+        };
+    }
 }

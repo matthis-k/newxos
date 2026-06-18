@@ -112,6 +112,8 @@ Singleton {
         connected: true
     } : null
 
+    property var _pendingScanCallback: null
+
     function rawNetworkById(id) {
         for (const n of rNetworks) {
             if (n.id === id || n.ssid === id || n.bssid === id)
@@ -119,8 +121,6 @@ Singleton {
         }
         return null;
     }
-
-    property var _pendingScanCallback: null
 
     function beginOperation(kind, target) {
         currentOperationKind = kind || "";
@@ -208,57 +208,25 @@ Singleton {
         root.connectivity = output.trim() || "none";
     }
 
-    function _checkWiredConnection() {
-        wiredCheckProcess.exec({
-            command: ["nmcli", "-g", "DEVICE,TYPE,STATE,IP4.ADDRESS", "device", "status"]
-        });
-    }
-
-    function _refreshAll() {
-        networkingStateProcess.exec({
-            command: ["nmcli", "networking"]
-        });
-        statusProcess.exec({
-            command: ["nmcli", "-g", "WIFI-HW,WIFI", "radio"]
-        });
-        generalProcess.exec({
-            command: ["nmcli", "-g", "CONNECTIVITY", "general"]
-        });
-        getNetworksProcess.exec({
-            command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "wifi"]
-        });
-        root._checkWiredConnection();
-    }
-
     property var rNetworks: []
 
     function setNetworkingEnabled(value) {
-        const cmd = value ? "on" : "off";
         beginOperation("toggle", "networking");
-        nmcliNetworkingProcess.exec({
-            command: ["nmcli", "networking", cmd]
-        });
+        commands.setNetworkingEnabled(value);
     }
 
     function scan(callback) {
         root._pendingScanCallback = callback;
         beginOperation("scan", "wifi");
-        rescanProcess.exec({
-            command: ["nmcli", "dev", "wifi", "list", "--rescan", "yes"]
-        });
+        commands.scan();
     }
 
     function connectNetwork(id, options) {
         const network = rawNetworkById(id);
         const ssid = network ? network.ssid : id;
         const password = options?.password || "";
-        const args = ["nmcli", "dev", "wifi", "connect", ssid];
-        if (password)
-            args.push("password", password);
         beginOperation("connect", ssid);
-        connectProcess.exec({
-            command: args
-        });
+        commands.connectToNetwork(ssid, password);
     }
 
     function disconnectNetwork(id) {
@@ -266,15 +234,13 @@ Singleton {
         if (network && network.connected) {
             if (wifiDeviceName) {
                 beginOperation("disconnect", network.ssid || id);
-                disconnectProcess.exec({
-                    command: ["nmcli", "dev", "disconnect", wifiDeviceName]
-                });
+                commands.disconnectDevice(wifiDeviceName);
             }
         }
     }
 
     function refresh() {
-        root._refreshAll();
+        commands.refreshAll();
     }
 
     function rescan(callback) {
@@ -282,21 +248,14 @@ Singleton {
     }
 
     function connectToNetwork(ssid, password) {
-        const args = ["nmcli", "dev", "wifi", "connect", ssid];
-        if (password)
-            args.push("password", password);
         beginOperation("connect", ssid);
-        connectProcess.exec({
-            command: args
-        });
+        commands.connectToNetwork(ssid, password);
     }
 
     function disconnectDevice(deviceName) {
         if (deviceName) {
             beginOperation("disconnect", deviceName);
-            disconnectProcess.exec({
-                command: ["nmcli", "dev", "disconnect", deviceName]
-            });
+            commands.disconnectDevice(deviceName);
         }
     }
 
@@ -311,182 +270,69 @@ Singleton {
     function forgetNetwork(uuid) {
         if (uuid) {
             beginOperation("forget", uuid);
-            forgetProcess.exec({
-                command: ["nmcli", "con", "delete", "uuid", uuid]
-            });
+            commands.forgetNetwork(uuid);
         }
     }
 
     function setWifiEnabled(enabled) {
-        const cmd = enabled ? "on" : "off";
         beginOperation("toggle", "wifi");
-        wifiToggleProcess.exec({
-            command: ["nmcli", "radio", "wifi", cmd]
-        });
+        commands.setWifiEnabled(enabled);
     }
 
     function toggleWifi() {
         setWifiEnabled(!wifiEnabled);
     }
 
-    Process {
-        id: networkingStateProcess
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: root._updateNetworkingState(text)
-        }
-    }
+    NetworkCommands {
+        id: commands
 
-    Process {
-        id: statusProcess
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: root._updateConnectivity(text)
+        onNetworkingOutput: function(text) {
+            root._updateNetworkingState(text);
         }
-    }
-
-    Process {
-        id: generalProcess
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: root._updateGeneral(text)
+        onRadioOutput: function(text) {
+            root._updateConnectivity(text);
         }
-    }
-
-    Process {
-        id: rescanProcess
-        function onExited(exitCode) {
-            if (exitCode === 0) {
-                getNetworksProcess.exec({
-                    command: ["nmcli", "-g", "ACTIVE,SIGNAL,FREQ,SSID,BSSID,SECURITY", "d", "wifi"]
-                });
-            } else if (root._pendingScanCallback) {
-                root.finishOperation(false, `scan failed (${exitCode})`);
-                root._pendingScanCallback(false);
-                root._pendingScanCallback = null;
-            } else {
-                root.finishOperation(false, `scan failed (${exitCode})`);
-            }
+        onGeneralOutput: function(text) {
+            root._updateGeneral(text);
         }
-    }
-
-    Process {
-        id: getNetworksProcess
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                root._parseNetworks(text);
-                if (root.currentOperationKind === "scan")
-                    root.finishOperation(true, "");
+        onNetworksOutput: function(text) {
+            root._parseNetworks(text);
+            if (root.currentOperationKind === "scan") {
+                root.finishOperation(true, "");
                 if (root._pendingScanCallback) {
                     root._pendingScanCallback(true);
                     root._pendingScanCallback = null;
                 }
             }
         }
-    }
-
-    Process {
-        id: wiredCheckProcess
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                const state = nmcliParser.parseDeviceStatus(text);
-                root.hasWiredConnection = state.hasWiredConnection;
-                root.wifiDeviceName = state.wifiDeviceName;
-                root.wiredDeviceName = state.wiredDeviceName;
-                root.wiredAddress = state.wiredAddress;
+        onWiredOutput: function(text) {
+            const state = nmcliParser.parseDeviceStatus(text);
+            root.hasWiredConnection = state.hasWiredConnection;
+            root.wifiDeviceName = state.wifiDeviceName;
+            root.wiredDeviceName = state.wiredDeviceName;
+            root.wiredAddress = state.wiredAddress;
+        }
+        onOperationFinished: function(kind, success, message) {
+            if (kind === "networking" || kind === "wifi" || kind === "connect" || kind === "disconnect" || kind === "forget") {
+                root.finishOperation(success, message);
+                if (success)
+                    root.refresh();
+            } else if (kind === "scan") {
+                root.finishOperation(success, message);
+                if (root._pendingScanCallback) {
+                    root._pendingScanCallback(success);
+                    root._pendingScanCallback = null;
+                }
             }
         }
     }
 
-    Process {
-        id: monitorProcess
-        stdout: SplitParser {
-            onRead: {
-                monitorDebounce.restart();
-            }
-        }
-        function onExited(exitCode, exitStatus) {
-            monitorRestartTimer.start();
-        }
-    }
-
-    Process {
-        id: nmcliNetworkingProcess
-        function onExited(exitCode) {
-            root.finishOperation(exitCode === 0, `networking toggle failed (${exitCode})`);
-            if (exitCode === 0)
-                root._refreshAll();
-        }
-    }
-
-    Process {
-        id: connectProcess
-        function onExited(exitCode) {
-            root.finishOperation(exitCode === 0, `connect failed (${exitCode})`);
-            if (exitCode === 0)
-                root._refreshAll();
-        }
-    }
-
-    Process {
-        id: disconnectProcess
-        function onExited(exitCode) {
-            root.finishOperation(exitCode === 0, `disconnect failed (${exitCode})`);
-            if (exitCode === 0)
-                root._refreshAll();
-        }
-    }
-
-    Process {
-        id: forgetProcess
-        function onExited(exitCode) {
-            root.finishOperation(exitCode === 0, `forget failed (${exitCode})`);
-            if (exitCode === 0)
-                root._refreshAll();
-        }
-    }
-
-    Process {
-        id: wifiToggleProcess
-        function onExited(exitCode) {
-            root.finishOperation(exitCode === 0, `wifi toggle failed (${exitCode})`);
-            if (exitCode === 0)
-                root._refreshAll();
-        }
-    }
-
-    Timer {
-        id: monitorDebounce
-        interval: 300
-        onTriggered: {
-            root._refreshAll();
-        }
-    }
-
-    Timer {
-        id: monitorRestartTimer
-        interval: 2000
-        onTriggered: {
-            monitorProcess.exec({
-                command: ["nmcli", "monitor"]
-            });
-        }
-    }
-
-    Timer {
-        id: initTimer
-        interval: 100
-        onTriggered: {
-            root._refreshAll();
-            monitorProcess.exec({
-                command: ["nmcli", "monitor"]
-            });
-        }
+    NetworkMonitor {
+        id: monitor
+        onRefreshRequested: root.refresh()
     }
 
     Component.onCompleted: {
-        initTimer.start();
+        monitor.start();
     }
 }

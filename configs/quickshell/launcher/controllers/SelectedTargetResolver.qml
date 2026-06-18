@@ -1,0 +1,51 @@
+import QtQml
+
+QtObject {
+    id: root
+
+    property var controller: null
+
+    function selectedActionTarget() {
+        if (!root.controller)
+            return null;
+
+        if (root.controller.isInTree() && root.controller.currentTreeKey) {
+            var treeRow = root.controller.findTreeRowData(root.controller.currentTreeKey);
+            if (treeRow) {
+                var parent = root.controller.results ? root.controller.results[root.controller.selectedIndex] : null;
+                return Object.assign({}, treeRow, {
+                    source: treeRow.source || (parent ? parent.source || parent.backendId : ""),
+                    category: treeRow.category || (parent ? parent.category : "")
+                });
+            }
+        }
+        return root.controller.selectedResult();
+    }
+
+    function activateTreeRowByKey(key, actionId) {
+        if (!root.controller) return false;
+        var row = root.controller.findTreeRowData(key);
+        if (!row) return false;
+        var parent = root.controller.findParentResultByKey(key);
+        var target = Object.assign({}, row, {
+            source: row.source || (parent ? parent.source || parent.backendId : ""),
+            category: row.category || (parent ? parent.category : "")
+        });
+        if (actionId) {
+            var activated = root.controller.activateResultAction(target, actionId);
+            if (activated && target.switchActions && root.controller.selectedIndex >= 0) {
+                row.switchState = target.switchState;
+                if (typeof root.controller.treeSwitchRefreshRequested === "function")
+                    root.controller.treeSwitchRefreshRequested(root.controller.selectedIndex);
+            }
+            return activated;
+        }
+        return root.controller.applyIntent(target, target.enter);
+    }
+
+    function treeActivateCurrent() {
+        if (root.controller && root.controller.currentTreeKey)
+            return root.activateTreeRowByKey(root.controller.currentTreeKey, null);
+        return false;
+    }
+}

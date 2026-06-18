@@ -142,7 +142,12 @@ Item {
         setResults(rows, text);
     }
 
-    // Navigation/state façade
+    property alias navigation: navigation
+    property alias actions: actions
+    property alias debug: debugController
+    property alias searchSession: searchSession
+
+    // Navigation/state façade (compatibility wrappers)
     function clearSearchOutputState() { navigation.clearSearchOutputState(); }
     function queryIsEmptyForSelection() { return navigation.queryIsEmptyForSelection(); }
     function hasActivation(row) { return navigation.hasActivation(row); }
@@ -217,7 +222,7 @@ Item {
     function reset() { resetRequested(); }
     function backendId(backend) { return backend ? backend.backendId || "" : ""; }
 
-    // Activation/action façade
+    // Activation/action façade (compatibility wrappers)
     function activateSelected(shiftPressed) { return actions.activateSelected(shiftPressed); }
     function requiresConfirm(activation) { return actions.requiresConfirm(activation); }
     function completeSelected() { return actions.completeSelected(); }

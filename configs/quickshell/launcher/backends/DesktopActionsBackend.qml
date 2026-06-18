@@ -65,23 +65,6 @@ TreeBackendBase {
             if (root.shellScreenState)
                 root.shellScreenState.openDashboard(payload.tab || "overview");
             break;
-        case "network":
-            if (payload.op === "setWifiEnabled") NetworkService.setWifiEnabled(!!payload.enabled);
-            else if (payload.op === "toggleWifi") NetworkService.toggleWifi();
-            break;
-        case "vpn":
-            if (payload.op === "connect") VpnService.connect(payload.destination || null);
-            else if (payload.op === "disconnect") VpnService.disconnect();
-            else if (payload.op === "toggle") VpnService.toggle();
-            break;
-        case "bluetooth":
-            BluetoothService.executePayload(payload);
-            break;
-        case "notifications":
-            if (payload.op === "setDnd") NotificationCenter.setDoNotDisturb(!!payload.enabled);
-            else if (payload.op === "toggleDnd") NotificationCenter.setDoNotDisturb(!NotificationCenter.doNotDisturbEnabled);
-            else if (payload.op === "clearAll") NotificationCenter.clearAll();
-            break;
         }
     }
 

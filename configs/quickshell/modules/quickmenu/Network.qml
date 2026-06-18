@@ -6,6 +6,7 @@ import Quickshell
 import qs.animations as Animations
 import qs.services
 import qs.components
+import "network"
 
 DashboardPage {
     id: root
@@ -31,352 +32,39 @@ DashboardPage {
     readonly property int horizontalPadding: 8
     readonly property int verticalPadding: 4
 
-    property string interactiveNetworkKey: ""
-    property bool interactiveShowAdvanced: false
-    property bool interactiveShowPasswordInput: false
-    property string interactivePasswordText: ""
-    property string interactiveErrorText: ""
-    property string nordVpnSearchText: ""
-    property var frozenNetworkOrder: []
-
-    readonly property bool interactionLocked: interactiveNetworkKey !== ""
-
-    function networkKey(network) {
-        return `${network?.frequency || "unknown"}::${network?.ssid || "hidden"}::${network?.bssid || "unknown"}`;
+    NetworkInteractionState {
+        id: interactionState
     }
 
-    function applyFrozenOrder(networks) {
-        const order = new Map();
-        for (let i = 0; i < frozenNetworkOrder.length; ++i)
-            order.set(frozenNetworkOrder[i], i);
-
-        const items = networks.slice();
-        items.sort((a, b) => {
-            const aIndex = order.has(networkKey(a)) ? order.get(networkKey(a)) : Number.MAX_SAFE_INTEGER;
-            const bIndex = order.has(networkKey(b)) ? order.get(networkKey(b)) : Number.MAX_SAFE_INTEGER;
-
-            if (aIndex !== bIndex)
-                return aIndex - bIndex;
-
-            return 0;
-        });
-
-        return items;
-    }
-
-    function lockInteractionFor(network) {
-        const key = networkKey(network);
-        if (!key)
-            return;
-
-        if (!interactionLocked)
-            frozenNetworkOrder = NetworkService.networks.map(candidate => networkKey(candidate));
-
-        if (interactiveNetworkKey !== key) {
-            interactiveShowAdvanced = false;
-            interactiveShowPasswordInput = false;
-            interactivePasswordText = "";
-            interactiveErrorText = "";
-        }
-
-        interactiveNetworkKey = key;
-    }
-
-    function unlockInteraction() {
-        interactiveNetworkKey = "";
-        interactiveShowAdvanced = false;
-        interactiveShowPasswordInput = false;
-        interactivePasswordText = "";
-        interactiveErrorText = "";
-        frozenNetworkOrder = [];
-    }
-
-    function wifiIconName(network) {
-        return NetworkService.wifiIconName(network);
-    }
-
-    function securityLabel(network) {
-        if (!network)
-            return "Unknown";
-
-        if (NetworkService.isOpenNetwork(network))
-            return "Open";
-
-        return network.security;
-    }
-
-    function primaryNetworkInfo(network) {
-        return NetworkService.primaryNetworkInfo(network);
-    }
-
-    function advancedNetworkInfo(network) {
-        return NetworkService.advancedNetworkInfo(network);
-    }
-
-    function nordVpnDestinationLabel(destination) {
-        return VpnService.destinationLabel(destination);
-    }
-
-    function nordVpnDestinationSubtext(destination) {
-        return VpnService.destinationSubtext(destination);
-    }
-
-    function filteredNordVpnDestinations() {
-        const query = nordVpnSearchText.trim().toLowerCase();
-        if (!query)
-            return VpnService.destinations;
-        return VpnService.destinations.filter(destination => {
-            const name = VpnService.destinationLabel(destination).toLowerCase();
-            const kind = VpnService.destinationSubtext(destination).toLowerCase();
-            return name.includes(query) || kind.includes(query);
-        });
-    }
-
-    function connectNordVpnDestination(destination) {
-        if (!destination || VpnService.connecting)
-            return;
-        VpnService.connect(destination.id);
-        nordVpnSearchText = "";
-    }
-
-    function connectTopNordVpnMatch() {
-        const matches = filteredNordVpnDestinations();
-        if (matches.length > 0)
-            connectNordVpnDestination(matches[0]);
-    }
-
-
-    component NetworkRow: Item {
-        id: rowRoot
-
-        required property var network
-
-        readonly property bool hasNetwork: !!network
-        readonly property string rowKey: root.networkKey(network)
-        readonly property bool expanded: root.interactiveNetworkKey === rowKey
-        readonly property bool showAdvanced: expanded && root.interactiveShowAdvanced
-        readonly property bool showPasswordInput: expanded && root.interactiveShowPasswordInput
-        readonly property string passwordText: expanded ? root.interactivePasswordText : ""
-        readonly property string errorText: expanded ? root.interactiveErrorText : ""
-        readonly property bool needsPskPrompt: hasNetwork && !network.connected && !NetworkService.isOpenNetwork(network) && NetworkService.securityNeedsPsk(network.security)
-
-        implicitWidth: root.contentWidth
-        implicitHeight: header.implicitHeight + (details.implicitHeight > 0 ? details.implicitHeight + root.itemSpacing : 0)
-        height: implicitHeight
-
-        onHasNetworkChanged: {
-            if (!hasNetwork && expanded)
-                root.unlockInteraction();
-        }
-
-        function attemptConnect() {
-            if (!hasNetwork) {
-                root.unlockInteraction();
-                return;
-            }
-
-            root.lockInteractionFor(network);
-            root.interactiveErrorText = "";
-
-            if (network.connected)
-                return;
-
-            if (NetworkService.isOpenNetwork(network) || !NetworkService.securityNeedsPsk(network.security)) {
-                NetworkService.connectToNetwork(network.ssid, "");
-                return;
-            }
-
-            root.interactiveShowPasswordInput = true;
-
-            if (!root.interactivePasswordText.length) {
-                root.interactiveErrorText = "Password required";
-                return;
-            }
-
-            NetworkService.connectToNetwork(network.ssid, root.interactivePasswordText);
-        }
-
-        Connections {
-            target: NetworkService
-
-            function onConnectedSsidChanged() {
-                if (rowRoot.expanded && rowRoot.hasNetwork && NetworkService.connectedSsid === rowRoot.network.ssid) {
-                    root.interactiveErrorText = "";
-                    root.interactivePasswordText = "";
-                    root.interactiveShowPasswordInput = false;
-                }
-            }
-        }
-
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: root.itemSpacing
-
-            DashboardListRow {
-                id: header
-                minimumRowHeight: root.rowHeight
-                active: rowRoot.hasNetwork && rowRoot.network.connected
-                accentColor: rowRoot.hasNetwork && rowRoot.network.connected ? Config.colors.blue : Config.styling.activeIndicator
-                fillOpacity: rowRoot.hasNetwork && rowRoot.network.connected ? 0.28 : Config.behaviour.hoverBgOpacity
-                iconName: root.wifiIconName(rowRoot.network)
-                iconColor: rowRoot.hasNetwork && rowRoot.network.connected ? Config.colors.blue : Config.styling.text0
-                title: rowRoot.hasNetwork ? (rowRoot.network.ssid || "Hidden network") : "Unavailable"
-                subtitle: rowRoot.hasNetwork
-                    ? `${root.securityLabel(rowRoot.network)} | ${rowRoot.network.strength || Math.round((rowRoot.network.signalStrength || 0) * 100)}%`
-                    : "Network unavailable"
-                status: rowRoot.hasNetwork && rowRoot.network.connected
-                    ? "Connected"
-                    : rowRoot.hasNetwork && NetworkService.securityNeedsPsk(rowRoot.network.security) && !NetworkService.isOpenNetwork(rowRoot.network)
-                        ? "Secured"
-                        : "Available"
-                statusColor: rowRoot.hasNetwork && rowRoot.network.connected
-                    ? Config.colors.blue
-                    : Config.styling.text1
-                iconSlotWidth: root.iconSlotWidth
-                iconSize: root.itemIconSize
-                titleSize: root.itemTextSize
-                subtitleSize: root.itemSubtextSize
-                horizontalPadding: root.horizontalPadding
-                verticalPadding: root.verticalPadding
-                contentSpacing: root.iconTextGap
-
-                onClicked: {
-                    if (rowRoot.expanded)
-                        root.unlockInteraction();
-                    else if (rowRoot.hasNetwork)
-                        root.lockInteractionFor(rowRoot.network);
-                }
-            }
-
-            Expander {
-                id: details
-
-                Layout.fillWidth: true
-                expanded: rowRoot.expanded
-                slideDistance: Config.spacing.sm
-
-                Rectangle {
-                    width: parent.width
-                    height: implicitHeight
-                    color: Config.styling.bg1
-                    implicitHeight: detailsColumn.implicitHeight + root.horizontalPadding * 2
-
-                    ColumnLayout {
-                        id: detailsColumn
-                        anchors.fill: parent
-                        anchors.margins: root.horizontalPadding
-                        spacing: Config.spacing.xxs
-
-                        Text {
-                            Layout.fillWidth: true
-                            text: root.primaryNetworkInfo(rowRoot.network)
-                            color: Config.styling.text1
-                            font.pixelSize: 12
-                            wrapMode: Text.Wrap
-                        }
-
-                    TextField {
-                        id: passwordField
-                        Layout.fillWidth: true
-                        visible: rowRoot.showPasswordInput
-                        text: root.interactivePasswordText
-                        placeholderText: "Wi-Fi password"
-                        echoMode: TextInput.Password
-                        color: Config.styling.text0
-                        placeholderTextColor: Config.styling.text2
-                        selectedTextColor: Config.styling.selectionText
-                        selectionColor: Config.styling.selectionBackgroundActive
-                        onTextChanged: root.interactivePasswordText = text
-                        onAccepted: rowRoot.attemptConnect()
-
-                        background: Rectangle {
-                            color: Config.styling.bg3
-                            border.width: 1
-                            border.color: Config.styling.bg5
-                        }
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        visible: rowRoot.errorText !== ""
-                        text: rowRoot.errorText
-                        color: Config.styling.critical
-                        font.pixelSize: 12
-                        wrapMode: Text.Wrap
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 28
-                        implicitHeight: 28
-                        spacing: root.itemSpacing
-
-                        SmallButton {
-                            Layout.fillWidth: true
-                            text: rowRoot.hasNetwork && rowRoot.network.connected ? "Disconnect" : "Connect"
-                            onClicked: {
-                                if (!rowRoot.hasNetwork) {
-                                    root.unlockInteraction();
-                                    return;
-                                }
-
-                                if (rowRoot.network.connected) {
-                                    NetworkService.disconnectWifi();
-                                } else {
-                                    rowRoot.attemptConnect();
-                                }
-                            }
-                        }
-
-                        SmallButton {
-                            text: rowRoot.showAdvanced ? "Hide Advanced" : "Show Advanced"
-                            onClicked: root.interactiveShowAdvanced = !root.interactiveShowAdvanced
-                        }
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        visible: rowRoot.showAdvanced
-                        text: root.advancedNetworkInfo(rowRoot.network)
-                        color: Config.styling.text2
-                        font.pixelSize: 12
-                        wrapMode: Text.Wrap
-                    }
-                    }
-                }
-            }
-        }
-    }
-
-    readonly property var displayedNetworks: interactionLocked ? applyFrozenOrder(NetworkService.networks) : NetworkService.networks
+    readonly property var displayedNetworks: interactionState.displayedNetworks(NetworkService.networks)
     readonly property var connectedNetworks: displayedNetworks.filter(n => n.connected)
     readonly property var disconnectedNetworks: displayedNetworks.filter(n => !n.connected)
 
-    onInteractiveNetworkKeyChanged: {
-        if (interactiveNetworkKey && !NetworkService.networks.some(network => networkKey(network) === interactiveNetworkKey))
-            unlockInteraction();
+    Connections {
+        target: interactionState
+        function onInteractiveNetworkKeyChanged() {
+            if (interactionState.interactiveNetworkKey && !NetworkService.networks.some(network => interactionState.networkKey(network) === interactionState.interactiveNetworkKey))
+                interactionState.unlockInteraction();
+        }
     }
 
-    DashboardSection {
+    WifiSection {
         Layout.fillWidth: true
-        title: connectedNetworks.length === 1 ? "Connected network" : "Connected networks"
-
-        Repeater {
-            model: connectedNetworks
-
-            delegate: NetworkRow {
-                required property var modelData
-                Layout.fillWidth: true
-                network: modelData
-            }
-        }
-
-        Text {
-            visible: connectedNetworks.length === 0
-            text: "No connected Wi-Fi networks"
-            color: Config.styling.text2
-            font.pixelSize: 12
-        }
+        interactionState: interactionState
+        networks: NetworkService.networks
+        connectedNetworks: root.connectedNetworks
+        disconnectedNetworks: root.disconnectedNetworks
+        contentWidth: root.contentWidth
+        itemSpacing: root.itemSpacing
+        rowHeight: root.rowHeight
+        iconSlotWidth: root.iconSlotWidth
+        itemIconSize: root.itemIconSize
+        itemTextSize: root.itemTextSize
+        itemSubtextSize: root.itemSubtextSize
+        iconTextGap: root.iconTextGap
+        horizontalPadding: root.horizontalPadding
+        verticalPadding: root.verticalPadding
+        tabSwipeTarget: root.tabSwipeTarget
     }
 
     DashboardSection {
@@ -395,177 +83,17 @@ DashboardPage {
             }
         }
 
-        ColumnLayout {
+        VpnSection {
             Layout.fillWidth: true
-            spacing: Config.spacing.xs
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: root.itemSpacing
-
-                Icon {
-                    Layout.preferredWidth: root.itemIconSize
-                    Layout.preferredHeight: root.itemIconSize
-                    iconName: VpnService.connected ? "network-vpn-symbolic" : "network-vpn-disconnected-symbolic"
-                    color: VpnService.connected ? Config.styling.good : Config.styling.text1
-                    implicitSize: root.itemIconSize
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 0
-
-                    Text {
-                        text: VpnService.connecting ? "Connecting" : VpnService.connected ? "Connected" : "Disconnected"
-                        color: VpnService.connected ? Config.styling.good : Config.styling.text0
-                        font.pixelSize: root.itemTextSize
-                        font.bold: true
-                    }
-
-                    Text {
-                        Layout.fillWidth: true
-                        visible: VpnService.connected
-                        text: VpnService.location
-                        color: Config.styling.text2
-                        font.pixelSize: 12
-                        elide: Text.ElideRight
-                    }
-                }
-
-                SmallButton {
-                    enabled: !VpnService.connecting
-                    text: VpnService.connecting ? "Connecting" : VpnService.connected ? "Disconnect" : "Connect"
-                    onClicked: VpnService.connected ? VpnService.disconnect() : VpnService.connect(null)
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: 1
-                color: Config.styling.bg3
-            }
-
-            TextField {
-                id: nordVpnSearchField
-                Layout.fillWidth: true
-                visible: !VpnService.connecting
-                text: root.nordVpnSearchText
-                placeholderText: "Search countries or groups"
-                color: Config.styling.text0
-                placeholderTextColor: Config.styling.text2
-                selectedTextColor: Config.styling.selectionText
-                selectionColor: Config.styling.selectionBackgroundActive
-                onTextChanged: root.nordVpnSearchText = text
-                onAccepted: root.connectTopNordVpnMatch()
-
-                background: Rectangle {
-                    color: Config.styling.bg3
-                    border.width: 1
-                    border.color: Config.styling.bg5
-                }
-            }
-
-            DashboardScrollArea {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 160
-                visible: !VpnService.connecting && nordVpnSearchField.activeFocus
-                contentSpacing: root.itemSpacing
-                tabSwipeTarget: root.tabSwipeTarget
-
-                Repeater {
-                    model: root.filteredNordVpnDestinations()
-
-                    delegate: DashboardListRow {
-                        required property var modelData
-
-                        minimumRowHeight: root.rowHeight
-                        enabled: !VpnService.connecting
-                        active: VpnService.connected && modelData.kind === "country" && modelData.name === VpnService.country
-                        accentColor: Config.styling.good
-                        title: root.nordVpnDestinationLabel(modelData)
-                        subtitle: root.nordVpnDestinationSubtext(modelData)
-                        titleSize: root.itemTextSize
-                        subtitleSize: root.itemSubtextSize
-                        horizontalPadding: root.horizontalPadding
-                        verticalPadding: root.verticalPadding
-                        contentSpacing: root.iconTextGap
-                        onClicked: root.connectNordVpnDestination(modelData)
-                    }
-                }
-
-                Text {
-                    visible: root.filteredNordVpnDestinations().length === 0
-                    text: "No NordVPN destinations found"
-                    color: Config.styling.text2
-                    font.pixelSize: 12
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 160
-                visible: VpnService.connecting
-                spacing: root.iconTextGap
-
-                Icon {
-                    Layout.preferredWidth: root.itemIconSize
-                    Layout.preferredHeight: root.itemIconSize
-                    iconName: "view-refresh-symbolic"
-                    color: Config.styling.text1
-                    implicitSize: root.itemIconSize
-                    rotation: VpnService.connecting ? 360 : 0
-
-                    Animations.SpinAnimation on rotation {
-                        running: VpnService.connecting
-                    }
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: "Connecting, please wait..."
-                    color: Config.styling.text1
-                    font.pixelSize: root.itemTextSize
-                    font.bold: true
-                    elide: Text.ElideRight
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                implicitHeight: 1
-                color: Config.styling.bg3
-            }
-
-            InfoRow {
-                Layout.fillWidth: true
-                label: "Server"
-                value: VpnService.server
-            }
-
-            InfoRow {
-                Layout.fillWidth: true
-                label: "Hostname"
-                value: VpnService.hostname
-            }
-
-            InfoRow {
-                Layout.fillWidth: true
-                label: "IP"
-                value: VpnService.ip
-            }
-
-            InfoRow {
-                Layout.fillWidth: true
-                label: "Technology"
-                value: VpnService.technology
-            }
-
-            InfoRow {
-                Layout.fillWidth: true
-                label: "Protocol"
-                value: VpnService.protocol
-            }
-
+            tabSwipeTarget: root.tabSwipeTarget
+            itemSpacing: root.itemSpacing
+            rowHeight: root.rowHeight
+            itemIconSize: root.itemIconSize
+            itemTextSize: root.itemTextSize
+            itemSubtextSize: root.itemSubtextSize
+            iconTextGap: root.iconTextGap
+            horizontalPadding: root.horizontalPadding
+            verticalPadding: root.verticalPadding
         }
     }
 
@@ -617,45 +145,4 @@ DashboardPage {
             }
         }
     }
-
-    DashboardSection {
-        Layout.fillWidth: true
-        Layout.fillHeight: true
-        Layout.minimumHeight: 120
-        Layout.preferredHeight: 0
-        title: "Available networks"
-        headerAccessory: Component {
-            DashboardIconButton {
-                enabled: NetworkService.wifiEnabled
-                iconName: "view-refresh-symbolic"
-                fallbackIconName: "view-refresh-symbolic"
-                onClicked: NetworkService.rescan()
-            }
-        }
-
-        DashboardScrollArea {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            contentSpacing: root.itemSpacing
-            tabSwipeTarget: root.tabSwipeTarget
-
-            Repeater {
-                model: disconnectedNetworks
-
-                delegate: NetworkRow {
-                    required property var modelData
-                    Layout.fillWidth: true
-                    network: modelData
-                }
-            }
-
-            Text {
-                visible: NetworkService.networks.length === 0
-                text: "No Wi-Fi networks found"
-                color: Config.styling.text2
-                font.pixelSize: 12
-            }
-        }
-    }
-
 }
