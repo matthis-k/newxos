@@ -83,8 +83,7 @@ Singleton {
                 trusted: device.trusted || false,
                 busy: device.state === BluetoothDeviceState.Connecting || device.state === BluetoothDeviceState.Disconnecting || device.pairing,
                 batteryPercent: device.batteryAvailable ? Math.round((device.battery || 0) * 100) : null,
-                statusText: device.connected ? "Connected" : (device.paired ? "Paired" : "Available"),
-                raw: device
+                statusText: device.connected ? "Connected" : (device.paired ? "Paired" : "Available")
             });
         }
 
@@ -168,6 +167,21 @@ Singleton {
         const device = rawDeviceById(id);
         if (device)
             device.trusted = value;
+    }
+
+    function executePayload(payload) {
+        if (!payload) return false;
+        switch (payload.op) {
+        case "setEnabled": setEnabled(!!payload.enabled); return true;
+        case "toggle": toggle(); return true;
+        case "scan": scan(!!payload.enabled); return true;
+        case "connect": connectDevice(payload.id); return true;
+        case "disconnect": disconnectDevice(payload.id); return true;
+        case "pair": pairDevice(payload.id); return true;
+        case "forget": forgetDevice(payload.id); return true;
+        case "trust": setTrusted(payload.id, !!payload.trusted); return true;
+        default: return false;
+        }
     }
 
     Connections {

@@ -1,7 +1,6 @@
 pragma Singleton
 import QtQml
 import Quickshell
-import Quickshell.Services.Pipewire
 import qs.services
 import "DebugLogger.js" as DebugLogger
 
@@ -14,6 +13,7 @@ Singleton {
     }
 
     function execute(step, target, controller) {
+        step = ActionSpec.normalize(step);
         var name = step.name || "";
         var args = step.args || {};
         var executor = _executors[name];
@@ -42,15 +42,18 @@ Singleton {
 
     function executeRecipe(recipe, target, controller) {
         if (!recipe || !Array.isArray(recipe))
-            return { close: false };
+            return { close: false, success: false };
 
+        var success = true;
         for (var i = 0; i < recipe.length; i += 1) {
             var step = recipe[i];
             var result = execute(step, target, controller);
+            if (!result.success)
+                success = false;
             if (result.close)
-                return { close: true };
+                return { close: true, success: success };
         }
-        return { close: false };
+        return { close: false, success: success };
     }
 
     function _resolveActionFromArgs(target, args) {
@@ -95,6 +98,13 @@ Singleton {
             return { close: !!legacyResult, success: true };
         }
 
+        var payload = action.payload || {};
+        if (payload && payload.service) {
+            var dispatched = dispatchServicePayload(payload);
+            if (dispatched)
+                return { close: false, success: true };
+        }
+
         var backend = null;
         for (var i = 0; i < (controller.backends || []).length; i += 1) {
             if (controller.backends[i] && controller.backendId(controller.backends[i]) === target.source) {
@@ -119,6 +129,57 @@ Singleton {
             if (debugEnabled)
                 DebugLogger.log("action", "run-action failed: " + e, {});
             return { close: false, success: false };
+        }
+    }
+
+    function alignedControlValue(current, delta, step, from, to) {
+        var base = delta < 0 ? Math.floor(current / step) * step : Math.ceil(current / step) * step;
+        if (Math.abs(base - current) < 0.0001)
+            base += delta * step;
+        return Math.max(from, Math.min(to, base));
+    }
+
+    function dispatchServicePayload(payload) {
+        if (!payload || !payload.service)
+            return false;
+        switch (String(payload.service)) {
+        case "brightness":
+            if (payload.op === "set") Brightness.setPercent(Number(payload.value || 0));
+            else if (payload.op === "adjust") Brightness.adjust(Number(payload.delta || 0));
+            else return false;
+            return true;
+        case "audio":
+            return AudioService.executePayload(payload);
+        case "power":
+            if (payload.op === "setProfile") PowerService.setProfile(PowerService.profileFromIndex(payload.index));
+            else if (payload.op === "cycleProfile") PowerService.cycleProfile(Number(payload.delta || 0));
+            else return false;
+            return true;
+        case "network":
+            if (payload.op === "setWifiEnabled") NetworkService.setWifiEnabled(!!payload.enabled);
+            else if (payload.op === "toggleWifi") NetworkService.toggleWifi();
+            else if (payload.op === "setNetworkingEnabled") NetworkService.setNetworkingEnabled(!!payload.enabled);
+            else if (payload.op === "connect") NetworkService.connectNetwork(payload.id, payload.options || {});
+            else if (payload.op === "disconnect") NetworkService.disconnectNetwork(payload.id);
+            else if (payload.op === "scan") NetworkService.scan();
+            else return false;
+            return true;
+        case "vpn":
+            if (payload.op === "connect") VpnService.connect(payload.destination || null);
+            else if (payload.op === "disconnect") VpnService.disconnect();
+            else if (payload.op === "toggle") VpnService.toggle();
+            else return false;
+            return true;
+        case "bluetooth":
+            return BluetoothService.executePayload(payload);
+        case "notifications":
+            if (payload.op === "setDnd") NotificationCenter.setDoNotDisturb(!!payload.enabled);
+            else if (payload.op === "toggleDnd") NotificationCenter.setDoNotDisturb(!NotificationCenter.doNotDisturbEnabled);
+            else if (payload.op === "clearAll") NotificationCenter.clearAll();
+            else return false;
+            return true;
+        default:
+            return false;
         }
     }
 
@@ -162,23 +223,50 @@ Singleton {
             var step = control.step || 5;
 
             if (control.target === "brightness") {
-                var aligned = controller._alignedControlValue(Brightness.percent, delta, step, control.from || 0, control.to || 100);
+                var aligned = alignedControlValue(Brightness.percent, delta, step, control.from || 0, control.to || 100);
                 Brightness.setPercent(aligned);
                 return { close: false, success: true };
             }
 
-            if (control.target === "pipewire") {
-                for (const node of Pipewire.nodes.values || []) {
-                    if (String(node.id) === String(control.nodeId) && node.audio) {
-                        var current = Math.round((node.audio.volume || 0) * 100);
-                        var next = controller._alignedControlValue(current, delta, step, control.from || 0, control.to || 150);
-                        node.audio.volume = next / 100;
-                        return { close: false, success: true };
-                    }
-                }
+            if (control.target === "pipewire" || control.target === "audio") {
+                var current = AudioService.volumePercentById(control.nodeId);
+                if (current === null || current === undefined)
+                    return { close: false, success: false };
+                var next = alignedControlValue(current, delta, step, control.from || 0, control.to || 150);
+                AudioService.setVolumeById(control.nodeId, next);
+                return { close: false, success: true };
+            }
+
+            if (control.target === "power-profile") {
+                PowerService.cycleProfile(delta * (control.step || 1));
+                return { close: false, success: true };
             }
 
             return { close: false, success: false };
+        });
+
+        register("set-control", function(target, args, controller) {
+            if (!target || !target.control)
+                return { close: false, success: false };
+            var control = target.control;
+            var value = Number(args.value);
+            if (control.target === "brightness") {
+                Brightness.setPercent(value);
+                return { close: false, success: true };
+            }
+            if (control.target === "pipewire" || control.target === "audio") {
+                AudioService.setVolumeById(control.nodeId, value);
+                return { close: false, success: true };
+            }
+            if (control.target === "power-profile") {
+                PowerService.setProfile(PowerService.profileFromIndex(value));
+                return { close: false, success: true };
+            }
+            return { close: false, success: false };
+        });
+
+        register("toggle", function(target, args, controller) {
+            return _runAction(target, _resolveActionFromArgs(target, { prefer: ["toggle", "mute", "toggle-mute"] }), controller);
         });
 
         register("noop", function(target, args, controller) {

@@ -99,6 +99,45 @@ Singleton {
         root._revision++;
     }
 
+    function volumePercentById(id) {
+        const node = rawNodeById(id);
+        return node ? volumePercent(node) : null;
+    }
+
+    function setVolumeById(id, percent) {
+        const node = rawNodeById(id);
+        if (!node) return false;
+        setVolume(node, percent);
+        return true;
+    }
+
+    function setMutedById(id, value) {
+        const node = rawNodeById(id);
+        if (!node) return false;
+        setMuted(node, value);
+        return true;
+    }
+
+    function toggleMuteById(id) {
+        const node = rawNodeById(id);
+        if (!node) return false;
+        toggleMute(node);
+        return true;
+    }
+
+    function executePayload(payload) {
+        if (!payload) return false;
+        switch (payload.op) {
+        case "setVolume": return setVolumeById(payload.nodeId, Number(payload.value || 0));
+        case "adjustVolume": return setVolumeById(payload.nodeId, volumePercentById(payload.nodeId) + Number(payload.delta || 0));
+        case "setMuted": return setMutedById(payload.nodeId, !!payload.muted);
+        case "toggleMute": return toggleMuteById(payload.nodeId);
+        case "setDefaultOutput": setDefaultOutput(payload.nodeId); return true;
+        case "setDefaultInput": setDefaultInput(payload.nodeId); return true;
+        default: return false;
+        }
+    }
+
     function adjustVolume(node, delta) {
         if (!node || !node.audio) return;
         const current = volumePercent(node);
@@ -263,7 +302,7 @@ Singleton {
             statusText: isDefault ? "Default" : `${vol}%`,
             control: {
                 kind: "slider",
-                target: "pipewire",
+                target: "audio",
                 nodeId: node.id,
                 from: 0,
                 to: 150,
@@ -275,19 +314,19 @@ Singleton {
                     id: "toggle",
                     title: "Toggle",
                     state: null,
-                    execute: function() { root.toggleMute(node); }
+                    payload: { service: "audio", op: "toggleMute", nodeId: String(node.id) }
                 },
                 on: {
                     id: "on",
                     title: "On",
                     state: true,
-                    execute: function() { root.setMuted(node, true); }
+                    payload: { service: "audio", op: "setMuted", nodeId: String(node.id), muted: true }
                 },
                 off: {
                     id: "off",
                     title: "Off",
                     state: false,
-                    execute: function() { root.setMuted(node, false); }
+                    payload: { service: "audio", op: "setMuted", nodeId: String(node.id), muted: false }
                 }
             }
         };
@@ -328,7 +367,7 @@ Singleton {
             statusText: `${vol}%`,
             control: {
                 kind: "slider",
-                target: "pipewire",
+                target: "audio",
                 nodeId: stream.id,
                 from: 0,
                 to: 150,
@@ -340,7 +379,7 @@ Singleton {
                     id: "toggle",
                     title: "Toggle",
                     state: null,
-                    execute: function() { root.toggleMute(stream); }
+                    payload: { service: "audio", op: "toggleMute", nodeId: String(stream.id) }
                 }
             }
         };

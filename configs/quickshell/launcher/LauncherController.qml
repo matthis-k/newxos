@@ -1,8 +1,5 @@
 import QtQuick
 import QtQml
-import Quickshell.Services.Pipewire
-import Quickshell.Services.UPower
-import qs.services
 import "logic/"
 import "logic/pipeline/"
 import "logic/PolicySpec.qml"
@@ -592,7 +589,7 @@ Item {
             if (result.id === root.pendingConfirmId) {
                 root.pendingConfirmId = null;
                 pendingConfirmTimer.stop();
-                return applyIntent(result, shiftPressed ? result.shiftEnter : result.enter);
+                return root.executeRecipeSlot(result, shiftPressed ? "complete" : "activate");
             }
             if (root.requiresConfirm(result.risk.activation)) {
                 root.pendingConfirmId = result.id;
@@ -602,7 +599,7 @@ Item {
             }
         }
 
-        return applyIntent(result, shiftPressed ? result.shiftEnter : result.enter);
+        return root.executeRecipeSlot(result, shiftPressed ? "complete" : "activate");
     }
 
     function requiresConfirm(activation) {
@@ -613,7 +610,7 @@ Item {
         var result = selectedResult();
         if (!result)
             return false;
-        return applyIntent(result, result.shiftEnter);
+        return root.executeRecipeSlot(result, "complete");
     }
 
     function selectedResult() {
@@ -653,6 +650,12 @@ Item {
                 DebugLogger.logError("Activation failed for " + result.id, error);
             return false;
         }
+    }
+
+    function executeRecipeSlot(target, slotName) {
+        var recipe = RecipeResolver.effectiveRecipe(target, slotName || "activate", {});
+        var recipeResult = ActionRegistry.executeRecipe(recipe, target, root);
+        return !!recipeResult.close;
     }
 
     function applyIntent(result, intent) {
@@ -708,31 +711,31 @@ Item {
             });
         for (var i = 0; i < actions.length; i += 1) {
             if (actions[i] && actions[i].id === actionId) {
-                var activated = activateResult(result, actions[i]);
+                var recipeResult = ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root);
                 if (root.debugEnabled)
                     DebugLogger.log("switch", "activateResultAction matched action list", {
                         resultId: result.id || result.nodeId || "",
                         actionId: actionId || "",
-                        activated: activated,
+                        activated: recipeResult.success,
                         payloadState: actions[i].payload ? actions[i].payload.state : undefined
                     });
-                if (activated && result.switchActions)
+                if (recipeResult.success && result.switchActions)
                     refreshSwitchResult(result, actions[i]);
-                return activated;
+                return recipeResult.success;
             }
         }
         if (result.switchActions && result.switchActions[actionId]) {
-            var switchActivated = activateResult(result, result.switchActions[actionId]);
+            var switchResult = ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root);
             if (root.debugEnabled)
                 DebugLogger.log("switch", "activateResultAction matched switchActions", {
                     resultId: result.id || result.nodeId || "",
                     actionId: actionId || "",
-                    activated: switchActivated,
+                    activated: switchResult.success,
                     payloadState: result.switchActions[actionId].payload ? result.switchActions[actionId].payload.state : undefined
                 });
-            if (switchActivated)
+            if (switchResult.success)
                 refreshSwitchResult(result, result.switchActions[actionId]);
-            return switchActivated;
+            return switchResult.success;
         }
         if (root.debugEnabled)
             DebugLogger.log("switch", "activateResultAction no matching action", {
@@ -750,8 +753,11 @@ Item {
             return false;
         }
 
-        if (result.control && adjustControlValue(result.control, delta))
-            return true;
+        if (result.control) {
+            var controlResult = ActionRegistry.executeRecipe([["adjust-control", { delta: delta }]], result, root);
+            if (controlResult.success)
+                return true;
+        }
 
         var preferredIds = delta < 0
             ? ["off", "decrease", "decrement", "left"]
@@ -797,41 +803,10 @@ Item {
         var result = selectedActionTarget();
         if (!result)
             return false;
-        if (result.switchActions && (result.switchActions.toggle || result.switchActions.on || result.switchActions.off))
-            return activateResultAction(result, "toggle");
-        return false;
-    }
-
-    function adjustControlValue(control, delta) {
-        if (!control || control.kind !== "slider")
-            return false;
-
-        var step = control.step || 5;
-        if (control.target === "brightness") {
-            Brightness.setPercent(alignedControlValue(Brightness.percent, delta, step, control.from || 0, control.to || 100));
-            return true;
+        if (result.switchActions && (result.switchActions.toggle || result.switchActions.on || result.switchActions.off)) {
+            var toggleResult = ActionRegistry.executeRecipe([["toggle"]], result, root);
+            return !!toggleResult.success;
         }
-
-        if (control.target === "pipewire") {
-            var node = pipewireNodeById(control.nodeId);
-            if (!node || !node.audio)
-                return false;
-            var current = Math.round((node.audio.volume || 0) * 100);
-            var next = alignedControlValue(current, delta, step, control.from || 0, control.to || 150);
-            node.audio.volume = next / 100;
-            return true;
-        }
-
-        if (control.target === "power-profile") {
-            var modes = [PowerProfile.PowerSaver, PowerProfile.Balanced, PowerProfile.Performance];
-            var pIdx = modes.indexOf(PowerProfiles.profile);
-            if (pIdx < 0) pIdx = 1;
-            var pStep = control.step || 1;
-            var nextIdx = Math.max(control.from || 0, Math.min(control.to || 2, pIdx + delta * pStep));
-            PowerProfiles.profile = modes[nextIdx];
-            return true;
-        }
-
         return false;
     }
 
@@ -840,14 +815,6 @@ Item {
         if (Math.abs(base - current) < 0.0001)
             base += delta * step;
         return Math.max(from, Math.min(to, base));
-    }
-
-    function pipewireNodeById(nodeId) {
-        for (const node of Pipewire.nodes.values || []) {
-            if (String(node.id) === String(nodeId))
-                return node;
-        }
-        return null;
     }
 
     function refreshSwitchResult(result, action) {

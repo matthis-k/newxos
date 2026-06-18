@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls.Basic
 import Quickshell
-import Quickshell.Io
 
 import qs.animations as Animations
 import qs.services
@@ -16,11 +15,7 @@ DashboardPage {
     headerAccessory: Component {
         DashboardToggleSwitch {
             checked: NetworkService.networkingEnabled
-            onToggled: nmcliSetNetworkingProcess.exec({
-                command: checked
-                    ? ["nmcli", "networking", "on"]
-                    : ["nmcli", "networking", "off"]
-            })
+            onToggled: NetworkService.setNetworkingEnabled(checked)
         }
     }
 
@@ -96,14 +91,6 @@ DashboardPage {
         frozenNetworkOrder = [];
     }
 
-    function securityNeedsPsk(security) {
-        return security.includes("WPA") || security.includes("WPA2") || security.includes("SAE") || security.includes("wpa-psk") || security.includes("wpa2-psk") || security.includes("sae");
-    }
-
-    function isOpenNetwork(network) {
-        return network && (network.security === "Open" || network.security === "--" || !network.security);
-    }
-
     function wifiIconName(network) {
         return NetworkService.wifiIconName(network);
     }
@@ -112,68 +99,18 @@ DashboardPage {
         if (!network)
             return "Unknown";
 
-        if (root.isOpenNetwork(network))
+        if (NetworkService.isOpenNetwork(network))
             return "Open";
 
         return network.security;
     }
 
-    function connectivityLabel() {
-        const conn = NetworkService.connectivity;
-        if (conn === "full")
-            return "Connected";
-        if (conn === "portal")
-            return "Captive portal";
-        if (conn === "limited")
-            return "Limited";
-        if (conn === "none")
-            return "No internet";
-        return conn;
-    }
-
     function primaryNetworkInfo(network) {
-        if (!network)
-            return "Network unavailable";
-
-        return [
-            `Frequency: ${network.frequency || "unknown"} MHz`,
-            `Channel: ${wifiChannel(network.frequency)}`,
-            `Band: ${wifiBand(network.frequency)}`
-        ].join(" | ");
-    }
-
-    function wifiBand(frequency) {
-        const mhz = parseInt(frequency || "0", 10);
-        if (mhz >= 5925)
-            return "6 GHz";
-        if (mhz >= 5000)
-            return "5 GHz";
-        if (mhz >= 2400)
-            return "2.4 GHz";
-        return "unknown";
-    }
-
-    function wifiChannel(frequency) {
-        const mhz = parseInt(frequency || "0", 10);
-        if (mhz === 2484)
-            return 14;
-        if (mhz >= 2412 && mhz <= 2472)
-            return Math.floor((mhz - 2407) / 5);
-        if (mhz >= 5000 && mhz <= 5895)
-            return Math.floor((mhz - 5000) / 5);
-        if (mhz >= 5955 && mhz <= 7115)
-            return Math.floor((mhz - 5950) / 5);
-        return "unknown";
+        return NetworkService.primaryNetworkInfo(network);
     }
 
     function advancedNetworkInfo(network) {
-        if (!network)
-            return "Network unavailable";
-
-        return [
-            `SSID: ${network.ssid || "unknown"}`,
-            `BSSID: ${network.bssid || "unknown"}`
-        ].join("\n");
+        return NetworkService.advancedNetworkInfo(network);
     }
 
     function nordVpnDestinationLabel(destination) {
@@ -221,7 +158,7 @@ DashboardPage {
         readonly property bool showPasswordInput: expanded && root.interactiveShowPasswordInput
         readonly property string passwordText: expanded ? root.interactivePasswordText : ""
         readonly property string errorText: expanded ? root.interactiveErrorText : ""
-        readonly property bool needsPskPrompt: hasNetwork && !network.connected && !root.isOpenNetwork(network) && root.securityNeedsPsk(network.security)
+        readonly property bool needsPskPrompt: hasNetwork && !network.connected && !NetworkService.isOpenNetwork(network) && NetworkService.securityNeedsPsk(network.security)
 
         implicitWidth: root.contentWidth
         implicitHeight: header.implicitHeight + (details.implicitHeight > 0 ? details.implicitHeight + root.itemSpacing : 0)
@@ -244,7 +181,7 @@ DashboardPage {
             if (network.connected)
                 return;
 
-            if (root.isOpenNetwork(network) || !root.securityNeedsPsk(network.security)) {
+            if (NetworkService.isOpenNetwork(network) || !NetworkService.securityNeedsPsk(network.security)) {
                 NetworkService.connectToNetwork(network.ssid, "");
                 return;
             }
@@ -285,11 +222,11 @@ DashboardPage {
                 iconColor: rowRoot.hasNetwork && rowRoot.network.connected ? Config.colors.blue : Config.styling.text0
                 title: rowRoot.hasNetwork ? (rowRoot.network.ssid || "Hidden network") : "Unavailable"
                 subtitle: rowRoot.hasNetwork
-                    ? `${root.securityLabel(rowRoot.network)} | ${Math.round((rowRoot.network.signalStrength || 0) * 100)}%`
+                    ? `${root.securityLabel(rowRoot.network)} | ${rowRoot.network.strength || Math.round((rowRoot.network.signalStrength || 0) * 100)}%`
                     : "Network unavailable"
                 status: rowRoot.hasNetwork && rowRoot.network.connected
                     ? "Connected"
-                    : rowRoot.hasNetwork && root.securityNeedsPsk(rowRoot.network.security) && !root.isOpenNetwork(rowRoot.network)
+                    : rowRoot.hasNetwork && NetworkService.securityNeedsPsk(rowRoot.network.security) && !NetworkService.isOpenNetwork(rowRoot.network)
                         ? "Secured"
                         : "Available"
                 statusColor: rowRoot.hasNetwork && rowRoot.network.connected
@@ -721,21 +658,4 @@ DashboardPage {
         }
     }
 
-    Process {
-        id: nmcliSetNetworkingProcess
-
-        function onExited(exitCode) {
-            if (exitCode === 0)
-                NetworkService.refresh();
-        }
-    }
-
-    Process {
-        id: nmcliSetWifiProcess
-
-        function onExited(exitCode) {
-            if (exitCode === 0)
-                NetworkService.refresh();
-        }
-    }
 }
