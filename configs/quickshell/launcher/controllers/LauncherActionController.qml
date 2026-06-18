@@ -347,10 +347,6 @@ Item {
         return root.applyIntent(result, intent);
     }
 
-    function _alignedControlValue(current, delta, step, from, to) {
-        return root.alignedControlValue(current, delta, step, from, to);
-    }
-
     function _handleActivationWithConfirm() {
         if (controller.isInTree()) {
             if (controller.currentTreeKey)

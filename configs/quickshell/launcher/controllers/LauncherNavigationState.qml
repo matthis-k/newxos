@@ -118,58 +118,90 @@ Item {
         if (controller && controller.debugEnabled)
             console.warn("[NAV] registerResultTreeView index=" + index + " rows=" + treeView.rows + " selectedIndex=" + selectedIndex + " activeNodeKey=" + activeNodeKey);
         resultTreeViews[index] = treeView;
-        if (index === selectedIndex && activeNodeKey) {
-            var row = root.findTreeVisualRow(treeView, activeNodeKey);
-            if (controller && controller.debugEnabled)
-                console.warn("[NAV] registerResultTreeView: matched selected, looking up activeNodeKey=" + activeNodeKey + " found row=" + row);
-            if (row >= 0) {
-                var idx = treeView.index(row, 0);
-                if (!idx.valid) {
-                    if (controller && controller.debugEnabled)
-                        console.warn("[NAV] registerResultTreeView: idx invalid, bailing");
-                    return;
-                }
-                currentTreeView = treeView;
-                currentTreeKey = activeNodeKey;
-                treeVisualRow = row;
-                treeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
-            }
-        }
+        if (index === selectedIndex && activeNodeKey)
+            root.syncTreeSelection(index, activeNodeKey);
     }
 
     function moveSelection(delta) {
         var targets = root.navigationTargets();
-        if (targets.length === 0) {
+        var nextTarget = root.stepTarget(targets, activeNodeKey, delta);
+        if (!nextTarget) {
             if (controller && controller.debugEnabled)
                 console.warn("[NAV] moveSelection: no targets, clearing");
             root.applyNavigationTarget(null);
             return;
         }
-
-        var current = Math.max(0, targets.findIndex(function(target) { return target.key === root.activeNodeKey; }));
-        var next = (current + delta + targets.length) % targets.length;
         if (controller && controller.debugEnabled)
-            console.warn("[NAV] moveSelection delta=" + delta + " activeNodeKey=" + activeNodeKey + " targets=" + targets.length + " current=" + current + " next=" + next + " nextKey=" + targets[next].key + " nextTitle=" + targets[next].row.title + " nextDepth=" + targets[next].treeDepth + " nextParent=" + targets[next].parentIndex);
-        root.applyNavigationTarget(targets[next]);
+            console.warn("[NAV] moveSelection delta=" + delta + " activeNodeKey=" + activeNodeKey + " targets=" + targets.length + " nextKey=" + nextTarget.key + " nextTitle=" + nextTarget.row.title + " nextDepth=" + nextTarget.depth + " nextParent=" + nextTarget.parentIndex);
+        root.applyNavigationTarget(nextTarget);
     }
 
     function navigationTargets() {
+        return flattenNavigationTargets(results, collapsedResultIndices, root.isRowSelectable);
+    }
+
+    function walkRows(rows, visitor) {
+        function visit(row, parentIndex, depth, path) {
+            if (!row) return false;
+            var key = root.rowKey(row);
+            var currentPath = path.concat([key]);
+            if (visitor(row, parentIndex, depth, currentPath) === false)
+                return false;
+            var children = row.children || [];
+            for (var i = 0; i < children.length; i += 1) {
+                if (visit(children[i], parentIndex, depth + 1, currentPath) === false)
+                    return false;
+            }
+            return true;
+        }
+
+        for (var i = 0; i < (rows || []).length; i += 1) {
+            if (visit(rows[i], i, 0, []) === false)
+                return;
+        }
+    }
+
+    function findRowByKey(rows, key) {
+        var found = null;
+        root.walkRows(rows || [], function(row) {
+            if (root.rowKey(row) === key) {
+                found = row;
+                return false;
+            }
+            return true;
+        });
+        return found;
+    }
+
+    function flattenNavigationTargets(rows, collapsedState, selectable) {
         var out = [];
-        function visit(row, parentIndex, treeDepth) {
+        function visit(row, parentIndex, depth, path) {
             if (!row) return;
             var children = row.children || [];
-            if (root.isRowSelectable(row))
-                out.push({ key: root.rowKey(row), row: row, parentIndex: parentIndex, treeDepth: treeDepth });
-            if (root.collapsedResultIndices[parentIndex])
+            var key = root.rowKey(row);
+            var currentPath = path.concat([key]);
+            if (selectable(row))
+                out.push({ key: key, row: row, parentIndex: parentIndex, depth: depth, treeDepth: depth, path: currentPath, isTreeChild: depth > 0 });
+            if (collapsedState[parentIndex])
                 return;
             for (var i = 0; i < children.length; i += 1)
-                visit(children[i], parentIndex, treeDepth + 1);
+                visit(children[i], parentIndex, depth + 1, currentPath);
         }
-        for (var i = 0; i < results.length; i += 1)
-            visit(results[i], i, 0);
+        for (var i = 0; i < (rows || []).length; i += 1)
+            visit(rows[i], i, 0, []);
         if (controller && controller.debugEnabled)
-            console.warn("[NAV] navigationTargets: results=" + results.length + " targets=" + out.length + " collapsed=" + Object.keys(collapsedResultIndices).join(",") + " targets=" + out.map(function(t) { return t.key + "(d=" + t.treeDepth + " p=" + t.parentIndex + ")"; }).join(" | "));
+            console.warn("[NAV] navigationTargets: results=" + results.length + " targets=" + out.length + " collapsed=" + Object.keys(collapsedResultIndices).join(",") + " targets=" + out.map(function(t) { return t.key + "(d=" + t.depth + " p=" + t.parentIndex + ")"; }).join(" | "));
         return out;
+    }
+
+    function stepTarget(targets, currentKey, delta) {
+        if (!targets || targets.length === 0)
+            return null;
+        var current = targets.findIndex(function(target) { return target.key === currentKey; });
+        if (current < 0)
+            current = 0;
+        var next = (current + delta + targets.length) % targets.length;
+        return targets[next];
     }
 
     function resolveTreeViewAtIndex(index) {
@@ -206,31 +238,34 @@ Item {
         selectedIndex = target.parentIndex;
         selectedActionIndex = 0;
         activeNodeKey = target.key;
-        if (target.treeDepth > 0) {
+        if (target.isTreeChild || target.depth > 0 || target.treeDepth > 0) {
             if (controller && controller.debugEnabled)
-                console.warn("[NAV] applyNav: treeDepth=" + target.treeDepth + " parentIndex=" + target.parentIndex + " key=" + target.key);
-            currentTreeView = resolveTreeViewAtIndex(target.parentIndex);
+                console.warn("[NAV] applyNav: depth=" + (target.depth || target.treeDepth) + " parentIndex=" + target.parentIndex + " key=" + target.key);
             currentTreeKey = target.key;
-            if (controller && controller.debugEnabled)
-                console.warn("[NAV] applyNav: currentTreeView=" + !!currentTreeView + " model=" + !!(currentTreeView && currentTreeView.model) + " viewRows=" + (currentTreeView ? currentTreeView.rows : "N/A"));
-            treeVisualRow = currentTreeView ? root.findTreeVisualRow(currentTreeView, target.key) : -1;
-            if (controller && controller.debugEnabled)
-                console.warn("[NAV] applyNav: treeVisualRow=" + treeVisualRow);
-            if (currentTreeView && treeVisualRow >= 0) {
-                var idx = currentTreeView.index(treeVisualRow, 0);
-                if (controller && controller.debugEnabled)
-                    console.warn("[NAV] applyNav: idx.valid=" + idx.valid + " setting currentIndex");
-                if (idx.valid)
-                    currentTreeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
-            } else {
-                if (controller && controller.debugEnabled)
-                    console.warn("[NAV] applyNav: SKIP setCurrentIndex — treeView=" + !!currentTreeView + " row=" + treeVisualRow);
-            }
+            root.syncTreeSelection(target.parentIndex, target.key);
         } else {
             if (controller && controller.debugEnabled)
-                console.warn("[NAV] applyNav: treeDepth=" + target.treeDepth + " exiting tree");
+                console.warn("[NAV] applyNav: depth=0 exiting tree");
             exitTree();
         }
+    }
+
+    function syncTreeSelection(parentIndex, key) {
+        currentTreeView = resolveTreeViewAtIndex(parentIndex);
+        currentTreeKey = key;
+        if (controller && controller.debugEnabled)
+            console.warn("[NAV] syncTreeSelection: currentTreeView=" + !!currentTreeView + " model=" + !!(currentTreeView && currentTreeView.model) + " viewRows=" + (currentTreeView ? currentTreeView.rows : "N/A"));
+        treeVisualRow = currentTreeView ? root.findTreeVisualRow(currentTreeView, key) : -1;
+        if (controller && controller.debugEnabled)
+            console.warn("[NAV] syncTreeSelection: treeVisualRow=" + treeVisualRow);
+        if (!currentTreeView || treeVisualRow < 0)
+            return false;
+        var idx = currentTreeView.index(treeVisualRow, 0);
+        if (idx.valid) {
+            currentTreeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
+            return true;
+        }
+        return false;
     }
 
     function findTreeVisualRow(treeView, key) {
@@ -429,28 +464,16 @@ Item {
     }
 
     function findTreeRowData(key) {
-        if (!key) return null;
-        for (var ri = 0; ri < results.length; ri += 1) {
-            var found = root.findInChildren(results[ri], key);
-            if (found) return found;
-        }
-        return null;
+        return key ? root.findRowByKey(results, key) : null;
     }
 
     function findInChildren(row, key) {
-        if (!row) return null;
-        if (row.id === key || row.nodeId === key) return row;
-        var children = row.children || [];
-        for (var i = 0; i < children.length; i += 1) {
-            var found = root.findInChildren(children[i], key);
-            if (found) return found;
-        }
-        return null;
+        return key ? root.findRowByKey(row ? [row] : [], key) : null;
     }
 
     function findParentResultByKey(key) {
         for (var i = 0; i < results.length; i += 1) {
-            if (root.findInChildren(results[i], key))
+            if (root.findRowByKey([results[i]], key))
                 return results[i];
         }
         return null;
