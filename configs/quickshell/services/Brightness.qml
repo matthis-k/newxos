@@ -1,4 +1,6 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -6,9 +8,12 @@ import Quickshell.Io
 Singleton {
     id: root
 
+    readonly property var backend: root
+
     property bool available: false
     property int currentValue: 0
     property int maxValue: 100
+    property int step: 5
 
     readonly property int percent: available && maxValue > 0 ? Math.round((currentValue / maxValue) * 100) : 0
     readonly property string iconName: {
@@ -21,6 +26,43 @@ Singleton {
         if (percent < 67)
             return "display-brightness-medium-symbolic";
         return "display-brightness-high-symbolic";
+    }
+
+    readonly property color iconColor: available ? Config.styling.primaryAccent : Config.styling.text2
+
+    readonly property string state: {
+        if (!available) return "unavailable";
+        if (percent <= 0) return "off";
+        if (percent < 34) return "low";
+        if (percent < 67) return "medium";
+        return "high";
+    }
+
+    readonly property string label: "Brightness"
+    readonly property string statusText: available ? `${percent}%` : "Unavailable"
+
+    readonly property var presentation: {
+        return {
+            icon: root.iconName,
+            color: root.iconColor,
+            label: root.label,
+            status: root.statusText,
+            state: root.state,
+            available: root.available
+        };
+    }
+
+    readonly property var control: {
+        if (!root.available)
+            return null;
+        return {
+            kind: "slider",
+            target: "brightness",
+            from: 0,
+            to: 100,
+            step: root.step,
+            value: root.percent
+        };
     }
 
     function applyProbe(text) {
@@ -61,6 +103,10 @@ Singleton {
             command: ["brightnessctl", "-q", "-n2", "-c", "backlight", "set", `${clamped}%`]
         });
         refreshDelay.restart();
+    }
+
+    function adjust(delta) {
+        setPercent(root.percent + delta);
     }
 
     Process {

@@ -177,38 +177,28 @@ DashboardPage {
     }
 
     function nordVpnDestinationLabel(destination) {
-        if (!destination)
-            return "Unknown";
-        if (destination.kind === "fastest")
-            return "Fastest server";
-        return destination.name;
+        return VpnService.destinationLabel(destination);
     }
 
     function nordVpnDestinationSubtext(destination) {
-        if (!destination)
-            return "";
-        if (destination.kind === "fastest")
-            return "Automatic";
-        if (destination.kind === "country")
-            return "Country";
-        return "Group";
+        return VpnService.destinationSubtext(destination);
     }
 
     function filteredNordVpnDestinations() {
         const query = nordVpnSearchText.trim().toLowerCase();
         if (!query)
-            return NordVPN.destinations;
-        return NordVPN.destinations.filter(destination => {
-            const name = nordVpnDestinationLabel(destination).toLowerCase();
-            const kind = nordVpnDestinationSubtext(destination).toLowerCase();
+            return VpnService.destinations;
+        return VpnService.destinations.filter(destination => {
+            const name = VpnService.destinationLabel(destination).toLowerCase();
+            const kind = VpnService.destinationSubtext(destination).toLowerCase();
             return name.includes(query) || kind.includes(query);
         });
     }
 
     function connectNordVpnDestination(destination) {
-        if (!destination || NordVPN.connecting)
+        if (!destination || VpnService.connecting)
             return;
-        NordVPN.connect(destination.value);
+        VpnService.connect(destination.id);
         nordVpnSearchText = "";
     }
 
@@ -455,14 +445,14 @@ DashboardPage {
     DashboardSection {
         Layout.fillWidth: true
         title: "NordVPN"
-        visible: NordVPN.available || NordVPN.connecting
+        visible: VpnService.available || VpnService.connecting
         collapsible: true
         collapsed: true
         summary: Component {
             Text {
                 width: Math.min(implicitWidth, 220)
-                text: NordVPN.connected ? `${NordVPN.country} • ${NordVPN.server}` : NordVPN.status
-                color: NordVPN.connected ? Config.styling.good : Config.styling.text1
+                text: VpnService.connected ? `${VpnService.country} • ${VpnService.server}` : VpnService.statusText
+                color: VpnService.connected ? Config.styling.good : Config.styling.text1
                 font.pixelSize: 12
                 elide: Text.ElideRight
             }
@@ -479,8 +469,8 @@ DashboardPage {
                 Icon {
                     Layout.preferredWidth: root.itemIconSize
                     Layout.preferredHeight: root.itemIconSize
-                    iconName: NordVPN.connected ? "network-vpn-symbolic" : "network-vpn-disconnected-symbolic"
-                    color: NordVPN.connected ? Config.styling.good : Config.styling.text1
+                    iconName: VpnService.connected ? "network-vpn-symbolic" : "network-vpn-disconnected-symbolic"
+                    color: VpnService.connected ? Config.styling.good : Config.styling.text1
                     implicitSize: root.itemIconSize
                 }
 
@@ -489,16 +479,16 @@ DashboardPage {
                     spacing: 0
 
                     Text {
-                        text: NordVPN.connecting ? "Connecting" : NordVPN.connected ? "Connected" : "Disconnected"
-                        color: NordVPN.connected ? Config.styling.good : Config.styling.text0
+                        text: VpnService.connecting ? "Connecting" : VpnService.connected ? "Connected" : "Disconnected"
+                        color: VpnService.connected ? Config.styling.good : Config.styling.text0
                         font.pixelSize: root.itemTextSize
                         font.bold: true
                     }
 
                     Text {
                         Layout.fillWidth: true
-                        visible: NordVPN.connected
-                        text: `${NordVPN.city}, ${NordVPN.country} (${NordVPN.server})`
+                        visible: VpnService.connected
+                        text: VpnService.location
                         color: Config.styling.text2
                         font.pixelSize: 12
                         elide: Text.ElideRight
@@ -506,9 +496,9 @@ DashboardPage {
                 }
 
                 SmallButton {
-                    enabled: !NordVPN.connecting
-                    text: NordVPN.connecting ? "Connecting" : NordVPN.connected ? "Disconnect" : "Connect"
-                    onClicked: NordVPN.connected ? NordVPN.disconnect() : NordVPN.connect()
+                    enabled: !VpnService.connecting
+                    text: VpnService.connecting ? "Connecting" : VpnService.connected ? "Disconnect" : "Connect"
+                    onClicked: VpnService.connected ? VpnService.disconnect() : VpnService.connect(null)
                 }
             }
 
@@ -521,7 +511,7 @@ DashboardPage {
             TextField {
                 id: nordVpnSearchField
                 Layout.fillWidth: true
-                visible: !NordVPN.connecting
+                visible: !VpnService.connecting
                 text: root.nordVpnSearchText
                 placeholderText: "Search countries or groups"
                 color: Config.styling.text0
@@ -541,7 +531,7 @@ DashboardPage {
             DashboardScrollArea {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 160
-                visible: !NordVPN.connecting && nordVpnSearchField.activeFocus
+                visible: !VpnService.connecting && nordVpnSearchField.activeFocus
                 contentSpacing: root.itemSpacing
                 tabSwipeTarget: root.tabSwipeTarget
 
@@ -552,8 +542,8 @@ DashboardPage {
                         required property var modelData
 
                         minimumRowHeight: root.rowHeight
-                        enabled: !NordVPN.connecting
-                        active: NordVPN.connected && modelData.kind === "country" && modelData.name === NordVPN.country
+                        enabled: !VpnService.connecting
+                        active: VpnService.connected && modelData.kind === "country" && modelData.name === VpnService.country
                         accentColor: Config.styling.good
                         title: root.nordVpnDestinationLabel(modelData)
                         subtitle: root.nordVpnDestinationSubtext(modelData)
@@ -577,7 +567,7 @@ DashboardPage {
             RowLayout {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 160
-                visible: NordVPN.connecting
+                visible: VpnService.connecting
                 spacing: root.iconTextGap
 
                 Icon {
@@ -586,10 +576,10 @@ DashboardPage {
                     iconName: "view-refresh-symbolic"
                     color: Config.styling.text1
                     implicitSize: root.itemIconSize
-                    rotation: NordVPN.connecting ? 360 : 0
+                    rotation: VpnService.connecting ? 360 : 0
 
                     Animations.SpinAnimation on rotation {
-                        running: NordVPN.connecting
+                        running: VpnService.connecting
                     }
                 }
 
@@ -612,31 +602,31 @@ DashboardPage {
             InfoRow {
                 Layout.fillWidth: true
                 label: "Server"
-                value: NordVPN.server
+                value: VpnService.server
             }
 
             InfoRow {
                 Layout.fillWidth: true
                 label: "Hostname"
-                value: NordVPN.hostname
+                value: VpnService.hostname
             }
 
             InfoRow {
                 Layout.fillWidth: true
                 label: "IP"
-                value: NordVPN.ip
+                value: VpnService.ip
             }
 
             InfoRow {
                 Layout.fillWidth: true
                 label: "Technology"
-                value: NordVPN.technology
+                value: VpnService.technology
             }
 
             InfoRow {
                 Layout.fillWidth: true
                 label: "Protocol"
-                value: NordVPN.protocol
+                value: VpnService.protocol
             }
 
         }

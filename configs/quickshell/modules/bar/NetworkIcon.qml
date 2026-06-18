@@ -18,6 +18,6 @@ StatusIcon {
         return NetworkService.wifiEnabled ? "network-wireless-offline-symbolic" : "network-wireless-disabled-symbolic";
     }
     tabName: "wifi"
-    overlayIconName: NordVPN.available ? "network-vpn-symbolic" : ""
-    overlayIconColor: NordVPN.connected ? Config.styling.good : Config.styling.critical
+    overlayIconName: VpnService.available ? "network-vpn-symbolic" : ""
+    overlayIconColor: VpnService.connected ? Config.styling.good : Config.styling.critical
 }

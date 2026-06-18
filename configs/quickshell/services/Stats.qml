@@ -1,4 +1,6 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import QtCore
@@ -9,6 +11,8 @@ import qs.components
 
 Singleton {
     id: root
+
+    readonly property var backend: root
 
     Component.onDestruction: {
         cpuTimer.running = false;
@@ -40,6 +44,50 @@ Singleton {
     property real gpuUtilPercent: 0
     property string gpuName: ""
     property bool gpuAvailable: false
+
+    readonly property string state: {
+        if (cpuPercent >= 90 || memoryPercent >= 90) return "critical";
+        if (cpuPercent >= 70 || memoryPercent >= 75) return "warning";
+        return "normal";
+    }
+
+    readonly property string iconName: "utilities-system-monitor-symbolic"
+    readonly property color iconColor: {
+        if (cpuPercent >= 90 || memoryPercent >= 90) return Config.styling.critical;
+        if (cpuPercent >= 70 || memoryPercent >= 75) return Config.styling.warning;
+        return Config.styling.text0;
+    }
+
+    readonly property string label: "System Stats"
+    readonly property string statusText: `CPU ${Math.round(cpuPercent)}% · RAM ${Math.round(memoryPercent)}%`
+
+    readonly property var presentation: {
+        return {
+            icon: root.iconName,
+            color: root.iconColor,
+            label: root.label,
+            status: root.statusText,
+            state: root.state,
+            cpuPercent: root.cpuPercent,
+            memoryPercent: root.memoryPercent
+        };
+    }
+
+    readonly property var summary: {
+        return {
+            cpuPercent: root.cpuPercent,
+            memoryPercent: root.memoryPercent,
+            swapPercent: root.swapPercent,
+            rootDiskPercent: root.rootDiskPercent,
+            gpuAvailable: root.gpuAvailable,
+            gpuUtilPercent: root.gpuUtilPercent,
+            gpuVramPercent: root.gpuVramPercent,
+            rxBytesPerSecond: root.rxBytesPerSecond,
+            txBytesPerSecond: root.txBytesPerSecond
+        };
+    }
+
+    // Everything below is preserved from the original implementation
 
     property string _statsCacheDir: _localPath(StandardPaths.writableLocation(StandardPaths.CacheLocation)) + "/newshell/stats"
 

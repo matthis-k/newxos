@@ -15,6 +15,41 @@ Singleton {
 
     readonly property alias instances: screenStates.instances
 
+    Component.onCompleted: {
+        ShellActions.launcherOpenRequested.connect(function(arg) {
+            forActiveScreens(screen => {
+                const ss = getScreenByName(screen.name);
+                if (ss) ss.launcher.open(arg);
+            });
+        });
+        ShellActions.launcherCloseRequested.connect(function() {
+            forActiveScreens(screen => {
+                const ss = getScreenByName(screen.name);
+                if (ss) ss.launcher.close();
+            });
+        });
+        ShellActions.dashboardOpenRequested.connect(function(tab) {
+            forActiveScreens(screen => {
+                const ss = getScreenByName(screen.name);
+                if (ss) ss.openDashboard(tab);
+            });
+        });
+        ShellActions.dashboardToggleRequested.connect(function(tab) {
+            forActiveScreens(screen => {
+                const ss = getScreenByName(screen.name);
+                if (ss) ss.toggleDashboard(tab);
+            });
+        });
+        ShellActions.hyprlandPreviewRequested.connect(function(screen, toplevel, x) {
+            const ss = getScreenByName(screen.name);
+            if (ss) ss.hyprlandPreview.showPreviewAtGlobal(toplevel, x);
+        });
+        ShellActions.hyprlandPreviewHoverDelta.connect(function(screen, delta) {
+            const ss = getScreenByName(screen.name);
+            if (ss) ss.hyprlandPreview.externalHovers += delta;
+        });
+    }
+
     component ScreenState: QtObject {
         id: screenState
 

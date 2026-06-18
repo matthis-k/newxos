@@ -1,10 +1,14 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import Quickshell
 import Quickshell.Io
 
 Singleton {
     id: root
+
+    readonly property var backend: root
 
     property bool wifiEnabled: false
     property bool wifiHardwareEnabled: true
@@ -17,8 +21,78 @@ Singleton {
     property string wiredDeviceName: ""
     property string wiredAddress: ""
 
+    readonly property bool available: wifiHardwareEnabled || hasWiredConnection
+    readonly property bool connected: connectedSsid !== "" || hasWiredConnection
+    readonly property bool online: connectivity === "full"
+    readonly property bool scanning: false
+    readonly property bool busy: false
+    readonly property bool connecting: false
+    readonly property bool wifiAvailable: wifiHardwareEnabled && wifiEnabled
+
+    readonly property string state: {
+        if (!available) return "unavailable";
+        if (hasWiredConnection) return "wired";
+        if (connectedSsid) return "wireless";
+        if (wifiEnabled) return "disconnected";
+        return "disabled";
+    }
+
+    readonly property string iconName: {
+        if (hasWiredConnection)
+            return "network-wired-symbolic";
+        if (!wifiHardwareEnabled)
+            return "network-wireless-disabled-symbolic";
+        const connected = root.connectedNetwork;
+        if (connected)
+            return root.wifiIconName(connected);
+        return wifiEnabled ? "network-wireless-offline-symbolic" : "network-wireless-disabled-symbolic";
+    }
+
+    readonly property color iconColor: connected ? Config.styling.primaryAccent : Config.styling.text1
+
+    readonly property string label: "Network"
+    readonly property string statusText: {
+        if (hasWiredConnection) return "Wired";
+        if (connectedSsid) return connectedSsid;
+        if (wifiEnabled) return "No connection";
+        return "Wi-Fi off";
+    }
+
+    readonly property var presentation: {
+        return {
+            icon: root.iconName,
+            color: root.iconColor,
+            label: root.label,
+            status: root.statusText,
+            state: root.state,
+            available: root.available,
+            enabled: root.wifiEnabled,
+            connected: root.connected,
+            online: root.online
+        };
+    }
+
     readonly property var networks: rNetworks
     readonly property var connectedNetwork: _findConnected()
+
+    readonly property var connectedNetworks: rNetworks.filter(n => n.connected)
+    readonly property var availableNetworks: rNetworks
+
+    readonly property var wiredConnection: hasWiredConnection ? {
+        id: "wired",
+        name: wiredDeviceName,
+        device: wiredDeviceName,
+        address: wiredAddress,
+        connected: true
+    } : null
+
+    function rawNetworkById(id) {
+        for (const n of rNetworks) {
+            if (n.id === id || n.ssid === id || n.bssid === id)
+                return n;
+        }
+        return null;
+    }
 
     property var _pendingScanCallback: null
 
@@ -59,6 +133,57 @@ Singleton {
 
     function wifiIconName(network) {
         return `network-wireless-signal-${signalBucket(network ? network.signalStrength : 0)}-symbolic`;
+    }
+
+    function securityNeedsPsk(security) {
+        return security.includes("WPA") || security.includes("WPA2") || security.includes("SAE") || security.includes("wpa-psk") || security.includes("wpa2-psk") || security.includes("sae");
+    }
+
+    function isOpenNetwork(network) {
+        return network && (network.security === "Open" || network.security === "--" || !network.security);
+    }
+
+    function wifiBand(frequency) {
+        const mhz = parseInt(frequency || "0", 10);
+        if (mhz >= 5925) return "6 GHz";
+        if (mhz >= 5000) return "5 GHz";
+        if (mhz >= 2400) return "2.4 GHz";
+        return "unknown";
+    }
+
+    function wifiChannel(frequency) {
+        const mhz = parseInt(frequency || "0", 10);
+        if (mhz === 2484) return 14;
+        if (mhz >= 2412 && mhz <= 2472) return Math.floor((mhz - 2407) / 5);
+        if (mhz >= 5000 && mhz <= 5895) return Math.floor((mhz - 5000) / 5);
+        if (mhz >= 5955 && mhz <= 7115) return Math.floor((mhz - 5950) / 5);
+        return "unknown";
+    }
+
+    function connectivityLabel() {
+        const conn = root.connectivity;
+        if (conn === "full") return "Connected";
+        if (conn === "portal") return "Captive portal";
+        if (conn === "limited") return "Limited";
+        if (conn === "none") return "No internet";
+        return conn;
+    }
+
+    function primaryNetworkInfo(network) {
+        if (!network) return "Network unavailable";
+        return [
+            `Frequency: ${network.frequency || "unknown"} MHz`,
+            `Channel: ${wifiChannel(network.frequency)}`,
+            `Band: ${wifiBand(network.frequency)}`
+        ].join(" | ");
+    }
+
+    function advancedNetworkInfo(network) {
+        if (!network) return "Network unavailable";
+        return [
+            `SSID: ${network.ssid || "unknown"}`,
+            `BSSID: ${network.bssid || "unknown"}`
+        ].join("\n");
     }
 
     function _splitEscaped(text, separator) {
@@ -133,14 +258,23 @@ Singleton {
                 existing.security = security;
                 result.push(existing);
             } else {
+                const id = `wifi-${bssid || freq}-${ssid}`;
                 result.push({
+                    id: id,
                     connected: active,
                     signalStrength: signal,
                     frequency: freq,
                     ssid: ssid,
                     bssid: bssid,
                     security: security,
-                    name: ssid
+                    name: ssid,
+                    known: false,
+                    secured: security !== "Open" && security !== "--",
+                    strength: Math.round(signal * 100),
+                    band: wifiBand(freq),
+                    channel: wifiChannel(freq),
+                    iconName: root.wifiIconName({ signalStrength: signal }),
+                    statusText: active ? "Connected" : (security !== "Open" ? "Secured" : "Open")
                 });
             }
         }
@@ -188,6 +322,78 @@ Singleton {
     }
 
     property var rNetworks: []
+
+    function setNetworkingEnabled(value) {
+        const cmd = value ? "on" : "off";
+        nmcliNetworkingProcess.exec({ command: ["nmcli", "networking", cmd] });
+    }
+
+    function scan(callback) {
+        root._pendingScanCallback = callback;
+        rescanProcess.exec({ command: ["nmcli", "dev", "wifi", "list", "--rescan", "yes" ] });
+    }
+
+    function connectNetwork(id, options) {
+        const network = rawNetworkById(id);
+        const ssid = network ? network.ssid : id;
+        const password = options?.password || "";
+        const args = ["nmcli", "dev", "wifi", "connect", ssid];
+        if (password)
+            args.push("password", password);
+        connectProcess.exec({ command: args });
+    }
+
+    function disconnectNetwork(id) {
+        const network = rawNetworkById(id);
+        if (network && network.connected) {
+            if (wifiDeviceName)
+                disconnectProcess.exec({ command: ["nmcli", "dev", "disconnect", wifiDeviceName] });
+        }
+    }
+
+    function refresh() {
+        root._refreshAll();
+    }
+
+    function rescan(callback) {
+        root._pendingScanCallback = callback;
+        rescanProcess.exec({ command: ["nmcli", "dev", "wifi", "list", "--rescan", "yes"] });
+    }
+
+    function connectToNetwork(ssid, password) {
+        const args = ["nmcli", "dev", "wifi", "connect", ssid];
+        if (password)
+            args.push("password", password);
+        connectProcess.exec({ command: args });
+    }
+
+    function disconnectDevice(deviceName) {
+        if (deviceName)
+            disconnectProcess.exec({ command: ["nmcli", "dev", "disconnect", deviceName] });
+    }
+
+    function disconnectWifi() {
+        disconnectDevice(root.wifiDeviceName);
+    }
+
+    function disconnectWired() {
+        disconnectDevice(root.wiredDeviceName);
+    }
+
+    function forgetNetwork(uuid) {
+        if (uuid) {
+            forgetProcess.exec({ command: ["nmcli", "con", "delete", "uuid", uuid] });
+        }
+    }
+
+    function setWifiEnabled(enabled) {
+        const cmd = enabled ? "on" : "off";
+        wifiToggleProcess.exec({ command: ["nmcli", "radio", "wifi", cmd] });
+    }
+
+    function toggleWifi() {
+        setWifiEnabled(!wifiEnabled);
+    }
 
     Process {
         id: networkingStateProcess
@@ -289,77 +495,12 @@ Singleton {
         }
     }
 
-    Timer {
-        id: monitorDebounce
-        interval: 300
-        onTriggered: {
-            root._refreshAll();
+    Process {
+        id: nmcliNetworkingProcess
+        function onExited(exitCode) {
+            if (exitCode === 0)
+                root._refreshAll();
         }
-    }
-
-    Timer {
-        id: monitorRestartTimer
-        interval: 2000
-        onTriggered: {
-            monitorProcess.exec({ command: ["nmcli", "monitor"] });
-        }
-    }
-
-    Timer {
-        id: initTimer
-        interval: 100
-        onTriggered: {
-            root._refreshAll();
-            monitorProcess.exec({ command: ["nmcli", "monitor"] });
-        }
-    }
-
-    Component.onCompleted: {
-        initTimer.start();
-    }
-
-    function refresh() {
-        root._refreshAll();
-    }
-
-    function rescan(callback) {
-        root._pendingScanCallback = callback;
-        rescanProcess.exec({ command: ["nmcli", "dev", "wifi", "list", "--rescan", "yes"] });
-    }
-
-    function connectToNetwork(ssid, password) {
-        const args = ["nmcli", "dev", "wifi", "connect", ssid];
-        if (password)
-            args.push("password", password);
-        connectProcess.exec({ command: args });
-    }
-
-    function disconnectDevice(deviceName) {
-        if (deviceName)
-            disconnectProcess.exec({ command: ["nmcli", "dev", "disconnect", deviceName] });
-    }
-
-    function disconnectWifi() {
-        disconnectDevice(root.wifiDeviceName);
-    }
-
-    function disconnectWired() {
-        disconnectDevice(root.wiredDeviceName);
-    }
-
-    function forgetNetwork(uuid) {
-        if (uuid) {
-            forgetProcess.exec({ command: ["nmcli", "con", "delete", "uuid", uuid] });
-        }
-    }
-
-    function setWifiEnabled(enabled) {
-        const cmd = enabled ? "on" : "off";
-        wifiToggleProcess.exec({ command: ["nmcli", "radio", "wifi", cmd] });
-    }
-
-    function toggleWifi() {
-        setWifiEnabled(!wifiEnabled);
     }
 
     Process {
@@ -392,5 +533,34 @@ Singleton {
             if (exitCode === 0)
                 root._refreshAll();
         }
+    }
+
+    Timer {
+        id: monitorDebounce
+        interval: 300
+        onTriggered: {
+            root._refreshAll();
+        }
+    }
+
+    Timer {
+        id: monitorRestartTimer
+        interval: 2000
+        onTriggered: {
+            monitorProcess.exec({ command: ["nmcli", "monitor"] });
+        }
+    }
+
+    Timer {
+        id: initTimer
+        interval: 100
+        onTriggered: {
+            root._refreshAll();
+            monitorProcess.exec({ command: ["nmcli", "monitor"] });
+        }
+    }
+
+    Component.onCompleted: {
+        initTimer.start();
     }
 }

@@ -19,15 +19,6 @@ Item {
     Animations.LayoutBehavior on implicitWidth {
     }
 
-    function workspaceNumber(workspace) {
-        const id = Number(workspace?.id);
-        if (Number.isFinite(id) && id > 0)
-            return id;
-
-        const name = Number.parseInt(workspace?.name || "", 10);
-        return Number.isFinite(name) ? name : Number.MAX_SAFE_INTEGER;
-    }
-
     RowLayout {
         id: row
         anchors.fill: parent
@@ -36,22 +27,14 @@ Item {
         Repeater {
             id: workspaceRepeater
 
-            model: ScriptModel {
-                values: [...Hyprland.workspaces.values].sort((a, b) => {
-                    const numberDiff = root.workspaceNumber(a) - root.workspaceNumber(b);
-                    if (numberDiff !== 0)
-                        return numberDiff;
-
-                    return (a?.name || "").localeCompare(b?.name || "");
-                })
-            }
+            model: HyprlandService.workspacesForScreen(screen, HyprlandService.revision)
             delegate: WorkspaceOverview {}
         }
     }
 
     component WorkspaceOverview: Item {
-        required property HyprlandWorkspace modelData
-        property HyprlandWorkspace workspace: modelData
+        required property var modelData
+        property var workspace: modelData
         property bool appeared: false
 
         implicitHeight: root.height
@@ -80,12 +63,11 @@ Item {
             textScaleTarget: wsLabel
             hoveredScale: 1.0
             unhoveredScale: 0.92
-            baseScale: Hyprland.focusedWorkspace?.id === workspace?.id ? 1.0 : 0.92
+            baseScale: HyprlandService.focusedWorkspace?.id === workspace?.id ? 1.0 : 0.92
 
             onClicked: {
-                if (workspace && Hyprland.focusedWorkspace?.id !== workspace.id) {
-                    workspace.activate?.();
-                }
+                if (workspace && HyprlandService.focusedWorkspace?.id !== workspace?.id)
+                    HyprlandService.activateWorkspace(workspace.id);
             }
         }
 
@@ -93,7 +75,7 @@ Item {
             id: wsLabel
             text: workspace.name
             anchors.centerIn: ws
-            color: (Hyprland.focusedWorkspace?.id === workspace?.id) ? Config.styling.activeIndicator : Config.styling.text0
+            color: (HyprlandService.focusedWorkspace?.id === workspace?.id) ? Config.styling.activeIndicator : Config.styling.text0
             font.pixelSize: parent.height
             font.bold: true
 
@@ -113,9 +95,7 @@ Item {
             Repeater {
                 model: workspace.toplevels
 
-                delegate: TopLevel {
-                    toplevel: modelData
-                }
+                delegate: TopLevel {}  // modelData auto-assigned to required property
             }
         }
     }
@@ -134,7 +114,7 @@ Item {
         implicitHeight: root.height
         implicitWidth: root.height
         opacity: appeared ? 1 : 0
-        active: toplevel.activated && Hyprland.focusedWorkspace?.id === toplevel?.workspace.id
+        active: toplevel.activated && Hyprland.focusedWorkspace?.id === toplevel?.workspace?.id
         highlightSide: ActiveIndicator.Side.Top
         highlightAnimationMode: ActiveIndicator.AnimationMode.GrowAcross
         highlightThickness: Math.max(2, height * 0.1)
@@ -155,16 +135,15 @@ Item {
         Component.onCompleted: appeared = true
 
         onHoveredChanged: {
-            const previewWindow = ShellState.getScreenByName(screen.name).hyprlandPreview;
             if (hovered) {
                 const globalPos = tl.mapToGlobal(Qt.point(tl.width / 2, 0));
-                previewWindow.showPreviewAtGlobal(tl.toplevel, globalPos.x);
+                ShellActions.requestHyprlandPreview(screen, toplevel, globalPos.x);
             }
-            previewWindow.externalHovers += hovered ? 1 : -1;
+            ShellActions.addHyprlandPreviewHover(screen, hovered ? 1 : -1);
         }
 
         onClicked: {
-            toplevel?.wayland.activate();
+            toplevel.wayland?.activate();
         }
 
         contentItem: Icon {
@@ -181,14 +160,12 @@ Item {
             acceptedButtons: Qt.MiddleButton
             gesturePolicy: TapHandler.ReleaseWithinBounds
             onTapped: {
-                toplevel?.wayland.close();
+                toplevel.wayland?.close();
             }
         }
     }
 
     Component.onCompleted: {
-        Hyprland.refreshMonitors();
-        Hyprland.refreshWorkspaces();
-        Hyprland.refreshToplevels();
+        HyprlandService.refresh();
     }
 }

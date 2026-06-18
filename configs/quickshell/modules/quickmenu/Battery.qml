@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
-import Quickshell.Services.UPower
 
 import qs.animations as Animations
 import qs.services
@@ -12,11 +11,10 @@ import qs.utils
 ColumnLayout {
     id: root
 
-    property UPowerDevice bat: Services.Stats.battery
     property bool powerModesFirst: false
     property bool showGraph: true
     property bool graphActive: true
-    readonly property bool hasBattery: Services.Stats.hasBattery
+    readonly property bool hasBattery: PowerService.hasBattery
 
     readonly property int contentWidth: width > 0 ? width : 320
     readonly property int sectionSpacing: Config.spacing.xs
@@ -31,13 +29,7 @@ ColumnLayout {
     readonly property int buttonTextPixelSize: 18
     readonly property int buttonIconSlotWidth: 28
 
-    readonly property color stateColor: {
-        const percentage = Math.floor((bat?.percentage || 0) * 100);
-        percentage <= 10 ? Config.styling.critical :
-        percentage <= 20 ? Config.colors.yellow :
-        percentage <= 60 ? Config.styling.text0 :
-        Config.styling.good;
-    }
+    readonly property color stateColor: PowerService.iconColor
 
     function formatDuration(seconds, prefix) {
         if (!seconds || seconds <= 0)
@@ -49,20 +41,20 @@ ColumnLayout {
     }
 
     readonly property string batteryDetail: {
-        if (!bat)
+        if (!PowerService.hasBattery)
             return "";
 
-        if (bat.state === UPowerDeviceState.Charging)
-            return formatDuration(bat.timeToFull, "Full in ");
+        if (PowerService.charging)
+            return formatDuration(PowerService.timeToFull, "Full in ");
 
-        return formatDuration(bat.timeToEmpty, "Empty in ");
+        return formatDuration(PowerService.timeToEmpty, "Empty in ");
     }
 
     readonly property string summaryText: {
-        if (!bat)
+        if (!PowerService.hasBattery)
             return "No battery detected";
 
-        const percentage = `${Math.floor((bat.percentage || 0) * 100)}%`;
+        const percentage = `${PowerService.batteryPercent}%`;
         return batteryDetail !== "" ? `${percentage} • ${batteryDetail}` : percentage;
     }
 
@@ -71,50 +63,6 @@ ColumnLayout {
         return Services.Stats.calculateBatteryGraphSeries().map(series => Object.assign({}, series, {
                 color: root.stateColor
             }));
-    }
-
-    function modeIndex(mode) {
-        switch (mode) {
-        case PowerProfile.PowerSaver:
-            return 0;
-        case PowerProfile.Performance:
-            return 2;
-        default:
-            return 1;
-        }
-    }
-
-    function modeFromIndex(index) {
-        switch (Math.round(index)) {
-        case 0:
-            return PowerProfile.PowerSaver;
-        case 2:
-            return PowerProfile.Performance;
-        default:
-            return PowerProfile.Balanced;
-        }
-    }
-
-    function modeLabel(mode) {
-        switch (mode) {
-        case PowerProfile.PowerSaver:
-            return "Power Saver";
-        case PowerProfile.Performance:
-            return "Performance";
-        default:
-            return "Balanced";
-        }
-    }
-
-    function modeColor(mode) {
-        switch (mode) {
-        case PowerProfile.PowerSaver:
-            return Config.styling.good;
-        case PowerProfile.Performance:
-            return Config.styling.critical;
-        default:
-            return Config.colors.yellow;
-        }
     }
 
     implicitWidth: 320
@@ -137,14 +85,14 @@ ColumnLayout {
 
                 Icon {
                     anchors.centerIn: parent
-                    iconName: bat?.iconName || "battery-missing-symbolic"
+                    iconName: PowerService.iconName
                     color: root.stateColor
                     implicitSize: root.iconSize
                 }
             }
 
             Text {
-                text: bat ? "Charge level" : "Battery unavailable"
+                text: PowerService.hasBattery ? "Charge level" : "Battery unavailable"
                 color: Config.styling.text0
                 font.pixelSize: 16
                 font.bold: true
@@ -155,8 +103,8 @@ ColumnLayout {
             }
 
             Text {
-                visible: !!bat
-                text: `${Math.floor((bat?.percentage || 0) * 100)}%`
+                visible: PowerService.hasBattery
+                text: `${PowerService.batteryPercent}%`
                 color: root.stateColor
                 font.pixelSize: 18
                 font.bold: true
@@ -183,9 +131,9 @@ ColumnLayout {
             Layout.preferredHeight: modeLabel.implicitHeight
             clip: true
 
-            property int displayedIndex: root.modeIndex(PowerProfiles.profile)
-            property string displayedText: root.modeLabel(PowerProfiles.profile)
-            property color displayedColor: root.modeColor(PowerProfiles.profile)
+            property int displayedIndex: PowerService.profileIndex(PowerService.profile)
+            property string displayedText: PowerService.profileLabel(PowerService.profile)
+            property color displayedColor: PowerService.profileColor(PowerService.profile)
 
             function labelX() {
                 if (displayedIndex === 0)
@@ -196,13 +144,13 @@ ColumnLayout {
             }
 
             function syncLabel() {
-                displayedIndex = root.modeIndex(PowerProfiles.profile);
-                displayedText = root.modeLabel(PowerProfiles.profile);
-                displayedColor = root.modeColor(PowerProfiles.profile);
+                displayedIndex = PowerService.profileIndex(PowerService.profile);
+                displayedText = PowerService.profileLabel(PowerService.profile);
+                displayedColor = PowerService.profileColor(PowerService.profile);
             }
 
             Connections {
-                target: PowerProfiles
+                target: PowerService
 
                 function onProfileChanged() {
                     if (labelMorph.running)
@@ -274,19 +222,19 @@ ColumnLayout {
                     to: 2
                     stepSize: 1
                     snapMode: Slider.SnapAlways
-                    accentColor: root.modeColor(PowerProfiles.profile)
+                    accentColor: PowerService.profileColor(PowerService.profile)
 
                     Binding {
                         target: modeSlider
                         property: "value"
-                        value: root.modeIndex(PowerProfiles.profile)
+                        value: PowerService.profileIndex(PowerService.profile)
                         when: !modeSlider.pressed
                     }
 
-                    onMoved: PowerProfiles.profile = root.modeFromIndex(value)
+                    onMoved: PowerService.setProfile(PowerService.profiles[Math.round(value)])
                     onPressedChanged: {
                         if (!pressed)
-                            PowerProfiles.profile = root.modeFromIndex(value);
+                            PowerService.setProfile(PowerService.profiles[Math.round(value)]);
                     }
                 }
 

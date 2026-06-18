@@ -1,12 +1,9 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Bluetooth
 import Quickshell.Io
-import Quickshell.Services.Pipewire
 
 import qs.services
 import qs.components
-import qs.utils
 
 DashboardPage {
     id: root
@@ -14,22 +11,6 @@ DashboardPage {
     title: "Overview"
 
     property var screenState: null
-
-    readonly property var sink: Pipewire.defaultAudioSink
-    readonly property var source: Pipewire.defaultAudioSource
-    readonly property var adapter: Bluetooth.defaultAdapter
-
-    function connectedBluetoothCount() {
-        if (!root.adapter)
-            return 0;
-
-        let count = 0;
-        for (const device of root.adapter.devices.values || []) {
-            if (device && device.connected)
-                count += 1;
-        }
-        return count;
-    }
 
     readonly property string connectionSummary: {
         if (NetworkService.hasWiredConnection)
@@ -40,11 +21,11 @@ DashboardPage {
     }
 
     readonly property string bluetoothSummary: {
-        if (!root.adapter)
+        if (!BluetoothService.available)
             return "No adapter available";
-        if (!root.adapter.enabled)
+        if (!BluetoothService.enabled)
             return "Bluetooth disabled";
-        const count = connectedBluetoothCount();
+        const count = BluetoothService.connectedCount;
         return count > 0 ? `${count} connected` : "Ready to connect";
     }
 
@@ -82,13 +63,12 @@ DashboardPage {
                 Layout.fillWidth: true
                 label: "Bluetooth"
                 subtitle: root.bluetoothSummary
-                iconName: root.adapter && root.adapter.enabled ? "bluetooth-symbolic" : "bluetooth-disabled-symbolic"
-                iconColor: root.adapter && root.adapter.enabled ? Config.styling.bluetooth : Config.styling.text1
-                enabled: !!root.adapter
-                checked: !!root.adapter && root.adapter.enabled
+                iconName: BluetoothService.enabled ? "bluetooth-symbolic" : "bluetooth-disabled-symbolic"
+                iconColor: BluetoothService.enabled ? Config.styling.bluetooth : Config.styling.text1
+                enabled: BluetoothService.available
+                checked: BluetoothService.enabled
                 onToggled: function (checked) {
-                    if (root.adapter)
-                        root.adapter.enabled = checked;
+                    BluetoothService.setEnabled(checked);
                 }
             }
         }
@@ -99,33 +79,33 @@ DashboardPage {
         title: "Audio"
 
         AudioDeviceCard {
-            title: Utils.nodeName(root.sink, "No output device")
-            iconName: Utils.volumeIconName(root.sink, false)
-            iconColor: Utils.isMuted(root.sink) ? Config.styling.critical : Config.styling.text0
-            valueText: root.sink ? `${Utils.volumePercent(root.sink)}%` : ""
+            title: AudioService.outputDeviceName
+            iconName: AudioService.outputIconName
+            iconColor: AudioService.outputIconColor
+            valueText: AudioService.defaultSink ? `${AudioService.outputVolume}%` : ""
             from: 0; to: 150
-            value: Utils.volumePercent(root.sink)
+            value: AudioService.outputVolume
             stepSize: 1
-            iconEnabled: !!root.sink
-            sliderEnabled: !!root.sink && !Utils.isMuted(root.sink)
-            accentColor: Utils.isMuted(root.sink) ? Config.styling.critical : Config.colors.blue
-            onIconClicked: Utils.toggleMute(root.sink)
-            onValueModified: value => Utils.setVolume(root.sink, value)
+            iconEnabled: !!AudioService.defaultSink
+            sliderEnabled: !!AudioService.defaultSink && !AudioService.outputMuted
+            accentColor: AudioService.outputMuted ? Config.styling.critical : Config.colors.blue
+            onIconClicked: AudioService.toggleOutputMute()
+            onValueModified: value => AudioService.setOutputVolume(value)
         }
 
         AudioDeviceCard {
-            title: Utils.nodeName(root.source, "No input device")
-            iconName: Utils.volumeIconName(root.source, true)
-            iconColor: Utils.isMuted(root.source) ? Config.styling.critical : Config.styling.text0
-            valueText: root.source ? `${Utils.volumePercent(root.source)}%` : ""
+            title: AudioService.inputDeviceName
+            iconName: AudioService.inputIconName
+            iconColor: AudioService.inputIconColor
+            valueText: AudioService.defaultSource ? `${AudioService.inputVolume}%` : ""
             from: 0; to: 150
-            value: Utils.volumePercent(root.source)
+            value: AudioService.inputVolume
             stepSize: 1
-            iconEnabled: !!root.source
-            sliderEnabled: !!root.source && !Utils.isMuted(root.source)
-            accentColor: Utils.isMuted(root.source) ? Config.styling.critical : Config.colors.blue
-            onIconClicked: Utils.toggleMute(root.source)
-            onValueModified: value => Utils.setVolume(root.source, value)
+            iconEnabled: !!AudioService.defaultSource
+            sliderEnabled: !!AudioService.defaultSource && !AudioService.inputMuted
+            accentColor: AudioService.inputMuted ? Config.styling.critical : Config.colors.blue
+            onIconClicked: AudioService.toggleInputMute()
+            onValueModified: value => AudioService.setInputVolume(value)
         }
     }
 
@@ -150,7 +130,7 @@ DashboardPage {
     DashboardSection {
         Layout.fillWidth: true
         title: "Battery and power"
-        visible: Stats.hasBattery
+        visible: PowerService.hasBattery
 
         Battery {
             id: batteryContent

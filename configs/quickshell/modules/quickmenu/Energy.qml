@@ -12,12 +12,12 @@ DashboardPage {
 
     title: "Battery"
     scrollable: true
-    visible: Stats.hasBattery
+    visible: PowerService.hasBattery
 
     DashboardSection {
         Layout.fillWidth: true
         title: "Battery and power"
-        visible: Stats.hasBattery
+        visible: PowerService.hasBattery
 
         Battery {
             id: batteryContent

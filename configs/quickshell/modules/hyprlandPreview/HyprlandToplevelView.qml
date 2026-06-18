@@ -71,17 +71,20 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             scaleTarget: null
             scaleIcon: true
-            iconScaleTarget: icon
+            iconScaleTarget: closeIcon
             hoveredScale: 1.0
             unhoveredScale: 0.8
 
             onClicked: {
                 root.toplevel?.wayland?.close();
-                ShellState.getScreenByName(screen.name).hyprlandPreview.clearPreview();
+                ShellActions.addHyprlandPreviewHover(screen, -1);
+                const previewWindow = ShellState.getScreenByName(screen.name);
+                if (previewWindow && previewWindow.hyprlandPreview)
+                    previewWindow.hyprlandPreview.clearPreview();
             }
 
             contentItem: Icon {
-                id: icon
+                id: closeIcon
                 anchors.fill: parent
                 iconName: "window-close"
                 fallbackIconName: "window-close"
@@ -105,7 +108,10 @@ Item {
         TapHandler {
             onSingleTapped: {
                 root.toplevel?.wayland?.activate();
-                ShellState.getScreenByName(screen.name).hyprlandPreview.clearPreview();
+                ShellActions.addHyprlandPreviewHover(screen, -1);
+                const previewWindow = ShellState.getScreenByName(screen.name);
+                if (previewWindow && previewWindow.hyprlandPreview)
+                    previewWindow.hyprlandPreview.clearPreview();
             }
         }
     }

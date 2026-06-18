@@ -1,8 +1,5 @@
 import QtQml
 import Quickshell
-import Quickshell.Bluetooth
-import Quickshell.Services.Pipewire
-import Quickshell.Services.UPower
 
     import qs.services
     import ".." as Launcher
@@ -32,53 +29,20 @@ TreeBackendBase {
     ]
 
     Connections {
-        target: Pipewire
-        function onDefaultAudioSinkChanged() { root.invalidateCompositeRootCache(); }
+        target: AudioService
+        function on_RevisionChanged() { root.invalidateCompositeRootCache(); }
     }
     Connections {
-        target: Pipewire.nodes
-        function onValuesChanged() { root.invalidateCompositeRootCache(); }
-    }
-    Connections {
-        target: Pipewire.linkGroups
-        function onValuesChanged() { root.invalidateCompositeRootCache(); }
-    }
-    Connections {
-        target: NordVPN
+        target: VpnService
         function onConnectedChanged() { root.invalidateCompositeRootCache(); }
         function onConnectingChanged() { root.invalidateCompositeRootCache(); }
-        function onAvailableChanged() { root.invalidateCompositeRootCache(); }
-        function onCountriesChanged() { root.invalidateCompositeRootCache(); }
-        function onGroupsChanged() { root.invalidateCompositeRootCache(); }
-    }
-
-    property Timer _btRefreshTimer: Timer {
-        interval: 200; repeat: false
-        onTriggered: {
-            root.invalidateCompositeRootCache();
-            if (root.controller)
-                root.controller.searchRequested(root.controller.query, root.controller.generation);
-        }
-    }
-
-    Connections {
-        target: Bluetooth
-        function onDefaultAdapterChanged() { root._btRefreshTimer.restart(); }
     }
     Connections {
-        id: btAdapterConn
-        function onEnabledChanged() { root._btRefreshTimer.restart(); }
-        function onDevicesChanged() { root._btRefreshTimer.restart(); }
-        function onDiscoveringChanged() { root._btRefreshTimer.restart(); }
+        target: BluetoothService
+        function on_RevisionChanged() { root.invalidateCompositeRootCache(); }
     }
-    property var btAdapterWatch: Bluetooth.defaultAdapter
-    onBtAdapterWatchChanged: {
-        btAdapterConn.target = Bluetooth.defaultAdapter;
-        root._btRefreshTimer.restart();
-    }
-
     Connections {
-        target: PowerProfiles
+        target: PowerService
         function onProfileChanged() { root.invalidateCompositeRootCache(); }
     }
 
@@ -366,8 +330,8 @@ TreeBackendBase {
             aliases: ["vpn", "nordvpn", "connect to"]
             title: qsTr("VPN")
             icon: "network-vpn-symbolic"
-            iconColor: NordVPN.connected || NordVPN.connecting ? Config.styling.good : Config.styling.warning
-            switchState: NordVPN.connected || NordVPN.connecting
+            iconColor: VpnService.connected || VpnService.connecting ? Config.styling.good : Config.styling.warning
+            switchState: VpnService.connected || VpnService.connecting
             switchActionId: "vpn"
             switchOnAliases: ["connect", "on", "up"]
             switchOffAliases: ["disconnect", "off", "down"]
@@ -380,21 +344,18 @@ TreeBackendBase {
                 maxNestedChildren: 8
             })
             behavior: ({ filterable: true })
-            onAction: function() { NordVPN.connect(null); }
-            offAction: function() { NordVPN.disconnect(); }
+            onAction: function() { VpnService.connect(null); }
+            offAction: function() { VpnService.disconnect(); }
             toggleAction: function() {
-                if (NordVPN.connected || NordVPN.connecting)
-                    NordVPN.disconnect();
-                else
-                    NordVPN.connect(null);
+                VpnService.toggle();
             }
         }
 
         SwitchNode {
             name: "bluetooth"; aliases: ["bt", "bluetooth"]; title: qsTr("Bluetooth")
-            icon: bluetoothIconName()
-            iconColor: Bluetooth.defaultAdapter && Bluetooth.defaultAdapter.enabled ? Config.styling.bluetooth : Config.styling.text1
-            switchState: Bluetooth.defaultAdapter ? Bluetooth.defaultAdapter.enabled : null
+            icon: BluetoothService.iconName
+            iconColor: BluetoothService.enabled ? Config.styling.bluetooth : Config.styling.text1
+            switchState: BluetoothService.enabled
             switchToggleAliases: ["btt"]
             onAction: function() { setBluetooth(true); }
             offAction: function() { setBluetooth(false); }
@@ -452,7 +413,7 @@ TreeBackendBase {
             iconColor: Config.styling.good,
             actionId: "vpn",
             actionProps: { state: "connect" },
-            execute: function() { NordVPN.connect(null); }
+            execute: function() { VpnService.connect(null); }
         }));
 
         (NordVPN.countries || []).forEach(function(country) {
@@ -465,7 +426,7 @@ TreeBackendBase {
                 iconColor: Config.styling.good,
                 actionId: "vpn",
                 actionProps: { state: "connect", destination: country },
-                execute: function() { NordVPN.connect(country); }
+                execute: function() { VpnService.connect(country); }
             }));
         });
 
@@ -481,7 +442,7 @@ TreeBackendBase {
                 iconColor: Config.styling.info,
                 actionId: "vpn",
                 actionProps: { state: "connect", destination: group },
-                execute: function() { NordVPN.connect(group); }
+                execute: function() { VpnService.connect(group); }
             }));
         });
 
@@ -501,8 +462,8 @@ TreeBackendBase {
             id: "audio",
             aliases: ["audio", "sound", "volume", "mute"],
             title: qsTr("Audio"),
-            icon: audioIconName(),
-            iconColor: audioIconColor(),
+            icon: AudioService.outputIconName,
+            iconColor: AudioService.outputMuted ? Config.styling.critical : Config.styling.secondaryAccent,
             template: "flat-action-group",
             groupOptions: { flattenAllChildrenOnParentMatch: true, maxNestedChildren: 10 },
             behavior: { filterable: true },
@@ -538,56 +499,47 @@ TreeBackendBase {
             id: "power-profile",
             aliases: ["powermode", "power-mode", "profile", "power", "energy"],
             title: qsTr("Power Mode"),
-            subtitle: root.powerModeLabel(),
-            icon: root.powerModeIconName(),
-            iconColor: root.powerModeIconColor(),
+            subtitle: PowerService.profileLabel(PowerService.profile),
+            icon: PowerService.profileIconName(PowerService.profile),
+            iconColor: PowerService.profileColor(PowerService.profile),
             control: {
                 kind: "slider",
                 target: "power-profile",
                 from: 0,
                 to: 2,
                 step: 1,
-                value: root.powerModeIndex()
+                value: PowerService.profileIndex(PowerService.profile)
             },
             behavior: { filterable: true }
         };
     }
 
     function audioSinkNodes() {
-        var sinks = audioNodes(PwNodeType.AudioSink);
-        if (sinks.length === 0 && Pipewire.defaultAudioSink)
-            sinks.push(Pipewire.defaultAudioSink);
-        sinks.sort(function(a, b) {
-            var aDefault = Pipewire.defaultAudioSink && a.id === Pipewire.defaultAudioSink.id;
-            var bDefault = Pipewire.defaultAudioSink && b.id === Pipewire.defaultAudioSink.id;
-            if (aDefault !== bDefault)
-                return aDefault ? -1 : 1;
-            return nodeTitle(a).localeCompare(nodeTitle(b));
-        });
-        return sinks.map(function(sink) {
-            var streams = outputStreamsForSink(sink);
-            var children = streams.length > 0 ? [streamGroupNode(sink, streams)] : [];
+        var entries = AudioService.outputDeviceEntries();
+        return entries.map(function(entry) {
+            var streams = AudioService.streamEntriesForOutput(entry.id);
+            var children = streams.length > 0 ? [streamGroupNode(streams)] : [];
             return {
-                id: "sink-" + sink.id,
-                aliases: ["sink", "output", "speaker", nodeTitle(sink)],
-                title: nodeTitle(sink),
-                subtitle: Pipewire.defaultAudioSink && sink.id === Pipewire.defaultAudioSink.id ? qsTr("Default output") : qsTr("Output"),
-                icon: volumeIconName(sink),
-                iconColor: sink.audio && sink.audio.muted ? Config.styling.critical : Config.styling.secondaryAccent,
+                id: "sink-" + entry.id,
+                aliases: ["sink", "output", "speaker", entry.name],
+                title: entry.name,
+                subtitle: entry.default ? qsTr("Default output") : qsTr("Output"),
+                icon: entry.iconName,
+                iconColor: entry.muted ? Config.styling.critical : Config.styling.secondaryAccent,
                 template: "flat-action-group",
                 groupOptions: { flattenAllChildrenOnParentMatch: true, maxNestedChildren: 8 },
                 behavior: { filterable: true },
-                switchState: !!(sink.audio && sink.audio.muted),
-                control: { kind: "slider", target: "pipewire", nodeId: sink.id, from: 0, to: 150, step: 5, value: sink.audio ? Math.round((sink.audio.volume || 0) * 100) : 0 },
-                switchActions: muteSwitchActions(sink),
+                switchState: entry.muted,
+                control: entry.control,
+                switchActions: entry.switchActions,
                 children: children
             };
         });
     }
 
-    function streamGroupNode(sink, streams) {
+    function streamGroupNode(streams) {
         return {
-            id: "sink-" + sink.id + "-streams",
+            id: "streams",
             aliases: ["streams", "apps", "applications"],
             title: qsTr("Streams"),
             subtitle: streams.length + " " + qsTr("active"),
@@ -596,85 +548,20 @@ TreeBackendBase {
             template: "flat-action-group",
             groupOptions: { flattenAllChildrenOnParentMatch: true, maxNestedChildren: 8 },
             behavior: { filterable: true },
-            children: streams.map(function(stream) { return volumeSliderNode(stream, true); })
+            children: streams.map(function(stream) { return volumeSliderNode(stream); })
         };
     }
 
-    function muteSwitchActions(node) {
+    function volumeSliderNode(stream) {
         return {
-            toggle: { id: "toggle", title: qsTr("Toggle"), state: null, execute: function() { toggleMute(node); } },
-            on: { id: "on", title: qsTr("On"), state: true, execute: function() { setMuted(node, true); } },
-            off: { id: "off", title: qsTr("Off"), state: false, execute: function() { setMuted(node, false); } }
+            id: "stream-" + stream.id,
+            aliases: ["stream", "volume", stream.name],
+            title: stream.name,
+            subtitle: stream.volume + "%",
+            icon: stream.iconName,
+            iconColor: stream.muted ? Config.styling.critical : Config.styling.secondaryAccent,
+            control: stream.control
         };
-    }
-
-    function muteSwitchNode(node) {
-        var muted = !!(node && node.audio && node.audio.muted);
-        return {
-            id: "mute",
-            aliases: ["mute", "unmute", "toggle"],
-            title: qsTr("Mute"),
-            subtitle: muted ? qsTr("Muted") : qsTr("Unmuted"),
-            icon: "audio-volume-muted-symbolic",
-            iconColor: muted ? Config.styling.critical : Config.styling.text1,
-            switchState: muted,
-            control: { kind: "switch", target: "pipewire-mute", nodeId: node ? node.id : "" },
-            switchActions: muteSwitchActions(node)
-        };
-    }
-
-    function volumeSliderNode(node, stream) {
-        var percent = node && node.audio ? Math.round((node.audio.volume || 0) * 100) : 0;
-        return {
-            id: stream ? "stream-" + node.id : "volume",
-            aliases: stream ? ["stream", "volume", streamName(node)] : ["volume", "level", "slider"],
-            title: stream ? streamName(node) : qsTr("Volume"),
-            subtitle: percent + "%",
-            icon: volumeIconName(node),
-            iconColor: node && node.audio && node.audio.muted ? Config.styling.critical : Config.styling.secondaryAccent,
-            control: { kind: "slider", target: "pipewire", nodeId: node ? node.id : "", from: 0, to: 150, step: 5, value: percent }
-        };
-    }
-
-    function audioNodes(type) {
-        var out = [];
-        for (const node of Pipewire.nodes.values || []) {
-            if ((node.type & type) === type)
-                out.push(node);
-        }
-        return out;
-    }
-
-    function outputStreamsForSink(sink) {
-        return audioNodes(PwNodeType.AudioOutStream).filter(function(stream) {
-            for (const link of Pipewire.linkGroups.values || []) {
-                if (link.source && link.target && link.source.id === stream.id && link.target.id === sink.id)
-                    return true;
-            }
-            return false;
-        });
-    }
-
-    function nodeTitle(node) {
-        return node ? (node.description || node.name || qsTr("Unknown output")) : qsTr("Unknown output");
-    }
-
-    function volumeIconName(node) {
-        var vol = node && node.audio ? node.audio.volume || 0.0 : 0.0;
-        var muted = node && node.audio ? node.audio.muted || false : false;
-
-        if (muted || vol <= 0.001)
-            return "audio-volume-muted-symbolic";
-        if (vol < 0.34)
-            return "audio-volume-low-symbolic";
-        if (vol < 0.67)
-            return "audio-volume-medium-symbolic";
-        return "audio-volume-high-symbolic";
-    }
-
-    function streamName(stream) {
-        var props = stream && stream.properties || {};
-        return props["media.name"] || props["application.name"] || nodeTitle(stream);
     }
 
     function titleForDashboardTab(tab) {
@@ -703,11 +590,11 @@ TreeBackendBase {
     function dashboardIconForTab(tab) {
         switch (tab) {
         case "overview": return "view-grid-symbolic";
-        case "audio": return audioIconName();
+        case "audio": return AudioService.outputIconName;
         case "notifications": return NotificationCenter.doNotDisturbEnabled ? "bell-disabled-symbolic" : "bell-symbolic";
-        case "bluetooth": return bluetoothIconName();
+        case "bluetooth": return BluetoothService.iconName;
         case "wifi": return networkIconName();
-        case "energy": return energyIconName();
+        case "energy": return PowerService.iconName;
         case "stats": return "utilities-system-monitor-symbolic";
         default: return "view-grid-symbolic";
         }
@@ -716,21 +603,19 @@ TreeBackendBase {
     function colorForDashboardTab(tab) {
         switch (tab) {
         case "overview": return overviewIconColor();
-        case "audio": return audioIconColor();
+        case "audio": return AudioService.outputMuted ? Config.styling.critical : (AudioService.outputVolume === 0 ? Config.styling.warning : Config.styling.text0);
         case "notifications": return notificationIconColor();
-        case "bluetooth": return bluetoothIconColor();
+        case "bluetooth": return BluetoothService.enabled ? Config.styling.bluetooth : Config.styling.critical;
         case "wifi": return Config.styling.text0;
-        case "energy": return energyIconColor();
-        case "stats": return statsIconColor();
+        case "energy": return PowerService.iconColor;
+        case "stats": return Stats.presentation.color;
         default: return overviewIconColor();
         }
     }
 
     function overviewIconColor() {
-        var sink = Pipewire.defaultAudioSink;
-        var battery = UPower.displayDevice;
-        var muted = (sink && sink.audio && sink.audio.muted) || false;
-        var batteryCritical = !!battery && battery.isLaptopBattery === true && (battery.percentage || 0) <= 0.1;
+        var muted = AudioService.outputMuted;
+        var batteryCritical = PowerService.hasBattery && PowerService.batteryPercent <= 10;
         var networkOffline = !NetworkService.connectedSsid && !NetworkService.hasWiredConnection;
 
         if (NotificationCenter.hasCritical || batteryCritical)
@@ -740,60 +625,12 @@ TreeBackendBase {
         return Config.styling.primaryAccent;
     }
 
-    function audioIconName() {
-        var sink = Pipewire.defaultAudioSink;
-        var vol = sink && sink.audio ? sink.audio.volume || 0.0 : 0.0;
-        var muted = sink && sink.audio ? sink.audio.muted || false : false;
-
-        if (muted || vol <= 0.001)
-            return "audio-volume-muted-symbolic";
-        if (vol < 0.34)
-            return "audio-volume-low-symbolic";
-        if (vol < 0.67)
-            return "audio-volume-medium-symbolic";
-        return "audio-volume-high-symbolic";
-    }
-
-    function audioIconColor() {
-        var sink = Pipewire.defaultAudioSink;
-        var vol = sink && sink.audio ? sink.audio.volume || 0.0 : 0.0;
-        var muted = sink && sink.audio ? sink.audio.muted || false : false;
-
-        if (muted)
-            return Config.styling.critical;
-        if (vol === 0.0)
-            return Config.styling.warning;
-        return Config.styling.text0;
-    }
-
     function notificationIconColor() {
         if (NotificationCenter.hasCritical)
             return Config.styling.critical;
         if (NotificationCenter.doNotDisturbEnabled)
             return Config.styling.warning;
         return Config.styling.text0;
-    }
-
-    function bluetoothIconName() {
-        var adapter = Bluetooth.defaultAdapter;
-        var connectedCount = adapter ? (adapter.devices.values || []).filter(function(device) { return device.connected; }).length : 0;
-
-        if (!adapter)
-            return "bluetooth-disabled";
-        if (adapter.state === BluetoothAdapterState.Blocked)
-            return "bluetooth-disabled";
-        if (!adapter.enabled || adapter.state === BluetoothAdapterState.Disabled)
-            return "bluetooth-disabled";
-        if (connectedCount > 0)
-            return "bluetooth-active";
-        if (adapter.discovering)
-            return "bluetooth-active";
-        return "bluetooth-paired";
-    }
-
-    function bluetoothIconColor() {
-        var adapter = Bluetooth.defaultAdapter;
-        return adapter && adapter.enabled ? Config.styling.bluetooth : Config.styling.critical;
     }
 
     function networkIconName() {
@@ -808,114 +645,19 @@ TreeBackendBase {
         return NetworkService.wifiEnabled ? "network-wireless-offline-symbolic" : "network-wireless-disabled-symbolic";
     }
 
-    function powerModeIndex() {
-        switch (PowerProfiles.profile) {
-        case PowerProfile.PowerSaver: return 0;
-        case PowerProfile.Performance: return 2;
-        default: return 1;
-        }
-    }
-
-    function powerModeFromIndex(index) {
-        switch (Math.round(index)) {
-        case 0: return PowerProfile.PowerSaver;
-        case 2: return PowerProfile.Performance;
-        default: return PowerProfile.Balanced;
-        }
-    }
-
-    function powerModeLabel() {
-        switch (PowerProfiles.profile) {
-        case PowerProfile.PowerSaver: return qsTr("Power Saver");
-        case PowerProfile.Performance: return qsTr("Performance");
-        default: return qsTr("Balanced");
-        }
-    }
-
-    function powerModeIconName() {
-        switch (PowerProfiles.profile) {
-        case PowerProfile.PowerSaver: return "power-profile-power-saver-symbolic";
-        case PowerProfile.Performance: return "power-profile-performance-symbolic";
-        default: return "power-profile-balanced-symbolic";
-        }
-    }
-
-    function powerModeIconColor() {
-        switch (PowerProfiles.profile) {
-        case PowerProfile.PowerSaver: return Config.styling.good;
-        case PowerProfile.Performance: return Config.styling.critical;
-        default: return Config.colors.yellow;
-        }
-    }
-
-    function energyIconName() {
-        var battery = UPower.displayDevice;
-        var hasBattery = battery && battery.isLaptopBattery === true;
-
-        if (hasBattery)
-            return battery.iconName || "battery-missing-symbolic";
-
-        switch (PowerProfiles.profile) {
-        case PowerProfile.PowerSaver:
-            return "power-profile-power-saver-symbolic";
-        case PowerProfile.Performance:
-            return "power-profile-performance-symbolic";
-        default:
-            return "power-profile-balanced-symbolic";
-        }
-    }
-
-    function energyIconColor() {
-        var battery = UPower.displayDevice;
-        var hasBattery = battery && battery.isLaptopBattery === true;
-
-        if (hasBattery) {
-            var percentage = Math.round((battery.percentage || 0) * 100);
-            if (percentage <= 10)
-                return Config.styling.critical;
-            if (percentage <= 20)
-                return Config.styling.warning;
-            return battery.state === UPowerDeviceState.Charging ? Config.styling.good : Config.styling.text0;
-        }
-
-        switch (PowerProfiles.profile) {
-        case PowerProfile.PowerSaver:
-            return Config.styling.good;
-        case PowerProfile.Performance:
-            return Config.styling.critical;
-        default:
-            return Config.colors.yellow;
-        }
-    }
-
-    function statsIconColor() {
-        if (Stats.cpuPercent >= 90 || Stats.memoryPercent >= 90)
-            return Config.styling.critical;
-        if (Stats.cpuPercent >= 70 || Stats.memoryPercent >= 75)
-            return Config.styling.warning;
-        return Config.styling.text0;
-    }
-
     function setWifi(state) {
         var enabled = state === null ? !NetworkService.wifiEnabled : state;
-        Quickshell.execDetached({ command: ["nmcli", "radio", "wifi", enabled ? "on" : "off"] });
-        NetworkService.refresh();
+        NetworkService.setWifiEnabled(enabled);
     }
 
     function setBluetooth(state) {
-        var adapter = Bluetooth.defaultAdapter;
-        if (adapter)
-            adapter.enabled = state === null ? !adapter.enabled : state;
+        var enabled = state === null ? !BluetoothService.enabled : state;
+        BluetoothService.setEnabled(enabled);
     }
 
     function setDnd(state) {
         var enabled = state === null ? !NotificationCenter.doNotDisturbEnabled : state;
-        NotificationCenter.toastsEnabled = !enabled;
-    }
-
-    function setMuted(node, muted) {
-        if (node && node.audio)
-            node.audio.muted = muted;
+        NotificationCenter.setDoNotDisturb(enabled);
     }
 
     function isDevMode() {
@@ -928,11 +670,6 @@ TreeBackendBase {
             launchTerminalPaused(qsTr("Enable dev mode"), "if [ -x /run/current-system/specialisation/dev/bin/switch-to-configuration ]; then sudo /run/current-system/specialisation/dev/bin/switch-to-configuration test; else printf '%s\\n' 'dev specialization is not available'; exit 1; fi");
         else
             launchTerminalPaused(qsTr("Disable dev mode"), "sudo /run/current-system/bin/switch-to-configuration test");
-    }
-
-    function toggleMute(node) {
-        if (node && node.audio)
-            node.audio.muted = !node.audio.muted;
     }
 
     function screenshotArea() {
