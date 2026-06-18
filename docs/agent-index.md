@@ -15,6 +15,11 @@
 - `docs/playbooks/dev-specialization.md` — live config reloading
 - `docs/architecture.md` — launcher architecture overview
 
+## When changing Hyprland keymaps
+- `docs/contracts/hyprland-keymap.md` — key-cycle resolver contract, DSL shape, backend limits
+- Source: `configs/hypr/keybinds.lua`, `configs/hypr/keymap/`
+- Test: `lua configs/hypr/keymap/tests.lua`
+
 ## When touching launcher search
 - `docs/architecture.md` — launcher architecture (pipeline, DTO boundary, prefix gating)
 - `docs/contracts/quickshell-design.md` — anti-patterns for row data and backends

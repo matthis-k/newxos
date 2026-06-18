@@ -109,6 +109,12 @@ A NixOS specialization that switches programs to use live configs from the repo 
 
 Source: `modules/dev/dev-specialization.nix`, `modules/desktop/wrappers/`.
 
+## Hyprland keymap resolver
+
+Hyprland keybinds use a declarative Lua DSL in `configs/hypr/keybinds.lua` backed by the pure key-cycle resolver in `configs/hypr/keymap/`. The resolver owns alias normalization, canonical chord IDs, duplicate detection, press/tap/hold/long/repeat/release semantics, and consumption state. The Hyprland adapter compiles registered rules to `hl.bind` or feeds registered press/release sentinels into the resolver; it does not own separate Super/Caps/launcher/window-movement behavior.
+
+Contract and backend limits: `docs/contracts/hyprland-keymap.md`.
+
 ## Launcher architecture
 
 The Quickshell launcher uses a composite search pipeline:

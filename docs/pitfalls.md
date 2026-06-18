@@ -230,6 +230,18 @@ Hyprland 0.55+ uses Lua config. LSP needs stubs at a path that depends on how Hy
 
 Fix: keep `.luarc.json` at repo root pointed at the correct Hyprland stubs path. The path changes between Nix-managed and system-managed Hyprland.
 
+### Native Lua binds are registered events, not raw input
+
+Hyprland Lua `hl.bind` can observe registered press/release binds and timers, but it is not a raw all-key down/up stream. Do not set `unknown_chord_policy = "any_key"` or claim unknown keys suppress held-key taps unless a raw input backend exists.
+
+Fix: keep the Hyprland backend on `registered_only`; add explicit registered chords or extend the backend boundary rather than adding Super/Caps-specific tap suppression.
+
+### Standalone modifier sentinels use target modmask plus physical key
+
+Hyprland's Lua bind docs specify modifier-only binds as the target modmask plus the physical modifier key, with `release = true` for release behavior: `hl.bind("ALT + ALT_L", ..., { release = true })`. For Super, use `SUPER + SUPER_L` and `SUPER + SUPER_R` sentinels.
+
+Fix: do not bind modifier-only sentinels as bare `SUPER_L`/`ALT_L` unless upstream docs change. The resolver backend should register press/release sentinels using the documented target-modmask form and dispatch resolved actions through `hl.dispatch`.
+
 ## Wrappers
 
 ### Prefer existing wrapper over raw package
