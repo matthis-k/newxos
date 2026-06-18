@@ -85,6 +85,15 @@
           attempt=$((attempt + 1))
         done
       '';
+      treefmtProjectRoot = lib.cleanSourceWith {
+        src = self;
+        filter =
+          path: type:
+          let
+            relPath = lib.removePrefix "${self}/" (toString path);
+          in
+          relPath != ".git" && !lib.hasPrefix ".git/" relPath;
+      };
       hyprlandConfigDir = builtins.path {
         name = "hyprland-config";
         path = "${self}/configs/hypr";
@@ -144,6 +153,7 @@
       pre-commit.check.enable = false;
 
       treefmt = {
+        projectRoot = treefmtProjectRoot;
         projectRootFile = "flake.nix";
         programs.nixfmt.enable = true;
         programs.stylua.enable = true;
