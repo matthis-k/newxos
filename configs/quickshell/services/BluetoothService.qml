@@ -16,7 +16,18 @@ Singleton {
     readonly property bool enabled: adapter ? adapter.enabled : false
     readonly property bool blocked: adapter ? adapter.state === BluetoothAdapterState.Blocked : false
     readonly property bool scanning: adapter ? adapter.discovering : false
-    readonly property bool busy: false
+    property string currentOperationKind: ""
+    property string currentOperationTarget: ""
+    property bool currentOperationRunning: false
+    property string currentOperationLastError: ""
+
+    readonly property var operation: ({
+        kind: currentOperationKind,
+        target: currentOperationTarget,
+        running: currentOperationRunning,
+        lastError: currentOperationLastError
+    })
+    readonly property bool busy: currentOperationRunning || scanning
     readonly property bool connected: connectedCount > 0
     readonly property int connectedCount: adapter ? (adapter.devices.values || []).filter(d => d.connected).length : 0
 
@@ -33,6 +44,18 @@ Singleton {
     readonly property var availableDevices: devices
 
     property var _revision: 0
+
+    function beginOperation(kind, target) {
+        currentOperationKind = kind || "";
+        currentOperationTarget = target || "";
+        currentOperationRunning = true;
+        currentOperationLastError = "";
+    }
+
+    function finishOperation(success, message) {
+        currentOperationRunning = false;
+        currentOperationLastError = success ? "" : (message || `${currentOperationKind || "operation"} failed`);
+    }
 
     readonly property string iconName: {
         if (!adapter) return "bluetooth-disabled";
@@ -122,51 +145,90 @@ Singleton {
     }
 
     function setEnabled(value) {
-        if (adapter)
+        if (adapter) {
+            beginOperation("toggle", "adapter");
             adapter.enabled = value;
+            finishOperation(true, "");
+        }
     }
 
     function toggle() {
-        if (adapter)
+        if (adapter) {
+            beginOperation("toggle", "adapter");
             adapter.enabled = !adapter.enabled;
+            finishOperation(true, "");
+        }
     }
 
     function scan(value) {
-        if (adapter)
+        if (adapter) {
+            beginOperation("scan", value ? "on" : "off");
             adapter.discovering = value;
+            if (!value)
+                finishOperation(true, "");
+        }
     }
 
     function connectDevice(id) {
         const device = rawDeviceById(id);
-        if (device)
+        if (device) {
+            beginOperation("connect", id);
             device.connect();
+            finishOperation(true, "");
+        } else {
+            beginOperation("connect", id);
+            finishOperation(false, "Bluetooth device not found");
+        }
     }
 
     function disconnectDevice(id) {
         const device = rawDeviceById(id);
-        if (device)
+        if (device) {
+            beginOperation("disconnect", id);
             device.disconnect();
+            finishOperation(true, "");
+        } else {
+            beginOperation("disconnect", id);
+            finishOperation(false, "Bluetooth device not found");
+        }
     }
 
     function pairDevice(id) {
         const device = rawDeviceById(id);
-        if (!device) return;
+        beginOperation("pair", id);
+        if (!device) {
+            finishOperation(false, "Bluetooth device not found");
+            return;
+        }
         if (device.pairing)
             device.cancelPair();
         else
             device.pair();
+        finishOperation(true, "");
     }
 
     function forgetDevice(id) {
         const device = rawDeviceById(id);
-        if (device)
+        if (device) {
+            beginOperation("forget", id);
             device.forget();
+            finishOperation(true, "");
+        } else {
+            beginOperation("forget", id);
+            finishOperation(false, "Bluetooth device not found");
+        }
     }
 
     function setTrusted(id, value) {
         const device = rawDeviceById(id);
-        if (device)
+        if (device) {
+            beginOperation("trust", id);
             device.trusted = value;
+            finishOperation(true, "");
+        } else {
+            beginOperation("trust", id);
+            finishOperation(false, "Bluetooth device not found");
+        }
     }
 
     function executePayload(payload) {
@@ -194,7 +256,11 @@ Singleton {
             root.adapter.enabledChanged.connect(function() { root._revision++; });
             if (root.adapter.devicesChanged)
                 root.adapter.devicesChanged.connect(function() { root._revision++; });
-            root.adapter.discoveringChanged.connect(function() { root._revision++; });
+            root.adapter.discoveringChanged.connect(function() {
+                root._revision++;
+                if (!root.adapter.discovering && root.currentOperationKind === "scan")
+                    root.finishOperation(true, "");
+            });
         }
     }
 }

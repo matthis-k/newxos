@@ -29,6 +29,30 @@ Singleton {
     readonly property string inputDeviceName: defaultSource ? nodeName(defaultSource, "Input") : "No input"
 
     property var _revision: 0
+    property string currentOperationKind: ""
+    property string currentOperationTarget: ""
+    property bool currentOperationRunning: false
+    property string currentOperationLastError: ""
+
+    readonly property var operation: ({
+        kind: currentOperationKind,
+        target: currentOperationTarget,
+        running: currentOperationRunning,
+        lastError: currentOperationLastError
+    })
+    readonly property bool busy: currentOperationRunning
+
+    function beginOperation(kind, target) {
+        currentOperationKind = kind || "";
+        currentOperationTarget = target || "";
+        currentOperationRunning = true;
+        currentOperationLastError = "";
+    }
+
+    function finishOperation(success, message) {
+        currentOperationRunning = false;
+        currentOperationLastError = success ? "" : (message || `${currentOperationKind || "operation"} failed`);
+    }
 
     readonly property string outputIconName: defaultSink ? volumeIconName(defaultSink, false) : "audio-volume-muted-symbolic"
     readonly property color outputIconColor: outputMuted ? Config.styling.critical : (outputVolume === 0 ? Config.styling.warning : Config.styling.text0)
@@ -94,9 +118,14 @@ Singleton {
     }
 
     function setVolume(node, percent) {
-        if (!node || !node.audio) return;
+        beginOperation("set-volume", node ? String(node.id) : "");
+        if (!node || !node.audio) {
+            finishOperation(false, "Audio node not found");
+            return;
+        }
         node.audio.volume = Math.max(0, Math.min(1.5, percent / 100));
         root._revision++;
+        finishOperation(true, "");
     }
 
     function volumePercentById(id) {
@@ -149,15 +178,25 @@ Singleton {
     }
 
     function setMuted(node, value) {
-        if (!node || !node.audio) return;
+        beginOperation("toggle", node ? String(node.id) : "");
+        if (!node || !node.audio) {
+            finishOperation(false, "Audio node not found");
+            return;
+        }
         node.audio.muted = value;
         root._revision++;
+        finishOperation(true, "");
     }
 
     function toggleMute(node) {
-        if (!node || !node.audio) return;
+        beginOperation("toggle", node ? String(node.id) : "");
+        if (!node || !node.audio) {
+            finishOperation(false, "Audio node not found");
+            return;
+        }
         node.audio.muted = !node.audio.muted;
         root._revision++;
+        finishOperation(true, "");
     }
 
     function volumeIconName(node, inputNode) {
@@ -202,33 +241,46 @@ Singleton {
     }
 
     function setDefaultOutput(id) {
+        beginOperation("set-profile", String(id || ""));
         for (const node of Pipewire.nodes.values || []) {
             if (node.id === id || String(node.id) === String(id)) {
                 Pipewire.preferredDefaultAudioSink = node;
                 root._revision++;
+                finishOperation(true, "");
                 return;
             }
         }
+        finishOperation(false, "Audio output not found");
     }
 
     function setDefaultInput(id) {
+        beginOperation("set-profile", String(id || ""));
         for (const node of Pipewire.nodes.values || []) {
             if (node.id === id || String(node.id) === String(id)) {
                 Pipewire.preferredDefaultAudioSource = node;
                 root._revision++;
+                finishOperation(true, "");
                 return;
             }
         }
+        finishOperation(false, "Audio input not found");
     }
 
     function moveStreamTo(streamId, targetNodeId) {
         const streamNode = rawNodeById(streamId);
         const targetNode = rawNodeById(targetNodeId);
-        if (!streamNode || !targetNode) return;
+        beginOperation("move-stream", `${streamId}:${targetNodeId}`);
+        if (!streamNode || !targetNode) {
+            finishOperation(false, "Audio stream or target not found");
+            return;
+        }
         const proc = Qt.createQmlObject("import Quickshell.Io; Process {}", root);
         proc.command = ["pw-cli", "move-stream", String(streamNode.id), String(targetNode.id)];
         proc.running = true;
-        proc.onExited.connect(function() { proc.destroy(); });
+        proc.onExited.connect(function(exitCode) {
+            root.finishOperation(exitCode === 0, `move stream failed (${exitCode})`);
+            proc.destroy();
+        });
     }
 
     function rawNodeById(id) {

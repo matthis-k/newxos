@@ -8,7 +8,6 @@ Singleton {
 
     property bool available: false
     property bool connected: false
-    property bool connecting: false
     property string status: "Disconnected"
     property string server: ""
     property string hostname: ""
@@ -24,9 +23,34 @@ Singleton {
     property var settings: ({})
     property var countries: []
     property var groups: []
+    property string currentOperationKind: ""
+    property string currentOperationTarget: ""
+    property bool currentOperationRunning: false
+    property string currentOperationLastError: ""
+
+    readonly property var operation: ({
+        kind: currentOperationKind,
+        target: currentOperationTarget,
+        running: currentOperationRunning,
+        lastError: currentOperationLastError
+    })
+    readonly property bool connecting: currentOperationRunning && currentOperationKind === "connect"
+    readonly property bool busy: currentOperationRunning
     readonly property var destinations: [{ "name": "Fastest server", "value": null, "kind": "fastest" }]
         .concat(countries.map(name => ({ "name": name, "value": name, "kind": "country" })))
         .concat(groups.map(name => ({ "name": name, "value": name, "kind": "group" })))
+
+    function beginOperation(kind, target) {
+        currentOperationKind = kind || "";
+        currentOperationTarget = target || "";
+        currentOperationRunning = true;
+        currentOperationLastError = "";
+    }
+
+    function finishOperation(success, message) {
+        currentOperationRunning = false;
+        currentOperationLastError = success ? "" : (message || `${currentOperationKind || "operation"} failed`);
+    }
 
     function parseList(text) {
         return (text || "")
@@ -100,10 +124,10 @@ Singleton {
 
         root.available = newAvailable;
         root.connected = newConnected;
-        if (newConnected)
-            root.connecting = false;
-        else if (root.connecting && newStatus === "Disconnected")
-            root.connecting = false;
+        if (root.currentOperationKind === "connect" && (newConnected || newStatus === "Disconnected"))
+            root.finishOperation(newConnected, newConnected ? "" : "VPN connect did not complete");
+        else if (root.currentOperationKind === "disconnect" && newStatus === "Disconnected")
+            root.finishOperation(true, "");
         root.status = newStatus;
         root.server = newServer;
         root.hostname = newHostname;
@@ -167,14 +191,14 @@ Singleton {
     }
 
     function connect(destination) {
-        if (root.connecting)
+        if (root.currentOperationRunning)
             return;
 
         const command = ["nordvpn", "connect"];
         if (destination !== null && destination !== undefined && String(destination).trim() !== "")
             command.push(String(destination));
 
-        root.connecting = true;
+        beginOperation("connect", destination ? String(destination) : "fastest");
         connectProcess.exec({
             command: command
         });
@@ -204,6 +228,7 @@ Singleton {
     }
 
     function disconnect() {
+        beginOperation("disconnect", "vpn");
         disconnectProcess.exec({
             command: ["nordvpn", "disconnect"]
         });
@@ -211,6 +236,7 @@ Singleton {
 
     function setSetting(key, value) {
         const strValue = value === true ? "enabled" : value === false ? "disabled" : String(value);
+        beginOperation("set-profile", key);
         setProcess.exec({
             command: ["nordvpn", "set", key, strValue]
         });
@@ -265,7 +291,7 @@ Singleton {
             if (exitCode === 0) {
                 refreshDelay.restart();
             } else {
-                root.connecting = false;
+                root.finishOperation(false, `vpn connect failed (${exitCode})`);
             }
         }
     }
@@ -273,14 +299,19 @@ Singleton {
     Process {
         id: disconnectProcess
         function onExited(exitCode) {
-            if (exitCode === 0)
+            if (exitCode === 0) {
+                root.finishOperation(true, "");
                 refreshDelay.restart();
+            } else {
+                root.finishOperation(false, `vpn disconnect failed (${exitCode})`);
+            }
         }
     }
 
     Process {
         id: setProcess
         function onExited(exitCode) {
+            root.finishOperation(exitCode === 0, `vpn setting failed (${exitCode})`);
             if (exitCode === 0)
                 settingsRefreshDelay.restart();
         }

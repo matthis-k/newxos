@@ -12,7 +12,12 @@ Singleton {
     readonly property bool available: NordVPN.available
     readonly property bool connected: NordVPN.connected
     readonly property bool connecting: NordVPN.connecting
-    readonly property bool busy: NordVPN.connecting
+    readonly property bool busy: NordVPN.busy
+    readonly property string currentOperationKind: NordVPN.currentOperationKind
+    readonly property string currentOperationTarget: NordVPN.currentOperationTarget
+    readonly property bool currentOperationRunning: NordVPN.currentOperationRunning
+    readonly property string currentOperationLastError: NordVPN.currentOperationLastError
+    readonly property var operation: NordVPN.operation
 
     readonly property string providerName: "NordVPN"
 

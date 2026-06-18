@@ -14,6 +14,18 @@ Singleton {
     property int currentValue: 0
     property int maxValue: 100
     property int step: 5
+    property string currentOperationKind: ""
+    property string currentOperationTarget: ""
+    property bool currentOperationRunning: false
+    property string currentOperationLastError: ""
+
+    readonly property var operation: ({
+        kind: currentOperationKind,
+        target: currentOperationTarget,
+        running: currentOperationRunning,
+        lastError: currentOperationLastError
+    })
+    readonly property bool busy: currentOperationRunning
 
     readonly property int percent: available && maxValue > 0 ? Math.round((currentValue / maxValue) * 100) : 0
     readonly property string iconName: {
@@ -65,6 +77,18 @@ Singleton {
         };
     }
 
+    function beginOperation(kind, target) {
+        currentOperationKind = kind || "";
+        currentOperationTarget = target || "";
+        currentOperationRunning = true;
+        currentOperationLastError = "";
+    }
+
+    function finishOperation(success, message) {
+        currentOperationRunning = false;
+        currentOperationLastError = success ? "" : (message || `${currentOperationKind || "operation"} failed`);
+    }
+
     function applyProbe(text) {
         const parts = (text || "").trim().split(/\s+/);
         if (parts.length < 2) {
@@ -99,6 +123,7 @@ Singleton {
             return;
 
         const clamped = Math.max(0, Math.min(100, Math.round(targetPercent)));
+        beginOperation("set-brightness", `${clamped}%`);
         setter.exec({
             command: ["brightnessctl", "-q", "-n2", "-c", "backlight", "set", `${clamped}%`]
         });
@@ -124,6 +149,7 @@ Singleton {
     Process {
         id: setter
         function onExited(exitCode) {
+            root.finishOperation(exitCode === 0, `set brightness failed (${exitCode})`);
             refreshDelay.restart();
         }
     }

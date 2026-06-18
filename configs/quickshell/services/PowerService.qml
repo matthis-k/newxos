@@ -20,6 +20,30 @@ Singleton {
 
     readonly property int profile: PowerProfiles.profile
     readonly property var profiles: [PowerProfile.PowerSaver, PowerProfile.Balanced, PowerProfile.Performance]
+    property string currentOperationKind: ""
+    property string currentOperationTarget: ""
+    property bool currentOperationRunning: false
+    property string currentOperationLastError: ""
+
+    readonly property var operation: ({
+        kind: currentOperationKind,
+        target: currentOperationTarget,
+        running: currentOperationRunning,
+        lastError: currentOperationLastError
+    })
+    readonly property bool busy: currentOperationRunning
+
+    function beginOperation(kind, target) {
+        currentOperationKind = kind || "";
+        currentOperationTarget = target || "";
+        currentOperationRunning = true;
+        currentOperationLastError = "";
+    }
+
+    function finishOperation(success, message) {
+        currentOperationRunning = false;
+        currentOperationLastError = success ? "" : (message || `${currentOperationKind || "operation"} failed`);
+    }
 
     readonly property string state: {
         if (hasBattery && batteryPercent <= 10) return "critical";
@@ -83,13 +107,15 @@ Singleton {
     }
 
     function setProfile(profile) {
+        beginOperation("set-profile", profileLabel(profile));
         PowerProfiles.profile = profile;
+        finishOperation(true, "");
     }
 
     function cycleProfile(direction) {
         const idx = profileIndex(PowerProfiles.profile);
         const newIdx = Math.max(0, Math.min(2, idx + direction));
-        PowerProfiles.profile = profileFromIndex(newIdx);
+        setProfile(profileFromIndex(newIdx));
     }
 
     function profileIndex(profile) {
