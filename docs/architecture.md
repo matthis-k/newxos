@@ -120,6 +120,8 @@ Contract and backend limits: `docs/contracts/hyprland-keymap.md`.
 The Quickshell launcher uses a composite search pipeline:
 
 - **Backends** produce normalized tree DTOs (plain JS objects, no live QML refs). Backend types: static trees, model-derived trees, computed results, streaming results, process-backed results.
+- **LauncherController** (`configs/quickshell/launcher/LauncherController.qml`) is a compatibility façade: existing QML users keep the same public properties, signals, and methods, while focused controllers own the behavior behind them.
+- **Launcher controllers** (`configs/quickshell/launcher/controllers/`) split controller responsibilities by lifecycle: `LauncherSearchSession.qml` owns query debounce, generation counters, async backend orchestration, stale-result suppression, and loading state; `LauncherNavigationState.qml` owns result snapshots, selection, tree navigation, expansion/collapse state, and lazy child loading; `LauncherActionController.qml` owns activation, confirmation, recipes, interactions, and switch/control action refresh; `LauncherDebugController.qml` owns debug serialization, benchmark, policies, cases, and visual debug endpoints.
 - **Composite search** (`configs/quickshell/launcher/logic/`) handles indexing, candidate collection, evidence scoring, tree evaluation, path evidence, flattening, and row generation.
 - **Pipeline modules** (`configs/quickshell/launcher/logic/`) provide explicit model/utility modules for policy spec normalization, score bundles, result shaping, presentation context, and rendered row construction.
 - **ScoreBundle** (`logic/ScoreBundle.qml`) wraps own/inherited/children/aggregate score parts with coverage info, alongside legacy score fields.
@@ -133,8 +135,8 @@ The Quickshell launcher uses a composite search pipeline:
 - **ActionPolicy** is not extracted yet.
 - **Normalized result rows** carry only primitive fields, actions, and evidence metadata — no raw tree objects or evaluated nodes.
 - **UI delegates** render normalized row data; they do not recompute scoring or hold backend references.
-- **Update coalescing** (`LauncherController.searchTimer`) prevents per-keystroke re-entrance. Async backends check generation counters before applying results.
-- **Routing tree** (`configs/quickshell/launcher/logic/RoutingTree.js`): A shared recursive tree owned by `LauncherController`. Backends register their route declarations (`prefix`/`pattern`, `priority`, `combine`, `afterEmpty`) during `Component.onCompleted`. The routing tree replaces the old `Router.js` and `helpPrefixes`-based gating with a single shared structure.
+- **Update coalescing** (`controllers/LauncherSearchSession.qml`) prevents per-keystroke re-entrance. Async backends check query and generation counters before applying results.
+- **Routing tree** (`configs/quickshell/launcher/logic/RoutingTree.js`): A shared recursive tree exposed by the `LauncherController` façade and consumed by `LauncherSearchSession`/`Engine`. Backends register their route declarations (`prefix`/`pattern`, `priority`, `combine`, `afterEmpty`) during `Component.onCompleted`. The routing tree replaces the old `Router.js` and `helpPrefixes`-based gating with a single shared structure.
   - **Route tiers**: Endpoints are grouped by `priority` (higher = earlier). The first tier with matches wins.
   - **Exclusive routing**: When a matched endpoint declares `combine: "exclusive"`, only that endpoint's subtree runs. Other backends are excluded.
   - **Shared routing**: When multiple endpoints at the same priority match and none are exclusive, all matching backends participate.

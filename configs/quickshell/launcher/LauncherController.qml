@@ -1,59 +1,47 @@
 import QtQuick
 import QtQml
 import "logic/"
-import "logic/pipeline/"
-import "logic/PolicySpec.qml"
 import "logic/RoutingTree.js" as RoutingTree
-import "logic/DebugLogger.js" as DebugLogger
-import "logic/ActionSpec.qml"
-import "logic/ActionRegistry.qml"
-import "logic/RecipeResolver.qml"
-import "logic/InteractionResolver.qml"
+import "controllers" as Controllers
 import "policies" as P
 
 Item {
     id: root
 
-    property string query: ""
+    property alias query: searchSession.query
     property var backends: []
-    property var results: []
+    property alias results: navigation.results
     property var routingTree: RoutingTree.makeTree()
-    property int selectedIndex: 0
-    property int selectedActionIndex: 0
-    property bool loading: false
-    property int generation: 0
-    property int _asyncGen: 0
+    property alias selectedIndex: navigation.selectedIndex
+    property alias selectedActionIndex: navigation.selectedActionIndex
+    property alias loading: searchSession.loading
+    property alias generation: searchSession.generation
+    property alias _asyncGen: searchSession.asyncGeneration
     property int maxResults: 12
     property real visibilityThreshold: 0.18
     property bool includePath: true
     property bool showHidden: false
     property int maxTreeDepth: 4
-    property var expandedNodeIds: ({})
-    property var collapsedResultIndices: ({})
-    property var lastQuery: null
-    property var lastDirective: null
-    property var lastEvaluatedRoot: null
-    property var asyncBackendQueries: ({})
-    property string resultsQuery: ""
+    property alias expandedNodeIds: navigation.expandedNodeIds
+    property alias collapsedResultIndices: navigation.collapsedResultIndices
+    property alias lastQuery: navigation.lastQuery
+    property alias lastDirective: navigation.lastDirective
+    property alias lastEvaluatedRoot: navigation.lastEvaluatedRoot
+    property alias asyncBackendQueries: searchSession.asyncBackendQueries
+    property alias resultsQuery: navigation.resultsQuery
     property bool debugEnabled: false
     property string lastAsyncVisualJson: ""
-    property var pendingConfirmId: null
-    property int pendingConfirmTimeoutMs: 1600
-
-    Timer {
-        id: pendingConfirmTimer
-        interval: root.pendingConfirmTimeoutMs
-        onTriggered: root.pendingConfirmId = null
-    }
+    property alias pendingConfirmId: actions.pendingConfirmId
+    property alias pendingConfirmTimeoutMs: actions.pendingConfirmTimeoutMs
 
     // Tree navigation state
-    property var currentTreeView: null
-    property string currentTreeKey: ""
-    property int treeVisualRow: -1
-    readonly property bool inTree: currentTreeView !== null && treeVisualRow >= 0
-    property var resultTreeViews: ({})
-    property var resultView: null
-    property string activeNodeKey: ""
+    property alias currentTreeView: navigation.currentTreeView
+    property alias currentTreeKey: navigation.currentTreeKey
+    property alias treeVisualRow: navigation.treeVisualRow
+    readonly property bool inTree: navigation.inTree
+    property alias resultTreeViews: navigation.resultTreeViews
+    property alias resultView: navigation.resultView
+    property alias activeNodeKey: navigation.activeNodeKey
 
     signal queryReplacementRequested(string text)
     signal queryUpdateRequested(string text)
@@ -67,26 +55,43 @@ Item {
     signal asyncBackendSearchStarted(var backend, string key, string text)
     signal asyncBackendResultsReceived(var backend, string key, string text, int generation, var update)
     signal searchRequested(string text, int generation)
+    signal searchStarted(string text, int generation)
     signal searchCompleted(string text, int generation, var output)
     signal resultsAvailable(string text, int generation, var rows, var output)
     signal treeSwitchRefreshRequested(int resultIndex)
 
-    Timer {
-        id: searchTimer
-        interval: 40
-        repeat: false
-        onTriggered: {
-            var text = root.query;
-            var gen = root.generation;
-            var ag = (root._asyncGen += 1);
-            triggerAsyncBackends(text, gen);
-            Engine.searchAsync(backends || [], text || "", stateForSearch(), searchOptions(),
-                function() { return root.generation === gen && root._asyncGen === ag; },
-                function(output) {
-                    if (output) root.searchCompleted(text, gen, output);
-                }
-            );
+    Controllers.LauncherSearchSession {
+        id: searchSession
+        controller: root
+        backends: root.backends
+        routingTree: root.routingTree
+        maxResults: root.maxResults
+
+        onResultsClearRequested: root.resultsClearRequested()
+        onSearchStarted: function(text, requestGeneration) {
+            root.searchStarted(text, requestGeneration);
         }
+        onSearchCompleted: function(text, requestGeneration, output) {
+            root.searchCompleted(text, requestGeneration, output);
+        }
+        onResultsAvailable: function(text, requestGeneration, rows, output) {
+            root.resultsAvailable(text, requestGeneration, rows, output);
+        }
+    }
+
+    Controllers.LauncherNavigationState {
+        id: navigation
+        controller: root
+    }
+
+    Controllers.LauncherActionController {
+        id: actions
+        controller: root
+    }
+
+    Controllers.LauncherDebugController {
+        id: debugController
+        controller: root
     }
 
     P.UsagePolicy {}
@@ -118,102 +123,15 @@ Item {
         Component.onCompleted: PolicyRegistry.registerBaseNameAliases()
     }
 
-    onQueryUpdateRequested: function(text) {
-        generation += 1;
-        query = text;
-        selectedActionIndex = 0;
-
-        if (!text || text.trim().length === 0) {
-            resultsClearRequested();
-            lastQuery = null;
-            lastDirective = null;
-            lastEvaluatedRoot = null;
-            searchTimer.stop();
-            return;
-        }
-
-        searchTimer.restart();
-    }
-
-    onResetRequested: function() {
-        searchTimer.stop();
-        query = "";
-        resultsClearRequested();
-        loading = false;
-        generation += 1;
-        lastQuery = null;
-        lastDirective = null;
-        lastEvaluatedRoot = null;
-        asyncBackendQueries = {};
-        lastAsyncVisualJson = "";
-        _asyncGen += 1;
-    }
-
-    onResultsClearRequested: function() {
-        results = [];
-        resultsQuery = "";
-        selectionResetRequested();
-    }
-
-    onResultsRefreshRequested: function() {
-        results = results.slice();
-    }
-
-    onSelectionResetRequested: function() {
-        selectedIndex = -1;
-        selectedActionIndex = 0;
-        root.resetTreeNavigation();
-    }
-
-    onAsyncLoadingRefreshRequested: function() {
-        loading = hasPendingAsyncBackends();
-    }
-
-    onAsyncBackendSearchStarted: function(backend, key, text) {
-        var state = asyncBackendQueries[key] || {};
-        state.pending = text;
-        state.ready = "";
-        asyncBackendQueries[key] = state;
-        backend.pendingCompositeQuery = text;
-        backend.compositeQuery = "";
-        backend.applyStreamUpdate({ op: "clear" });
-        asyncLoadingRefreshRequested();
-    }
-
-    onAsyncBackendResultsReceived: function(backend, key, text, requestGeneration, update) {
-        if (requestGeneration !== root.generation || text !== root.query)
-            return;
-
-        var state = asyncBackendQueries[key] || {};
-        state.pending = "";
-        state.ready = text;
-        asyncBackendQueries[key] = state;
-        backend.pendingCompositeQuery = "";
-        backend.compositeQuery = text;
-        backend.applyStreamUpdate(update || []);
-        asyncLoadingRefreshRequested();
-        root._asyncGen += 1;
-        searchRequested(text, requestGeneration);
-    }
-
-    onSearchRequested: function(text, requestGeneration) {
-        var ag = root._asyncGen;
-        triggerAsyncBackends(text, requestGeneration);
-        Engine.searchAsync(backends || [], text || "", stateForSearch(), searchOptions(),
-            function() { return root.generation === requestGeneration && root._asyncGen === ag; },
-            function(output) {
-                if (output) root.searchCompleted(text, requestGeneration, output);
-            }
-        );
-    }
-
-    onSearchCompleted: function(text, requestGeneration, output) {
-        if (!output || requestGeneration !== root.generation || text !== root.query)
-            return;
-
-        resultsAvailable(text, requestGeneration, output.rows.slice(0, maxResults), output);
-    }
-
+    onQueryUpdateRequested: function(text) { searchSession.updateQuery(text); }
+    onResetRequested: function() { searchSession.reset(); lastAsyncVisualJson = ""; }
+    onResultsClearRequested: function() { navigation.clearResults(); }
+    onResultsRefreshRequested: function() { navigation.refreshResults(); }
+    onSelectionResetRequested: function() { navigation.resetSelection(); }
+    onAsyncLoadingRefreshRequested: function() { searchSession.refreshLoading(); }
+    onAsyncBackendSearchStarted: function(backend, key, text) { searchSession.beginAsyncBackendSearch(backend, key, text); }
+    onAsyncBackendResultsReceived: function(backend, key, text, requestGeneration, update) { searchSession.receiveAsyncBackendResults(backend, key, text, requestGeneration, update); }
+    onSearchRequested: function(text, requestGeneration) { searchSession.requestSearch(text, requestGeneration); }
     onResultsAvailable: function(text, requestGeneration, rows, output) {
         if (!output || requestGeneration !== root.generation || text !== root.query)
             return;
@@ -224,230 +142,54 @@ Item {
         setResults(rows, text);
     }
 
-    function queryIsEmptyForSelection() {
-        if (lastQuery && lastQuery.isEmpty !== undefined)
-            return !!lastQuery.isEmpty;
-        return !root.query || root.query.trim().length === 0;
-    }
+    function clearSearchOutputState() { navigation.clearSearchOutputState(); }
+    function queryIsEmptyForSelection() { return navigation.queryIsEmptyForSelection(); }
+    function hasActivation(row) { return navigation.hasActivation(row); }
+    function isSelectable(row) { return navigation.isSelectable(row); }
+    function isRowSelectable(row) { return navigation.isRowSelectable(row); }
+    function selectedResult() { return navigation.selectedResult(); }
+    function rowKey(row) { return navigation.rowKey(row); }
+    function setResults(newResults, sourceQuery) { navigation.setResults(newResults, sourceQuery); }
+    function registerResultTreeView(index, treeView) { navigation.registerResultTreeView(index, treeView); }
+    function moveSelection(delta) { navigation.moveSelection(delta); }
+    function navigationTargets() { return navigation.navigationTargets(); }
+    function resolveTreeViewAtIndex(index) { return navigation.resolveTreeViewAtIndex(index); }
+    function applyNavigationTarget(target) { navigation.applyNavigationTarget(target); }
+    function findTreeVisualRow(treeView, key) { return navigation.findTreeVisualRow(treeView, key); }
+    function resetTreeNavigation() { navigation.resetTreeNavigation(); }
+    function enterTree(result, treeView) { return navigation.enterTree(result, treeView); }
+    function toggleCollapseResultTree() { return navigation.toggleCollapseResultTree(); }
+    function toggleExpandResultTree() { return navigation.toggleExpandResultTree(); }
+    function exitTree() { navigation.exitTree(); }
+    function isInTree() { return navigation.isInTree(); }
+    function moveInTree(delta) { navigation.moveInTree(delta); }
+    function treeCollapseSelected() { return navigation.treeCollapseSelected(); }
+    function treeExpandSelected() { return navigation.treeExpandSelected(); }
+    function treeToggleSelected() { return navigation.treeToggleSelected(); }
+    function findTreeRowData(key) { return navigation.findTreeRowData(key); }
+    function findInChildren(row, key) { return navigation.findInChildren(row, key); }
+    function findParentResultByKey(key) { return navigation.findParentResultByKey(key); }
+    function loadLazyChildren(key) { navigation.loadLazyChildren(key); }
 
-    function hasActivation(row) {
-        return !!(row && (row.actions && row.actions.length > 0 || row.executable || row.switchActions || row.control || (row.filterable && row.children && row.children.length > 0)));
-    }
+    function serializeRow(row) { return debugController.serializeRow(row); }
+    function serializeRowsForQuery(rows, queryInfo) { return debugController.serializeRowsForQuery(rows, queryInfo); }
+    function _resolveQueryArg(text) { return debugController.resolveQueryArg(text); }
 
-    function isSelectable(row) {
-        return root.hasActivation(row) && (root.queryIsEmptyForSelection() || (row.ownScore || 0) > 0 || !!row.ownVisible);
-    }
+    function buildDirectiveFromRoute(rawQuery, route) { return Engine.buildDirectiveFromRoute(rawQuery, route, backends || []); }
+    function findHelpTitle(backendId) { return Engine.findHelpTitle(backends || [], backendId); }
 
-    function serializeRow(row) {
-        if (!row) return null;
-        var out = {
-            id: row.id || "",
-            nodeId: row.nodeId || "",
-            title: row.title || "",
-            subtitle: row.subtitle || "",
-            icon: row.icon || null,
-            iconColor: row.iconColor ? String(row.iconColor) : null,
-            depth: row.depth || 0,
-            matchDepth: row.matchDepth === undefined ? row.depth || 0 : row.matchDepth,
-            score: row.score || 0,
-            ownScore: row.ownScore || 0,
-            inheritedScore: row.inheritedScore || 0,
-            descendantScore: row.descendantScore || 0,
-            ownVisible: !!row.ownVisible,
-            scoreBundle: row.scoreBundle ? ScoreBundle.toDebug(row.scoreBundle) : null,
-            placement: row.placement || "",
-            presentationContext: row.presentationContext || null,
-            source: row.source || row.backendId || "",
-            kind: row.kind || "",
-            executable: !!row.executable,
-            dangerous: !!row.dangerous,
-            risk: row.risk || null,
-            selectable: root.isSelectable(row),
-            breadcrumbs: row.breadcrumbs || [],
-            breadcrumbText: row.breadcrumbText || "",
-            filterable: !!row.filterable,
-            lazy: !!row.lazy,
-            alwaysExpanded: row.alwaysExpanded !== false,
-            expandable: !!(row.children && row.children.length > 0) || !!row.lazy,
-            switchState: row.switchState === undefined ? null : row.switchState,
-            control: row.control || null,
-            presentation: row.presentation || null,
-            actions: (row.actions || []).map(function(a) {
-                return { id: a.id || "", label: a.label || "", icon: a.icon || null, default: !!a.default };
-            }),
-            evidence: (row.evidence || []).map(function(e) {
-                return {
-                    strategy: e.strategy || "",
-                    field: e.field || "",
-                    fieldText: e.fieldText || "",
-                    originNodeId: e.originNodeId || e.nodeId || "",
-                    originKind: e.originKind || "self",
-                    depth: e.depth === undefined ? 0 : e.depth,
-                    tokenIndex: e.tokenIndex === undefined ? null : e.tokenIndex,
-                    tokenIndexes: e.tokenIndexes || [],
-                    coverageCount: e.coverageCount || 0,
-                    exactness: e.exactness || e.strategy || "",
-                    actionId: e.actionId || null,
-                    actionRole: e.actionRole || null,
-                    isExecutable: !!e.isExecutable,
-                    score: e.score || 0,
-                    weight: e.weight || 0,
-                    effective: e.effective || 0,
-                    kind: e.kind || "",
-                    reason: e.reason || ""
-                };
-            })
-        };
-        if (row.children && row.children.length)
-            out.children = row.children.map(root.serializeRow);
-        if (row.switchActions) {
-            out.switchActions = {};
-            for (var k in row.switchActions)
-                out.switchActions[k] = { id: row.switchActions[k].id, label: row.switchActions[k].label };
-        }
-        if (row.recipes) {
-            out.recipes = {};
-            for (var rk in row.recipes) {
-                if (Array.isArray(row.recipes[rk]))
-                    out.recipes[rk] = row.recipes[rk].slice();
-            }
-        }
-        if (row.interactions) {
-            out.interactions = {};
-            for (var ik in row.interactions) {
-                var entry = row.interactions[ik];
-                if (entry && typeof entry === "object")
-                    out.interactions[ik] = { label: entry.label || "", recipe: (entry.recipe || []).slice() };
-            }
-        }
-        return out;
-    }
-
-    function serializeRowsForQuery(rows, queryInfo) {
-        var previousLastQuery = lastQuery;
-        lastQuery = queryInfo || null;
-        var out = (rows || []).map(root.serializeRow);
-        lastQuery = previousLastQuery;
-        return out;
-    }
-
-    function _resolveQueryArg(text) {
-        if (!text) return text || "";
-        var trimmed = text.trim();
-        if (trimmed.length > 0 && (trimmed[0] === "{" || trimmed[0] === "[")) {
-            try {
-                var parsed = JSON.parse(trimmed);
-                if (typeof parsed === "object" && parsed.query !== undefined)
-                    return String(parsed.query);
-            } catch (e) {}
-        }
-        return text;
-    }
-
-    function buildDirectiveFromRoute(rawQuery, route) {
-        if (!route || !route.endpoints || route.endpoints.length === 0)
-            return { active: false, raw: rawQuery, searchRaw: rawQuery, prefix: "", label: "All", tags: [], kinds: [], backendIds: [] };
-        var backendIds = [];
-        var seen = {};
-        for (var i = 0; i < route.endpoints.length; i += 1) {
-            var ep = route.endpoints[i];
-            var id = String(ep.node && ep.node.backendId || "");
-            if (id && !seen[id]) {
-                seen[id] = true;
-                backendIds.push(id);
-            }
-        }
-        var prefix = route.endpoints[0] ? (route.endpoints[0].prefix || "") : "";
-        var label = backendIds.length === 1 ? findHelpTitle(backendIds[0]) : (backendIds.length > 1 ? "Multiple" : "All");
-        return {
-            active: route.combine === "exclusive" || (backendIds.length > 0 && prefix !== ""),
-            raw: rawQuery,
-            searchRaw: route.strippedQuery !== undefined && route.strippedQuery !== null ? route.strippedQuery : rawQuery,
-            prefix: prefix,
-            label: label,
-            tags: [],
-            kinds: [],
-            backendIds: backendIds
-        };
-    }
-
-    function findHelpTitle(backendId) {
-        for (var i = 0; i < (backends || []).length; i += 1) {
-            var b = backends[i];
-            if (b && b.backendId === backendId)
-                return b.helpTitle || b.name || b.backendId;
-        }
-        return backendId;
-    }
-
-    function debugBenchmark(arg) {
-        var config = parseBenchmarkConfig(arg);
-        var queries = config.queries.slice(0, 32);
-        var iterations = Math.max(1, Math.min(config.iterations, 20));
-        var warmups = Math.max(0, Math.min(config.warmups, 5));
-        var samples = [];
-        var totalMs = 0;
-        var maxMs = 0;
-
-        for (var wi = 0; wi < warmups; wi += 1) {
-            for (var wq = 0; wq < queries.length; wq += 1)
-                Engine.search(backends || [], queries[wq], stateForSearch(), Object.assign(searchOptions(), { trace: true }));
-        }
-
-        for (var i = 0; i < iterations; i += 1) {
-            for (var qi = 0; qi < queries.length; qi += 1) {
-                var start = Date.now();
-                var output = Engine.search(backends || [], queries[qi], stateForSearch(), Object.assign(searchOptions(), { trace: true }));
-                var elapsed = Date.now() - start;
-                totalMs += elapsed;
-                maxMs = Math.max(maxMs, elapsed);
-                samples.push({
-                    query: queries[qi],
-                    wallMs: elapsed,
-                    timings: output.timings || {},
-                    rows: output.rows.length,
-                    top: output.rows.length > 0 ? output.rows[0].title : ""
-                });
-            }
-        }
-
-        var count = Math.max(1, iterations * queries.length);
-        var summary = {
-            iterations: iterations,
-            warmups: warmups,
-            queryCount: queries.length,
-            avgMs: totalMs / count,
-            maxMs: maxMs,
-            samples: samples
-        };
-        return JSON.stringify(summary, null, 2);
-    }
-
-    function parseBenchmarkConfig(arg) {
-        var defaults = {
-            iterations: 3,
-            warmups: 1,
-            queries: ["z", "ze", "zen", "zen ", "zen priv", "zen win", ":wifi", ":wifi ", ":wifi on", ":wifi off", ":db wifi", ":zen", "@app zen", "wifi", "db wifi"]
-        };
-        if (!arg)
-            return defaults;
-        try {
-            var parsed = JSON.parse(arg);
-            if (Array.isArray(parsed))
-                defaults.queries = parsed.map(function(x) { return String(x); });
-            else if (parsed && typeof parsed === "object") {
-                if (Array.isArray(parsed.queries))
-                    defaults.queries = parsed.queries.map(function(x) { return String(x); });
-                if (parsed.iterations !== undefined)
-                    defaults.iterations = Number(parsed.iterations);
-                if (parsed.warmups !== undefined)
-                    defaults.warmups = Number(parsed.warmups);
-            }
-        } catch (error) {
-            defaults.queries = [String(arg)];
-        }
-        return defaults;
-    }
+    function debugBenchmark(arg) { return debugController.debugBenchmark(arg); }
+    function parseBenchmarkConfig(arg) { return debugController.parseBenchmarkConfig(arg); }
+    function debugVisualRows(text) { return debugController.debugVisualRows(text); }
+    function debugApplyQuery(text) { return debugController.debugApplyQuery(text); }
+    function debugVisualOutput(text, output) { return debugController.debugVisualOutput(text, output); }
+    function queryPipeline(text) { return debugController.queryPipeline(text); }
+    function queryPolicies(text) { return debugController.queryPolicies(text); }
+    function collectActivePolicies(ev) { return debugController.collectActivePolicies(ev); }
+    function queryCases() { return debugController.queryCases(); }
+    function queryRunCases() { return debugController.queryRunCases(); }
+    function regressionCaseQueries() { return debugController.regressionCaseQueries(); }
+    function summarizeCaseResults(results) { return debugController.summarizeCaseResults(results); }
 
     function stateForSearch() {
         return {
@@ -466,1081 +208,32 @@ Item {
         };
     }
 
-    function updateQuery(text) {
-        queryUpdateRequested(text || "");
-    }
-
-    function triggerAsyncBackends(text, currentGeneration) {
-        var route = RoutingTree.routeQuery(root.routingTree, text || "");
-        var directive = route && route.endpoints && route.endpoints.length > 0
-            ? root.buildDirectiveFromRoute(text || "", route)
-            : Tokenize.parseDirective(text || "", backends || []);
-        var parsedQuery = Tokenize.tokenize(directive.searchRaw || "");
-
-        for (let i = 0; i < (backends || []).length; i += 1) {
-            let backend = backends[i];
-            if (!backend || !backend.enabled || typeof backend.resultsAsync !== "function")
-                continue;
-            if (typeof backend.shouldParticipate === "function" && !backend.shouldParticipate(text || "", directive, parsedQuery))
-                continue;
-            if (directive.active && directive.backendIds.indexOf(backend.backendId) < 0)
-                continue;
-
-            let key = backend.backendId || String(i);
-            let state = asyncBackendQueries[key] || {};
-            if (state.ready === text || state.pending === text)
-                continue;
-
-            asyncBackendSearchStarted(backend, key, text);
-
-            backend.resultsAsync(text, function(newResults) {
-                asyncBackendResultsReceived(backend, key, text, currentGeneration, newResults || []);
-            });
-        }
-    }
-
-    function hasPendingAsyncBackends() {
-        for (var key in asyncBackendQueries || {}) {
-            if (asyncBackendQueries[key] && asyncBackendQueries[key].pending)
-                return true;
-        }
-        return false;
-    }
-
-    function setResults(newResults, sourceQuery) {
-        if (root.debugEnabled)
-            console.warn("[NAV] setResults: count=" + (newResults ? newResults.length : 0) + " query=" + sourceQuery + " prevCount=" + results.length);
-        var sameQuery = (sourceQuery || "") === (resultsQuery || "");
-        var previousActiveKey = sameQuery ? activeNodeKey : "";
-        var previousCollapsedByKey = {};
-        for (var previousIndex = 0; previousIndex < results.length; previousIndex += 1) {
-            var previousKey = root.rowKey(results[previousIndex]);
-            if (previousKey)
-                previousCollapsedByKey[previousKey] = !!collapsedResultIndices[previousIndex];
-            if (!previousActiveKey && sameQuery && previousIndex === selectedIndex)
-                previousActiveKey = previousKey;
-        }
-        resultTreeViews = {};
-        results = newResults || [];
-        resultsQuery = sourceQuery || "";
-        selectedActionIndex = 0;
-        root.resetTreeNavigation();
-        collapsedResultIndices = {};
-        for (var i = 0; i < results.length; i += 1) {
-            var key = root.rowKey(results[i]);
-            if (results[i].alwaysExpanded !== false) {
-            } else if (key && previousCollapsedByKey[key] !== undefined) {
-                if (previousCollapsedByKey[key])
-                    collapsedResultIndices[i] = true;
-            } else {
-                collapsedResultIndices[i] = true;
-            }
-            if (root.debugEnabled)
-                console.warn("[NAV] setResults: result[" + i + "] key=" + key + " alwaysExpanded=" + results[i].alwaysExpanded + " collapsed=" + !!collapsedResultIndices[i] + " children=" + (results[i].children ? results[i].children.length : 0));
-        }
-        var targets = root.navigationTargets();
-        var selectedTarget = previousActiveKey
-            ? targets.find(function(target) { return target.key === previousActiveKey; })
-            : null;
-        if (root.debugEnabled)
-            console.warn("[NAV] setResults: selecting target=" + (selectedTarget ? selectedTarget.key : (targets.length > 0 ? targets[0].key : "NONE")));
-        root.applyNavigationTarget(selectedTarget || (targets.length > 0 ? targets[0] : null));
-    }
-
-    function registerResultTreeView(index, treeView) {
-        if (index < 0 || !treeView) return;
-        if (root.debugEnabled)
-            console.warn("[NAV] registerResultTreeView index=" + index + " rows=" + treeView.rows + " selectedIndex=" + selectedIndex + " activeNodeKey=" + activeNodeKey);
-        resultTreeViews[index] = treeView;
-        if (index === selectedIndex && activeNodeKey) {
-            var row = root.findTreeVisualRow(treeView, activeNodeKey);
-            if (root.debugEnabled)
-                console.warn("[NAV] registerResultTreeView: matched selected, looking up activeNodeKey=" + activeNodeKey + " found row=" + row);
-            if (row >= 0) {
-                var idx = treeView.index(row, 0);
-                if (!idx.valid) {
-                    if (root.debugEnabled)
-                        console.warn("[NAV] registerResultTreeView: idx invalid, bailing");
-                    return;
-                }
-                currentTreeView = treeView;
-                currentTreeKey = activeNodeKey;
-                treeVisualRow = row;
-                treeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
-            }
-        }
-    }
-
-    function backendId(backend) {
-        return backend ? backend.backendId || "" : "";
-    }
-
-    function activateSelected(shiftPressed) {
-        if (root.isInTree()) {
-            if (root.currentTreeKey)
-                return root.activateTreeRowByKey(root.currentTreeKey, null);
-            return false;
-        }
-        var result = selectedResult();
-        if (!result)
-            return false;
-
-        if (result.risk && result.risk.activation) {
-            if (result.id === root.pendingConfirmId) {
-                root.pendingConfirmId = null;
-                pendingConfirmTimer.stop();
-                return root.executeRecipeSlot(result, shiftPressed ? "complete" : "activate");
-            }
-            if (root.requiresConfirm(result.risk.activation)) {
-                root.pendingConfirmId = result.id;
-                pendingConfirmTimer.restart();
-                resultsRefreshRequested();
-                return false;
-            }
-        }
-
-        return root.executeRecipeSlot(result, shiftPressed ? "complete" : "activate");
-    }
-
-    function requiresConfirm(activation) {
-        return activation === "confirm" || activation === "confirm-and-explicit-prefix" || activation === "terminal-confirm-or-explicit-prefix";
-    }
-
-    function completeSelected() {
-        var result = selectedResult();
-        if (!result)
-            return false;
-        return root.executeRecipeSlot(result, "complete");
-    }
-
-    function selectedResult() {
-        return selectedIndex >= 0 ? results[selectedIndex] : null;
-    }
-
-    function rowKey(row) {
-        return row ? row.id || row.nodeId || "" : "";
-    }
-
-    function activateResult(result, action) {
-        if (!result || !action)
-            return false;
-
-        if (result.metadata && result.metadata.replaceQuery) {
-            queryReplacementRequested(result.metadata.replaceQuery);
-            return false;
-        }
-
-        var backend = null;
-        for (var i = 0; i < (backends || []).length; i += 1) {
-            if (backends[i] && backendId(backends[i]) === result.source) {
-                backend = backends[i];
-                break;
-            }
-        }
-        if (!backend)
-            return false;
-
-        try {
-            backend.activate(result, action);
-            if (root.debugEnabled)
-                DebugLogger.logExecute(result.id, action ? action.id : "", false, true);
-            return true;
-        } catch (error) {
-            if (root.debugEnabled)
-                DebugLogger.logError("Activation failed for " + result.id, error);
-            return false;
-        }
-    }
-
-    function executeRecipeSlot(target, slotName) {
-        var recipe = RecipeResolver.effectiveRecipe(target, slotName || "activate", {});
-        var recipeResult = ActionRegistry.executeRecipe(recipe, target, root);
-        return !!recipeResult.close;
-    }
-
-    function applyIntent(result, intent) {
-        if (!result || !intent)
-            return false;
-        switch (intent.type || "activate") {
-        case "sequence": {
-            var closeRequested = false;
-            var steps = intent.steps || intent.actions || [];
-            for (var si = 0; si < steps.length; si += 1) {
-                if (root.applyIntent(result, steps[si]))
-                    closeRequested = true;
-            }
-            return closeRequested;
-        }
-        case "close":
-            return true;
-        case "replace-query":
-            queryReplacementRequested(intent.text || "");
-            return false;
-        case "noop":
-            return false;
-        case "activate":
-        default: {
-            var actions = result && result.actions ? result.actions : [];
-            var defaultAction = actions.find(function(a) { return a.default; }) || actions[0] || null;
-            var selectedAction = intent.action || defaultAction;
-            if (selectedAction && selectedAction.intent)
-                return root.applyIntent(result, selectedAction.intent);
-            activateResult(result, selectedAction);
-            return false;
-        }
-        }
-    }
-
-    function activateResultAction(result, actionId) {
-        if (!result) {
-            if (root.debugEnabled)
-                DebugLogger.log("switch", "activateResultAction without result", { actionId: actionId || "" });
-            return false;
-        }
-        var actions = result.actions || [];
-        if (root.debugEnabled)
-            DebugLogger.log("switch", "activateResultAction", {
-                resultId: result.id || result.nodeId || "",
-                title: result.title || "",
-                source: result.source || result.backendId || "",
-                actionId: actionId || "",
-                actionIds: actions.map(function(action) { return action ? action.id || "" : ""; }),
-                hasSwitchActions: !!result.switchActions,
-                switchActionIds: result.switchActions ? Object.keys(result.switchActions) : [],
-                switchState: result.switchState
-            });
-        for (var i = 0; i < actions.length; i += 1) {
-            if (actions[i] && actions[i].id === actionId) {
-                var recipeResult = ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root);
-                if (root.debugEnabled)
-                    DebugLogger.log("switch", "activateResultAction matched action list", {
-                        resultId: result.id || result.nodeId || "",
-                        actionId: actionId || "",
-                        activated: recipeResult.success,
-                        payloadState: actions[i].payload ? actions[i].payload.state : undefined
-                    });
-                if (recipeResult.success && result.switchActions)
-                    refreshSwitchResult(result, actions[i]);
-                return recipeResult.success;
-            }
-        }
-        if (result.switchActions && result.switchActions[actionId]) {
-            var switchResult = ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root);
-            if (root.debugEnabled)
-                DebugLogger.log("switch", "activateResultAction matched switchActions", {
-                    resultId: result.id || result.nodeId || "",
-                    actionId: actionId || "",
-                    activated: switchResult.success,
-                    payloadState: result.switchActions[actionId].payload ? result.switchActions[actionId].payload.state : undefined
-                });
-            if (switchResult.success)
-                refreshSwitchResult(result, result.switchActions[actionId]);
-            return switchResult.success;
-        }
-        if (root.debugEnabled)
-            DebugLogger.log("switch", "activateResultAction no matching action", {
-                resultId: result.id || result.nodeId || "",
-                actionId: actionId || ""
-            });
-        return false;
-    }
-
-    function adjustSelectedValue(delta) {
-        var result = selectedActionTarget();
-        if (!result) {
-            if (root.debugEnabled)
-                DebugLogger.log("switch", "adjustSelectedValue without target", { delta: delta });
-            return false;
-        }
-
-        if (result.control) {
-            var controlResult = ActionRegistry.executeRecipe([["adjust-control", { delta: delta }]], result, root);
-            if (controlResult.success)
-                return true;
-        }
-
-        var preferredIds = delta < 0
-            ? ["off", "decrease", "decrement", "left"]
-            : ["on", "increase", "increment", "right"];
-        if (root.debugEnabled)
-            DebugLogger.log("switch", "adjustSelectedValue", {
-                delta: delta,
-                preferredIds: preferredIds,
-                inTree: root.isInTree(),
-                activeNodeKey: root.activeNodeKey,
-                targetId: result.id || result.nodeId || "",
-                title: result.title || "",
-                source: result.source || result.backendId || "",
-                hasSwitchActions: !!result.switchActions,
-                switchState: result.switchState
-            });
-        for (var i = 0; i < preferredIds.length; i += 1) {
-            if (activateResultAction(result, preferredIds[i])) {
-                if (root.isInTree() && root.currentTreeKey && result.switchActions && selectedIndex >= 0) {
-                    var treeRow = root.findTreeRowData(root.currentTreeKey);
-                    if (treeRow)
-                        treeRow.switchState = result.switchState;
-                    treeSwitchRefreshRequested(selectedIndex);
-                    if (root.debugEnabled)
-                        DebugLogger.log("switch", "adjustSelectedValue refreshed tree switch", {
-                            rowKey: root.currentTreeKey,
-                            switchState: result.switchState
-                        });
-                }
-                return true;
-            }
-        }
-        if (root.debugEnabled)
-            DebugLogger.log("switch", "adjustSelectedValue no action activated", {
-                delta: delta,
-                targetId: result.id || result.nodeId || "",
-                preferredIds: preferredIds
-            });
-        return false;
-    }
-
-    function toggleSelectedMute() {
-        var result = selectedActionTarget();
-        if (!result)
-            return false;
-        if (result.switchActions && (result.switchActions.toggle || result.switchActions.on || result.switchActions.off)) {
-            var toggleResult = ActionRegistry.executeRecipe([["toggle"]], result, root);
-            return !!toggleResult.success;
-        }
-        return false;
-    }
-
-    function alignedControlValue(current, delta, step, from, to) {
-        var base = delta < 0 ? Math.floor(current / step) * step : Math.ceil(current / step) * step;
-        if (Math.abs(base - current) < 0.0001)
-            base += delta * step;
-        return Math.max(from, Math.min(to, base));
-    }
-
-    function refreshSwitchResult(result, action) {
-        var payload = action && action.payload || {};
-        var state = payload.state;
-        var previous = result ? result.switchState : undefined;
-        if (state === true || state === false) {
-            result.switchState = state;
-        } else if (state === null) {
-            result.switchState = result.switchState === true ? false : true;
-        }
-        if (root.debugEnabled)
-            DebugLogger.log("switch", "refreshSwitchResult", {
-                resultId: result ? result.id || result.nodeId || "" : "",
-                actionId: action ? action.id || "" : "",
-                payloadState: state,
-                previousState: previous,
-                nextState: result ? result.switchState : undefined
-            });
-        resultsRefreshRequested();
-        Qt.callLater(function() {
-            searchRequested(query, generation);
-        });
-    }
-
-    function debugVisualRows(text) {
-        text = _resolveQueryArg(text);
-        var output = Engine.search(backends || [], text || "", stateForSearch(), searchOptions());
-        return root.debugVisualOutput(text, output);
-    }
-
-    function debugApplyQuery(text) {
-        text = _resolveQueryArg(text);
-        query = text || "";
-        generation += 1;
-        if (!query || query.trim().length === 0) {
-            resultsClearRequested();
-            return { query: query, rows: [], timings: {} };
-        }
-        var output = Engine.search(backends || [], query, stateForSearch(), searchOptions());
-        lastQuery = output.query;
-        lastDirective = output.directive;
-        lastEvaluatedRoot = output.evaluatedRoot;
-        setResults((output.rows || []).slice(0, maxResults), query);
-        return root.debugVisualOutput(query, output);
-    }
-
-    function debugVisualOutput(text, output) {
-        var rows = output && output.rows ? output.rows.slice(0, maxResults) : [];
-        return {
-            query: output && output.query ? output.query.raw : text,
-            timings: output ? output.timings || {} : {},
-            rows: rows.map(function(row, index) {
-                return {
-                    key: root.rowKey(row),
-                    rank: index,
-                    zValue: 10000 - index,
-                    title: row ? row.title || "" : "",
-                    source: row ? row.source || row.backendId || "" : "",
-                    placement: row ? row.placement || "" : "",
-                    children: row && row.children ? row.children.length : 0
-                };
-            })
-        };
-    }
-
-    function isRowSelectable(row) {
-        return root.isSelectable(row);
-    }
-
-    function moveSelection(delta) {
-        var targets = root.navigationTargets();
-        if (targets.length === 0) {
-            if (root.debugEnabled)
-                console.warn("[NAV] moveSelection: no targets, clearing");
-            root.applyNavigationTarget(null);
-            return;
-        }
-
-        var current = Math.max(0, targets.findIndex(function(target) { return target.key === root.activeNodeKey; }));
-        var next = (current + delta + targets.length) % targets.length;
-        if (root.debugEnabled)
-            console.warn("[NAV] moveSelection delta=" + delta + " activeNodeKey=" + activeNodeKey + " targets=" + targets.length + " current=" + current + " next=" + next + " nextKey=" + targets[next].key + " nextTitle=" + targets[next].row.title + " nextDepth=" + targets[next].treeDepth + " nextParent=" + targets[next].parentIndex);
-        root.applyNavigationTarget(targets[next]);
-    }
-
-    function navigationTargets() {
-        var out = [];
-        function visit(row, parentIndex, treeDepth) {
-            if (!row) return;
-            var children = row.children || [];
-            if (root.isRowSelectable(row))
-                out.push({ key: root.rowKey(row), row: row, parentIndex: parentIndex, treeDepth: treeDepth });
-            if (root.collapsedResultIndices[parentIndex])
-                return;
-            for (var i = 0; i < children.length; i += 1)
-                visit(children[i], parentIndex, treeDepth + 1);
-        }
-        for (var i = 0; i < results.length; i += 1)
-            visit(results[i], i, 0);
-        if (root.debugEnabled)
-            console.warn("[NAV] navigationTargets: results=" + results.length + " targets=" + out.length + " collapsed=" + Object.keys(collapsedResultIndices).join(",") + " targets=" + out.map(function(t) { return t.key + "(d=" + t.treeDepth + " p=" + t.parentIndex + ")"; }).join(" | "));
-        return out;
-    }
-
-    function resolveTreeViewAtIndex(index) {
-        if (resultTreeViews[index]) {
-            if (root.debugEnabled)
-                console.warn("[NAV] resolveTreeView: cache hit index=" + index + " rows=" + resultTreeViews[index].rows);
-            return resultTreeViews[index];
-        }
-        if (root.debugEnabled)
-            console.warn("[NAV] resolveTreeView: cache miss index=" + index + " resultView=" + !!resultView);
-        if (!resultView || index < 0)
-            return null;
-        var loader = resultView.itemAt(index);
-        if (root.debugEnabled)
-            console.warn("[NAV] resolveTreeView: loader=" + !!loader + " item=" + !!(loader && loader.item) + " treeView=" + !!(loader && loader.item && loader.item.treeView));
-        if (loader && loader.item && loader.item.treeView) {
-            resultTreeViews[index] = loader.item.treeView;
-            if (root.debugEnabled)
-                console.warn("[NAV] resolveTreeView: resolved from UI rows=" + loader.item.treeView.rows);
-            return loader.item.treeView;
-        }
-        return null;
-    }
-
-    function applyNavigationTarget(target) {
-        if (!target) {
-            if (root.debugEnabled)
-                console.warn("[NAV] applyNavigationTarget: null target, clearing");
-            selectedIndex = -1;
-            activeNodeKey = "";
-            exitTree();
-            return;
-        }
-        selectedIndex = target.parentIndex;
-        selectedActionIndex = 0;
-        activeNodeKey = target.key;
-        if (target.treeDepth > 0) {
-            if (root.debugEnabled)
-                console.warn("[NAV] applyNav: treeDepth=" + target.treeDepth + " parentIndex=" + target.parentIndex + " key=" + target.key);
-            currentTreeView = resolveTreeViewAtIndex(target.parentIndex);
-            currentTreeKey = target.key;
-            if (root.debugEnabled)
-                console.warn("[NAV] applyNav: currentTreeView=" + !!currentTreeView + " model=" + !!(currentTreeView && currentTreeView.model) + " viewRows=" + (currentTreeView ? currentTreeView.rows : "N/A"));
-            treeVisualRow = currentTreeView ? root.findTreeVisualRow(currentTreeView, target.key) : -1;
-            if (root.debugEnabled)
-                console.warn("[NAV] applyNav: treeVisualRow=" + treeVisualRow);
-            if (currentTreeView && treeVisualRow >= 0) {
-                var idx = currentTreeView.index(treeVisualRow, 0);
-                if (root.debugEnabled)
-                    console.warn("[NAV] applyNav: idx.valid=" + idx.valid + " setting currentIndex");
-                if (idx.valid)
-                    currentTreeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
-            } else {
-                if (root.debugEnabled)
-                    console.warn("[NAV] applyNav: SKIP setCurrentIndex — treeView=" + !!currentTreeView + " row=" + treeVisualRow);
-            }
-        } else {
-            if (root.debugEnabled)
-                console.warn("[NAV] applyNav: treeDepth=" + target.treeDepth + " exiting tree");
-            exitTree();
-        }
-    }
-
-    function findTreeVisualRow(treeView, key) {
-        if (!treeView || !treeView.model || !key) return -1;
-        for (var row = 0; row < treeView.rows; row += 1) {
-            var idx = treeView.index(row, 9);
-            if (idx.valid && treeView.model.data(idx, "display") === key)
-                return row;
-        }
-        return -1;
-    }
-
-    function reset() {
-        resetRequested();
-    }
-
-    function resetTreeNavigation() {
-        currentTreeView = null;
-        currentTreeKey = "";
-        treeVisualRow = -1;
-        activeNodeKey = "";
-    }
-
-    function enterTree(result, treeView) {
-        if (!result || !treeView || treeView.rows <= 0) return false;
-        currentTreeView = treeView;
-        treeVisualRow = 0;
-        var idx = treeView.index(0, 0);
-        if (!idx.valid)
-            return false;
-        treeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
-        return true;
-    }
-
-    function toggleCollapseResultTree() {
-        if (selectedIndex >= 0) {
-            if (root.isInTree()) {
-                return root.treeCollapseSelected();
-            } else {
-                var collapseResult = results[selectedIndex];
-                if (!collapseResult || !collapseResult.children || collapseResult.children.length === 0)
-                    return false;
-                collapsedResultIndices[selectedIndex] = true;
-                collapseResultExpanded(selectedIndex);
-            }
-            return true;
-        }
-        return false;
-    }
-
-    function toggleExpandResultTree() {
-        if (selectedIndex >= 0) {
-            if (root.isInTree()) {
-                return root.treeExpandSelected();
-            } else {
-                var expandResult = results[selectedIndex];
-                if (!expandResult || !expandResult.children || expandResult.children.length === 0)
-                    return false;
-                delete collapsedResultIndices[selectedIndex];
-                expandResultExpanded(selectedIndex);
-            }
-            return true;
-        }
-        return false;
-    }
-
-    function exitTree() {
-        if (currentTreeView && currentTreeView.selectionModel)
-            currentTreeView.selectionModel.clearCurrentIndex();
-        currentTreeView = null;
-        currentTreeKey = "";
-        treeVisualRow = -1;
-    }
-
-    function isInTree() {
-        return inTree;
-    }
-
-    function moveInTree(delta) {
-        if (!currentTreeView) return;
-        var newRow = treeVisualRow + delta;
-        if (newRow < 0) {
-            exitTree();
-            return;
-        }
-        if (newRow >= currentTreeView.rows) {
-            exitTree();
-            if (results.length > 0)
-                selectedIndex = (selectedIndex + 1) % results.length;
-            selectedActionIndex = 0;
-            return;
-        }
-        treeVisualRow = newRow;
-        var idx = currentTreeView.index(newRow, 0);
-        if (!idx.valid) {
-            exitTree();
-            return;
-        }
-        currentTreeView.selectionModel.setCurrentIndex(idx, ItemSelectionModel.SelectCurrent);
-    }
-
-    function treeCollapseSelected() {
-        if (!currentTreeView) {
-            if (root.debugEnabled)
-                DebugLogger.log("switch", "treeCollapseSelected without tree", {});
-            return false;
-        }
-        if (treeVisualRow >= 0) {
-            if (currentTreeView.isExpanded(treeVisualRow)) {
-                if (typeof currentTreeView.collapseAnimated === "function")
-                    currentTreeView.collapseAnimated(treeVisualRow);
-                else
-                    currentTreeView.collapse(treeVisualRow);
-                if (root.debugEnabled)
-                    DebugLogger.log("switch", "treeCollapseSelected collapsed current row", {
-                        row: treeVisualRow,
-                        key: currentTreeKey
-                });
-                return true;
-            }
-            var selectedTreeRow = root.findTreeRowData(currentTreeKey);
-            if (selectedTreeRow && selectedTreeRow.switchActions) {
-                if (root.debugEnabled)
-                    DebugLogger.log("switch", "treeCollapseSelected switch leaf not handled", {
-                        row: treeVisualRow,
-                        key: currentTreeKey
-                    });
-                return false;
-            }
-            var idx = currentTreeView.index(treeVisualRow, 0);
-            if (!idx.valid)
-                return false;
-            var parentIdx = currentTreeView.model.parent(idx);
-            if (parentIdx.valid) {
-                if (typeof currentTreeView.collapseAnimated === "function")
-                    currentTreeView.collapseAnimated(parentIdx.row);
-                else
-                    currentTreeView.collapse(parentIdx.row);
-                currentTreeView.selectionModel.setCurrentIndex(parentIdx, ItemSelectionModel.SelectCurrent);
-                treeVisualRow = parentIdx.row;
-                var keyIdx = currentTreeView.index(parentIdx.row, 9);
-                currentTreeKey = keyIdx.valid ? currentTreeView.model.data(keyIdx, "display") : "";
-                if (root.debugEnabled)
-                    DebugLogger.log("switch", "treeCollapseSelected collapsed parent row", {
-                        row: treeVisualRow,
-                        key: currentTreeKey
-                    });
-                return true;
-            }
-        }
-        if (root.debugEnabled)
-            DebugLogger.log("switch", "treeCollapseSelected not handled", {
-                row: treeVisualRow,
-                key: currentTreeKey
-            });
-        return false;
-    }
-
-    function treeExpandSelected() {
-        if (!currentTreeView || treeVisualRow < 0) {
-            if (root.debugEnabled)
-                DebugLogger.log("switch", "treeExpandSelected without row", {
-                    row: treeVisualRow,
-                    key: currentTreeKey
-                });
-            return false;
-        }
-        var idx = currentTreeView.index(treeVisualRow, 0);
-        var hasChildren = typeof currentTreeView.model.hasChildren === "function"
-            ? currentTreeView.model.hasChildren(idx)
-            : false;
-        if (!hasChildren) {
-            if (root.debugEnabled)
-                DebugLogger.log("switch", "treeExpandSelected leaf not handled", {
-                    row: treeVisualRow,
-                    key: currentTreeKey
-                });
-            return false;
-        }
-        if (typeof currentTreeView.expandAnimated === "function")
-            currentTreeView.expandAnimated(treeVisualRow);
-        else
-            currentTreeView.expand(treeVisualRow);
-        if (root.debugEnabled)
-            DebugLogger.log("switch", "treeExpandSelected expanded current row", {
-                row: treeVisualRow,
-                key: currentTreeKey
-            });
-        return true;
-    }
-
-    function treeToggleSelected() {
-        if (!currentTreeView || treeVisualRow < 0) return;
-        if (currentTreeView.isExpanded(treeVisualRow))
-            treeCollapseSelected();
-        else
-            treeExpandSelected();
-    }
-
-    function findTreeRowData(key) {
-        if (!key) return null;
-        for (var ri = 0; ri < results.length; ri += 1) {
-            var found = root.findInChildren(results[ri], key);
-            if (found) return found;
-        }
-        return null;
-    }
-
-    function findInChildren(row, key) {
-        if (!row) return null;
-        if (row.id === key || row.nodeId === key) return row;
-        var children = row.children || [];
-        for (var i = 0; i < children.length; i += 1) {
-            var found = root.findInChildren(children[i], key);
-            if (found) return found;
-        }
-        return null;
-    }
-
-    function findParentResultByKey(key) {
-        for (var i = 0; i < results.length; i += 1) {
-            if (root.findInChildren(results[i], key))
-                return results[i];
-        }
-        return null;
-    }
-
-    function loadLazyChildren(key) {
-        var treeRow = root.findTreeRowData(key);
-        if (!treeRow || !treeRow.lazy) return;
-        var parentResult = root.findParentResultByKey(key);
-        if (!parentResult) return;
-        var sourceId = treeRow.source || parentResult.source || parentResult.backendId || "";
-        var backend = null;
-        for (var i = 0; i < (backends || []).length; i += 1) {
-            if (backends[i] && backendId(backends[i]) === sourceId) {
-                backend = backends[i];
-                break;
-            }
-        }
-        if (!backend || typeof backend.scanDirectory !== "function") return;
-        var path = (treeRow.meta && treeRow.meta.path) || "";
-        if (!path && treeRow.id && treeRow.id.indexOf("file:") === 0)
-            path = treeRow.id.slice(5);
-        if (!path) return;
-        backend.scanDirectory(path, function(children) {
-            treeRow.children = children;
-            treeRow.lazy = false;
-            root.expandedNodeIds[treeRow.nodeId || treeRow.id] = true;
-            root.searchRequested(root.query, root.generation);
-        });
-    }
-
-    function activateTreeRowByKey(key, actionId) {
-        var row = root.findTreeRowData(key);
-        if (!row) return false;
-        var parent = root.findParentResultByKey(key);
-        var target = Object.assign({}, row, {
-            source: row.source || (parent ? parent.source || parent.backendId : ""),
-            category: row.category || (parent ? parent.category : "")
-        });
-        if (actionId) {
-            var activated = root.activateResultAction(target, actionId);
-            if (activated && target.switchActions && selectedIndex >= 0) {
-                row.switchState = target.switchState;
-                treeSwitchRefreshRequested(selectedIndex);
-            }
-            return activated;
-        }
-        return root.applyIntent(target, target.enter);
-    }
-
-    function treeActivateCurrent() {
-        if (root.currentTreeKey)
-            return root.activateTreeRowByKey(root.currentTreeKey, null);
-        return false;
-    }
-
-    // ── Recipe-based action execution ──────────────────────────────────
-
-    function runRecipe(recipe, target) {
-        if (!recipe || !target)
-            return { close: false };
-        return ActionRegistry.executeRecipe(recipe, target, root);
-    }
-
-    function runRecipeSlot(slotName) {
-        var target = selectedActionTarget();
-        if (!target)
-            return { close: false };
-
-        var recipe = effectiveRecipeForTarget(target, slotName);
-        if (!recipe || recipe.length === 0)
-            return { close: false };
-
-        return runRecipe(recipe, target);
-    }
-
-    function runInteractionForKey(keyName) {
-        var target = selectedActionTarget();
-        if (!target)
-            return { close: false, success: false };
-
-        var interactions = effectiveInteractionsForTarget(target);
-        if (!interactions || !interactions[keyName]) {
-            if (debugEnabled)
-                console.warn("[Actions] no interaction for key: " + keyName);
-            return { close: false, success: false };
-        }
-
-        return runRecipe(interactions[keyName].recipe, target);
-    }
-
-    function effectiveRecipeForTarget(target, slotName) {
-        return RecipeResolver.effectiveRecipe(target, slotName, {
-            parentInteractions: target.interactions || {}
-        });
-    }
-
-    function effectiveInteractionsForTarget(target) {
-        return RecipeResolver.effectiveInteractions(target, {
-            parentInteractions: null
-        });
-    }
-
-    // ── Backward compat helpers ────────────────────────────────────────
-
-    function _legacyApplyIntent(result, intent) {
-        return root.applyIntent(result, intent);
-    }
-
-    function _alignedControlValue(current, delta, step, from, to) {
-        return root.alignedControlValue(current, delta, step, from, to);
-    }
-
-    function _handleActivationWithConfirm() {
-        if (root.isInTree()) {
-            if (root.currentTreeKey)
-                return root.activateTreeRowByKey(root.currentTreeKey, null);
-            return { close: false };
-        }
-
-        var result = selectedResult();
-        if (!result)
-            return { close: false };
-
-        if (result.risk && result.risk.activation) {
-            if (result.id === root.pendingConfirmId) {
-                root.pendingConfirmId = null;
-                pendingConfirmTimer.stop();
-                var recipeResult = runRecipeSlot("activate");
-                return { close: recipeResult.close, closeRequested: recipeResult.close };
-            }
-            if (root.requiresConfirm(result.risk.activation)) {
-                root.pendingConfirmId = result.id;
-                pendingConfirmTimer.restart();
-                resultsRefreshRequested();
-                return { close: false, closeRequested: false };
-            }
-        }
-
-        var recipeResult = runRecipeSlot("activate");
-        return { close: recipeResult.close, closeRequested: recipeResult.close };
-    }
-
-    function selectedActionTarget() {
-        if (root.isInTree() && root.currentTreeKey) {
-            var treeRow = root.findTreeRowData(root.currentTreeKey);
-            if (treeRow) {
-                var parent = results[selectedIndex];
-                return Object.assign({}, treeRow, {
-                    source: treeRow.source || (parent ? parent.source || parent.backendId : ""),
-                    category: treeRow.category || (parent ? parent.category : "")
-                });
-            }
-        }
-        return selectedResult();
-    }
-
-    function queryPipeline(text) {
-        text = _resolveQueryArg(text);
-        var output = Engine.search(backends || [], text || "", stateForSearch(),
-            Object.assign(searchOptions(), { showHidden: true, trace: true }));
-        var diag = PolicyDiagnostics.empty();
-        var rows = output.rows ? output.rows.slice(0, maxResults) : [];
-        var serializedRows = root.serializeRowsForQuery(rows, output.query);
-
-        var backendEntries = (backends || []).filter(function(b) { return !!b; }).map(function(b) {
-            var routes = [];
-            if (typeof b.routes !== "undefined")
-                routes = b.routes || [];
-            var helpPrefixes = [];
-            if (typeof b.helpPrefixes !== "undefined")
-                helpPrefixes = b.helpPrefixes || [];
-            return {
-                id: b.backendId || "",
-                name: b.name || "",
-                description: b.helpDescription || "",
-                enabled: !!b.enabled,
-                priority: b.priority || 0,
-                routes: routes,
-                helpPrefixes: helpPrefixes,
-                hasAsyncResults: typeof b.resultsAsync === "function",
-                hasRootNode: typeof b.rootNode === "function",
-                hasStreamUpdates: typeof b.applyStreamUpdate === "function"
-            };
-        });
-
-        return JSON.stringify({
-            version: 3, type: "pipeline",
-            query: output.query ? output.query.raw : text,
-            directive: output.directive ? { active: output.directive.active, prefix: output.directive.prefix || "", label: output.directive.label || "", backendIds: output.directive.backendIds || [] } : { active: false },
-            timings: output.timings || {},
-            phases: output.phases || [],
-            rows: serializedRows,
-            totalResults: rows.length,
-            backends: {
-                total: backendEntries.length,
-                entries: backendEntries,
-                routingTree: { endpointCount: (root.routingTree || {}).endpoints ? root.routingTree.endpoints.length : 0 }
-            },
-            state: {
-                selectedIndex: selectedIndex,
-                resultCount: results.length,
-                loading: loading
-            },
-            diagnostics: PolicyDiagnostics.toDebug(diag)
-        });
-    }
-
-    function queryPolicies(text) {
-        text = _resolveQueryArg(text);
-        var output = Engine.search(backends || [], text || "", stateForSearch(),
-            Object.assign(searchOptions(), { showHidden: true }));
-        var activeBackendIds = (backends || []).filter(function(b) { return b && b.enabled; }).map(function(b) { return b.backendId || ""; });
-        var policyInfo = collectActivePolicies(output.evaluatedRoot);
-        return JSON.stringify({
-            version: 2, type: "policies",
-            query: text || "",
-            activeBackends: activeBackendIds,
-            policiesByKind: policyInfo.policiesByKind,
-            diagnostics: policyInfo.diagnostics
-        });
-    }
-
-    function collectActivePolicies(ev) {
-        if (!ev) return { policiesByKind: {}, diagnostics: { warnings: [], errors: [], unresolved: [], legacyCount: 0, tupleCount: 0, objectCount: 0 } };
-        var kinds = {};
-        var legacyCount = 0, tupleCount = 0, objectCount = 0;
-        function visit(evaluated) {
-            var rawNode = evaluated.node || evaluated;
-            var profile = (rawNode.evaluationProfile || {}).profile || {};
-            for (var key in profile) {
-                if (!kinds[key]) kinds[key] = {};
-                var specs = profile[key];
-                if (Array.isArray(specs)) {
-                    for (var si = 0; si < specs.length; si += 1) {
-                        var spec = PolicySpec.normalize(specs[si]);
-                        var specKey = spec.name;
-                        if (!kinds[key][specKey]) {
-                            kinds[key][specKey] = { name: spec.name, baseName: spec.baseName, kind: spec.kind, args: spec.args, priority: spec.priority, source: spec.source, count: 0 };
-                        }
-                        kinds[key][specKey].count += 1;
-                        var rawSpec = specs[si];
-                        if (typeof rawSpec === "string") legacyCount += 1;
-                        else if (Array.isArray(rawSpec)) tupleCount += 1;
-                        else objectCount += 1;
-                    }
-                }
-            }
-            var children = evaluated.children || rawNode.children || [];
-            for (var i = 0; i < children.length; i += 1)
-                visit(children[i]);
-        }
-        visit(ev);
-        var out = {};
-        for (var kind in kinds) {
-            out[kind] = [];
-            for (var specKey in kinds[kind])
-                out[kind].push(kinds[kind][specKey]);
-        }
-        return {
-            policiesByKind: out,
-            diagnostics: {
-                warnings: [], errors: [], unresolved: [],
-                legacyCount: legacyCount, tupleCount: tupleCount, objectCount: objectCount
-            }
-        };
-    }
-
-    function queryCases() {
-        return JSON.stringify({
-            version: 1, type: "cases",
-            cases: regressionCaseQueries()
-        });
-    }
-
-    function queryRunCases() {
-        var cases = regressionCaseQueries();
-        var results = [];
-        for (var i = 0; i < cases.length; i += 1) {
-            var q = cases[i];
-            var output = Engine.search(backends || [], q, stateForSearch(),
-                Object.assign(searchOptions(), { trace: true }));
-            var rows = output.rows || [];
-            var visibleRows = rows.filter(function(r) { return r.ownVisible; });
-            var top = visibleRows.length > 0 ? visibleRows[0] : null;
-            var topBreadcrumb = "";
-            if (top && top.breadcrumbs) {
-                if (Array.isArray(top.breadcrumbs))
-                    topBreadcrumb = top.breadcrumbs.join(" > ");
-                else if (top.breadcrumbText)
-                    topBreadcrumb = top.breadcrumbText;
-            }
-            results.push({
-                query: q,
-                totalRows: rows.length,
-                visibleRows: visibleRows.length,
-                topTitle: top ? top.title : null,
-                topScore: top ? top.score : 0,
-                topOwnScore: top ? top.ownScore : 0,
-                topPlacement: top ? top.placement : null,
-                topSource: top ? (top.source || top.backendId || "") : null,
-                topExecutable: top ? !!top.executable : false,
-                topBreadcrumbText: topBreadcrumb,
-                timings: output.timings || {}
-            });
-        }
-        return JSON.stringify({
-            version: 1, type: "runCases",
-            total: cases.length,
-            results: results,
-            summary: summarizeCaseResults(results)
-        });
-    }
-
-    function regressionCaseQueries() {
-        return [
-            "?", "? ", "?au",
-            "zen", "zen ", "zen priv", "zen win", "zen browser", "zen new",
-            "wifi", "wifi ", "wifi on", "wifi off", "wifi toggle", "toggle wifi",
-            "wo", "wt",
-            ":", ":wifi", ":wifi ", ":wifi on", ":db wifi",
-            "@apps", "@apps zen", "@web nix",
-            "web nix", "web !gh nix",
-            "db wifi", "dashboard wifi",
-            "au", "aud", "audi", "audio",
-            "en", "screen", "session",
-            "newxos", "vpn ", "vpn of",
-            "notes", "/tmp"
-        ];
-    }
-
-    function summarizeCaseResults(results) {
-        var totalMs = 0;
-        var count = Math.max(1, results.length);
-        for (var i = 0; i < results.length; i += 1)
-            totalMs += results[i].timings.totalMs || 0;
-        return {
-            avgMs: totalMs / count,
-            totalCases: results.length,
-            maxRows: results.reduce(function(m, r) { return Math.max(m, r.totalRows); }, 0)
-        };
-    }
+    function updateQuery(text) { queryUpdateRequested(text || ""); }
+    function triggerAsyncBackends(text, currentGeneration) { searchSession.triggerAsyncBackends(text, currentGeneration); }
+    function hasPendingAsyncBackends() { return searchSession.hasPendingAsyncBackends(); }
+    function reset() { resetRequested(); }
+    function backendId(backend) { return backend ? backend.backendId || "" : ""; }
+
+    function activateSelected(shiftPressed) { return actions.activateSelected(shiftPressed); }
+    function requiresConfirm(activation) { return actions.requiresConfirm(activation); }
+    function completeSelected() { return actions.completeSelected(); }
+    function activateResult(result, action) { return actions.activateResult(result, action); }
+    function executeRecipeSlot(target, slotName) { return actions.executeRecipeSlot(target, slotName); }
+    function applyIntent(result, intent) { return actions.applyIntent(result, intent); }
+    function activateResultAction(result, actionId) { return actions.activateResultAction(result, actionId); }
+    function adjustSelectedValue(delta) { return actions.adjustSelectedValue(delta); }
+    function toggleSelectedMute() { return actions.toggleSelectedMute(); }
+    function alignedControlValue(current, delta, step, from, to) { return actions.alignedControlValue(current, delta, step, from, to); }
+    function refreshSwitchResult(result, action) { actions.refreshSwitchResult(result, action); }
+    function activateTreeRowByKey(key, actionId) { return actions.activateTreeRowByKey(key, actionId); }
+    function treeActivateCurrent() { return actions.treeActivateCurrent(); }
+    function runRecipe(recipe, target) { return actions.runRecipe(recipe, target); }
+    function runRecipeSlot(slotName) { return actions.runRecipeSlot(slotName); }
+    function runInteractionForKey(keyName) { return actions.runInteractionForKey(keyName); }
+    function effectiveRecipeForTarget(target, slotName) { return actions.effectiveRecipeForTarget(target, slotName); }
+    function effectiveInteractionsForTarget(target) { return actions.effectiveInteractionsForTarget(target); }
+    function _legacyApplyIntent(result, intent) { return actions._legacyApplyIntent(result, intent); }
+    function _alignedControlValue(current, delta, step, from, to) { return actions._alignedControlValue(current, delta, step, from, to); }
+    function _handleActivationWithConfirm() { return actions._handleActivationWithConfirm(); }
+    function selectedActionTarget() { return actions.selectedActionTarget(); }
 }

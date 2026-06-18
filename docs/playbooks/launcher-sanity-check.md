@@ -128,7 +128,7 @@ Always record the visible query when debugging GUI-only missing-row reports. A r
 
 ## Debug Flow for Bad Results
 
-Pipeline modules live in `configs/quickshell/launcher/logic/`: `Evaluate.qml` -> `ResultShaping.qml` (owns placement) -> `RenderedRows.qml` (builds rows from shaped items using `PresentationContext.qml`). `PolicyChain.lookupPolicy` provides normalized spec-aware lookups. TokenFlowDecision not implemented yet; ActionPolicy not extracted.
+Pipeline modules live in `configs/quickshell/launcher/logic/`: `Evaluate.qml` -> `ResultShaping.qml` (owns placement) -> `RenderedRows.qml` (builds rows from shaped items using `PresentationContext.qml`). `PolicyChain.lookupPolicy` provides normalized spec-aware lookups. `LauncherController.qml` is a compatibility façade; search/session behavior lives in `controllers/LauncherSearchSession.qml`, result/tree selection in `controllers/LauncherNavigationState.qml`, activation in `controllers/LauncherActionController.qml`, and IPC/debug serialization in `controllers/LauncherDebugController.qml`. TokenFlowDecision not implemented yet; ActionPolicy remains incremental.
 
 1. `query pipeline` — universal endpoint. Check rows (`.rows`), phases (`.phases[]`), backends (`.backends`), timings (`.timings`).
    - `.phases[] | select(.name == "directive-tokenize")` — directive, tokens, active backends
