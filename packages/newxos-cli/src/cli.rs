@@ -125,7 +125,6 @@ pub enum FlakeAction {
         git_only: bool,
     },
     Show {
-        host: Option<String>,
         #[arg(long)]
         git_only: bool,
     },

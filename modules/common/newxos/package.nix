@@ -56,7 +56,7 @@
         complete -c newxos -n '__fish_seen_subcommand_from first-install; and test (count (commandline -opc)) -eq 2' -a '(newxos _complete nixos-hosts 2>/dev/null)'
         complete -c newxos -n '__fish_seen_subcommand_from os; and __fish_seen_subcommand_from switch boot build; and test (count (commandline -opc)) -eq 3' -a '(newxos _complete nixos-hosts 2>/dev/null)'
         complete -c newxos -n '__fish_seen_subcommand_from home; and __fish_seen_subcommand_from switch build; and test (count (commandline -opc)) -eq 3' -a '(newxos _complete home-configs 2>/dev/null)'
-        complete -c newxos -n '__fish_seen_subcommand_from flake; and __fish_seen_subcommand_from build check show; and test (count (commandline -opc)) -eq 3' -a '(newxos _complete nixos-hosts 2>/dev/null)'
+        complete -c newxos -n '__fish_seen_subcommand_from flake; and __fish_seen_subcommand_from build check; and test (count (commandline -opc)) -eq 3' -a '(newxos _complete nixos-hosts 2>/dev/null)'
         complete -c newxos -n '__fish_seen_subcommand_from flake; and __fish_seen_subcommand_from run; and test (count (commandline -opc)) -eq 3' -a '(newxos _complete run-targets 2>/dev/null)'
       '';
     in

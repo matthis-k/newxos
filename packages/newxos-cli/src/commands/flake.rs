@@ -47,13 +47,9 @@ pub fn run(action: FlakeAction) -> Result<i32> {
             )
         }
 
-        FlakeAction::Show { host, git_only } => {
+        FlakeAction::Show { git_only } => {
             let mode = repo::FlakeMode::from_git_only(git_only);
             let flake_ref = mode.flake_ref(&root);
-
-            if let Some(h) = &host {
-                discovery::require_nixos_host(&root, h)?;
-            }
 
             run_status("nix", &["flake", "show", &flake_ref])
         }
