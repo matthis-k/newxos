@@ -101,17 +101,6 @@ Singleton {
     readonly property var networks: rNetworks
     readonly property var connectedNetwork: _findConnected()
 
-    readonly property var connectedNetworks: rNetworks.filter(n => n.connected)
-    readonly property var availableNetworks: rNetworks
-
-    readonly property var wiredConnection: hasWiredConnection ? {
-        id: "wired",
-        name: wiredDeviceName,
-        device: wiredDeviceName,
-        address: wiredAddress,
-        connected: true
-    } : null
-
     property var _pendingScanCallback: null
 
     function rawNetworkById(id) {
@@ -142,12 +131,12 @@ Singleton {
         return null;
     }
 
-    function signalBucket(strength) {
-        return networkPresentation.signalBucket(strength);
-    }
-
     function wifiIconName(network) {
         return networkPresentation.wifiIconName(network);
+    }
+
+    function networkKey(network) {
+        return root.networkModels.networkKey(network);
     }
 
     function securityNeedsPsk(security) {
@@ -160,18 +149,6 @@ Singleton {
 
     function securityLabel(network) {
         return networkPresentation.securityLabel(network);
-    }
-
-    function wifiBand(frequency) {
-        return networkPresentation.wifiBand(frequency);
-    }
-
-    function wifiChannel(frequency) {
-        return networkPresentation.wifiChannel(frequency);
-    }
-
-    function connectivityLabel() {
-        return networkPresentation.connectivityLabel(root.connectivity);
     }
 
     function primaryNetworkInfo(network) {

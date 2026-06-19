@@ -370,15 +370,15 @@ PanelWindow {
                         return handleEscapeKey(event);
 
                     if (event.modifiers & Qt.AltModifier) {
-                        var target = controller.selectedActionTarget();
+                        var target = controller.actions.selectedActionTarget();
                         var action = KeybindPresets.altActionForKey(target, event.key);
                         if (action) {
                             if (action === "switch-on" || action === "slider-inc")
-                                { controller.adjustSelectedValue(1); return true; }
+                                { controller.actions.adjustSelectedValue(1); return true; }
                             if (action === "switch-off" || action === "slider-dec")
-                                { controller.adjustSelectedValue(-1); return true; }
+                                { controller.actions.adjustSelectedValue(-1); return true; }
                             if (action === "switch-toggle")
-                                { controller.toggleSelectedMute(); return true; }
+                                { controller.actions.toggleSelectedMute(); return true; }
                         }
                         return handleAltInteractionKey(event);
                     }
@@ -406,19 +406,19 @@ PanelWindow {
                 }
 
                 function handleActivationKey(event) {
-                    if (event.modifiers & Qt.ShiftModifier && controller.isInTree()) {
-                        controller.treeToggleSelected();
+                    if (event.modifiers & Qt.ShiftModifier && controller.navigation.isInTree()) {
+                        controller.navigation.treeToggleSelected();
                         return true;
                     }
 
-                    var target = controller.selectedActionTarget();
+                    var target = controller.actions.selectedActionTarget();
                     DebugLogger.log("activate", "enter", {
                         targetId: target ? target.id || target.nodeId || "" : "none",
                         targetKind: target ? target.kind || "" : "",
-                        inTree: controller.isInTree()
+                        inTree: controller.navigation.isInTree()
                     });
 
-                    var result = controller._handleActivationWithConfirm();
+                    var result = controller.actions._handleActivationWithConfirm();
                     DebugLogger.log("activate", "result", {
                         closeRequested: result ? result.closeRequested : false,
                         close: result ? result.close : false
@@ -429,7 +429,7 @@ PanelWindow {
                 }
 
                 function handleTabKey(event) {
-                    var result = controller.runRecipeSlot("complete");
+                    var result = controller.actions.runRecipeSlot("complete");
                     return true;
                 }
 
@@ -438,24 +438,24 @@ PanelWindow {
                     case Qt.Key_Down:
                     case Qt.Key_N:
                     case Qt.Key_J:
-                        controller.moveSelection(1);
+                        controller.navigation.moveSelection(1);
                         return true;
                     case Qt.Key_Up:
                     case Qt.Key_P:
                     case Qt.Key_K:
-                        controller.moveSelection(-1);
+                        controller.navigation.moveSelection(-1);
                         return true;
                     case Qt.Key_H:
-                        if (controller.isInTree())
-                            controller.treeCollapseSelected();
+                        if (controller.navigation.isInTree())
+                            controller.navigation.treeCollapseSelected();
                         else
-                            controller.toggleCollapseResultTree();
+                            controller.navigation.toggleCollapseResultTree();
                         return true;
                     case Qt.Key_L:
-                        if (controller.isInTree())
-                            controller.treeExpandSelected();
+                        if (controller.navigation.isInTree())
+                            controller.navigation.treeExpandSelected();
                         else
-                            controller.toggleExpandResultTree();
+                            controller.navigation.toggleExpandResultTree();
                         return true;
                     }
                     return false;
@@ -466,7 +466,7 @@ PanelWindow {
                     if (!keyName)
                         return false;
 
-                    var target = controller.selectedActionTarget();
+                    var target = controller.actions.selectedActionTarget();
                     DebugLogger.log("alt-interaction", "dispatch", {
                         keyName: keyName,
                         targetId: target ? target.id || target.nodeId || "" : "none",
@@ -474,7 +474,7 @@ PanelWindow {
                         availableKeys: target ? Object.keys(RecipeResolver.effectiveInteractions(target)) : []
                     });
 
-                    var result = controller.runInteractionForKey(keyName);
+                    var result = controller.actions.runInteractionForKey(keyName);
                     DebugLogger.log("alt-interaction", "result", {
                         keyName: keyName,
                         close: result ? result.close : false,
@@ -519,7 +519,7 @@ PanelWindow {
                     var current = resultsList.itemAtIndex(controller.selectedIndex);
                     var y = current ? current.y : controller.selectedIndex * (root.rowHeight + resultsList.spacing);
                     var height = current ? current.height : root.rowHeight;
-                    if (controller.isInTree()) {
+                    if (controller.navigation.isInTree()) {
                         var treeRowH = 44;
                         if (current && current.item && current.item.treeRowHeight)
                             treeRowH = current.item.treeRowHeight;

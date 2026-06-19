@@ -24,11 +24,8 @@ Item {
     property int sliderHeight: 24
     property int sliderWidth: 100
 
-    readonly property var node: root.entry ? root.entry.node : null
+    readonly property var node: root.entry ? root.entry.raw : null
     readonly property var streams: root.entry ? root.entry.streams || [] : []
-    readonly property bool isDefault: root.isInput
-        ? (AudioService.defaultSource && root.node && root.node.id === AudioService.defaultSource.id)
-        : (AudioService.defaultSink && root.node && root.node.id === AudioService.defaultSink.id)
 
     implicitWidth: root.contentWidth
     implicitHeight: content.implicitHeight
@@ -40,20 +37,20 @@ Item {
 
         AudioDeviceCard {
             Layout.fillWidth: true
-            title: AudioService.humanName(root.node)
-            iconName: AudioService.volumeIconName(root.node, root.isInput)
-            iconColor: AudioService.isMuted(root.node) ? Config.styling.critical : Config.styling.text0
-            valueText: `${AudioService.volumePercent(root.node)}%`
+            title: root.entry.name
+            iconName: root.entry.iconName
+            iconColor: root.entry.iconColor
+            valueText: `${root.entry.volume}%`
             from: 0
             to: 150
-            value: AudioService.volumePercent(root.node)
+            value: root.entry.volume
             stepSize: 1
             iconEnabled: !!root.node
-            sliderEnabled: !!root.node && !AudioService.isMuted(root.node)
-            accentColor: AudioService.isMuted(root.node) ? Config.styling.critical : Config.colors.blue
-            showDefaultBadge: root.isDefault
-            onIconClicked: AudioService.toggleMute(root.node)
-            onValueModified: value => AudioService.setVolume(root.node, value)
+            sliderEnabled: !!root.entry && !root.entry.muted
+            accentColor: root.entry.muted ? Config.styling.critical : Config.colors.blue
+            showDefaultBadge: root.entry.default
+            onIconClicked: AudioService.toggleMuteById(root.entry.id)
+            onValueModified: value => AudioService.setVolumeById(root.entry.id, value)
         }
 
         Repeater {

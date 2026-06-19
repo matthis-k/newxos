@@ -74,13 +74,6 @@ QtObject {
         return false;
     }
 
-    function alignedControlValue(current, delta, step, from, to) {
-        var base = delta < 0 ? Math.floor(current / step) * step : Math.ceil(current / step) * step;
-        if (Math.abs(base - current) < 0.0001)
-            base += delta * step;
-        return Math.max(from, Math.min(to, base));
-    }
-
     function refreshSwitchResult(result, action) {
         var payload = action && action.payload || {};
         var state = payload.state;

@@ -10,11 +10,12 @@ QtObject {
     property string interactiveErrorText: ""
     property var frozenNetworkOrder: []
     property var networks: []
+    property var networkKeyFn: null
 
     readonly property bool interactionLocked: interactiveNetworkKey !== ""
 
     function networkKey(network) {
-        return `${network?.frequency || "unknown"}::${network?.ssid || "hidden"}::${network?.bssid || "unknown"}`;
+        return networkKeyFn ? networkKeyFn(network) : "";
     }
 
     function applyFrozenOrder(networks) {

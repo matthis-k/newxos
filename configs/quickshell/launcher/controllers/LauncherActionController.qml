@@ -26,11 +26,6 @@ Item {
         targetResolver: targetResolver
     }
 
-    BackendActionExecutor {
-        id: backendExecutor
-        controller: root.controller
-    }
-
     LegacyIntentExecutor {
         id: legacyIntentExecutor
         controller: root.controller
@@ -73,7 +68,14 @@ Item {
     }
 
     function activateResult(result, action) {
-        return backendExecutor.activateResult(result, action);
+        if (!result || !action)
+            return false;
+        if (result.metadata && result.metadata.replaceQuery) {
+            var editResult = ActionRegistry.executeRecipe([["edit-query", { from: "metadata.replaceQuery" }]], result, root.controller);
+            return !!editResult.success;
+        }
+        var recipeResult = ActionRegistry.executeRecipe([["run-action", { action: action.id || "default" }]], result, root.controller);
+        return !!recipeResult.success;
     }
 
     function executeRecipeSlot(target, slotName) {
@@ -98,10 +100,6 @@ Item {
 
     function toggleSelectedMute() {
         return controlHandler.toggleSelectedMute();
-    }
-
-    function alignedControlValue(current, delta, step, from, to) {
-        return controlHandler.alignedControlValue(current, delta, step, from, to);
     }
 
     function refreshSwitchResult(result, action) {

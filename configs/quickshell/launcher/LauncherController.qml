@@ -147,7 +147,7 @@ Item {
     property alias debug: debugController
     property alias searchSession: searchSession
 
-    // Navigation/state façade (compatibility wrappers)
+    // Compatibility façade for IPC/tests/older visual components. Prefer controller.navigation/actions/debug in new code.
     function clearSearchOutputState() { navigation.clearSearchOutputState(); }
     function queryIsEmptyForSelection() { return navigation.queryIsEmptyForSelection(); }
     function hasActivation(row) { return navigation.hasActivation(row); }
@@ -157,20 +157,15 @@ Item {
     function rowKey(row) { return navigation.rowKey(row); }
     function setResults(newResults, sourceQuery) { navigation.setResults(newResults, sourceQuery); }
     function registerResultTreeView(index, treeView) { navigation.registerResultTreeView(index, treeView); }
-    function moveSelection(delta) { navigation.moveSelection(delta); }
     function navigationTargets() { return navigation.navigationTargets(); }
     function resolveTreeViewAtIndex(index) { return navigation.resolveTreeViewAtIndex(index); }
     function applyNavigationTarget(target) { navigation.applyNavigationTarget(target); }
     function findTreeVisualRow(treeView, key) { return navigation.findTreeVisualRow(treeView, key); }
     function resetTreeNavigation() { navigation.resetTreeNavigation(); }
     function enterTree(result, treeView) { return navigation.enterTree(result, treeView); }
-    function toggleCollapseResultTree() { return navigation.toggleCollapseResultTree(); }
-    function toggleExpandResultTree() { return navigation.toggleExpandResultTree(); }
     function exitTree() { navigation.exitTree(); }
     function isInTree() { return navigation.isInTree(); }
     function moveInTree(delta) { navigation.moveInTree(delta); }
-    function treeCollapseSelected() { return navigation.treeCollapseSelected(); }
-    function treeExpandSelected() { return navigation.treeExpandSelected(); }
     function treeToggleSelected() { return navigation.treeToggleSelected(); }
     function findTreeRowData(key) { return navigation.findTreeRowData(key); }
     function findInChildren(row, key) { return navigation.findInChildren(row, key); }
@@ -221,7 +216,7 @@ Item {
     function reset() { resetRequested(); }
     function backendId(backend) { return backend ? backend.backendId || "" : ""; }
 
-    // Activation/action façade (compatibility wrappers)
+    // Activation/action façade
     function activateSelected(shiftPressed) { return actions.activateSelected(shiftPressed); }
     function requiresConfirm(activation) { return actions.requiresConfirm(activation); }
     function completeSelected() { return actions.completeSelected(); }
@@ -229,18 +224,13 @@ Item {
     function executeRecipeSlot(target, slotName) { return actions.executeRecipeSlot(target, slotName); }
     function applyIntent(result, intent) { return actions.applyIntent(result, intent); }
     function activateResultAction(result, actionId) { return actions.activateResultAction(result, actionId); }
-    function adjustSelectedValue(delta) { return actions.adjustSelectedValue(delta); }
-    function toggleSelectedMute() { return actions.toggleSelectedMute(); }
-    function alignedControlValue(current, delta, step, from, to) { return actions.alignedControlValue(current, delta, step, from, to); }
     function refreshSwitchResult(result, action) { actions.refreshSwitchResult(result, action); }
     function activateTreeRowByKey(key, actionId) { return actions.activateTreeRowByKey(key, actionId); }
     function treeActivateCurrent() { return actions.treeActivateCurrent(); }
     function runRecipe(recipe, target) { return actions.runRecipe(recipe, target); }
     function runRecipeSlot(slotName) { return actions.runRecipeSlot(slotName); }
-    function runInteractionForKey(keyName) { return actions.runInteractionForKey(keyName); }
     function effectiveRecipeForTarget(target, slotName) { return actions.effectiveRecipeForTarget(target, slotName); }
     function effectiveInteractionsForTarget(target) { return actions.effectiveInteractionsForTarget(target); }
     function _legacyApplyIntent(result, intent) { return actions._legacyApplyIntent(result, intent); }
     function _handleActivationWithConfirm() { return actions._handleActivationWithConfirm(); }
-    function selectedActionTarget() { return actions.selectedActionTarget(); }
 }

@@ -160,24 +160,6 @@ Singleton {
         }
     }
 
-    function normalizedNotifications() {
-        const result = [];
-        for (const n of root.notifications) {
-            result.push({
-                id: n.id || "",
-                appName: n.appName || "",
-                summary: n.summary || "",
-                body: n.body || "",
-                urgency: n.urgency,
-                time: n.time || 0,
-                icon: n.icon || "",
-                actions: n.actions || [],
-                raw: n
-            });
-        }
-        return result;
-    }
-
     PersistentProperties {
         id: state
         property bool toastsEnabled: true

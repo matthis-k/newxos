@@ -13,7 +13,7 @@ Singleton {
     readonly property var backend: Bluetooth
     readonly property var adapter: Bluetooth.defaultAdapter
 
-    readonly property BluetoothDeviceNormalizer deviceNormalizer: BluetoothDeviceNormalizer {}
+    readonly property BluetoothDeviceResolver deviceResolver: BluetoothDeviceResolver {}
     readonly property BluetoothModels bluetoothModels: BluetoothModels {}
     readonly property BluetoothPresentation bluetoothPresentation: BluetoothPresentation {}
     readonly property BluetoothOperationState operationState: BluetoothOperationState {}
@@ -77,7 +77,7 @@ Singleton {
     }
 
     function rawDeviceById(id) {
-        return root.deviceNormalizer.rawDeviceById(adapter, id);
+        return root.deviceResolver.rawDeviceById(adapter, id);
     }
 
     function resolveDevice(deviceOrId) {

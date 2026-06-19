@@ -6,7 +6,9 @@ QtObject {
     id: root
 
     property var nodeUtils: null
-    property var pipewireQuery: null
+    property var audioModels: null
+    property var allNodes: []
+    property var linkGroups: []
     property var defaultSink: null
     property var defaultSource: null
 
@@ -18,6 +20,7 @@ QtObject {
             : (root.defaultSink && node.id === root.defaultSink.id);
 
         return {
+            raw: node,
             id: String(node.id),
             name: root.nodeUtils.nodeName(node, isInput ? "Input" : "Output"),
             kind: isInput ? "input" : "output",
@@ -68,6 +71,7 @@ QtObject {
         const muted = root.nodeUtils.isMuted(stream);
 
         return {
+            raw: stream,
             id: String(stream.id),
             name: name,
             kind: "stream",
@@ -98,34 +102,56 @@ QtObject {
     }
 
     function outputDeviceEntries() {
-        const type = PwNodeType;
-        const sinks = root.pipewireQuery.audioNodes(type.AudioSink).slice();
+        const sinks = root.audioModels.audioSinks(root.allNodes).slice();
         sinks.sort(function(a, b) {
             const aDefault = root.defaultSink && a.id === root.defaultSink.id;
             const bDefault = root.defaultSink && b.id === root.defaultSink.id;
             if (aDefault !== bDefault) return aDefault ? -1 : 1;
             return root.nodeUtils.nodeName(a).localeCompare(root.nodeUtils.nodeName(b));
         });
-        return sinks.map(function(sink) { return root.normalizeDevice(sink, false); });
+        return sinks.map(function(sink) {
+            const entry = root.normalizeDevice(sink, false);
+            entry.streams = root.streamEntriesForOutput(entry.id);
+            return entry;
+        });
     }
 
     function inputDeviceEntries() {
-        const type = PwNodeType;
-        const sources = root.pipewireQuery.audioNodes(type.AudioSource).slice();
+        const sources = root.audioModels.audioSources(root.allNodes).slice();
         sources.sort(function(a, b) {
             const aDefault = root.defaultSource && a.id === root.defaultSource.id;
             const bDefault = root.defaultSource && b.id === root.defaultSource.id;
             if (aDefault !== bDefault) return aDefault ? -1 : 1;
             return root.nodeUtils.nodeName(a).localeCompare(root.nodeUtils.nodeName(b));
         });
-        return sources.map(function(source) { return root.normalizeDevice(source, true); });
+        return sources.map(function(source) {
+            const entry = root.normalizeDevice(source, true);
+            entry.streams = [];
+            return entry;
+        });
     }
 
     function streamEntriesForOutput(outputId) {
-        const sink = root.pipewireQuery.rawNodeById(outputId);
-        if (!sink) return [];
-        const streams = root.pipewireQuery.streamsForSink(sink);
-        return streams.map(function(stream) { return root.normalizeStream(stream); });
+        const sink = root.rawNodeById(outputId);
+        if (!sink || !root.audioModels) return [];
+        const streams = root.audioModels.outputStreams(root.allNodes).filter(function(stream) {
+            return root.audioModels.isStreamConnectedTo(stream, sink, root.linkGroups);
+        });
+        return streams.map(function(stream) {
+            const entry = root.normalizeStream(stream);
+            entry.targetId = String(sink.id);
+            entry.targetName = root.nodeUtils.nodeName(sink, "Output");
+            entry.defaultTarget = root.defaultSink && sink.id === root.defaultSink.id;
+            return entry;
+        });
+    }
+
+    function rawNodeById(id) {
+        for (const node of root.allNodes || []) {
+            if (node.id === id || String(node.id) === String(id))
+                return node;
+        }
+        return null;
     }
 
     function errorColor() { return Config.styling.critical; }

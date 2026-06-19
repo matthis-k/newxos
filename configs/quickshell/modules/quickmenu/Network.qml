@@ -35,6 +35,7 @@ DashboardPage {
     NetworkInteractionState {
         id: interactionState
         networks: NetworkService.networks
+        networkKeyFn: NetworkService.networkKey
     }
 
     readonly property var displayedNetworks: interactionState.displayedNetworks(NetworkService.networks)

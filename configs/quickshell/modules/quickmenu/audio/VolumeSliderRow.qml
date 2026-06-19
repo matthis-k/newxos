@@ -6,7 +6,7 @@ import qs.components
 Item {
     id: root
 
-    required property var node
+    required property var entry
     property bool isInput: false
     property int sliderHeight: 24
     property int sliderWidth: 100
@@ -14,24 +14,24 @@ Item {
     property int iconTextGap: 10
     property int iconSize: 20
 
-    readonly property int volume: AudioService.volumePercent(root.node)
+    readonly property int volume: root.entry ? root.entry.volume : 0
 
     implicitWidth: root.sliderWidth + root.iconSlotWidth + root.iconTextGap + 42
     implicitHeight: root.sliderHeight
 
     AudioLevelSlider {
         anchors.fill: parent
-        iconName: AudioService.volumeIconName(root.node, root.isInput)
-        iconColor: AudioService.isMuted(root.node) ? Config.styling.critical : Config.styling.text0
+        iconName: root.entry ? root.entry.iconName : "audio-volume-muted-symbolic"
+        iconColor: root.entry && root.entry.muted ? Config.styling.critical : Config.styling.text0
         valueText: `${root.volume}%`
         from: 0
         to: 150
         value: root.volume
         stepSize: 1
-        enabled: !!root.node
-        accentColor: AudioService.isMuted(root.node) ? Config.styling.critical : Config.colors.blue
+        enabled: !!root.entry
+        accentColor: root.entry && root.entry.muted ? Config.styling.critical : Config.colors.blue
         iconSize: root.iconSize
-        onIconClicked: AudioService.toggleMute(root.node)
-        onValueModified: value => AudioService.setVolume(root.node, value)
+        onIconClicked: AudioService.toggleMuteById(root.entry.id)
+        onValueModified: value => AudioService.setVolumeById(root.entry.id, value)
     }
 }

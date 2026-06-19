@@ -24,8 +24,7 @@ Item {
     property int sliderHeight: 24
     property int sliderWidth: 100
 
-    readonly property var target: AudioService.findStreamTarget(root.stream)
-    readonly property bool isDefaultTarget: AudioService.defaultSink && target && AudioService.defaultSink.id === target.id
+    readonly property var outputEntries: root.sinks || []
 
     implicitWidth: root.contentWidth
     implicitHeight: rowContent.implicitHeight + root.verticalPadding * 2
@@ -49,8 +48,8 @@ Item {
             Icon {
                 Layout.preferredWidth: root.itemIconSize
                 Layout.preferredHeight: root.itemIconSize
-                iconName: AudioService.streamIconName(root.stream)
-                color: Config.styling.text0
+                iconName: root.stream.iconName
+                color: root.stream.iconColor
                 implicitSize: root.itemIconSize
             }
 
@@ -60,7 +59,7 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
-                    text: AudioService.streamName(root.stream)
+                    text: root.stream.name
                     color: Config.styling.text0
                     font.pixelSize: root.itemTextSize
                     font.bold: true
@@ -69,7 +68,7 @@ Item {
 
                 Text {
                     Layout.fillWidth: true
-                    text: root.isDefaultTarget ? "Default output" : (root.target ? AudioService.humanName(root.target) : "No output")
+                    text: root.stream.defaultTarget ? "Default output" : (root.stream.targetName || "No output")
                     color: Config.styling.text2
                     font.pixelSize: root.itemSubtextSize
                     elide: Text.ElideRight
@@ -79,7 +78,7 @@ Item {
 
         VolumeSliderRow {
             Layout.fillWidth: true
-            node: root.stream
+            entry: root.stream
             sliderHeight: root.sliderHeight
             sliderWidth: root.sliderWidth
             iconSlotWidth: root.iconSlotWidth
@@ -105,10 +104,10 @@ Item {
                 model: outputSelector.displayModel
                 currentIndex: findCurrentIndex()
 
-                property var displayModel: root.sinks.map(sink => ({
-                    node: sink,
-                    label: AudioService.humanName(sink),
-                    isDefault: AudioService.defaultSink && sink.id === AudioService.defaultSink.id
+                property var displayModel: root.outputEntries.map(sink => ({
+                    id: sink.id,
+                    label: sink.name,
+                    isDefault: sink.default
                 }))
 
                 textRole: ""
@@ -175,10 +174,10 @@ Item {
                 }
 
                 function findCurrentIndex() {
-                    const target = root.target;
-                    if (!target) return 0;
+                    const targetId = root.stream.targetId;
+                    if (!targetId) return 0;
                     for (let i = 0; i < outputSelector.displayModel.length; i++) {
-                        if (outputSelector.displayModel[i].node.id === target.id)
+                        if (outputSelector.displayModel[i].id === targetId)
                             return i;
                     }
                     return 0;
@@ -186,7 +185,7 @@ Item {
 
                 onActivated: function(index) {
                     if (index >= 0 && index < outputSelector.displayModel.length)
-                        AudioService.moveStreamTo(root.stream, outputSelector.displayModel[index].node);
+                        AudioService.moveStreamTo(root.stream.id, outputSelector.displayModel[index].id);
                 }
             }
         }
