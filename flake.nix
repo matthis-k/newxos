@@ -12,6 +12,10 @@
       url = "github:matthis-k/breeze-catppuccin";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    codebase-memory-mcp = {
+      url = "github:DeusData/codebase-memory-mcp";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";

@@ -10,6 +10,11 @@
     flake = false;
   };
 
+  flake-file.inputs.codebase-memory-mcp = {
+    url = "github:DeusData/codebase-memory-mcp";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+
   perSystem =
     {
       config,
@@ -65,6 +70,8 @@
           exec basic-memory mcp --project newxos
         '';
       };
+
+      codebaseMemoryMcp = inputs'.codebase-memory-mcp.packages.default;
 
       wrappedOpencode = builtins.tryEval (
         inputs.nix-wrapper-modules.wrappers.opencode.wrap {
@@ -134,6 +141,12 @@
                 enabled = true;
               };
 
+              codebase-memory = {
+                type = "local";
+                command = [ (lib.getExe codebaseMemoryMcp) ];
+                enabled = true;
+              };
+
               qt-documentation = {
                 type = "remote";
                 url = "https://qt-docs-mcp.qt.io/mcp";
@@ -181,6 +194,7 @@
     {
       packages = {
         basic-memory-mcp-newxos = basicMemoryMcpNewxos;
+        codebase-memory-mcp = codebaseMemoryMcp;
       }
       // (
         if wrappedOpencode.success then
@@ -210,6 +224,7 @@
         [
           self'.packages.opencode
           self'.packages.basic-memory-mcp-newxos
+          self'.packages.codebase-memory-mcp
         ]
       );
     };

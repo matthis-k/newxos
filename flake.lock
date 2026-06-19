@@ -137,6 +137,26 @@
         "type": "github"
       }
     },
+    "codebase-memory-mcp": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1781281003,
+        "narHash": "sha256-jFIZ3+EgNUK3z/6dg0U4idxmp0UHa8Zk79Z36dhE3hg=",
+        "owner": "DeusData",
+        "repo": "codebase-memory-mcp",
+        "rev": "e599df1d563c1e9b0b2fc8c6b12ee85934ade1c5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "DeusData",
+        "repo": "codebase-memory-mcp",
+        "type": "github"
+      }
+    },
     "devshell": {
       "inputs": {
         "nixpkgs": [
@@ -1121,6 +1141,7 @@
       "inputs": {
         "blink-lib": "blink-lib",
         "catppuccin-breeze-cursors": "catppuccin-breeze-cursors",
+        "codebase-memory-mcp": "codebase-memory-mcp",
         "disko": "disko",
         "firefox-addons": "firefox-addons",
         "flake-file": "flake-file",
