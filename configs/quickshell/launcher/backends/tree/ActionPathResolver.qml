@@ -3,51 +3,52 @@ import QtQml
 QtObject {
     id: root
 
-    property var nodeFactory: null
+    property var treeRootsProvider: null
 
-    function originalNodeForPath(path, rootNode) {
-        if (!path || path.length === 0 || !rootNode)
-            return null;
-        var current = rootNode;
-        for (var i = 0; i < path.length; i++) {
-            var segment = path[i];
-            if (!current.children)
-                return null;
-            var found = false;
-            for (var j = 0; j < current.children.length; j++) {
-                var child = current.children[j];
-                if (child.id === segment || child.title === segment) {
-                    current = child;
-                    found = true;
+    function originalNodeForPath(commandPath) {
+        var nodes = root.treeRootsProvider ? root.treeRootsProvider() : [];
+        var current = null;
+
+        for (var i = 0; i < (commandPath || []).length; i += 1) {
+            var wanted = commandPath[i];
+            current = null;
+
+            for (var ni = 0; ni < nodes.length; ni += 1) {
+                var candidate = nodes[ni];
+                if ((candidate.id || candidate.title) === wanted) {
+                    current = candidate;
                     break;
                 }
             }
-            if (!found)
+
+            if (!current)
                 return null;
+
+            nodes = current.children || [];
         }
+
         return current;
     }
 
-    function actionPayloadForPath(payload, rootNode) {
-        if (!payload || !payload.actionId || !payload.path)
-            return payload;
-        var action = payload.actionId;
-        var node = originalNodeForPath(payload.path, rootNode);
+    function actionPayloadForPath(commandPath, actionId) {
+        var node = root.originalNodeForPath(commandPath);
         if (!node)
-            return payload;
-        var targetAction = node.defaultAction || node.action || null;
-        for (var i = 0; i < (node.children || []).length; i++) {
+            return null;
+
+        var ownAction = node.defaultAction || node.action || null;
+        if (ownAction && (!actionId || ownAction.actionId === actionId || ownAction.id === actionId))
+            return ownAction;
+
+        if (node.switchActions && node.switchActions[actionId])
+            return node.switchActions[actionId];
+
+        for (var i = 0; i < (node.children || []).length; i += 1) {
             var child = node.children[i];
-            if (child.actionList && child.actionList.length > 0) {
-                var leafAction = child.actionList[0];
-                if (leafAction && leafAction.id === action) {
-                    targetAction = leafAction.payload || leafAction;
-                    if (targetAction.path)
-                        targetAction.path = [node.id || node.title].concat(targetAction.path || []);
-                    break;
-                }
-            }
+            var childAction = child.defaultAction || child.action || null;
+            if (childAction && (child.id === actionId || childAction.actionId === actionId || childAction.id === actionId))
+                return childAction;
         }
-        return targetAction || payload;
+
+        return ownAction;
     }
 }

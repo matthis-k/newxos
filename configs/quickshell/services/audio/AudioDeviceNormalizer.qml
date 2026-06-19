@@ -1,5 +1,6 @@
 import QtQml
 import Quickshell.Services.Pipewire
+import qs.services
 
 QtObject {
     id: root

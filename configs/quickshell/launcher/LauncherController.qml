@@ -180,7 +180,6 @@ Item {
     // Debug/IPC façade
     function serializeRow(row) { return debugController.serializeRow(row); }
     function serializeRowsForQuery(rows, queryInfo) { return debugController.serializeRowsForQuery(rows, queryInfo); }
-    function _resolveQueryArg(text) { return debugController.resolveQueryArg(text); }
 
     function buildDirectiveFromRoute(rawQuery, route) { return Engine.buildDirectiveFromRoute(rawQuery, route, backends || []); }
     function findHelpTitle(backendId) { return Engine.findHelpTitle(backends || [], backendId); }

@@ -283,6 +283,34 @@ Singleton {
         setWifiEnabled(!wifiEnabled);
     }
 
+    function executePayload(payload) {
+        if (!payload || payload.service !== "network")
+            return false;
+
+        switch (payload.op) {
+        case "setWifiEnabled":
+            root.setWifiEnabled(!!payload.enabled);
+            return true;
+        case "toggleWifi":
+            root.toggleWifi();
+            return true;
+        case "setNetworkingEnabled":
+            root.setNetworkingEnabled(!!payload.enabled);
+            return true;
+        case "connect":
+            root.connectNetwork(payload.id, payload.options || {});
+            return true;
+        case "disconnect":
+            root.disconnectNetwork(payload.id);
+            return true;
+        case "scan":
+            root.scan();
+            return true;
+        default:
+            return false;
+        }
+    }
+
     NetworkCommands {
         id: commands
 

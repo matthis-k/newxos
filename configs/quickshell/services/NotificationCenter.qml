@@ -141,6 +141,25 @@ Singleton {
         root.toastsEnabled = !root.toastsEnabled;
     }
 
+    function executePayload(payload) {
+        if (!payload || payload.service !== "notifications")
+            return false;
+
+        switch (payload.op) {
+        case "setDnd":
+            root.setDoNotDisturb(!!payload.enabled);
+            return true;
+        case "toggleDnd":
+            root.setDoNotDisturb(!root.doNotDisturbEnabled);
+            return true;
+        case "clearAll":
+            root.clearAll();
+            return true;
+        default:
+            return false;
+        }
+    }
+
     function normalizedNotifications() {
         const result = [];
         for (const n of root.notifications) {

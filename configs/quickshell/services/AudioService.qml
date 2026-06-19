@@ -13,6 +13,14 @@ Singleton {
 
     readonly property PipewireQuery pipewireQuery: PipewireQuery {}
     readonly property AudioNodeUtils nodeUtils: AudioNodeUtils {}
+    readonly property AudioModels audioModels: AudioModels {}
+    readonly property AudioPresentation audioPresentation: AudioPresentation {}
+    readonly property AudioCommands audioCommands: AudioCommands {
+        onMoveStreamFinished: function(success, message) {
+            root.finishOperation(success, message);
+            root._revision++;
+        }
+    }
     readonly property AudioDeviceNormalizer normalizer: AudioDeviceNormalizer {
         nodeUtils: root.nodeUtils
         pipewireQuery: root.pipewireQuery
@@ -25,10 +33,14 @@ Singleton {
     readonly property var defaultSink: Pipewire.defaultAudioSink
     readonly property var defaultSource: Pipewire.defaultAudioSource
 
-    readonly property var outputs: root.pipewireQuery.audioNodes(PwNodeType.AudioSink)
-    readonly property var inputs: root.pipewireQuery.audioNodes(PwNodeType.AudioSource)
-    readonly property var outputStreams: root.pipewireQuery.audioNodes(PwNodeType.AudioOutStream)
-    readonly property var inputStreams: root.pipewireQuery.audioNodes(PwNodeType.AudioInStream)
+    readonly property var allNodes: root.audioModels.collectNodes(Pipewire.nodes.values || [])
+    readonly property var linkGroups: Pipewire.linkGroups.values || []
+    readonly property var outputs: root.audioModels.audioSinks(root.allNodes)
+    readonly property var inputs: root.audioModels.audioSources(root.allNodes)
+    readonly property var outputStreams: root.audioModels.outputStreams(root.allNodes)
+    readonly property var inputStreams: root.audioModels.inputStreams(root.allNodes)
+    readonly property var sinksWithStreams: root.audioModels.buildSinksWithStreams(root.outputs, root.outputStreams, root.defaultSink, root.linkGroups)
+    readonly property var sourcesWithStreams: root.audioModels.buildSourcesWithStreams(root.inputs, root.inputStreams, root.defaultSource, root.linkGroups)
 
     readonly property real outputVolume: defaultSink ? root.nodeUtils.volumePercent(defaultSink) : 0
     readonly property bool outputMuted: defaultSink ? root.nodeUtils.isMuted(defaultSink) : false
@@ -157,11 +169,48 @@ Singleton {
         return true;
     }
 
-    function setOutputVolume(value) {
-        root.beginOperation("set-volume", defaultSink ? String(defaultSink.id) : "");
-        root.nodeUtils.setVolume(defaultSink, value);
+    function setVolume(node, value) {
+        root.beginOperation("set-volume", node ? String(node.id) : "");
+        if (!root.audioCommands.setVolume(node, value)) {
+            root.finishOperation(false, "Audio node not found");
+            return;
+        }
         root._revision++;
         root.finishOperation(true, "");
+    }
+
+    function toggleMute(node) {
+        root.beginOperation("toggle", node ? String(node.id) : "");
+        if (!root.audioCommands.toggleMute(node)) {
+            root.finishOperation(false, "Audio node not found");
+            return;
+        }
+        root._revision++;
+        root.finishOperation(true, "");
+    }
+
+    function setDefaultSink(sink) {
+        root.beginOperation("set-profile", sink ? String(sink.id) : "");
+        if (!root.audioCommands.setDefaultSink(sink)) {
+            root.finishOperation(false, "Audio output not found");
+            return;
+        }
+        root._revision++;
+        root.finishOperation(true, "");
+    }
+
+    function setDefaultSource(source) {
+        root.beginOperation("set-profile", source ? String(source.id) : "");
+        if (!root.audioCommands.setDefaultSource(source)) {
+            root.finishOperation(false, "Audio input not found");
+            return;
+        }
+        root._revision++;
+        root.finishOperation(true, "");
+    }
+
+    function setOutputVolume(value) {
+        root.setVolume(defaultSink, value);
     }
 
     function adjustOutputVolume(delta) {
@@ -172,17 +221,11 @@ Singleton {
     }
 
     function toggleOutputMute() {
-        root.beginOperation("toggle", defaultSink ? String(defaultSink.id) : "");
-        root.nodeUtils.toggleMute(defaultSink);
-        root._revision++;
-        root.finishOperation(true, "");
+        root.toggleMute(defaultSink);
     }
 
     function setInputVolume(value) {
-        root.beginOperation("set-volume", defaultSource ? String(defaultSource.id) : "");
-        root.nodeUtils.setVolume(defaultSource, value);
-        root._revision++;
-        root.finishOperation(true, "");
+        root.setVolume(defaultSource, value);
     }
 
     function adjustInputVolume(delta) {
@@ -193,19 +236,14 @@ Singleton {
     }
 
     function toggleInputMute() {
-        root.beginOperation("toggle", defaultSource ? String(defaultSource.id) : "");
-        root.nodeUtils.toggleMute(defaultSource);
-        root._revision++;
-        root.finishOperation(true, "");
+        root.toggleMute(defaultSource);
     }
 
     function setDefaultOutput(id) {
         root.beginOperation("set-profile", String(id || ""));
         for (const node of Pipewire.nodes.values || []) {
             if (node.id === id || String(node.id) === String(id)) {
-                Pipewire.preferredDefaultAudioSink = node;
-                root._revision++;
-                root.finishOperation(true, "");
+                root.setDefaultSink(node);
                 return;
             }
         }
@@ -216,30 +254,22 @@ Singleton {
         root.beginOperation("set-profile", String(id || ""));
         for (const node of Pipewire.nodes.values || []) {
             if (node.id === id || String(node.id) === String(id)) {
-                Pipewire.preferredDefaultAudioSource = node;
-                root._revision++;
-                root.finishOperation(true, "");
+                root.setDefaultSource(node);
                 return;
             }
         }
         root.finishOperation(false, "Audio input not found");
     }
 
-    function moveStreamTo(streamId, targetNodeId) {
-        const streamNode = root.pipewireQuery.rawNodeById(streamId);
-        const targetNode = root.pipewireQuery.rawNodeById(targetNodeId);
-        root.beginOperation("move-stream", `${streamId}:${targetNodeId}`);
+    function moveStreamTo(stream, sink) {
+        const streamNode = typeof stream === "object" ? stream : root.pipewireQuery.rawNodeById(stream);
+        const targetNode = typeof sink === "object" ? sink : root.pipewireQuery.rawNodeById(sink);
+        root.beginOperation("move-stream", `${streamNode ? streamNode.id : stream}:${targetNode ? targetNode.id : sink}`);
         if (!streamNode || !targetNode) {
             root.finishOperation(false, "Audio stream or target not found");
             return;
         }
-        const proc = Qt.createQmlObject("import Quickshell.Io; Process {}", root);
-        proc.command = ["pw-cli", "move-stream", String(streamNode.id), String(targetNode.id)];
-        proc.running = true;
-        proc.onExited.connect(function(exitCode) {
-            root.finishOperation(exitCode === 0, `move stream failed (${exitCode})`);
-            proc.destroy();
-        });
+        root.audioCommands.moveStreamTo(streamNode, targetNode);
     }
 
     readonly property var outputVolumeControl: defaultSink ? root.normalizer.volumeControl(defaultSink) : null
@@ -249,6 +279,11 @@ Singleton {
     function inputDeviceEntries() { return root.normalizer.inputDeviceEntries(); }
     function streamEntriesForOutput(outputId) { return root.normalizer.streamEntriesForOutput(outputId); }
 
+    function findStreamTarget(stream) { return root.audioModels.findStreamTarget(stream, root.linkGroups); }
+    function isStreamConnectedTo(stream, targetNode) { return root.audioModels.isStreamConnectedTo(stream, targetNode, root.linkGroups); }
+    function streamName(stream) { return root.audioPresentation.streamName(stream); }
+    function streamIconName(stream) { return root.audioPresentation.streamIconName(stream); }
+    function humanName(node) { return root.audioPresentation.humanName(node); }
     function volumeIconName(node, inputNode) { return root.nodeUtils.volumeIconName(node, inputNode); }
     function isMuted(node) { return root.nodeUtils.isMuted(node); }
     function volumePercent(node) { return root.nodeUtils.volumePercent(node); }

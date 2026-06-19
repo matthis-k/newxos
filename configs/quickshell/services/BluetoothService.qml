@@ -14,6 +14,8 @@ Singleton {
     readonly property var adapter: Bluetooth.defaultAdapter
 
     readonly property BluetoothDeviceNormalizer deviceNormalizer: BluetoothDeviceNormalizer {}
+    readonly property BluetoothModels bluetoothModels: BluetoothModels {}
+    readonly property BluetoothPresentation bluetoothPresentation: BluetoothPresentation {}
     readonly property BluetoothOperationState operationState: BluetoothOperationState {}
 
     readonly property bool available: !!adapter
@@ -24,7 +26,7 @@ Singleton {
     readonly property var operation: root.operationState.operation
     readonly property bool busy: root.operationState.busy || scanning
     readonly property bool connected: connectedCount > 0
-    readonly property int connectedCount: adapter ? (adapter.devices.values || []).filter(function(d) { return d.connected; }).length : 0
+    readonly property int connectedCount: root.connectedDevices.length
 
     readonly property string state: {
         if (!adapter) return "unavailable";
@@ -34,8 +36,9 @@ Singleton {
         return "enabled";
     }
 
-    readonly property var devices: root.deviceNormalizer.normalizeDevices(adapter)
-    readonly property var connectedDevices: devices.filter(function(d) { return d.connected; })
+    readonly property var devices: root.bluetoothModels.collectDevices(adapter, root.bluetoothPresentation)
+    readonly property var connectedDevices: root.bluetoothModels.connectedDevices(root.devices)
+    readonly property var otherDevices: root.bluetoothModels.otherDevices(root.devices)
     readonly property var availableDevices: devices
 
     property var _revision: 0
@@ -77,6 +80,27 @@ Singleton {
         return root.deviceNormalizer.rawDeviceById(adapter, id);
     }
 
+    function resolveDevice(deviceOrId) {
+        if (!deviceOrId)
+            return null;
+        if (typeof deviceOrId === "object")
+            return deviceOrId;
+        return root.rawDeviceById(deviceOrId);
+    }
+
+    function deviceKey(device) { return root.bluetoothModels.deviceKey(device); }
+    function displayName(device) { return root.bluetoothPresentation.displayName(device); }
+    function batteryLabel(device) { return root.bluetoothPresentation.batteryLabel(device); }
+    function deviceTypeLabel(device) { return root.bluetoothPresentation.deviceTypeLabel(device); }
+    function adapterStatusLabel() { return root.bluetoothPresentation.adapterStatusLabel(root.adapter); }
+    function adapterIconName() { return root.bluetoothPresentation.adapterIconName(root.adapter, root.connectedCount); }
+    function deviceStatusLabel(device) { return root.bluetoothPresentation.deviceStatusLabel(device); }
+    function advancedDeviceInfo(device) { return root.bluetoothPresentation.advancedDeviceInfo(device); }
+
+    function setAdapterEnabled(enabled) {
+        root.setEnabled(enabled);
+    }
+
     function setEnabled(value) {
         if (adapter) {
             root.operationState.beginOperation("toggle", "adapter");
@@ -102,9 +126,10 @@ Singleton {
         }
     }
 
-    function connectDevice(id) {
-        const device = root.rawDeviceById(id);
-        root.operationState.beginOperation("connect", id);
+    function connectDevice(deviceOrId) {
+        const device = root.resolveDevice(deviceOrId);
+        const key = root.deviceKey(device) || String(deviceOrId || "");
+        root.operationState.beginOperation("connect", key);
         if (device) {
             device.connect();
             root.operationState.finishOperation(true, "");
@@ -113,9 +138,10 @@ Singleton {
         }
     }
 
-    function disconnectDevice(id) {
-        const device = root.rawDeviceById(id);
-        root.operationState.beginOperation("disconnect", id);
+    function disconnectDevice(deviceOrId) {
+        const device = root.resolveDevice(deviceOrId);
+        const key = root.deviceKey(device) || String(deviceOrId || "");
+        root.operationState.beginOperation("disconnect", key);
         if (device) {
             device.disconnect();
             root.operationState.finishOperation(true, "");
@@ -124,9 +150,10 @@ Singleton {
         }
     }
 
-    function pairDevice(id) {
-        const device = root.rawDeviceById(id);
-        root.operationState.beginOperation("pair", id);
+    function pairDevice(deviceOrId) {
+        const device = root.resolveDevice(deviceOrId);
+        const key = root.deviceKey(device) || String(deviceOrId || "");
+        root.operationState.beginOperation("pair", key);
         if (!device) {
             root.operationState.finishOperation(false, "Bluetooth device not found");
             return;
@@ -138,9 +165,14 @@ Singleton {
         root.operationState.finishOperation(true, "");
     }
 
-    function forgetDevice(id) {
-        const device = root.rawDeviceById(id);
-        root.operationState.beginOperation("forget", id);
+    function pairOrCancelDevice(device) {
+        root.pairDevice(device);
+    }
+
+    function forgetDevice(deviceOrId) {
+        const device = root.resolveDevice(deviceOrId);
+        const key = root.deviceKey(device) || String(deviceOrId || "");
+        root.operationState.beginOperation("forget", key);
         if (device) {
             device.forget();
             root.operationState.finishOperation(true, "");
@@ -149,15 +181,22 @@ Singleton {
         }
     }
 
-    function setTrusted(id, value) {
-        const device = root.rawDeviceById(id);
-        root.operationState.beginOperation("trust", id);
+    function setTrusted(deviceOrId, value) {
+        const device = root.resolveDevice(deviceOrId);
+        const key = root.deviceKey(device) || String(deviceOrId || "");
+        root.operationState.beginOperation("trust", key);
         if (device) {
             device.trusted = value;
             root.operationState.finishOperation(true, "");
         } else {
             root.operationState.finishOperation(false, "Bluetooth device not found");
         }
+    }
+
+    function toggleTrusted(device) {
+        if (!device)
+            return;
+        root.setTrusted(device, !device.trusted);
     }
 
     function executePayload(payload) {

@@ -9,6 +9,7 @@ QtObject {
     property string interactivePasswordText: ""
     property string interactiveErrorText: ""
     property var frozenNetworkOrder: []
+    property var networks: []
 
     readonly property bool interactionLocked: interactiveNetworkKey !== ""
 
@@ -38,7 +39,7 @@ QtObject {
         if (!key)
             return;
         if (!interactionLocked)
-            frozenNetworkOrder = (typeof NetworkService !== "undefined" ? NetworkService.networks : []).map(candidate => networkKey(candidate));
+            frozenNetworkOrder = root.networks.map(candidate => networkKey(candidate));
         if (interactiveNetworkKey !== key) {
             interactiveShowAdvanced = false;
             interactiveShowPasswordInput = false;

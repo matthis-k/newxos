@@ -110,6 +110,25 @@ Singleton {
             root.connect(null);
     }
 
+    function executePayload(payload) {
+        if (!payload || payload.service !== "vpn")
+            return false;
+
+        switch (payload.op) {
+        case "connect":
+            root.connect(payload.destination || null);
+            return true;
+        case "disconnect":
+            root.disconnect();
+            return true;
+        case "toggle":
+            root.toggle();
+            return true;
+        default:
+            return false;
+        }
+    }
+
     function destinationLabel(destination) {
         if (!destination)
             return "Unknown";

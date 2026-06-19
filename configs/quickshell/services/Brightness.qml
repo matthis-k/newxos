@@ -134,6 +134,22 @@ Singleton {
         setPercent(root.percent + delta);
     }
 
+    function executePayload(payload) {
+        if (!payload || payload.service !== "brightness")
+            return false;
+
+        switch (payload.op) {
+        case "set":
+            root.setPercent(Number(payload.value || 0));
+            return true;
+        case "adjust":
+            root.adjust(Number(payload.delta || 0));
+            return true;
+        default:
+            return false;
+        }
+    }
+
     Process {
         id: probe
         stdout: StdioCollector {

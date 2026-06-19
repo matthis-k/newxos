@@ -1,14 +1,11 @@
 import QtQuick
 import QtQml
 import "../logic/"
-import "../logic/DebugLogger.js" as DebugLogger
 
 Item {
     id: root
 
     property var controller: null
-    property var pendingConfirmId: null
-    property int pendingConfirmTimeoutMs: 1600
 
     ActivationConfirmation {
         id: confirmHandler
@@ -27,6 +24,23 @@ Item {
         id: controlHandler
         controller: root.controller
         targetResolver: targetResolver
+    }
+
+    BackendActionExecutor {
+        id: backendExecutor
+        controller: root.controller
+    }
+
+    LegacyIntentExecutor {
+        id: legacyIntentExecutor
+        controller: root.controller
+        actionController: root
+    }
+
+    ResultActionResolver {
+        id: resultActionResolver
+        controller: root.controller
+        controlHandler: controlHandler
     }
 
     function activateSelected(shiftPressed) {
@@ -59,35 +73,7 @@ Item {
     }
 
     function activateResult(result, action) {
-        if (!result || !action)
-            return false;
-
-        if (result.metadata && result.metadata.replaceQuery) {
-            if (root.controller)
-                root.controller.queryReplacementRequested(result.metadata.replaceQuery);
-            return false;
-        }
-
-        var backend = null;
-        for (var i = 0; i < (root.controller ? root.controller.backends || [] : []).length; i += 1) {
-            if (root.controller.backends[i] && root.controller.backendId(root.controller.backends[i]) === result.source) {
-                backend = root.controller.backends[i];
-                break;
-            }
-        }
-        if (!backend)
-            return false;
-
-        try {
-            backend.activate(result, action);
-            if (root.controller && root.controller.debugEnabled)
-                DebugLogger.logExecute(result.id, action ? action.id : "", false, true);
-            return true;
-        } catch (error) {
-            if (root.controller && root.controller.debugEnabled)
-                DebugLogger.logError("Activation failed for " + result.id, error);
-            return false;
-        }
+        return backendExecutor.activateResult(result, action);
     }
 
     function executeRecipeSlot(target, slotName) {
@@ -99,91 +85,11 @@ Item {
     }
 
     function applyIntent(result, intent) {
-        if (!result || !intent)
-            return false;
-        switch (intent.type || "activate") {
-        case "sequence": {
-            var closeRequested = false;
-            var steps = intent.steps || intent.actions || [];
-            for (var si = 0; si < steps.length; si += 1) {
-                if (root.applyIntent(result, steps[si]))
-                    closeRequested = true;
-            }
-            return closeRequested;
-        }
-        case "close":
-            return true;
-        case "replace-query":
-            if (root.controller)
-                root.controller.queryReplacementRequested(intent.text || "");
-            return false;
-        case "noop":
-            return false;
-        case "activate":
-        default: {
-            var actions = result && result.actions ? result.actions : [];
-            var defaultAction = actions.find(function(a) { return a.default; }) || actions[0] || null;
-            var selectedAction = intent.action || defaultAction;
-            if (selectedAction && selectedAction.intent)
-                return root.applyIntent(result, selectedAction.intent);
-            root.activateResult(result, selectedAction);
-            return false;
-        }
-        }
+        return legacyIntentExecutor.applyIntent(result, intent);
     }
 
     function activateResultAction(result, actionId) {
-        if (!result) {
-            if (root.controller && root.controller.debugEnabled)
-                console.warn("[Actions] activateResultAction without result", { actionId: actionId || "" });
-            return false;
-        }
-        var actions = result.actions || [];
-        if (root.controller && root.controller.debugEnabled)
-            console.warn("[Actions] activateResultAction", {
-                resultId: result.id || result.nodeId || "",
-                title: result.title || "",
-                source: result.source || result.backendId || "",
-                actionId: actionId || "",
-                actionIds: actions.map(function(a) { return a ? a.id || "" : ""; }),
-                hasSwitchActions: !!result.switchActions,
-                switchActionIds: result.switchActions ? Object.keys(result.switchActions) : [],
-                switchState: result.switchState
-            });
-        for (var i = 0; i < actions.length; i += 1) {
-            if (actions[i] && actions[i].id === actionId) {
-                var recipeResult = ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root.controller);
-                if (root.controller && root.controller.debugEnabled)
-                    console.warn("[Actions] activateResultAction matched action list", {
-                        resultId: result.id || result.nodeId || "",
-                        actionId: actionId || "",
-                        activated: recipeResult.success,
-                        payloadState: actions[i].payload ? actions[i].payload.state : undefined
-                    });
-                if (recipeResult.success && result.switchActions)
-                    controlHandler.refreshSwitchResult(result, actions[i]);
-                return recipeResult.success;
-            }
-        }
-        if (result.switchActions && result.switchActions[actionId]) {
-            var switchResult = ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root.controller);
-            if (root.controller && root.controller.debugEnabled)
-                console.warn("[Actions] activateResultAction matched switchActions", {
-                    resultId: result.id || result.nodeId || "",
-                    actionId: actionId || "",
-                    activated: switchResult.success,
-                    payloadState: result.switchActions[actionId].payload ? result.switchActions[actionId].payload.state : undefined
-                });
-            if (switchResult.success)
-                controlHandler.refreshSwitchResult(result, result.switchActions[actionId]);
-            return switchResult.success;
-        }
-        if (root.controller && root.controller.debugEnabled)
-            console.warn("[Actions] activateResultAction no matching action", {
-                resultId: result.id || result.nodeId || "",
-                actionId: actionId || ""
-            });
-        return false;
+        return resultActionResolver.activateResultAction(result, actionId);
     }
 
     function adjustSelectedValue(delta) {

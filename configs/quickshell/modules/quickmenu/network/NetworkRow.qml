@@ -11,7 +11,7 @@ Item {
     id: rowRoot
 
     required property var network
-    property QtObject interactionState: null
+    property var interactionState: null
     property int contentWidth: 320
     property int itemSpacing: 3
     property int rowHeight: 36
@@ -24,12 +24,12 @@ Item {
     property int verticalPadding: 4
 
     readonly property bool hasNetwork: !!network
-    readonly property string rowKey: interactionState ? interactionState.networkKey(network) : ""
-    readonly property bool expanded: interactionState ? interactionState.interactiveNetworkKey === rowKey : false
-    readonly property bool showAdvanced: expanded && (interactionState ? interactionState.interactiveShowAdvanced : false)
-    readonly property bool showPasswordInput: expanded && (interactionState ? interactionState.interactiveShowPasswordInput : false)
-    readonly property string passwordText: expanded ? (interactionState ? interactionState.interactivePasswordText : "") : ""
-    readonly property string errorText: expanded ? (interactionState ? interactionState.interactiveErrorText : "") : ""
+    readonly property string rowKey: rowRoot.interactionState && rowRoot.network ? String(rowRoot.interactionState.networkKey(rowRoot.network) || "") : ""
+    readonly property bool expanded: rowRoot.interactionState && rowRoot.rowKey !== "" ? rowRoot.interactionState.interactiveNetworkKey === rowRoot.rowKey : false
+    readonly property bool showAdvanced: rowRoot.expanded && rowRoot.interactionState ? !!rowRoot.interactionState.interactiveShowAdvanced : false
+    readonly property bool showPasswordInput: rowRoot.expanded && rowRoot.interactionState ? !!rowRoot.interactionState.interactiveShowPasswordInput : false
+    readonly property string passwordText: rowRoot.expanded && rowRoot.interactionState ? String(rowRoot.interactionState.interactivePasswordText || "") : ""
+    readonly property string errorText: rowRoot.expanded && rowRoot.interactionState ? String(rowRoot.interactionState.interactiveErrorText || "") : ""
     readonly property bool needsPskPrompt: hasNetwork && !network.connected && !NetworkService.isOpenNetwork(network) && NetworkService.securityNeedsPsk(network.security)
 
     implicitWidth: contentWidth
@@ -43,15 +43,15 @@ Item {
 
     function attemptConnect() {
         if (!hasNetwork) {
-            if (interactionState)
-                interactionState.unlockInteraction();
+            if (rowRoot.interactionState)
+                rowRoot.interactionState.unlockInteraction();
             return;
         }
 
-        if (interactionState)
-            interactionState.lockInteractionFor(network);
-        if (interactionState)
-            interactionState.interactiveErrorText = "";
+        if (rowRoot.interactionState)
+            rowRoot.interactionState.lockInteractionFor(network);
+        if (rowRoot.interactionState)
+            rowRoot.interactionState.interactiveErrorText = "";
 
         if (network.connected)
             return;
@@ -61,25 +61,25 @@ Item {
             return;
         }
 
-        if (interactionState)
-            interactionState.interactiveShowPasswordInput = true;
+        if (rowRoot.interactionState)
+            rowRoot.interactionState.interactiveShowPasswordInput = true;
 
-        if (interactionState && !interactionState.interactivePasswordText.length) {
-            interactionState.interactiveErrorText = "Password required";
+        if (rowRoot.interactionState && !rowRoot.interactionState.interactivePasswordText.length) {
+            rowRoot.interactionState.interactiveErrorText = "Password required";
             return;
         }
 
-        NetworkService.connectToNetwork(network.ssid, interactionState ? interactionState.interactivePasswordText : "");
+        NetworkService.connectToNetwork(network.ssid, rowRoot.interactionState ? rowRoot.interactionState.interactivePasswordText : "");
     }
 
     Connections {
         target: NetworkService
 
         function onConnectedSsidChanged() {
-            if (rowRoot.expanded && rowRoot.hasNetwork && NetworkService.connectedSsid === rowRoot.network.ssid && interactionState) {
-                interactionState.interactiveErrorText = "";
-                interactionState.interactivePasswordText = "";
-                interactionState.interactiveShowPasswordInput = false;
+            if (rowRoot.expanded && rowRoot.hasNetwork && NetworkService.connectedSsid === rowRoot.network.ssid && rowRoot.interactionState) {
+                rowRoot.interactionState.interactiveErrorText = "";
+                rowRoot.interactionState.interactivePasswordText = "";
+                rowRoot.interactionState.interactiveShowPasswordInput = false;
             }
         }
     }
@@ -98,7 +98,7 @@ Item {
             iconColor: rowRoot.hasNetwork && rowRoot.network.connected ? Config.colors.blue : Config.styling.text0
             title: rowRoot.hasNetwork ? (rowRoot.network.ssid || "Hidden network") : "Unavailable"
             subtitle: rowRoot.hasNetwork
-                ? `${root.securityLabel(rowRoot.network)} | ${rowRoot.network.strength || Math.round((rowRoot.network.signalStrength || 0) * 100)}%`
+                ? `${rowRoot.securityLabel(rowRoot.network)} | ${rowRoot.network.strength || Math.round((rowRoot.network.signalStrength || 0) * 100)}%`
                 : "Network unavailable"
             status: rowRoot.hasNetwork && rowRoot.network.connected
                 ? "Connected"
@@ -117,10 +117,10 @@ Item {
             contentSpacing: iconTextGap
 
             onClicked: {
-                if (rowRoot.expanded && interactionState)
-                    interactionState.unlockInteraction();
-                else if (rowRoot.hasNetwork && interactionState)
-                    interactionState.lockInteractionFor(rowRoot.network);
+                    if (rowRoot.expanded && rowRoot.interactionState)
+                        rowRoot.interactionState.unlockInteraction();
+                    else if (rowRoot.hasNetwork && rowRoot.interactionState)
+                        rowRoot.interactionState.lockInteractionFor(rowRoot.network);
             }
         }
 
@@ -155,7 +155,7 @@ Item {
                         id: passwordField
                         Layout.fillWidth: true
                         visible: rowRoot.showPasswordInput
-                        text: interactionState ? interactionState.interactivePasswordText : ""
+                        text: rowRoot.passwordText
                         placeholderText: "Wi-Fi password"
                         echoMode: TextInput.Password
                         color: Config.styling.text0
@@ -163,8 +163,8 @@ Item {
                         selectedTextColor: Config.styling.selectionText
                         selectionColor: Config.styling.selectionBackgroundActive
                         onTextChanged: {
-                            if (interactionState)
-                                interactionState.interactivePasswordText = text;
+                            if (rowRoot.interactionState)
+                                rowRoot.interactionState.interactivePasswordText = text;
                         }
                         onAccepted: rowRoot.attemptConnect()
 
@@ -195,8 +195,8 @@ Item {
                             text: rowRoot.hasNetwork && rowRoot.network.connected ? "Disconnect" : "Connect"
                             onClicked: {
                                 if (!rowRoot.hasNetwork) {
-                                    if (interactionState)
-                                        interactionState.unlockInteraction();
+                                    if (rowRoot.interactionState)
+                                        rowRoot.interactionState.unlockInteraction();
                                     return;
                                 }
 
@@ -211,8 +211,8 @@ Item {
                         SmallButton {
                             text: rowRoot.showAdvanced ? "Hide Advanced" : "Show Advanced"
                             onClicked: {
-                                if (interactionState)
-                                    interactionState.interactiveShowAdvanced = !interactionState.interactiveShowAdvanced;
+                                if (rowRoot.interactionState)
+                                    rowRoot.interactionState.interactiveShowAdvanced = !rowRoot.interactionState.interactiveShowAdvanced;
                             }
                         }
                     }

@@ -8,8 +8,7 @@ QtObject {
     property var pendingConfirmId: null
     property int pendingConfirmTimeoutMs: 1600
 
-    Timer {
-        id: pendingConfirmTimer
+    property Timer pendingConfirmTimer: Timer {
         interval: root.pendingConfirmTimeoutMs
         onTriggered: root.pendingConfirmId = null
     }

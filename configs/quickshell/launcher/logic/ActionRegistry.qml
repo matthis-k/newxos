@@ -142,42 +142,22 @@ Singleton {
     function dispatchServicePayload(payload) {
         if (!payload || !payload.service)
             return false;
+
         switch (String(payload.service)) {
         case "brightness":
-            if (payload.op === "set") Brightness.setPercent(Number(payload.value || 0));
-            else if (payload.op === "adjust") Brightness.adjust(Number(payload.delta || 0));
-            else return false;
-            return true;
+            return Brightness.executePayload ? Brightness.executePayload(payload) : false;
         case "audio":
             return AudioService.executePayload(payload);
         case "power":
-            if (payload.op === "setProfile") PowerService.setProfile(PowerService.profileFromIndex(payload.index));
-            else if (payload.op === "cycleProfile") PowerService.cycleProfile(Number(payload.delta || 0));
-            else return false;
-            return true;
+            return PowerService.executePayload(payload);
         case "network":
-            if (payload.op === "setWifiEnabled") NetworkService.setWifiEnabled(!!payload.enabled);
-            else if (payload.op === "toggleWifi") NetworkService.toggleWifi();
-            else if (payload.op === "setNetworkingEnabled") NetworkService.setNetworkingEnabled(!!payload.enabled);
-            else if (payload.op === "connect") NetworkService.connectNetwork(payload.id, payload.options || {});
-            else if (payload.op === "disconnect") NetworkService.disconnectNetwork(payload.id);
-            else if (payload.op === "scan") NetworkService.scan();
-            else return false;
-            return true;
+            return NetworkService.executePayload(payload);
         case "vpn":
-            if (payload.op === "connect") VpnService.connect(payload.destination || null);
-            else if (payload.op === "disconnect") VpnService.disconnect();
-            else if (payload.op === "toggle") VpnService.toggle();
-            else return false;
-            return true;
+            return VpnService.executePayload(payload);
         case "bluetooth":
             return BluetoothService.executePayload(payload);
         case "notifications":
-            if (payload.op === "setDnd") NotificationCenter.setDoNotDisturb(!!payload.enabled);
-            else if (payload.op === "toggleDnd") NotificationCenter.setDoNotDisturb(!NotificationCenter.doNotDisturbEnabled);
-            else if (payload.op === "clearAll") NotificationCenter.clearAll();
-            else return false;
-            return true;
+            return NotificationCenter.executePayload ? NotificationCenter.executePayload(payload) : false;
         default:
             return false;
         }

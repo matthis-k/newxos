@@ -27,6 +27,10 @@ LauncherBackendBase {
         priority: root.priority || 0
         helpIcon: root.helpIcon || "system-search"
     }
+    property ActionPathResolver actionPathResolver: ActionPathResolver {
+        treeRootsProvider: root.effectiveTreeRoots
+    }
+
     Component.onCompleted: {
         if (root.prewarmCompositeRootCache)
             Qt.callLater(root.prewarmCompositeRoot);
@@ -96,45 +100,11 @@ LauncherBackendBase {
     }
 
     function originalNodeForPath(commandPath) {
-        var nodes = root.effectiveTreeRoots();
-        var current = null;
-        for (var i = 0; i < (commandPath || []).length; i += 1) {
-            var wanted = commandPath[i];
-            current = null;
-            for (var ni = 0; ni < nodes.length; ni += 1) {
-                var candidate = nodes[ni];
-                if ((candidate.id || candidate.title) === wanted) {
-                    current = candidate;
-                    break;
-                }
-            }
-            if (!current)
-                return null;
-            nodes = current.children || [];
-        }
-        return current;
+        return root.actionPathResolver.originalNodeForPath(commandPath);
     }
 
     function actionPayloadForPath(commandPath, actionId) {
-        var node = root.originalNodeForPath(commandPath);
-        if (!node)
-            return null;
-
-        var ownAction = node.defaultAction || node.action || null;
-        if (ownAction && (!actionId || ownAction.actionId === actionId || ownAction.id === actionId))
-            return ownAction;
-
-        if (node.switchActions && node.switchActions[actionId])
-            return node.switchActions[actionId];
-
-        for (var i = 0; i < (node.children || []).length; i += 1) {
-            var child = node.children[i];
-            var childAction = child.defaultAction || child.action || null;
-            if (childAction && (child.id === actionId || childAction.actionId === actionId || childAction.id === actionId))
-                return childAction;
-        }
-
-        return ownAction;
+        return root.actionPathResolver.actionPayloadForPath(commandPath, actionId);
     }
 
     function actionPayload(actionId, props, executor) {

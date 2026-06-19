@@ -139,4 +139,15 @@ QtObject {
         }
         return out;
     }
+
+    function countKeys(obj) {
+        if (!obj) return 0;
+        var count = 0;
+        for (var key in obj) count += 1;
+        return count;
+    }
+
+    function nowMs() {
+        return Date.now();
+    }
 }

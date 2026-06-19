@@ -11,50 +11,46 @@ QtObject {
     property int restartInterval: 2000
     property int initDelay: 100
 
-    function start() {
-        initTimer.start();
-    }
-
-    function restart() {
-        monitorProcess.exec({
-            command: ["nmcli", "monitor"]
-        });
-    }
-
-    Timer {
-        id: initTimer
+    property Timer initTimer: Timer {
         interval: root.initDelay
         onTriggered: {
             root.refreshRequested();
-            monitorProcess.exec({
+            root.monitorProcess.exec({
                 command: ["nmcli", "monitor"]
             });
         }
     }
 
-    Timer {
-        id: monitorDebounce
+    property Timer monitorDebounce: Timer {
         interval: root.debounceInterval
         onTriggered: root.refreshRequested()
     }
 
-    Timer {
-        id: monitorRestartTimer
+    property Timer monitorRestartTimer: Timer {
         interval: root.restartInterval
         onTriggered: {
-            monitorProcess.exec({
+            root.monitorProcess.exec({
                 command: ["nmcli", "monitor"]
             });
         }
     }
 
-    Process {
-        id: monitorProcess
+    property Process monitorProcess: Process {
         stdout: SplitParser {
-            onRead: monitorDebounce.restart()
+            onRead: root.monitorDebounce.restart()
         }
         function onExited(exitCode, exitStatus) {
-            monitorRestartTimer.start();
+            root.monitorRestartTimer.start();
         }
+    }
+
+    function start() {
+        root.initTimer.start();
+    }
+
+    function restart() {
+        root.monitorProcess.exec({
+            command: ["nmcli", "monitor"]
+        });
     }
 }

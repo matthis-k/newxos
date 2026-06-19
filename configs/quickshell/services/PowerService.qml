@@ -118,6 +118,22 @@ Singleton {
         setProfile(profileFromIndex(newIdx));
     }
 
+    function executePayload(payload) {
+        if (!payload || payload.service !== "power")
+            return false;
+
+        switch (payload.op) {
+        case "setProfile":
+            root.setProfile(root.profileFromIndex(payload.index));
+            return true;
+        case "cycleProfile":
+            root.cycleProfile(Number(payload.delta || 0));
+            return true;
+        default:
+            return false;
+        }
+    }
+
     function profileIndex(profile) {
         switch (profile) {
         case PowerProfile.PowerSaver: return 0;

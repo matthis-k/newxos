@@ -3,6 +3,8 @@ import QtQml
 import Quickshell
 
 Singleton {
+    id: root
+
     property TextMatchUtils matchUtils: TextMatchUtils {}
     property QueryTokenizer queryTokenizer: QueryTokenizer { textUtils: root.matchUtils }
     property DirectiveParser directiveParser: DirectiveParser {}
@@ -21,4 +23,6 @@ Singleton {
     function parseDirective(rawQuery, backends) { return root.directiveParser.parseDirective(rawQuery, backends); }
     function makeAction(id, label, payload) { return root.nodeFactory.makeAction(id, label, payload); }
     function makeNode(props) { return root.nodeFactory.makeNode(props); }
+    function countKeys(obj) { return root.matchUtils.countKeys(obj); }
+    function nowMs() { return root.matchUtils.nowMs(); }
 }
