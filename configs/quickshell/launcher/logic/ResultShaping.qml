@@ -169,6 +169,47 @@ Singleton {
             return _applyExpandRetain(withTakeover);
         }
 
+        // --- PRIMITIVE-FIRST PATH (new) ---
+        // When expand/retain/takeover policies are configured, let them drive placement
+        // before falling back to the old PresentationPolicy-dominated logic below.
+        // Compatibility shim: old logic runs when no primitive signals are active.
+        var _pfProfile = (ev.node.evaluationProfile && ev.node.evaluationProfile.profile) || {};
+        var _pfExpand = _pfProfile.expand || [];
+        var _pfRetain = _pfProfile.retainParent || [];
+        var _pfExpandResult = null;
+        if (_pfExpand.length > 0) {
+            _pfExpandResult = PolicyChain.run(_pfExpand, function(name, spec) {
+                var policy = PolicyChain.lookupPolicy(JsRegistry.expand, spec);
+                if (!policy) return null;
+                return policy.apply(ev, ctx, spec && spec.args);
+            }, "first-wins");
+        }
+        if (_pfExpandResult && _pfExpandResult.value && _pfExpandResult.value.expand && ev.children && ev.children.length > 0) {
+            var _pfKids = ev.children.filter(function(c) {
+                return c.allowed && (c.visible || c.score >= 0.25);
+            }).sort(Evaluate.compareEvaluated);
+            if (_pfKids.length > 0) {
+                var _pfShowParent = true;
+                if (_pfRetain.length > 0) {
+                    var _pfRetainResult = PolicyChain.run(_pfRetain, function(name, spec) {
+                        var policy = PolicyChain.lookupPolicy(JsRegistry.retainParent, spec);
+                        if (!policy) return null;
+                        return policy.apply(ev, ctx, spec && spec.args);
+                    }, "first-wins");
+                    if (_pfRetainResult && _pfRetainResult.value && _pfRetainResult.value.retain === false)
+                        _pfShowParent = false;
+                }
+                return _d({
+                    placement: "nested-group",
+                    mode: "nested-group",
+                    showParent: _pfShowParent,
+                    suppressParentActions: false,
+                    children: _pfKids
+                });
+            }
+        }
+        // --- END PRIMITIVE-FIRST ---
+
         var presMode = PresentationPolicy.decidePresentation(ev, ctx);
         if (presMode && presMode.mode !== "normal")
             return _d(Object.assign({ placement: placementForMode(presMode.mode) }, presMode));

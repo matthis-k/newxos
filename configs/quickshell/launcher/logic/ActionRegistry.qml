@@ -120,7 +120,8 @@ Singleton {
             var nodeRisk = target.risk || {};
             var nodeForGate = { id: target.id || target.nodeId || "", label: target.title || "", risk: nodeRisk, dangerous: target.dangerous };
             var queryText = (controller && controller.query) || "";
-            if (!ActivationGate.canActivate(nodeForGate, action, controller, queryText)) {
+            var confirmed = !!(controller && controller.confirmationSatisfied);
+            if (!ActivationGate.canActivate(nodeForGate, action, controller, queryText, confirmed)) {
                 if (debugEnabled)
                     DebugLogger.log("action", "activation blocked by risk gate", { targetId: target.id || target.nodeId || "", actionId: action.id || "" });
                 return { close: false, success: false };
@@ -159,7 +160,8 @@ Singleton {
         if (isDestructive && target) {
             var nodeForGate = { id: target.id || "", label: target.title || "", risk: { level: "state-change", activation: "confirm" }, dangerous: true };
             var gateQueryText = (controller && controller.query) || "";
-            if (!ActivationGate.canActivate(nodeForGate, { id: payload.op }, null, gateQueryText))
+            var confirmed = !!(controller && controller.confirmationSatisfied);
+            if (!ActivationGate.canActivate(nodeForGate, { id: payload.op }, null, gateQueryText, confirmed))
                 return false;
         }
 

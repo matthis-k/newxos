@@ -152,12 +152,6 @@ Singleton {
         if (actionAliasBoost > 0)
             finalScore = Tokenize.clamp(finalScore + own.value * 0.15 * actionAliasBoost);
 
-        if (childQuery && childQuery.inheritedContext && own.value > 0) {
-            var contextBonus = Math.min(0.12, childQuery.inherited.length * 0.04);
-            own.value = Tokenize.clamp(own.value + contextBonus);
-            own.reason = (own.reason || "") + " + inherited context bonus";
-        }
-
         var groupDisplay = node.behavior && node.behavior.flattenPolicy && node.behavior.flattenPolicy.groupDisplay || {};
         var keepAllChildren = (groupDisplay.showAllChildrenOnParentMatch || groupDisplay.flattenAllChildrenOnParentMatch) && own.visible;
         var retained = evaluatedChildren.filter(function(c) { return keepAllChildren || c.candidate || c.visible || ctx.showHidden; });

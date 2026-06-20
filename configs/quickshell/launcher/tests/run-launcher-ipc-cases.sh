@@ -30,38 +30,40 @@ if [ "$ENDPOINT" = "runCases" ]; then
 fi
 
 # Regression queries with expected behaviors
-# Format: "query|expected_min_rows|must_include_title_glob|must_match_semantics_key"
+# Format: query|expected_min_rows|must_include_title_glob|activation_mode_check|must_be_executable
+# activation_mode_check: confirm, confirm-and-explicit-prefix, normal, blocked, or "" (skip)
+# must_be_executable: 1 (must be true), 0 (must be false), or "" (skip)
 QUERIES=(
   # Zen browser family — should find zen browser controls
-  "zen|1|Zen|"
-  "zen |1|Zen|"
-  "zen priv|1|Private|"
-  "zen win|1|Window|"
-  "zen browser|1|Zen|"
+  "zen|1|Zen||"
+  "zen |1|Zen||"
+  "zen priv|1|Private||"
+  "zen win|1|Window||"
+  "zen browser|1|Zen||"
   # WiFi switch family — should find wifi controls
-  "wifi|1|WiFi|"
-  "wifi on|1|WiFi|"
-  "wifi off|1|WiFi|"
-  "wifi toggle|1|WiFi|"
-  "wo|1|WiFi|"
+  "wifi|1|WiFi||"
+  "wifi on|1|WiFi||"
+  "wifi off|1|WiFi||"
+  "wifi toggle|1|WiFi||"
+  "wo|1|WiFi||"
   # Math evaluation
-  "= 1+2|1||"
+  "= 1+2|1|||"
   # Session management
-  "session|1|Session|"
-  # Destructive actions — should appear with risk semantics
-  "shutdown|1|Shutdown|shutdown"
-  "reboot|1|Reboot|"
-  "logout|1|Logout|logout"
+  "session|1|Session||"
+  # Destructive actions — should appear with risk semantics and be non-executable
+  "shutdown|1|Shutdown|confirm-and-explicit-prefix|0"
+  "reboot|1|Reboot|confirm|0"
+  "logout|1|Logout|confirm-and-explicit-prefix|0"
   # File path
-  "~/newxos|1||"
+  "~/newxos|1|||"
   # App directive
-  "@apps|1|Applications|"
-  "@apps zen|1||"
+  "@apps|1|Applications||"
+  "@apps zen|1|||"
   # Dashboard
-  "db wifi|1|WiFi|"
+  "db wifi|1|WiFi||"
   # Newxos group
-  "newxos|1|newxos|"
-  "newxos |1|newxos|"
+  "newxos|1|newxos||"
+  "newxos |1|newxos||"
 )
 
 echo "Query count: ${#QUERIES[@]}"
@@ -71,7 +73,7 @@ FAILED=0
 PASSED=0
 
 for entry in "${QUERIES[@]}"; do
-  IFS='|' read -r q min_rows must_include must_semantics <<< "$entry"
+  IFS='|' read -r q min_rows must_include must_activate must_executable <<< "$entry"
   if $VERBOSE; then
     echo -n "[$ENDPOINT] \"$q\"... "
   fi
@@ -89,22 +91,34 @@ for entry in "${QUERIES[@]}"; do
     search|visual)
       VISIBLE_ROWS=$(echo "$RESULT" | jq '[.results[] | select(.ownVisible == true)] | length' 2>/dev/null || echo "0")
       TOP_TITLE=$(echo "$RESULT" | jq -r '.results[0].title // ""' 2>/dev/null || echo "")
-      TOP_SEMANTICS=$(echo "$RESULT" | jq -r '.results[0].semantics.activation.mode // ""' 2>/dev/null || echo "")
+      TOP_ACTIVATION=$(echo "$RESULT" | jq -r '.results[0].semantics.activation.mode // ""' 2>/dev/null || echo "")
+      TOP_EXECUTABLE=$(echo "$RESULT" | jq -r '.results[0].executable // false' 2>/dev/null || echo "false")
+      TOP_TAKEOVER=$(echo "$RESULT" | jq -r '.results[0].semantics.takeover.decision.accepted // false' 2>/dev/null || echo "false")
+      TOP_DEFAULT_ACTION=$(echo "$RESULT" | jq -r '.results[0].defaultAction.id // ""' 2>/dev/null || echo "")
       ;;
     pipeline)
       VISIBLE_ROWS=$(echo "$RESULT" | jq '.stages.renderedRows // 0' 2>/dev/null || echo "0")
       TOP_TITLE=$(echo "$RESULT" | jq -r '.stages.rows[0].title // ""' 2>/dev/null || echo "")
-      TOP_SEMANTICS=$(echo "$RESULT" | jq -r '.stages.rows[0].semantics.activation.mode // ""' 2>/dev/null || echo "")
+      TOP_ACTIVATION=$(echo "$RESULT" | jq -r '.stages.rows[0].semantics.activation.mode // ""' 2>/dev/null || echo "")
+      TOP_EXECUTABLE=$(echo "$RESULT" | jq -r '.stages.rows[0].executable // false' 2>/dev/null || echo "false")
+      TOP_TAKEOVER=$(echo "$RESULT" | jq -r '.stages.rows[0].semantics.takeover.decision.accepted // false' 2>/dev/null || echo "false")
+      TOP_DEFAULT_ACTION=$(echo "$RESULT" | jq -r '.stages.rows[0].defaultAction.id // ""' 2>/dev/null || echo "")
       ;;
     shape)
       VISIBLE_ROWS=$(echo "$RESULT" | jq '.totalResults // 0' 2>/dev/null || echo "0")
       TOP_TITLE=$(echo "$RESULT" | jq -r '.results[0].title // ""' 2>/dev/null || echo "")
-      TOP_SEMANTICS=$(echo "$RESULT" | jq -r '.results[0].semantics.activation.mode // ""' 2>/dev/null || echo "")
+      TOP_ACTIVATION=$(echo "$RESULT" | jq -r '.results[0].semantics.activation.mode // ""' 2>/dev/null || echo "")
+      TOP_EXECUTABLE=$(echo "$RESULT" | jq -r '.results[0].executable // false' 2>/dev/null || echo "false")
+      TOP_TAKEOVER=$(echo "$RESULT" | jq -r '.results[0].semantics.takeover.decision.accepted // false' 2>/dev/null || echo "false")
+      TOP_DEFAULT_ACTION=$(echo "$RESULT" | jq -r '.results[0].defaultAction.id // ""' 2>/dev/null || echo "")
       ;;
     *)
       VISIBLE_ROWS=0
       TOP_TITLE=""
-      TOP_SEMANTICS=""
+      TOP_ACTIVATION=""
+      TOP_EXECUTABLE="false"
+      TOP_TAKEOVER="false"
+      TOP_DEFAULT_ACTION=""
       ;;
   esac
 
@@ -123,23 +137,50 @@ for entry in "${QUERIES[@]}"; do
     fi
   fi
 
-  # Check semantic assertion for activation mode
-  if [ -z "$FAIL_REASON" ] && [ -n "$must_semantics" ]; then
-    case "$must_semantics" in
-      shutdown|logout)
-        if [ "$TOP_SEMANTICS" != "confirm-and-explicit-prefix" ] && [ "$TOP_SEMANTICS" != "confirm" ]; then
-          FAIL_REASON="expected confirm semantics for $must_semantics, got '$TOP_SEMANTICS'"
+  # Check activation mode assertion
+  if [ -z "$FAIL_REASON" ] && [ -n "$must_activate" ]; then
+    case "$must_activate" in
+      confirm-and-explicit-prefix)
+        if [ "$TOP_ACTIVATION" != "confirm-and-explicit-prefix" ]; then
+          FAIL_REASON="expected activation mode 'confirm-and-explicit-prefix', got '$TOP_ACTIVATION'"
+        fi
+        ;;
+      confirm)
+        if [ "$TOP_ACTIVATION" != "confirm" ]; then
+          FAIL_REASON="expected activation mode 'confirm', got '$TOP_ACTIVATION'"
+        fi
+        ;;
+      normal)
+        if [ "$TOP_ACTIVATION" != "normal" ] && [ -n "$TOP_ACTIVATION" ]; then
+          FAIL_REASON="expected activation mode 'normal', got '$TOP_ACTIVATION'"
+        fi
+        ;;
+      blocked)
+        if [ "$TOP_ACTIVATION" != "blocked" ]; then
+          FAIL_REASON="expected activation mode 'blocked', got '$TOP_ACTIVATION'"
         fi
         ;;
     esac
   fi
 
+  # Check executable assertion
+  if [ -z "$FAIL_REASON" ] && [ -n "$must_executable" ]; then
+    if [ "$must_executable" = "1" ] && [ "$TOP_EXECUTABLE" != "true" ]; then
+      FAIL_REASON="expected executable=true, got $TOP_EXECUTABLE"
+    elif [ "$must_executable" = "0" ] && [ "$TOP_EXECUTABLE" != "false" ]; then
+      FAIL_REASON="expected executable=false (risk should block at gate), got $TOP_EXECUTABLE"
+    fi
+  fi
+
   if [ -n "$FAIL_REASON" ]; then
     echo "FAIL: $q - $FAIL_REASON"
+    if $VERBOSE; then
+      echo "  Context: activation=$TOP_ACTIVATION executable=$TOP_EXECUTABLE takeover=$TOP_TAKEOVER defaultAction=$TOP_DEFAULT_ACTION"
+    fi
     FAILED=$((FAILED + 1))
   else
     if $VERBOSE; then
-      echo "OK ($VISIBLE_ROWS rows, top: '$TOP_TITLE', semantics: '$TOP_SEMANTICS')"
+      echo "OK ($VISIBLE_ROWS rows, top: '$TOP_TITLE', activation: '$TOP_ACTIVATION', executable: $TOP_EXECUTABLE)"
     fi
     PASSED=$((PASSED + 1))
   fi

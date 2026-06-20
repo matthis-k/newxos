@@ -34,8 +34,9 @@ Singleton {
         var selectedAction = ActionPolicy.selectDefaultAction(node, ctx.query, ev, ctx);
         var action = selectedAction ? selectedAction.action : null;
         var profile = (ev.node.evaluationProfile && ev.node.evaluationProfile.profile) || {};
+        var _policyOverrode = false;
         var defaultActionNames = profile.defaultAction || [];
-        if (defaultActionNames.length > 0 && action) {
+        if (defaultActionNames.length > 0) {
             var daResult = PolicyChain.run(defaultActionNames, function(name, spec) {
                 var policy = PolicyChain.lookupPolicy(JsRegistry.defaultAction, spec);
                 if (!policy) return null;
@@ -43,27 +44,83 @@ Singleton {
             }, "first-wins");
             if (daResult && daResult.value && daResult.value.actionId) {
                 var overrideAction = null;
-                if (node.switchActions && node.switchActions[daResult.value.actionId])
-                    overrideAction = node.switchActions[daResult.value.actionId];
-                else if (node.actionList) {
-                    for (var dai = 0; dai < node.actionList.length; dai += 1) {
-                        if (node.actionList[dai].id === daResult.value.actionId) {
-                            overrideAction = node.actionList[dai];
-                            break;
+                if (daResult.value.actionId === "expand" || daResult.value.actionId === "noop" || daResult.value.actionId === "blocked") {
+                    action = null;
+                    selectedAction = null;
+                    _policyOverrode = true;
+                } else {
+                    if (node.switchActions && node.switchActions[daResult.value.actionId])
+                        overrideAction = node.switchActions[daResult.value.actionId];
+                    else if (node.actionList) {
+                        for (var dai = 0; dai < node.actionList.length; dai += 1) {
+                            if (node.actionList[dai].id === daResult.value.actionId) {
+                                overrideAction = node.actionList[dai];
+                                break;
+                            }
                         }
                     }
+                    if (!overrideAction && ev.children) {
+                        for (var dci = 0; dci < ev.children.length; dci += 1) {
+                            var child = ev.children[dci].node;
+                            if (!child) continue;
+                            var childActions = child.actionList || [];
+                            for (var dai2 = 0; dai2 < childActions.length; dai2 += 1) {
+                                if (childActions[dai2].id === daResult.value.actionId) {
+                                    overrideAction = childActions[dai2];
+                                    break;
+                                }
+                            }
+                            if (overrideAction) break;
+                        }
+                    }
+                    if (overrideAction) {
+                        selectedAction = { action: overrideAction, id: overrideAction.id, role: "policy-default", score: 1, priority: 100, reasons: [daResult.value.reason] };
+                        action = overrideAction;
+                        _policyOverrode = true;
+                    } else if (daResult.value.actionId !== "") {
+                        var synthAction = { id: daResult.value.actionId, label: daResult.value.actionId, payload: daResult.value.payload || null };
+                        selectedAction = { action: synthAction, id: synthAction.id, role: "policy-default", score: 1, priority: 100, reasons: [daResult.value.reason] };
+                        action = synthAction;
+                        _policyOverrode = true;
+                    }
                 }
-                if (overrideAction) {
-                    selectedAction = { action: overrideAction, id: overrideAction.id, role: "policy-default", score: 1, priority: 100, reasons: [daResult.value.reason] };
-                    action = overrideAction;
-                }
+            } else if (daResult && daResult.value && daResult.value.expand === true) {
+                action = null;
+                selectedAction = null;
+                _policyOverrode = true;
             }
         }
-        var suppressOwnActions = action && childRows && childRows.length && ctx.query.tokens.length > 1
-            && (options.suppressParentActions || visibleFromChildrenOnly(ev));
-        if (suppressOwnActions) {
-            action = null;
-            selectedAction = null;
+        var suppressOwnActions = false;
+        if (!_policyOverrode) {
+            suppressOwnActions = action && childRows && childRows.length && ctx.query.tokens.length > 1
+                && (options.suppressParentActions || visibleFromChildrenOnly(ev));
+            if (suppressOwnActions) {
+                action = null;
+                selectedAction = null;
+            }
+        }
+
+        var takeoverDec = shapedItem && shapedItem.decision && shapedItem.decision.takeover && shapedItem.decision.takeover.decision;
+        if (takeoverDec && takeoverDec.accepted && takeoverDec.defaultActionOwnerId && takeoverDec.defaultActionOwnerId !== node.id) {
+            var targetOwnerId = takeoverDec.defaultActionOwnerId;
+            var ownerAction = null;
+            if (ev.children) {
+                for (var toi = 0; toi < ev.children.length; toi += 1) {
+                    var toChild = ev.children[toi];
+                    if (!toChild || !toChild.node || toChild.node.id !== targetOwnerId) continue;
+                    if (toChild.node.switchActions) {
+                        var keys = Object.keys(toChild.node.switchActions);
+                        if (keys.length > 0) ownerAction = toChild.node.switchActions[keys[0]];
+                    } else if (toChild.node.actionList && toChild.node.actionList.length > 0) {
+                        ownerAction = toChild.node.actionList[0];
+                    }
+                    break;
+                }
+            }
+            if (ownerAction) {
+                selectedAction = { action: ownerAction, id: ownerAction.id, role: "takeover-default", score: 1, priority: 200, reasons: ["takeover from " + targetOwnerId] };
+                action = ownerAction;
+            }
         }
 
         var sourceActions = suppressOwnActions ? [] : (node.actionList || []).slice();

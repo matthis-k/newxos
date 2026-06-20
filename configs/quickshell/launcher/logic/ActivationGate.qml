@@ -24,11 +24,12 @@ Singleton {
         return "normal";
     }
 
-    function resolveActivation(node, ctx, queryText) {
+    function resolveActivation(node, ctx, queryText, confirmationSatisfied) {
         var mode = activationModeForNode(node);
         var level = riskLevelForNode(node);
         var allowed = true;
         var reason = "normal activation";
+        var conf = !!confirmationSatisfied;
 
         switch (mode) {
         case "blocked":
@@ -36,8 +37,8 @@ Singleton {
             reason = "activation blocked by risk policy";
             break;
         case "confirm":
-            allowed = true;
-            reason = "activation requires confirmation";
+            allowed = conf;
+            reason = conf ? "activation via confirmation" : "activation blocked: confirmation required";
             break;
         case "explicit-prefix":
         case "explicit-prefix-only":
@@ -45,8 +46,14 @@ Singleton {
             reason = allowed ? "activation via explicit prefix" : "activation blocked: explicit prefix required";
             break;
         case "confirm-and-explicit-prefix":
-            allowed = !!(queryText && queryText.length > 1 && queryText.indexOf(":") >= 0);
-            reason = allowed ? "activation via explicit prefix (confirmation also required)" : "activation blocked: explicit prefix required";
+            allowed = conf && !!(queryText && queryText.length > 1 && queryText.indexOf(":") >= 0);
+            reason = allowed
+                ? "activation via explicit prefix + confirmation"
+                : conf
+                    ? "activation blocked: explicit prefix required"
+                    : queryText && queryText.indexOf(":") >= 0
+                        ? "activation blocked: confirmation required"
+                        : "activation blocked: explicit prefix required";
             break;
         default:
             allowed = true;
@@ -56,7 +63,7 @@ Singleton {
         var gateResult = null;
         var riskPolicy = JsRegistry.riskGate.get("risk-gate");
         if (riskPolicy) {
-            gateResult = riskPolicy.apply(node, ctx, { activation: mode, level: level });
+            gateResult = riskPolicy.apply(node, ctx, { activation: mode, level: level, confirmation: conf });
             if (gateResult && gateResult.allowed !== undefined)
                 allowed = gateResult.allowed;
             if (gateResult && gateResult.reason)
@@ -73,8 +80,8 @@ Singleton {
         };
     }
 
-    function guardActivation(node, action, ctx, queryText) {
-        var resolved = resolveActivation(node, ctx, queryText);
+    function guardActivation(node, action, ctx, queryText, confirmationSatisfied) {
+        var resolved = resolveActivation(node, ctx, queryText, confirmationSatisfied);
         if (!resolved.allowed) {
             console.warn("ActivationGate: activation blocked for", node.label || node.id, "reason:", resolved.reason);
             return false;
@@ -82,7 +89,7 @@ Singleton {
         return true;
     }
 
-    function canActivate(node, action, ctx, queryText) {
-        return guardActivation(node, action, ctx, queryText);
+    function canActivate(node, action, ctx, queryText, confirmationSatisfied) {
+        return guardActivation(node, action, ctx, queryText, confirmationSatisfied);
     }
 }
