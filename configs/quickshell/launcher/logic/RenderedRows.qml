@@ -5,8 +5,10 @@ import "Tokenize.qml"
 import "Evidence.qml"
 import "Evaluate.qml"
 import "ScoreBundle.qml"
+import "PolicyChain.qml"
 import "PresentationContext.qml"
 import "../policies/presentation/"
+import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
     function toResultRow(ev, depth, state, ctx, childRows, options, shapedItem, parentPresentationContext) {
@@ -31,6 +33,32 @@ Singleton {
             : breadcrumbTextFor(ev, breadcrumbs, displayPolicy, childRows);
         var selectedAction = ActionPolicy.selectDefaultAction(node, ctx.query, ev, ctx);
         var action = selectedAction ? selectedAction.action : null;
+        var profile = (ev.node.evaluationProfile && ev.node.evaluationProfile.profile) || {};
+        var defaultActionNames = profile.defaultAction || [];
+        if (defaultActionNames.length > 0 && action) {
+            var daResult = PolicyChain.run(defaultActionNames, function(name, spec) {
+                var policy = PolicyChain.lookupPolicy(JsRegistry.defaultAction, spec);
+                if (!policy) return null;
+                return policy.apply(ev, ctx, spec && spec.args);
+            }, "first-wins");
+            if (daResult && daResult.value && daResult.value.actionId) {
+                var overrideAction = null;
+                if (node.switchActions && node.switchActions[daResult.value.actionId])
+                    overrideAction = node.switchActions[daResult.value.actionId];
+                else if (node.actionList) {
+                    for (var dai = 0; dai < node.actionList.length; dai += 1) {
+                        if (node.actionList[dai].id === daResult.value.actionId) {
+                            overrideAction = node.actionList[dai];
+                            break;
+                        }
+                    }
+                }
+                if (overrideAction) {
+                    selectedAction = { action: overrideAction, id: overrideAction.id, role: "policy-default", score: 1, priority: 100, reasons: [daResult.value.reason] };
+                    action = overrideAction;
+                }
+            }
+        }
         var suppressOwnActions = action && childRows && childRows.length && ctx.query.tokens.length > 1
             && (options.suppressParentActions || visibleFromChildrenOnly(ev));
         if (suppressOwnActions) {

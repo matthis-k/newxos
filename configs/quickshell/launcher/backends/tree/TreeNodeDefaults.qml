@@ -12,7 +12,14 @@ QtObject {
             inherit: ["path-evidence"],
             boost: ["descendant-boost"],
             childVisible: ["visible-flag"],
-            childBypass: ["own-score-beats-parent", "score-dominates:0.03"]
+            childBypass: ["own-score-beats-parent", "score-dominates:0.03"],
+            tokenFlow: ["pass-all"],
+            takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"],
+            takeoverAccept: ["accept-dominated-claims"],
+            expand: ["expand-when"],
+            retainParent: ["retain-always"],
+            defaultAction: ["default-action-owner"],
+            riskGate: ["risk-gate"]
         }
     })
 
@@ -25,7 +32,14 @@ QtObject {
             inherit: ["path-evidence"],
             boost: ["descendant-boost"],
             childVisible: ["visible-flag", "above-min-score:0.25"],
-            childBypass: ["own-score-beats-parent", "score-dominates:0.03"]
+            childBypass: ["own-score-beats-parent", "score-dominates:0.03"],
+            tokenFlow: ["pass-all"],
+            takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"],
+            takeoverAccept: ["accept-dominated-claims"],
+            expand: ["expand-when"],
+            retainParent: ["retain-always"],
+            defaultAction: ["default-action-owner"],
+            riskGate: ["risk-gate"]
         }
     })
 
@@ -38,7 +52,14 @@ QtObject {
             inherit: [],
             boost: ["descendant-boost", "switch-aliases"],
             childVisible: ["has-own-score"],
-            childBypass: ["score-dominates:0.03"]
+            childBypass: ["score-dominates:0.03"],
+            tokenFlow: ["pass-all"],
+            takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"],
+            takeoverAccept: ["accept-dominated-claims"],
+            expand: ["expand-when"],
+            retainParent: ["retain-always"],
+            defaultAction: ["default-action-owner"],
+            riskGate: ["risk-gate"]
         }
     })
 

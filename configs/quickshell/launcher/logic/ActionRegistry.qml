@@ -101,7 +101,7 @@ Singleton {
 
         var payload = action.payload || {};
         if (payload && payload.service) {
-            var dispatched = dispatchServicePayload(payload, target);
+            var dispatched = dispatchServicePayload(payload, target, controller);
             if (dispatched)
                 return { close: false, success: true };
         }
@@ -119,7 +119,8 @@ Singleton {
         try {
             var nodeRisk = target.risk || {};
             var nodeForGate = { id: target.id || target.nodeId || "", label: target.title || "", risk: nodeRisk, dangerous: target.dangerous };
-            if (!ActivationGate.canActivate(nodeForGate, action, controller, target.title || "")) {
+            var queryText = (controller && controller.query) || "";
+            if (!ActivationGate.canActivate(nodeForGate, action, controller, queryText)) {
                 if (debugEnabled)
                     DebugLogger.log("action", "activation blocked by risk gate", { targetId: target.id || target.nodeId || "", actionId: action.id || "" });
                 return { close: false, success: false };
@@ -147,7 +148,7 @@ Singleton {
         return Math.max(from, Math.min(to, base));
     }
 
-    function dispatchServicePayload(payload, target) {
+    function dispatchServicePayload(payload, target, controller) {
         if (!payload || !payload.service)
             return false;
 
@@ -157,7 +158,8 @@ Singleton {
 
         if (isDestructive && target) {
             var nodeForGate = { id: target.id || "", label: target.title || "", risk: { level: "state-change", activation: "confirm" }, dangerous: true };
-            if (!ActivationGate.canActivate(nodeForGate, { id: payload.op }, null, target.title || ""))
+            var gateQueryText = (controller && controller.query) || "";
+            if (!ActivationGate.canActivate(nodeForGate, { id: payload.op }, null, gateQueryText))
                 return false;
         }
 

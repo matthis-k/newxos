@@ -110,7 +110,7 @@ Singleton {
     }
 
     function registerBaseNameAliases() {
-        var registries = [JsRegistry.evidence, JsRegistry.inherit, JsRegistry.boost, JsRegistry.childVisible, JsRegistry.childBypass, JsRegistry.presentation];
+        var registries = [JsRegistry.evidence, JsRegistry.inherit, JsRegistry.boost, JsRegistry.childVisible, JsRegistry.childBypass, JsRegistry.presentation, JsRegistry.tokenFlow, JsRegistry.takeoverRequest, JsRegistry.takeoverAccept, JsRegistry.expand, JsRegistry.retainParent, JsRegistry.defaultAction, JsRegistry.riskGate];
         var aliasMap = {};
         for (var ri = 0; ri < registries.length; ri += 1) {
             var reg = registries[ri];

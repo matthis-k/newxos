@@ -82,7 +82,14 @@ Node {
                     inherit: [],
                     boost: ["descendant-boost", "switch-aliases"],
                     childVisible: root.childVisible || ["own-score-min:0.25"],
-                    childBypass: ["score-dominates:0.03"]
+                    childBypass: ["score-dominates:0.03"],
+                    tokenFlow: ["pass-all"],
+                    takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"],
+                    takeoverAccept: ["accept-dominated-claims"],
+                    expand: ["expand-when"],
+                    retainParent: ["retain-always"],
+                    defaultAction: ["default-action-owner"],
+                    riskGate: ["risk-gate"]
                 }
             }
         };

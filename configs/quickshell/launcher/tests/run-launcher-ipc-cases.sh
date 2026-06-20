@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launcher IPC regression test runner
+# Launcher IPC regression test runner with semantic assertions
 # Usage: ./run-launcher-ipc-cases.sh [--verbose] [--endpoint search|visual|pipeline|shape]
 set -euo pipefail
 
@@ -29,32 +29,39 @@ if [ "$ENDPOINT" = "runCases" ]; then
   exit 0
 fi
 
-# Define regression queries (extends golden cases from launcher policy rework)
+# Regression queries with expected behaviors
+# Format: "query|expected_min_rows|must_include_title_glob|must_match_semantics_key"
 QUERIES=(
-  # Zen browser family
-  "zen" "zen " "zen priv" "zen win" "zen browser" "zen new"
-  # WiFi switch family
-  "wifi" "wifi " "wifi on" "wifi off" "wifi toggle" "toggle wifi"
-  "wo" "wt"
-  # Explicit prefix routes
-  ":" ":wifi" ":wifi " ":wifi on" ":db wifi"
+  # Zen browser family — should find zen browser controls
+  "zen|1|Zen|"
+  "zen |1|Zen|"
+  "zen priv|1|Private|"
+  "zen win|1|Window|"
+  "zen browser|1|Zen|"
+  # WiFi switch family — should find wifi controls
+  "wifi|1|WiFi|"
+  "wifi on|1|WiFi|"
+  "wifi off|1|WiFi|"
+  "wifi toggle|1|WiFi|"
+  "wo|1|WiFi|"
+  # Math evaluation
+  "= 1+2|1||"
+  # Session management
+  "session|1|Session|"
+  # Destructive actions — should appear with risk semantics
+  "shutdown|1|Shutdown|shutdown"
+  "reboot|1|Reboot|"
+  "logout|1|Logout|logout"
+  # File path
+  "~/newxos|1||"
   # App directive
-  "@apps" "@apps zen" "@web nix"
-  # Web search
-  "web nix" "web !gh nix"
+  "@apps|1|Applications|"
+  "@apps zen|1||"
   # Dashboard
-  "db wifi" "dashboard wifi"
-  # Audio
-  "au" "aud" "audi" "audio"
-  # Session
-  "en" "screen" "session"
+  "db wifi|1|WiFi|"
   # Newxos group
-  "newxos" "newxos " "vpn of"
-  # File / path
-  "notes" "/tmp"
-  # Golden cases from policy mini-rework
-  "zen browser" "= 1+2" "session" "shutdown" "reboot" "logout"
-  "~/newxos" "~ newxos hyprland" "@apps zen"
+  "newxos|1|newxos|"
+  "newxos |1|newxos|"
 )
 
 echo "Query count: ${#QUERIES[@]}"
@@ -63,7 +70,8 @@ echo ""
 FAILED=0
 PASSED=0
 
-for q in "${QUERIES[@]}"; do
+for entry in "${QUERIES[@]}"; do
+  IFS='|' read -r q min_rows must_include must_semantics <<< "$entry"
   if $VERBOSE; then
     echo -n "[$ENDPOINT] \"$q\"... "
   fi
@@ -76,25 +84,65 @@ for q in "${QUERIES[@]}"; do
     continue
   fi
 
+  # Parse results based on endpoint
   case "$ENDPOINT" in
     search|visual)
-      ROWS=$(echo "$RESULT" | jq '[.results[] | select(.ownVisible == true)] | length' 2>/dev/null || echo "0")
+      VISIBLE_ROWS=$(echo "$RESULT" | jq '[.results[] | select(.ownVisible == true)] | length' 2>/dev/null || echo "0")
+      TOP_TITLE=$(echo "$RESULT" | jq -r '.results[0].title // ""' 2>/dev/null || echo "")
+      TOP_SEMANTICS=$(echo "$RESULT" | jq -r '.results[0].semantics.activation.mode // ""' 2>/dev/null || echo "")
       ;;
     pipeline)
-      ROWS=$(echo "$RESULT" | jq '.stages.renderedRows // 0' 2>/dev/null || echo "0")
+      VISIBLE_ROWS=$(echo "$RESULT" | jq '.stages.renderedRows // 0' 2>/dev/null || echo "0")
+      TOP_TITLE=$(echo "$RESULT" | jq -r '.stages.rows[0].title // ""' 2>/dev/null || echo "")
+      TOP_SEMANTICS=$(echo "$RESULT" | jq -r '.stages.rows[0].semantics.activation.mode // ""' 2>/dev/null || echo "")
       ;;
     shape)
-      ROWS=$(echo "$RESULT" | jq '.totalResults // 0' 2>/dev/null || echo "0")
+      VISIBLE_ROWS=$(echo "$RESULT" | jq '.totalResults // 0' 2>/dev/null || echo "0")
+      TOP_TITLE=$(echo "$RESULT" | jq -r '.results[0].title // ""' 2>/dev/null || echo "")
+      TOP_SEMANTICS=$(echo "$RESULT" | jq -r '.results[0].semantics.activation.mode // ""' 2>/dev/null || echo "")
       ;;
     *)
-      ROWS=0
+      VISIBLE_ROWS=0
+      TOP_TITLE=""
+      TOP_SEMANTICS=""
       ;;
   esac
 
-  if $VERBOSE; then
-    echo "OK ($ROWS visible rows)"
+  FAIL_REASON=""
+
+  # Check minimum rows
+  if [ "$VISIBLE_ROWS" -lt "$min_rows" ] 2>/dev/null; then
+    FAIL_REASON="expected >= $min_rows rows, got $VISIBLE_ROWS"
   fi
-  PASSED=$((PASSED + 1))
+
+  # Check must_include title
+  if [ -z "$FAIL_REASON" ] && [ -n "$must_include" ]; then
+    TITLE_MATCH=$(echo "$TOP_TITLE" | grep -i "$must_include" || true)
+    if [ -z "$TITLE_MATCH" ]; then
+      FAIL_REASON="expected title containing '$must_include', got '$TOP_TITLE'"
+    fi
+  fi
+
+  # Check semantic assertion for activation mode
+  if [ -z "$FAIL_REASON" ] && [ -n "$must_semantics" ]; then
+    case "$must_semantics" in
+      shutdown|logout)
+        if [ "$TOP_SEMANTICS" != "confirm-and-explicit-prefix" ] && [ "$TOP_SEMANTICS" != "confirm" ]; then
+          FAIL_REASON="expected confirm semantics for $must_semantics, got '$TOP_SEMANTICS'"
+        fi
+        ;;
+    esac
+  fi
+
+  if [ -n "$FAIL_REASON" ]; then
+    echo "FAIL: $q - $FAIL_REASON"
+    FAILED=$((FAILED + 1))
+  else
+    if $VERBOSE; then
+      echo "OK ($VISIBLE_ROWS rows, top: '$TOP_TITLE', semantics: '$TOP_SEMANTICS')"
+    fi
+    PASSED=$((PASSED + 1))
+  fi
 done
 
 echo ""

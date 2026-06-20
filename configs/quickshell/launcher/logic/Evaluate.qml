@@ -15,7 +15,14 @@ Singleton {
         inherit: ["path-evidence"],
         boost: ["descendant-boost"],
         childVisible: ["visible-flag"],
-        childBypass: ["own-score-beats-parent", "score-dominates:0.03"]
+        childBypass: ["own-score-beats-parent", "score-dominates:0.03"],
+        tokenFlow: ["pass-all"],
+        takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"],
+        takeoverAccept: ["accept-dominated-claims"],
+        expand: ["expand-when"],
+        retainParent: ["retain-always"],
+        defaultAction: ["default-action-owner"],
+        riskGate: ["risk-gate"]
     })
 
     function nodeMatchesDirective(node, ctx) {
@@ -91,18 +98,13 @@ Singleton {
         var tokenFlowResult = null;
         var childQuery = query;
         var childCtx = ctx;
+        var tokenFlow = null;
         if (node.kind !== "root" && node.kind !== "backend") {
             tokenFlowResult = TokenFlow.evaluate(node, query, ctx);
-            if (tokenFlowResult && tokenFlowResult.value && tokenFlowResult.value.length > 0) {
-                var flow = tokenFlowResult.value[tokenFlowResult.value.length - 1];
-                if (flow && flow.passed) {
-                    childQuery = TokenFlow.buildChildQuery(node, flow, query);
-                    if (childQuery.isEmpty) {
-                        childCtx = Object.assign({}, ctx, { childQuery: childQuery, tokenFlow: flow });
-                    } else {
-                        childCtx = Object.assign({}, ctx, { childQuery: childQuery, tokenFlow: flow });
-                    }
-                }
+            tokenFlow = tokenFlowResult && tokenFlowResult.value;
+            if (tokenFlow && tokenFlow.passed) {
+                childQuery = TokenFlow.buildChildQuery(node, tokenFlow, query);
+                childCtx = Object.assign({}, ctx, { childQuery: childQuery, tokenFlow: tokenFlow });
             }
         }
 
@@ -150,6 +152,12 @@ Singleton {
         if (actionAliasBoost > 0)
             finalScore = Tokenize.clamp(finalScore + own.value * 0.15 * actionAliasBoost);
 
+        if (childQuery && childQuery.inheritedContext && own.value > 0) {
+            var contextBonus = Math.min(0.12, childQuery.inherited.length * 0.04);
+            own.value = Tokenize.clamp(own.value + contextBonus);
+            own.reason = (own.reason || "") + " + inherited context bonus";
+        }
+
         var groupDisplay = node.behavior && node.behavior.flattenPolicy && node.behavior.flattenPolicy.groupDisplay || {};
         var keepAllChildren = (groupDisplay.showAllChildrenOnParentMatch || groupDisplay.flattenAllChildrenOnParentMatch) && own.visible;
         var retained = evaluatedChildren.filter(function(c) { return keepAllChildren || c.candidate || c.visible || ctx.showHidden; });
@@ -181,9 +189,7 @@ Singleton {
             visible: ctx.showHidden || own.visible || retained.some(function(c) { return c.visible || ctx.showHidden; }) || (ctx.query.isEmpty && node.kind === "backend" && !directiveActive),
             visibleReason: own.reason,
             children: keepAllChildren ? retained : retained.sort(compareEvaluated),
-            tokenFlow: tokenFlowResult && tokenFlowResult.value && tokenFlowResult.value.length > 0
-                ? tokenFlowResult.value[tokenFlowResult.value.length - 1]
-                : null
+            tokenFlow: tokenFlow
         };
 
         result.scoreBundle = ScoreBundle.fromEvaluated(result, query);

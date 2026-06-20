@@ -14,7 +14,7 @@ Singleton {
             var policy = PolicyChain.lookupPolicy(JsRegistry.tokenFlow, spec);
             if (!policy) return null;
             return policy.apply(node, query, ctx, spec && spec.args);
-        }, "accumulate");
+        }, "first-wins");
     }
 
     function passAll(node, query, ctx, args) {
@@ -242,13 +242,20 @@ Singleton {
     function buildChildQuery(node, tokenFlowResult, originalQuery) {
         var passedTokens = tokenFlowResult.passed || [];
         var inherited = tokenFlowResult.inherited || [];
+        var inheritedText = inherited.map(function(i) { return i.tokenText; }).join(" ");
+        var isInherited = inherited.length > 0;
 
         return {
+            raw: originalQuery.raw,
             tokens: passedTokens,
             isEmpty: passedTokens.length === 0,
+            lastTokenEmpty: originalQuery.lastTokenEmpty,
             inherited: inherited,
+            inheritedContext: isInherited,
+            inheritedText: inheritedText,
             fullQuery: originalQuery,
-            inheritedContext: inherited.length > 0
+            inheritedSource: isInherited ? inherited : null,
+            tokenIndexOrigin: "tokenFlow"
         };
     }
 

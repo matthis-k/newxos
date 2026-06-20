@@ -153,6 +153,20 @@ Singleton {
         var suppressActions = !!decision.suppressParentActions;
         var reason = "";
 
+        var takeoverDecision = decision.takeover && decision.takeover.decision;
+        if (takeoverDecision && takeoverDecision.accepted) {
+            retainParent = takeoverDecision.retainParent !== false;
+            suppressActions = !!takeoverDecision.suppressParentActions;
+            reprMode = takeoverDecision.representation || "keep-parent";
+            reason = "takeover: " + (takeoverDecision.reason || "accepted");
+            return {
+                mode: reprMode,
+                retainParent: retainParent,
+                suppressParentActions: suppressActions,
+                reason: reason
+            };
+        }
+
         switch (mode) {
         case "flatten-all-children":
             reprMode = "flatten-children";
@@ -185,6 +199,14 @@ Singleton {
             reason = "placement from decision";
         }
 
+        if (decision._expandResult) {
+            reason += " (expanded via policy)";
+        }
+        if (decision._suppressedRetain) {
+            retainParent = false;
+            reason += " (parent retention suppressed via policy)";
+        }
+
         return {
             mode: reprMode,
             retainParent: retainParent,
@@ -201,11 +223,34 @@ Singleton {
         var actionId = "";
         var reason = "node controls own action";
 
+        var takeoverDecision = decision && decision.takeover && decision.takeover.decision;
+        if (takeoverDecision && takeoverDecision.accepted) {
+            ownerId = takeoverDecision.selectedOwnerId || ownerId;
+            var daOwnerId = takeoverDecision.defaultActionOwnerId || ownerId;
+            reason = "takeover: " + (takeoverDecision.reason || "accepted");
+            var takeoverTarget = daOwnerId !== node.id ? daOwnerId : node.id;
+            var hasSwitch = !!node.switchActions;
+            var hasActionList = !!(node.actionList && node.actionList.length > 0);
+            if (hasSwitch) {
+                actionId = "switch-action";
+                reason += " (switch, owner: " + daOwnerId + ")";
+            } else if (hasActionList) {
+                actionId = (node.actionList[0] && node.actionList[0].id) || "default-action";
+                reason += " (action list, owner: " + daOwnerId + ")";
+            }
+            return {
+                selectedOwnerId: ownerId,
+                defaultActionOwnerId: daOwnerId,
+                actionId: actionId,
+                reason: reason
+            };
+        }
+
         if (decision && decision.mode === "flatten-children" && decision.children && decision.children.length === 1) {
             var child = decision.children[0];
             if (child && child.node) {
                 ownerId = child.node.id || ownerId;
-                reason = "child " + (child.node.label || "") + " owns action via takeover";
+                reason = "child " + (child.node.label || "") + " owns action via flatten";
             }
         }
 

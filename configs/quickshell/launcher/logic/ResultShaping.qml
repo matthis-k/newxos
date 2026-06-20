@@ -130,10 +130,6 @@ Singleton {
     }
 
     function decidePlacement(ev, ctx) {
-        var presMode = PresentationPolicy.decidePresentation(ev, ctx);
-        if (presMode && presMode.mode !== "normal")
-            return Object.assign({ placement: placementForMode(presMode.mode) }, presMode);
-
         var takeoverClaims = ev.children && ev.children.length > 0
             ? TakeoverEngine.evaluateTakeoverRequests(ev, ev.children, ctx)
             : [];
@@ -141,9 +137,45 @@ Singleton {
             ? TakeoverEngine.decideTakeover(ev, takeoverClaims, ctx)
             : null;
 
+        function _applyExpandRetain(d) {
+            var profile = (ev.node.evaluationProfile && ev.node.evaluationProfile.profile) || {};
+            var expandNames = profile.expand || [];
+            var retainNames = profile.retainParent || [];
+            var expandResult = expandNames.length > 0
+                ? PolicyChain.run(expandNames, function(name, spec) {
+                    var policy = PolicyChain.lookupPolicy(JsRegistry.expand, spec);
+                    if (!policy) return null;
+                    return policy.apply(ev, ctx, spec && spec.args);
+                }, "first-wins") : null;
+            var retainResult = retainNames.length > 0
+                ? PolicyChain.run(retainNames, function(name, spec) {
+                    var policy = PolicyChain.lookupPolicy(JsRegistry.retainParent, spec);
+                    if (!policy) return null;
+                    return policy.apply(ev, ctx, spec && spec.args);
+                }, "first-wins") : null;
+            var out = Object.assign({}, d);
+            if (expandResult && expandResult.value && expandResult.value.expand) {
+                out._expandResult = expandResult.value;
+            }
+            if (retainResult && retainResult.value && retainResult.value.retain === false) {
+                out.showParent = false;
+                out._suppressedRetain = true;
+            }
+            return out;
+        }
+
+        function _d(obj) {
+            var withTakeover = attachTakeover(obj, takeoverClaims, takeoverDecision);
+            return _applyExpandRetain(withTakeover);
+        }
+
+        var presMode = PresentationPolicy.decidePresentation(ev, ctx);
+        if (presMode && presMode.mode !== "normal")
+            return _d(Object.assign({ placement: placementForMode(presMode.mode) }, presMode));
+
         if (ev.node.switchActions) {
             if (!ev.children || ev.children.length === 0)
-                return { placement: "group", mode: "group", showParent: true, children: [] };
+                return _d({ placement: "group", mode: "group", showParent: true, children: [] });
             var switchPolicy = PresentationPolicy.groupDisplayPolicy(ev) || {};
             var switchGroupPolicy = switchPolicy.groupDisplay || {};
             var switchMinChildScore = switchGroupPolicy.minChildScore === undefined ? 0.25 : switchGroupPolicy.minChildScore;
@@ -154,15 +186,15 @@ Singleton {
                     return c.candidate || c.visible;
                 }).sort(Evaluate.compareEvaluated).slice(0, switchMaxChildren);
                 if (browseChildren.length > 0)
-                    return { placement: "nested-group", mode: "nested-group", showParent: true, children: browseChildren };
+                    return _d({ placement: "nested-group", mode: "nested-group", showParent: true, children: browseChildren });
             }
 
             var switchChildren = ev.children.filter(function(c) {
                 return PresentationPolicy.childPassesVisible(c, ev, ctx);
             }).sort(Evaluate.compareEvaluated).slice(0, switchMaxChildren);
             if (switchChildren.length > 0)
-                return { placement: "nested-group", mode: "nested-group", showParent: true, children: switchChildren };
-            return { placement: "group", mode: "group", showParent: true, children: [] };
+                return _d({ placement: "nested-group", mode: "nested-group", showParent: true, children: switchChildren });
+            return _d({ placement: "group", mode: "group", showParent: true, children: [] });
         }
 
         var policy = PresentationPolicy.groupDisplayPolicy(ev);
@@ -178,61 +210,61 @@ Singleton {
                         return PresentationPolicy.childDominates(c, ev, ctx);
                     });
                     if (dominantChildren.length === 1)
-                        return { placement: "promoted-child", mode: "flatten-children", showParent: false, children: dominantChildren };
+                        return _d({ placement: "promoted-child", mode: "flatten-children", showParent: false, children: dominantChildren });
                     if (dominantChildren.length > 1)
-                        return { placement: "nested-group", mode: "nested-group", showParent: true, suppressParentActions: true, children: dominantChildren.slice(0, filterableMaxChildren) };
-                    return { placement: "nested-group", mode: "nested-group", showParent: true, children: visibleChildren.slice(0, filterableMaxChildren) };
+                        return _d({ placement: "nested-group", mode: "nested-group", showParent: true, suppressParentActions: true, children: dominantChildren.slice(0, filterableMaxChildren) });
+                    return _d({ placement: "nested-group", mode: "nested-group", showParent: true, children: visibleChildren.slice(0, filterableMaxChildren) });
                 }
                 if (ctx.query.lastTokenEmpty)
-                    return { placement: "nested-group", mode: "nested-group", showParent: true, children: ev.children.slice(0, filterableMaxChildren) };
-                return { placement: "group", mode: "group", showParent: true, children: [] };
+                    return _d({ placement: "nested-group", mode: "nested-group", showParent: true, children: ev.children.slice(0, filterableMaxChildren) });
+                return _d({ placement: "group", mode: "group", showParent: true, children: [] });
             }
         }
 
         var hasActions = (ev.node.actionList && ev.node.actionList.length > 0);
         if (!hasActions && ev.children.length > 0) {
             var maxChildren = policy ? (policy.maxNestedChildren || ev.children.length) : ev.children.length;
-            return { placement: "flattened", mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, maxChildren) };
+            return _d({ placement: "flattened", mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, maxChildren) });
         }
 
         if (!policy)
-            return { placement: "standalone", mode: "normal", showParent: true, children: ev.children };
+            return _d({ placement: "standalone", mode: "normal", showParent: true, children: ev.children });
         var parentScore = PresentationPolicy.groupDominanceOwnScore(ev, ctx);
 
         if ((policy.showAllChildrenOnParentMatch || policy.flattenAllChildrenOnParentMatch) && parentScore >= policy.parentMatchMinScore)
-            return { placement: "nested-group", mode: "nested-group", showParent: true, includeAllChildren: true, children: ev.children.slice(0, policy.maxNestedChildren || ev.children.length) };
+            return _d({ placement: "nested-group", mode: "nested-group", showParent: true, includeAllChildren: true, children: ev.children.slice(0, policy.maxNestedChildren || ev.children.length) });
 
         if (policy.committedTokenPrefersGroup && ctx.query.lastTokenEmpty && parentScore >= policy.committedTokenMinParentScore)
-            return { placement: "nested-group", mode: "nested-group", showParent: true, children: ev.children.slice(0, policy.maxFlattenedChildren) };
+            return _d({ placement: "nested-group", mode: "nested-group", showParent: true, children: ev.children.slice(0, policy.maxFlattenedChildren) });
 
         if (!hasActions && policy.flattenAllChildrenOnParentMatch && parentScore >= policy.parentMatchMinScore)
-            return { placement: "flattened", mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, policy.maxNestedChildren || ev.children.length) };
+            return _d({ placement: "flattened", mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, policy.maxNestedChildren || ev.children.length) });
 
         var visibleChildren = ev.children.filter(function(c) {
             return PresentationPolicy.childPassesVisible(c, ev, ctx);
         }).sort(Evaluate.compareEvaluated);
 
         if (!visibleChildren.length)
-            return { placement: "group", mode: "group", showParent: true, children: [] };
+            return _d({ placement: "group", mode: "group", showParent: true, children: [] });
 
         var dominantChildren = visibleChildren.filter(function(c) {
             return PresentationPolicy.childDominates(c, ev, ctx);
         });
 
         if (dominantChildren.length === 1)
-            return { placement: "promoted-child", mode: "flatten-children", showParent: false, children: dominantChildren };
+            return _d({ placement: "promoted-child", mode: "flatten-children", showParent: false, children: dominantChildren });
 
         if (dominantChildren.length > 1)
-            return { placement: "nested-group", mode: "nested-group", showParent: true, suppressParentActions: true, children: dominantChildren.slice(0, policy.maxFlattenedChildren) };
+            return _d({ placement: "nested-group", mode: "nested-group", showParent: true, suppressParentActions: true, children: dominantChildren.slice(0, policy.maxFlattenedChildren) });
 
         var bestChild = visibleChildren[0];
         if (parentScore >= bestChild.score + policy.parentWinsMargin)
-            return { placement: "group", mode: "group", showParent: true, children: [] };
+            return _d({ placement: "group", mode: "group", showParent: true, children: [] });
 
         if (bestChild.score >= parentScore + policy.childDominatesMargin)
-            return { placement: "flattened", mode: "flatten-children", showParent: false, children: visibleChildren.slice(0, policy.maxFlattenedChildren) };
+            return _d({ placement: "flattened", mode: "flatten-children", showParent: false, children: visibleChildren.slice(0, policy.maxFlattenedChildren) });
 
-        return { placement: "group", mode: "group", showParent: true, children: [] };
+        return _d({ placement: "group", mode: "group", showParent: true, children: [] });
     }
 
     function attachTakeover(decision, claims, takeoverDecision) {
