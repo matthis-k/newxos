@@ -12,7 +12,7 @@ Singleton {
 
         var parentShown = parentContext ? parentContext.parentShown : false;
         var ancestorsShown = parentContext ? parentContext.ancestorsShown : false;
-        var chain = collectChain(ev);
+        var chain = dedupeAdjacent(collectChain(ev));
 
         var showBreadcrumbs = decideBreadcrumbVisibility(placement, decision, hints, chain);
         var showBackendBadge = decideBackendBadge(placement, decision);
@@ -91,10 +91,18 @@ Singleton {
         if (placement === "standalone" && chain.length <= 1) return [];
 
         var br = chain.slice();
-        if (placement === "promoted-child" || placement === "flattened") {
-            if (br.length > 0) br.pop();
+        if (br.length > 0) br.pop();
+        return dedupeAdjacent(br);
+    }
+
+    function dedupeAdjacent(items) {
+        var out = [];
+        for (var i = 0; i < (items || []).length; i += 1) {
+            if (out.length > 0 && out[out.length - 1] === items[i])
+                continue;
+            out.push(items[i]);
         }
-        return br;
+        return out;
     }
 
     function toDebug(ctx) {

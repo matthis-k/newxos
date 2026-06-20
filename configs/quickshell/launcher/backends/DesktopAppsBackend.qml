@@ -66,7 +66,7 @@ ModelTreeBackendBase {
             subtitle: entry.genericName || entry.comment || null,
             icon: entry.icon || "application-x-executable",
             action: { actionId: "open", entryId: entry.id },
-            behavior: { filterable: true }
+            behavior: { filterable: true, depthPenalty: 0.35 }
         };
         if (actions.length > 0) {
             base.children = actions.map(a => ({

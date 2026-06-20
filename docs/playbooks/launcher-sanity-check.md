@@ -26,8 +26,8 @@ These examples are not a fixed regression suite; they describe the underlying ru
 Keep the launcher IPC available for manual checks:
 
 ```bash
-newshell ipc call query pipeline '<query>'    # Compact visible rows plus phases, backends, timings
-newshell ipc call query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta"}' # Focus one hidden/evaluated node family
+newshell ipc call query pipeline '<query>'    # Compact overview: row summaries, phase timings/counts, backends, timings
+newshell ipc call query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta","details":["rows","phases"]}' # Focus one hidden/evaluated node family with selected details
 newshell ipc call query policies '<query>'    # Active policy specs per kind
 newshell ipc call query benchmark '{"queries":["zen","wifi"],"iterations":2}'
 newshell ipc call query cases
@@ -36,7 +36,7 @@ newshell ipc call query runCases
 
 ## Pipeline JSON Schema (version 3)
 
-The `pipeline` endpoint is the universal debug output. Plain string queries use normal visible-row filtering. Use JSON with `focusNodeId` (or `nodeId`/`id`) when you need hidden/full evaluation for one specific node family; focused mode enables hidden evaluation but filters returned rows and phase details to matching node ids and descendants. Shape:
+The `pipeline` endpoint is the universal debug output. Plain string queries use normal visible-row filtering and return an overview so large trees do not exceed IPC payload limits. Use JSON with `details` to request specific debug sections (`rows`, `phases`, `backends`, `diagnostics`). Use `focusNodeId` (or `nodeId`/`id`) when you need hidden/full evaluation for one specific node family; focused mode enables hidden evaluation but filters returned rows and phase details to matching node ids and descendants. Shape:
 
 ```json
 {
@@ -52,9 +52,9 @@ The `pipeline` endpoint is the universal debug output. Plain string queries use 
     { "phase": 4, "name": "path-policies", "pathMs": 0.1 },
     { "phase": 5, "name": "shaping", "shaped": [], "placements": {} }
   ],
-  "rows": [{ "id": "...", "title": "...", "score": 0.8 }],
+  "rows": [{ "id": "...", "title": "...", "score": 0.8, "childCount": 4 }],
   "totalResults": 5,
-  "debug": { "focusNodeId": null, "showHidden": false, "unfilteredResults": 5 },
+  "debug": { "focusNodeId": null, "showHidden": false, "unfilteredResults": 5, "detailMode": "overview", "availableDetails": ["rows", "phases", "backends", "diagnostics"] },
   "backends": { "total": 8, "entries": [], "routingTree": {} },
   "state": { "selectedIndex": 0, "resultCount": 5, "loading": false },
   "diagnostics": {}
@@ -65,11 +65,11 @@ Focused pipeline calls:
 
 ```bash
 # Inspect how one desktop entry family is evaluated for a query, including hidden state.
-newshell ipc call query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta"}' \
+newshell ipc call query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta","details":["rows","phases"]}' \
   | jq '{debug, rows: [.rows[] | {title, nodeId, childTitles: [.children[]?.title]}], shaped: (.phases[] | select(.name == "shaping") | .shaped)}'
 ```
 
-Do not use focused mode as a broad snapshot mechanism. If a payload is too large, narrow `focusNodeId` instead of enabling hidden output for all rows.
+Do not use full-detail mode as a broad snapshot mechanism. If a payload is too large, request only the needed `details` and narrow `focusNodeId` instead of enabling hidden output for all rows.
 
 ### Row Fields
 
@@ -85,22 +85,22 @@ newshell ipc call query pipeline 'audio' \
   | jq '.rows[] | select(.ownVisible == true) | {title, subtitle, source, kind, score, ownScore, matchDepth, children: (.children // [] | length)}'
 
 # Actual child rows for visible groups
-newshell ipc call query pipeline 'zen ' \
+newshell ipc call query pipeline '{"query":"zen ","details":["rows"]}' \
   | jq '.rows[] | {title, children: [.children[]?.title]}'
 
 # Phase listing
 newshell ipc call query pipeline 'audio' | jq '.phases[] | {phase, name}'
 
 # Evaluation scores per backend root
-newshell ipc call query pipeline 'audio' \
+newshell ipc call query pipeline '{"query":"audio","details":["phases"]}' \
   | jq '.phases[] | select(.name == "evaluation").childScoreBundles[] | {label, score, ownScore}'
 
 # Shaping decisions per item
-newshell ipc call query pipeline 'audio' \
+newshell ipc call query pipeline '{"query":"audio","details":["phases"]}' \
   | jq '.phases[] | select(.name == "shaping").shaped[] | {title, placement, score}'
 
 # Backend metadata
-newshell ipc call query pipeline 'audio' | jq '.backends.entries[] | {id, name, enabled}'
+newshell ipc call query pipeline '{"query":"audio","details":["backends"]}' | jq '.backends.entries[] | {id, name, enabled}'
 
 # Directive and tokens (phase 0)
 newshell ipc call query pipeline 'zen priv' | jq '{directive, tokens: .phases[0].tokens}'
@@ -146,12 +146,12 @@ Always record the visible query when debugging GUI-only missing-row reports. A r
 
 Pipeline modules live in `configs/quickshell/launcher/logic/`: `Evaluate.qml` -> `ResultShaping.qml` (owns placement) -> `RenderedRows.qml` (builds rows from shaped items using `PresentationContext.qml` and `ActionPolicy.qml` default-action metadata). `PolicyChain.lookupPolicy` provides normalized spec-aware lookups. `ActionPolicy.qml` selects default actions only; `RecipeResolver.qml` resolves recipes/interactions, `ActionRegistry.qml` executes recipe steps, and `LauncherActionController.qml` owns activation and confirmation. `LauncherController.qml` is a compatibility façade; search/session behavior lives in `controllers/LauncherSearchSession.qml`, result/tree selection in `controllers/LauncherNavigationState.qml`, activation in `controllers/LauncherActionController.qml`, and IPC/debug serialization in `controllers/LauncherDebugController.qml`. TokenFlowDecision is not implemented yet.
 
-1. `query pipeline` — universal endpoint. Check visible rows (`.rows`), phases (`.phases[]`), backends (`.backends`), timings (`.timings`). Use JSON `focusNodeId` when debugging a specific hidden or over-filtered entry.
+1. `query pipeline` — universal endpoint. Start with overview rows (`.rows`), compact phases (`.phases[]`), backends (`.backends`), and timings (`.timings`). Use JSON `details` for full debug sections and `focusNodeId` when debugging a specific hidden or over-filtered entry.
    - `.phases[] | select(.name == "directive-tokenize")` — directive, tokens, active backends
-   - `.phases[] | select(.name == "evaluation")` — score bundles per backend root
-   - `.phases[] | select(.name == "shaping")` — per-item placements
+   - `.phases[] | select(.name == "evaluation")` — overview node counts; add `"details":["phases"]` for score bundles per backend root
+   - `.phases[] | select(.name == "shaping")` — overview placement counts; add `"details":["phases"]` for per-item placements
    - `.rows[] | select(.ownVisible == true)` — final rendered rows
-   - focused form: `query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta"}'`
+   - focused form: `query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta","details":["rows","phases"]}'`
 2. `query policies` — check normalized policy specs active per kind
 3. `query benchmark` — run benchmarks with timing data
 

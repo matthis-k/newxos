@@ -46,7 +46,8 @@ Singleton {
                     var idx = normText.indexOf(tokenNorm, start);
                     if (idx < 0) break;
                     var isWordStart = idx === 0 || /[^a-z0-9]/.test(normText[idx - 1]);
-                    out.push(evidence("substring", field, "substring", isWordStart ? 0.66 : 0.52, field.weight * 0.75, [{ start: idx, end: idx + token.raw.length, kind: "substring" }], "token occurs inside field", { tokenIndex: ti, exactness: "substring" }));
+                    if (isWordStart)
+                        out.push(evidence("substring", field, "substring", 0.66, field.weight * 0.75, [{ start: idx, end: idx + token.raw.length, kind: "substring" }], "token occurs inside field", { tokenIndex: ti, exactness: "substring" }));
                     start = idx + Math.max(1, tokenLen);
                 }
             }
@@ -54,13 +55,14 @@ Singleton {
                 var compactToken = Tokenize.compactWithMap(token.raw).compact || tokenNorm;
                 var cidx = field.compact.compact.indexOf(compactToken);
                 if (cidx >= 0) {
+                    if (cidx > 0) continue;
                     var cstart = field.compact.map[cidx];
                     var cend = field.compact.map[cidx + compactToken.length - 1] + 1;
                     var full = field.compact.compact === compactToken;
                     var compactCoverage = compactToken.length / Math.max(1, field.compact.compact.length);
-                    var compactScore = full ? 0.93 : cidx === 0 ? 0.75 + compactCoverage * 0.18 : 0.66;
-                    var compactWeight = field.weight * (full ? 0.95 : cidx === 0 ? 1.0 : 0.75);
-                    out.push(evidence("compact", field, full ? "compact-exact" : cidx === 0 ? "compact-prefix" : "compact-substring", compactScore, compactWeight, [{ start: cstart, end: cend, kind: "compact" }], "token matches compacted field", { tokenIndex: ti, exactness: full ? "exact" : cidx === 0 ? "prefix" : "substring" }));
+                    var compactScore = full ? 0.93 : 0.75 + compactCoverage * 0.18;
+                    var compactWeight = field.weight * (full ? 0.95 : 1.0);
+                    out.push(evidence("compact", field, full ? "compact-exact" : "compact-prefix", compactScore, compactWeight, [{ start: cstart, end: cend, kind: "compact" }], "token matches compacted field", { tokenIndex: ti, exactness: full ? "exact" : "prefix" }));
                 }
             }
             if (ids.indexOf("acronym") >= 0 && tokenLen >= 2) {

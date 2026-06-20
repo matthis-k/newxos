@@ -160,17 +160,68 @@ Singleton {
     function decideSwitchPresentation(ev, ctx) {
         if (!ev.children || ev.children.length === 0) return { mode: "group", showParent: true, children: [] };
         if (ctx.query.lastTokenEmpty) {
-            var visibleChildren = ev.children.filter(function(c) { return childPassesVisible(c, ev, ctx); }).sort(Evaluate.compareEvaluated);
-            if (visibleChildren.length > 0)
-                return { mode: "nested-group", showParent: true, children: visibleChildren };
+            var browsePolicy = groupDisplayPolicy(ev) || {};
+            var browseMaxChildren = browsePolicy.maxNestedChildren || browsePolicy.maxFlattenedChildren || 8;
+            var browseChildren = ev.children.slice(0, browseMaxChildren);
+            if (browseChildren.length > 0)
+                return { mode: "nested-group", showParent: true, includeAllChildren: true, children: browseChildren };
             return { mode: "group", showParent: true, children: [] };
         }
         var policy = groupDisplayPolicy(ev) || {};
         var maxChildren = policy.maxNestedChildren || policy.maxFlattenedChildren || 8;
-        var filteredChildren = ev.children.filter(function(c) { return childPassesVisible(c, ev, ctx); }).sort(Evaluate.compareEvaluated).slice(0, maxChildren);
-        if (filteredChildren.length > 0)
-            return { mode: "nested-group", showParent: true, children: filteredChildren };
+        var parentCovered = Evidence.coveredTokenIndexes(ev.evidence || [], ctx.query);
+        var parentCoveredCount = Object.keys(parentCovered).length;
+        if (parentCoveredCount >= ctx.query.tokens.length)
+            return { mode: "group", showParent: true, children: [] };
+        if (parentCoveredCount > 0) {
+            var matching = [];
+            for (var ci = 0; ci < ev.children.length; ci += 1) {
+                var c = ev.children[ci];
+                if (!c || !c.node) continue;
+                var hl = Tokenize.normalizeText(String(c.node.label || "") + " " + (c.node.aliases || []).join(" "));
+                for (var tj = 0; tj < ctx.query.tokens.length; tj += 1) {
+                    if (parentCovered[tj]) continue;
+                    var tn = Tokenize.normalizeText(ctx.query.tokens[tj].raw);
+                    if (hl.indexOf(tn) === 0 || hl === tn) { matching.push(c); break; }
+                }
+            }
+            if (matching.length > 0) {
+                matching.sort(Evaluate.compareEvaluated);
+                var taken = matching.slice(0, maxChildren);
+                if (taken.length === 1)
+                    return { mode: "flatten-children", showParent: false, children: taken };
+                return { mode: "nested-group", showParent: true, suppressParentActions: true, includeAllChildren: true, children: taken };
+            }
+            return { mode: "group", showParent: true, children: [] };
+        }
+        var strongChildren = ev.children.filter(function(c) { return c.visible && childHasExactPrimaryMatch(c); }).sort(Evaluate.compareEvaluated).slice(0, maxChildren);
+        if (strongChildren.length === 1)
+            return { mode: "flatten-children", showParent: false, children: strongChildren };
+        if (strongChildren.length > 0)
+            return { mode: "nested-group", showParent: true, suppressParentActions: true, includeAllChildren: true, children: strongChildren };
         return { mode: "group", showParent: true, children: [] };
+    }
+
+    function childHasExactPrimaryMatch(childEval) {
+        var evidence = childEval && childEval.ownEvidence || [];
+        for (var i = 0; i < evidence.length; i += 1) {
+            var e = evidence[i] || {};
+            var group = Evidence.evidenceFieldGroup(e.field);
+            var kind = String(e.kind || e.exactness || e.strategy || "");
+            if (group === "primary-text" && kind.indexOf("exact") >= 0)
+                return true;
+        }
+        return false;
+    }
+
+    function childCoversAdditionalToken(childEval, parentEval, ctx) {
+        var parentCov = Evidence.coveredTokenIndexes(parentEval.evidence || [], ctx.query);
+        var childCov = Evidence.coveredTokenIndexes(childEval.evidence || [], ctx.query);
+        for (var key in childCov) {
+            if (!(key in parentCov))
+                return true;
+        }
+        return false;
     }
 
     function presentationRowHint(ev, ctx) {

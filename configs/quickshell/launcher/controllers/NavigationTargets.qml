@@ -57,9 +57,10 @@ QtObject {
             var children = row.children || [];
             var key = root.rowKey(row);
             var currentPath = path.concat([key]);
+            var isExpanded = row.alwaysExpanded !== false;
             if (selectable(row))
                 out.push({ key: key, row: row, parentIndex: parentIndex, depth: depth, treeDepth: depth, path: currentPath, isTreeChild: depth > 0 });
-            if (collapsedState[parentIndex])
+            if (!isExpanded || collapsedState[parentIndex])
                 return;
             for (var i = 0; i < children.length; i += 1)
                 visit(children[i], parentIndex, depth + 1, currentPath);

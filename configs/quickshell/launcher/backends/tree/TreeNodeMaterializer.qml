@@ -18,7 +18,7 @@ QtObject {
         const rawSwitchActions = node.switchActions || (node.switchState === undefined ? null : (switchInferer ? switchInferer.switchActionMap(node, children) : null));
         const switchActions = switchInferer ? switchInferer.actionDtosForSwitchActions(rawSwitchActions) : null;
         const kind = switchActions && children.length === 0 ? "switch" : (children.length > 0 || node.template === "action-group" || node.template === "flat-action-group") ? "action-group" : "desktop-action";
-        const switchProfile = kind === "switch" && !node.evaluationProfile ? (defaults ? defaults.switchProfile : null) : null;
+        const evaluationProfile = root._evaluationProfileForNode(node, !!rawSwitchActions);
         const actions = switchActions
             ? [switchActions.toggle, switchActions.on, switchActions.off].filter(Boolean)
             : action ? [root._actionDto(action.actionId || action.id || "run", action.title || qsTr("Run"), action)] : [];
@@ -55,7 +55,7 @@ QtObject {
                 displayPolicy: nodeBehavior.displayPolicy || null
             }, node.behavior || {}),
             semanticTerms: root._semanticTermsForNode(node),
-            evaluationProfile: node.evaluationProfile || switchProfile || (defaults ? defaults.defaultEvaluationProfile : { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default" }),
+            evaluationProfile: evaluationProfile,
             meta: {
                 action: action,
                 commandPath: path.concat([node]).map(function(item) { return item.id || item.title; }),
@@ -73,6 +73,19 @@ QtObject {
 
     function _actionDto(id, label, payload) {
         return nodeFactory ? nodeFactory.actionDto(id, label, payload) : { id: id, label: label || id, icon: null, default: false, payload: payload || null };
+    }
+
+    function _evaluationProfileForNode(node, hasSwitchActions) {
+        const fallback = defaults ? defaults.defaultEvaluationProfile : { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default", profile: {} };
+        const source = node.evaluationProfile || (hasSwitchActions && defaults ? defaults.switchProfile : fallback) || fallback;
+        const out = Object.assign({}, source);
+        const sourceProfile = source.profile || {};
+        out.profile = Object.assign({}, sourceProfile);
+        if (node.childVisible)
+            out.profile.childVisible = node.childVisible;
+        if (node.childBypass)
+            out.profile.childBypass = node.childBypass;
+        return out;
     }
 
     function _makeNodeDto(options) {

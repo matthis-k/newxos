@@ -46,6 +46,22 @@ Singleton {
         return out;
     }
 
+    function dropInertRows(rows) {
+        var out = [];
+        for (var i = 0; i < (rows || []).length; i += 1) {
+            var row = rows[i];
+            if (!row)
+                continue;
+            var children = dropInertRows(row.children || []);
+            if (children.length !== (row.children || []).length)
+                row = Object.assign({}, row, { children: children, expandable: children.length > 0 });
+            if (!hasActivation(row) && children.length === 0)
+                continue;
+            out.push(row);
+        }
+        return out;
+    }
+
     function structuralDepth(row) {
         return (row && row.breadcrumbs && row.breadcrumbs.length) || 0;
     }
@@ -155,6 +171,8 @@ Singleton {
             out = filterChildrenByQuery(out, queryInfo);
         if (options.promoteContainerRows !== false)
             out = promoteContainerRows(out, queryInfo);
+        if (options.dropInertRows !== false)
+            out = dropInertRows(out);
         if (options.onlySelectable)
             out = selectableRows(out, queryInfo);
         if (options.sortRows !== false)

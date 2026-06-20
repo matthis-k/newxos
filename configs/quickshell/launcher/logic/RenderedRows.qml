@@ -91,13 +91,13 @@ Singleton {
                 : node.dangerous
                     ? { level: "state-change", activation: "confirm" }
                     : null,
-            filterable: !!(node.behavior && node.behavior.filterable),
+            filterable: suppressOwnActions ? false : !!(node.behavior && node.behavior.filterable),
             lazy: !!node.lazy,
             alwaysExpanded: hasExplicitAlwaysExpanded(node)
                 ? node.behavior.alwaysExpanded !== false
-                : (parentMatchShowsChildren(ev, ctx) || childHasGoodMatch(childRows)),
+                : (parentMatchShowsChildren(ev, ctx) || childHasGoodMatch(childRows) || switchHasResidualChildren(ev, ctx)),
             children: childRows || [],
-            switchActions: copySwitchActions(node.switchActions, action),
+            switchActions: suppressOwnActions ? null : copySwitchActions(node.switchActions, action),
             defaultAction: ActionPolicy.selectedActionMetadata(selectedAction),
             switchState: node.switchState === undefined ? null : node.switchState,
             control: node.control || null,
@@ -113,7 +113,7 @@ Singleton {
         else if (action)
             row.recipes = { activate: [["run-action", { action: "default" }], ["close"]] };
 
-        if (hasReplaceQuery || (node.behavior && node.behavior.filterable))
+        if (hasReplaceQuery || (!suppressOwnActions && node.behavior && node.behavior.filterable))
             row.recipes = row.recipes || {};
         if (hasReplaceQuery && (!row.recipes || !row.recipes.complete))
             row.recipes = row.recipes || {};
@@ -170,6 +170,26 @@ Singleton {
             var child = childRows[i];
             if (child && ((child.ownVisible && (child.ownScore || child.score || 0) > 0) || (child.ownScore || child.score || 0) >= 0.25))
                 return true;
+        }
+        return false;
+    }
+
+    function switchHasResidualChildren(ev, ctx) {
+        if (!ctx || !ctx.query || !ctx.query.tokens) return false;
+        if (!ev || !ev.node || !ev.node.switchActions) return false;
+        var children = ev.children || [];
+        if (children.length === 0) return false;
+        var parentCov = Evidence.coveredTokenIndexes(ev.evidence || [], ctx.query);
+        if (Object.keys(parentCov).length >= ctx.query.tokens.length) return false;
+        for (var ci = 0; ci < children.length; ci += 1) {
+            var child = children[ci];
+            if (!child || !child.node) continue;
+            var hl = Tokenize.normalizeText(String(child.node.label || "") + " " + (child.node.aliases || []).join(" "));
+            for (var tj = 0; tj < ctx.query.tokens.length; tj += 1) {
+                if (parentCov[tj]) continue;
+                var tn = Tokenize.normalizeText(ctx.query.tokens[tj].raw);
+                if (hl.indexOf(tn) === 0 || hl === tn) return true;
+            }
         }
         return false;
     }

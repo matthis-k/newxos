@@ -64,21 +64,28 @@ Singleton {
     function buildRowsFromShaped(shapedResult, state, ctx) {
         var maxTreeDepth = shapedResult.maxTreeDepth;
 
-        function buildChildTree(ev, currentDepth, maxDepth, includeAllChildren) {
+        function canDescendDuringExploration(ev) {
+            var behavior = ev && ev.node && ev.node.behavior || {};
+            var exploration = behavior.exploration || {};
+            return exploration.descend !== false;
+        }
+
+        function buildChildTree(ev, currentDepth, maxDepth, includeAllChildren, exploringFromAncestor) {
             if (maxDepth <= 0 || !ev.children) return [];
+            if (exploringFromAncestor && !canDescendDuringExploration(ev)) return [];
             var filtered = ev.children.filter(function(c) {
                 return c.allowed && c.node.kind !== "backend" && (includeAllChildren || c.visible || c.score >= 0.25);
             });
-            return buildChildRows(filtered, currentDepth, maxDepth, includeAllChildren);
+            return buildChildRows(filtered, currentDepth, maxDepth, includeAllChildren, exploringFromAncestor);
         }
 
-        function buildChildRows(children, currentDepth, maxDepth, includeAllChildren) {
+        function buildChildRows(children, currentDepth, maxDepth, includeAllChildren, exploringFromAncestor) {
             if (maxDepth <= 0 || !children) return [];
             var filtered = children.filter(function(c) {
                 return c.allowed && c.node.kind !== "backend" && (includeAllChildren || c.visible || c.score >= 0.25);
             });
             return filtered.map(function(child) {
-                var grandChildren = buildChildTree(child, currentDepth + 1, maxDepth - 1, includeAllChildren);
+                var grandChildren = buildChildTree(child, currentDepth + 1, maxDepth - 1, includeAllChildren, exploringFromAncestor || includeAllChildren);
                 var childShapedItem = { ev: child, depth: currentDepth + 1, placement: "group-child", decision: { placement: "group-child", mode: "normal", showParent: false }, options: {} };
                 return RenderedRows.toResultRow(child, currentDepth + 1, state, ctx, grandChildren, {}, childShapedItem);
             });
@@ -89,9 +96,9 @@ Singleton {
             var childRows;
             if (item.childEvs != null) {
                 if (item.childEvs.length > 0)
-                    childRows = buildChildRows(item.childEvs, item.depth, maxTreeDepth, includeAllChildren);
+                    childRows = buildChildRows(item.childEvs, item.depth, maxTreeDepth, includeAllChildren, false);
             } else {
-                childRows = buildChildTree(item.ev, item.depth, maxTreeDepth, false);
+                childRows = buildChildTree(item.ev, item.depth, maxTreeDepth, false, false);
             }
             if (!childRows) childRows = [];
             return RenderedRows.toResultRow(item.ev, item.depth, state, ctx, childRows, item.options, item);

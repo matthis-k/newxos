@@ -98,8 +98,9 @@ Item {
         return true;
     }
 
-    function serializeRow(row, depth) {
+    function serializeRow(row, depth, options) {
         depth = depth === undefined ? 0 : depth;
+        options = options || {};
         if (!row) return null;
         var out = {
             id: row.id || "",
@@ -160,8 +161,15 @@ Item {
                 };
             })
         };
-        if (row.children && row.children.length)
-            out.children = row.children.map(function(child) { return root.serializeRow(child, depth + 1); }).filter(Boolean);
+        if (row.children && row.children.length) {
+            var maxChildren = options.maxChildren === undefined ? row.children.length : Math.max(0, Number(options.maxChildren));
+            var childSource = row.children.slice(0, maxChildren);
+            out.children = childSource.map(function(child) { return root.serializeRow(child, depth + 1, options); }).filter(Boolean);
+            if (row.children.length > childSource.length) {
+                out.childrenTruncated = true;
+                out.childCount = row.children.length;
+            }
+        }
         if (depth > 0) {
             out.evidence = [];
             out.scoreBundle = null;
@@ -189,12 +197,49 @@ Item {
         return out;
     }
 
-    function serializeRowsForQuery(rows, queryInfo) {
+    function serializeRowsForQuery(rows, queryInfo, options) {
         var previousLastQuery = controller.lastQuery;
         controller.lastQuery = queryInfo || null;
-        var out = (rows || []).map(function(row) { return root.serializeRow(row, 0); }).filter(Boolean);
+        var out = (rows || []).map(function(row) { return root.serializeRow(row, 0, options || {}); }).filter(Boolean);
         controller.lastQuery = previousLastQuery;
         return out;
+    }
+
+    function serializeRowOverview(row, index) {
+        if (!row) return null;
+        var children = row.children || [];
+        var actions = row.actions || [];
+        return {
+            rank: index,
+            id: row.id || "",
+            nodeId: row.nodeId || "",
+            title: row.title || "",
+            subtitle: row.subtitle || "",
+            source: row.source || row.backendId || "",
+            kind: row.kind || "",
+            score: row.score || 0,
+            ownScore: row.ownScore || 0,
+            inheritedScore: row.inheritedScore || 0,
+            descendantScore: row.descendantScore || 0,
+            ownVisible: !!row.ownVisible,
+            placement: row.placement || "",
+            executable: !!row.executable,
+            filterable: !!row.filterable,
+            lazy: !!row.lazy,
+            expandable: children.length > 0 || !!row.lazy,
+            childCount: children.length,
+            childPreview: children.slice(0, 8).map(function(child) { return { title: child.title || "", nodeId: child.nodeId || child.id || "" }; }),
+            actionCount: actions.length,
+            defaultAction: row.defaultAction ? { id: row.defaultAction.id || "", label: row.defaultAction.label || "" } : null,
+            switchState: row.switchState === undefined ? null : row.switchState,
+            control: row.control ? { kind: row.control.kind || "", value: row.control.value === undefined ? null : row.control.value } : null,
+            breadcrumbs: row.breadcrumbs || [],
+            breadcrumbText: row.breadcrumbText || ""
+        };
+    }
+
+    function serializeRowsOverview(rows) {
+        return (rows || []).map(function(row, index) { return root.serializeRowOverview(row, index); }).filter(Boolean);
     }
 
     function resolveQueryArg(text) {
@@ -321,7 +366,7 @@ Item {
     }
 
     function parsePipelineConfig(arg) {
-        var config = { query: root.resolveQueryArg(arg), focusNodeId: "", showHidden: controller.showHidden };
+        var config = { query: root.resolveQueryArg(arg), focusNodeId: "", showHidden: controller.showHidden, details: [], overview: true, maxChildren: 32 };
         if (!arg)
             return config;
         var trimmed = String(arg).trim();
@@ -334,12 +379,47 @@ Item {
             if (parsed.query !== undefined)
                 config.query = String(parsed.query);
             config.focusNodeId = String(parsed.focusNodeId || parsed.nodeId || parsed.id || "");
+            config.details = root.normalizePipelineDetails(parsed.details !== undefined ? parsed.details : (parsed.detail !== undefined ? parsed.detail : (parsed.sections !== undefined ? parsed.sections : parsed.include)));
+            var mode = String(parsed.mode || parsed.view || "").toLowerCase();
+            if (mode === "full" || mode === "debug")
+                config.details = ["rows", "phases", "backends", "diagnostics"];
+            else if (mode === "overview" || mode === "compact")
+                config.details = [];
+            config.overview = config.details.length === 0;
             if (parsed.showHidden !== undefined)
                 config.showHidden = !!parsed.showHidden;
             else if (config.focusNodeId)
                 config.showHidden = true;
+            if (parsed.maxChildren !== undefined)
+                config.maxChildren = Math.max(0, Math.min(256, Number(parsed.maxChildren)));
+            else if (config.focusNodeId && root.pipelineWants(config, "rows"))
+                config.maxChildren = 96;
         } catch (error) {}
         return config;
+    }
+
+    function normalizePipelineDetails(value) {
+        if (value === undefined || value === null || value === false)
+            return [];
+        if (value === true || String(value).toLowerCase() === "all" || String(value).toLowerCase() === "full")
+            return ["rows", "phases", "backends", "diagnostics"];
+        var items = Array.isArray(value) ? value : String(value).split(/[,\s]+/);
+        var out = [];
+        for (var i = 0; i < items.length; i += 1) {
+            var item = String(items[i] || "").toLowerCase().trim();
+            if (!item) continue;
+            if (item === "row") item = "rows";
+            if (item === "phase") item = "phases";
+            if (item === "backend") item = "backends";
+            if (item === "diagnostic") item = "diagnostics";
+            if (["rows", "phases", "backends", "diagnostics"].indexOf(item) >= 0 && out.indexOf(item) < 0)
+                out.push(item);
+        }
+        return out;
+    }
+
+    function pipelineWants(config, detail) {
+        return (config.details || []).indexOf(detail) >= 0;
     }
 
     function nodeIdMatchesFocus(nodeId, focusNodeId) {
@@ -382,6 +462,35 @@ Item {
         });
     }
 
+    function summarizePhase(phase) {
+        if (!phase) return null;
+        var out = { phase: phase.phase, name: phase.name || "" };
+        if (phase.searchRaw !== undefined) out.searchRaw = phase.searchRaw;
+        if (phase.directive) out.directive = phase.directive;
+        if (phase.tokens) out.tokens = phase.tokens;
+        if (phase.activeBackendIds) out.activeBackendIds = phase.activeBackendIds;
+        if (phase.rootNodeMs !== undefined) out.rootNodeMs = phase.rootNodeMs;
+        if (phase.perBackendMs) out.perBackendMs = phase.perBackendMs;
+        if (phase.roots) out.rootCount = phase.roots.length;
+        if (phase.candidateMs !== undefined) out.candidateMs = phase.candidateMs;
+        if (phase.candidateCount !== undefined) out.candidateCount = phase.candidateCount;
+        if (phase.evaluateMs !== undefined) out.evaluateMs = phase.evaluateMs;
+        if (phase.totalNodes !== undefined) out.totalNodes = phase.totalNodes;
+        if (phase.visibleNodes !== undefined) out.visibleNodes = phase.visibleNodes;
+        if (phase.childScoreBundles) out.childScoreBundleCount = phase.childScoreBundles.length;
+        if (phase.pathMs !== undefined) out.pathMs = phase.pathMs;
+        if (phase.shapeMs !== undefined) out.shapeMs = phase.shapeMs;
+        if (phase.shapedCount !== undefined) out.shapedCount = phase.shapedCount;
+        if (phase.placements) out.placements = phase.placements;
+        if (phase.rows !== undefined) out.rows = phase.rows;
+        if (phase.totalMs !== undefined) out.totalMs = phase.totalMs;
+        return out;
+    }
+
+    function summarizePhases(phases) {
+        return (phases || []).map(function(phase) { return root.summarizePhase(phase); }).filter(Boolean);
+    }
+
     function queryPipeline(text) {
         var stage = "resolve";
         try {
@@ -395,8 +504,11 @@ Item {
             var rows = pipelineConfig.focusNodeId
                 ? root.filterRowsForFocus(allRows, pipelineConfig.focusNodeId).slice(0, controller.maxResults)
                 : allRows.slice(0, controller.maxResults);
-            stage = "serialize-rows";
-            var serializedRows = root.serializeRowsForQuery(rows, output.query);
+            var detailedRows = root.pipelineWants(pipelineConfig, "rows");
+            stage = detailedRows ? "serialize-rows" : "serialize-row-overview";
+            var serializedRows = detailedRows
+                ? root.serializeRowsForQuery(rows, output.query, { maxChildren: pipelineConfig.maxChildren })
+                : root.serializeRowsOverview(rows);
 
             stage = "serialize-backends";
             var backendEntries = (controller.backends || []).filter(function(b) { return !!b; }).map(function(b) {
@@ -420,22 +532,32 @@ Item {
                 };
             });
 
+            var detailedPhases = root.pipelineWants(pipelineConfig, "phases");
+            var detailedBackends = root.pipelineWants(pipelineConfig, "backends");
+            var detailedDiagnostics = root.pipelineWants(pipelineConfig, "diagnostics");
             var payload = {
                 version: 3, type: "pipeline",
                 query: output.query ? output.query.raw : text,
                 directive: output.directive ? { active: output.directive.active, prefix: output.directive.prefix || "", label: output.directive.label || "", backendIds: output.directive.backendIds || [] } : { active: false },
                 timings: output.timings || {},
-                phases: root.filterPhasesForFocus(output.phases || [], pipelineConfig.focusNodeId),
+                phases: detailedPhases
+                    ? root.filterPhasesForFocus(output.phases || [], pipelineConfig.focusNodeId)
+                    : root.summarizePhases(root.filterPhasesForFocus(output.phases || [], pipelineConfig.focusNodeId)),
                 rows: serializedRows,
                 totalResults: rows.length,
                 debug: {
                     focusNodeId: pipelineConfig.focusNodeId || null,
                     showHidden: !!pipelineConfig.showHidden,
-                    unfilteredResults: allRows.length
+                    unfilteredResults: allRows.length,
+                    detailMode: pipelineConfig.overview ? "overview" : "custom",
+                    details: pipelineConfig.details,
+                    maxChildren: pipelineConfig.maxChildren,
+                    availableDetails: ["rows", "phases", "backends", "diagnostics"]
                 },
                 backends: {
                     total: backendEntries.length,
-                    entries: backendEntries,
+                    entries: detailedBackends ? backendEntries : [],
+                    enabledIds: backendEntries.filter(function(entry) { return entry.enabled; }).map(function(entry) { return entry.id; }),
                     routingTree: { endpointCount: (controller.routingTree || {}).endpoints ? controller.routingTree.endpoints.length : 0 }
                 },
                 state: {
@@ -443,7 +565,7 @@ Item {
                     resultCount: controller.results.length,
                     loading: controller.loading
                 },
-                diagnostics: PolicyDiagnostics.toDebug(diag)
+                diagnostics: detailedDiagnostics ? PolicyDiagnostics.toDebug(diag) : { omitted: true }
             };
             root.logJsonValidation("query=" + (text || "") + " rows=" + serializedRows.length, payload);
             stage = "stringify";
@@ -566,7 +688,7 @@ Item {
     function regressionCaseQueries() {
         return [
             "?", "? ", "?au",
-            "zen", "zen ", "zen priv", "zen win", "zen browser", "zen new",
+            "v", "new", "zen", "zen ", "zen priv", "zen win", "zen browser", "zen new",
             "wifi", "wifi ", "wifi on", "wifi off", "wifi toggle", "toggle wifi",
             "wo", "wt",
             ":", ":wifi", ":wifi ", ":wifi on", ":db wifi",
@@ -575,7 +697,9 @@ Item {
             "db wifi", "dashboard wifi",
             "au", "aud", "audi", "audio",
             "en", "screen", "session",
-            "newxos", "vpn ", "vpn of",
+            "newxos", "vpn", "vpn ", "vpn ger", "vpn germany", "vpn of",
+            "ger", "alg", "bel", "swe", "germany", "algeria", "belgium", "sweden",
+            "net", "networking",
             "notes", "/tmp"
         ];
     }

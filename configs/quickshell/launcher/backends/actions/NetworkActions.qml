@@ -8,7 +8,7 @@ QtObject {
             on: { id: "on", title: qsTr("On"), state: true, payload: { service: "network", op: "setWifiEnabled", enabled: true } },
             off: { id: "off", title: qsTr("Off"), state: false, payload: { service: "network", op: "setWifiEnabled", enabled: false } }
         } },
-        { id: "vpn", aliases: ["vpn", "nordvpn", "connect to"], title: qsTr("VPN"), icon: "network-vpn-symbolic", iconColor: VpnService.connected || VpnService.connecting ? Config.styling.good : Config.styling.warning, template: "switch", switchState: VpnService.connected || VpnService.connecting, behavior: { filterable: true }, childVisible: ["own-score-min:0.25", "expand-on-trailing-space"], groupOptions: { showAllChildrenOnParentMatch: false, flattenAllChildrenOnParentMatch: false, maxNestedChildren: 8 }, switchActions: {
+        { id: "vpn", aliases: ["vpn", "nordvpn", "connect to"], title: qsTr("VPN"), icon: "network-vpn-symbolic", iconColor: VpnService.connected || VpnService.connecting ? Config.styling.good : Config.styling.warning, template: "switch", switchState: VpnService.connected || VpnService.connecting, behavior: { filterable: true, depthPenalty: 1, exploration: { descend: false } }, childVisible: ["expand-on-trailing-space"], groupOptions: { showAllChildrenOnParentMatch: false, flattenAllChildrenOnParentMatch: false, maxNestedChildren: 8 }, switchActions: {
             toggle: { id: "toggle", title: qsTr("Toggle"), state: null, payload: { service: "vpn", op: "toggle" } },
             on: { id: "on", title: qsTr("On"), state: true, payload: { service: "vpn", op: "connect" } },
             off: { id: "off", title: qsTr("Off"), state: false, payload: { service: "vpn", op: "disconnect" } }
@@ -20,5 +20,6 @@ QtObject {
         } }
     ] }]; }
 
-    function vpnChildren() { return (VpnService.destinations || []).map(function(d) { return { id: d.id, aliases: [d.label], keywords: ["vpn"], title: d.label, subtitle: d.subtext, icon: "network-vpn-symbolic", iconColor: d.kind === "group" ? Config.styling.info : Config.styling.good, action: { service: "vpn", op: "connect", destination: d.value } }; }); }
+    function vpnChildren() { return (VpnService.destinations || []).slice().sort(function(a, b) { return vpnDestinationRank(a) - vpnDestinationRank(b) || String(a.label || a.name || "").localeCompare(String(b.label || b.name || "")); }).map(function(d) { return { id: d.id, aliases: [d.label], title: d.label, subtitle: d.subtext, icon: "network-vpn-symbolic", iconColor: d.kind === "group" ? Config.styling.info : Config.styling.good, action: { service: "vpn", op: "connect", destination: d.value } }; }); }
+    function vpnDestinationRank(destination) { return destination.kind === "fastest" ? 0 : destination.kind === "group" ? 1 : 2; }
 }

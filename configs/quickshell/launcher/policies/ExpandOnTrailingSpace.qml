@@ -10,6 +10,7 @@ QtObject {
 
         var parentCov = Evidence.coveredTokenIndexes(parentEval.evidence || [], ctx.query);
         var childCov = Evidence.coveredTokenIndexes(childEval.evidence || [], ctx.query);
+        if (Object.keys(parentCov).length === 0) return false;
 
         for (var key in childCov) {
             if (key in parentCov) continue;

@@ -140,7 +140,7 @@ Singleton {
         for (var i = 0; i < nodes.length; i += 1) {
             if (capState.hits >= capState.cap) return;
             capState.hits += 1;
-            markNodeFamily(marked, nodes[i]);
+                    markNodeFamily(marked, nodes[i], key, capState.query);
         }
     }
 
@@ -182,15 +182,39 @@ Singleton {
             markNodeAndDescendants(marked, children[i]);
     }
 
-    function markNodeFamily(marked, node) {
+    function explorationPreviewLimit(node) {
+        var behavior = node && node.behavior || {};
+        var exploration = behavior.exploration || {};
+        if (exploration.previewChildrenLimit !== undefined) {
+            var configured = Number(exploration.previewChildrenLimit);
+            if (isFinite(configured) && configured >= 0)
+                return configured;
+        }
+        var groupDisplay = behavior.flattenPolicy && behavior.flattenPolicy.groupDisplay || {};
+        return groupDisplay.maxNestedChildren || groupDisplay.maxFlattenedChildren || 8;
+    }
+
+    function markPreviewChildren(marked, node, limit) {
+        var children = node.children || [];
+        for (var i = 0; i < children.length && i < limit; i += 1)
+            marked[children[i].id] = true;
+    }
+
+    function markNodeFamily(marked, node, matchKey, query) {
         markNodeAndAncestors(marked, node);
+        var exploration = node && node.behavior && node.behavior.exploration || {};
+        if (exploration.descend === false) {
+            if (query && query.lastTokenEmpty)
+                markPreviewChildren(marked, node, explorationPreviewLimit(node));
+            return;
+        }
         markNodeAndDescendants(marked, node);
     }
 
     function collectCandidateIdsForRoots(roots, query, cap) {
         if (query.isEmpty) return null;
         var marked = {};
-        var capState = { hits: 0, cap: cap || 256 };
+        var capState = { hits: 0, cap: cap || 256, query: query };
         for (var i = 0; i < (roots || []).length; i += 1) {
             if (capState.hits >= capState.cap) break;
             var index = roots[i].__searchIndex || buildSearchIndex(roots[i]);

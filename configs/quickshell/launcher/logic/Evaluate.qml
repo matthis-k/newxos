@@ -90,6 +90,14 @@ Singleton {
         var evaluatedChildren = evaluateChildren(node, query, ctx, directiveActive);
 
         var own = selfAllowed ? Evidence.scoreEvidence(ownEvidence, node, ctx) : { value: 0, visible: false, reason: "directive container only" };
+        if (own.value > 0 && !query.isEmpty) {
+            var depthMultiplier = skippedDepthMultiplier(node, ownEvidence, query, ctx);
+            if (depthMultiplier < 1) {
+                own.value = Tokenize.clamp(own.value * depthMultiplier);
+                own.visible = own.value >= ctx.visibilityThreshold;
+                own.reason = (own.reason || "") + " with skipped-depth penalty";
+            }
+        }
         if (node.kind === "backend") {
             own.value = Tokenize.clamp(own.value * 0.65);
             own.visible = ctx.query.isEmpty || own.visible;
@@ -246,5 +254,75 @@ Singleton {
         return (ev.ownEvidence || ev.evidence || []).some(function(e) {
             return e.field !== "usage" && e.field !== "recency";
         });
+    }
+
+    function skippedDepthMultiplier(node, evidenceItems, query, ctx) {
+        var ownExactness = evidenceExactness(evidenceItems || []);
+        var chain = collectParentChain(node);
+        var skipped = 0;
+        var multiplier = 1;
+
+        for (var i = chain.length - 2; i >= 0; i -= 1) {
+            var ancestor = chain[i];
+            if (!ancestor || ancestor.kind === "root" || ancestor.kind === "backend")
+                continue;
+            if (ancestorMatchesQuery(ancestor, query, ctx))
+                break;
+            skipped += 1;
+            var nodePenalty = depthPenaltyFor(ancestor);
+            if (nodePenalty <= 0)
+                continue;
+            var skippedWeight = Math.pow(skipped, 1.15);
+            var exactnessRelief = ownExactness >= 0.9 ? 0.55 : 0.04 + ownExactness * 0.12;
+            var penalty = Tokenize.clamp(nodePenalty * skippedWeight * (1 - exactnessRelief), 0, 0.92);
+            multiplier *= (1 - penalty);
+        }
+
+        return Tokenize.clamp(multiplier, 0, 1);
+    }
+
+    function depthPenaltyFor(node) {
+        var behavior = node && node.behavior || {};
+        var raw = behavior.depthPenalty;
+        if (raw === undefined && behavior.flattenPolicy && behavior.flattenPolicy.depthPenalty !== undefined)
+            raw = behavior.flattenPolicy.depthPenalty;
+        var n = Number(raw === undefined ? 0 : raw);
+        return isFinite(n) ? Tokenize.clamp(n, 0, 1) : 0;
+    }
+
+    function ancestorMatchesQuery(node, query, ctx) {
+        var fields = IndexBuilder.searchableFields(node);
+        var filtered = Evidence.filterFields(fields, "primary");
+        for (var i = 0; i < filtered.length; i += 1) {
+            var matches = Evidence.matchField(filtered[i], query, ["exact", "prefix", "compact", "acronym"]);
+            if (matches && matches.length > 0)
+                return true;
+        }
+        return false;
+    }
+
+    function evidenceExactness(evidenceItems) {
+        var best = 0;
+        for (var i = 0; i < (evidenceItems || []).length; i += 1) {
+            var e = evidenceItems[i] || {};
+            var kind = String(e.kind || e.exactness || e.strategy || "");
+            var value = 0.25;
+            if (kind.indexOf("exact") >= 0)
+                value = 1.0;
+            else if (kind.indexOf("acronym") >= 0)
+                value = 0.65;
+            else if (kind.indexOf("prefix") >= 0)
+                value = 0.42;
+            else if (kind.indexOf("compact") >= 0)
+                value = 0.38;
+            else if (kind.indexOf("semantic") >= 0)
+                value = 0.34;
+            else if (kind.indexOf("substring") >= 0)
+                value = 0.22;
+            else if (kind.indexOf("fuzzy") >= 0)
+                value = 0.16;
+            best = Math.max(best, value);
+        }
+        return best;
     }
 }

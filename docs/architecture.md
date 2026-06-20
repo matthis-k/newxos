@@ -149,7 +149,7 @@ The Quickshell launcher uses a composite search pipeline:
 
 Available IPC endpoints through `ShellState.qml`:
 
-- `pipeline <query-or-json>` — universal query debug endpoint. Plain queries return compact visible rows plus per-phase snapshots (`.phases[]`), backend metadata (`.backends`), timings (`.timings`), and launcher state (`.state`). Focused JSON requests such as `{"query":"ze","focusNodeId":"desktop:apps:zen_beta"}` enable hidden evaluation but filter rows/phases to that node family.
+- `pipeline <query-or-json>` — universal query debug endpoint. Plain queries return an overview: compact visible row summaries, compact phase timings/counts (`.phases[]`), compact backend metadata (`.backends`), timings (`.timings`), and launcher state (`.state`). JSON requests can opt into larger detail sections with `details`, for example `{"query":"ze","focusNodeId":"desktop:apps:zen_beta","details":["rows","phases"]}`; focused requests enable hidden evaluation and filter rows/phases to that node family.
 - `visual <query>` / `visualState` / `visualApply <query>` / `visualDebug <on|off>` — visual-result debug endpoints. Use `visual` to compare a pure ordered row preview with current visual model state, `visualApply` to drive the live visual coordinator through the same snapshot path as typing, and `visualState` to inspect row phases, z-values, operations, and frame/list heights.
 - `policies <query>` — resolved policy specs for active backends/nodes (version 2).
 - `benchmark <json-or-query>` — run benchmark queries via `debugBenchmark()`.

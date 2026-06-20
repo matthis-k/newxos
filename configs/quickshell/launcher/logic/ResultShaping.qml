@@ -159,6 +159,7 @@ Singleton {
 
         if (ev.node.behavior && ev.node.behavior.filterable) {
             if (ev.ownVisible && policy) {
+                var filterableMaxChildren = policy.maxNestedChildren || policy.maxFlattenedChildren || ev.children.length;
                 var visibleChildren = ev.children.filter(function(c) {
                     return PresentationPolicy.childPassesVisible(c, ev, ctx);
                 }).sort(Evaluate.compareEvaluated);
@@ -169,9 +170,12 @@ Singleton {
                     if (dominantChildren.length === 1)
                         return { placement: "promoted-child", mode: "flatten-children", showParent: false, children: dominantChildren };
                     if (dominantChildren.length > 1)
-                        return { placement: "nested-group", mode: "nested-group", showParent: true, suppressParentActions: true, children: dominantChildren };
+                        return { placement: "nested-group", mode: "nested-group", showParent: true, suppressParentActions: true, children: dominantChildren.slice(0, filterableMaxChildren) };
+                    return { placement: "nested-group", mode: "nested-group", showParent: true, children: visibleChildren.slice(0, filterableMaxChildren) };
                 }
-                return { placement: "nested-group", mode: "nested-group", showParent: true, children: ev.children.slice() };
+                if (ctx.query.lastTokenEmpty)
+                    return { placement: "nested-group", mode: "nested-group", showParent: true, children: ev.children.slice(0, filterableMaxChildren) };
+                return { placement: "group", mode: "group", showParent: true, children: [] };
             }
         }
 
