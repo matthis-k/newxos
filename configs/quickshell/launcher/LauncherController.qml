@@ -33,6 +33,11 @@ Item {
     property string lastAsyncVisualJson: ""
     property alias pendingConfirmId: actions.pendingConfirmId
     property alias pendingConfirmTimeoutMs: actions.pendingConfirmTimeoutMs
+    // confirmationSatisfied is a transient flag set by LauncherActionController
+    // when ActivationConfirmation.checkActivation returns {confirmed: true}.
+    // It is read by ActivationGate/ActionRegistry to authorize risky actions.
+    // Reset to false after each activation cycle.
+    property bool confirmationSatisfied: false
 
     // Tree navigation state
     property alias currentTreeView: navigation.currentTreeView

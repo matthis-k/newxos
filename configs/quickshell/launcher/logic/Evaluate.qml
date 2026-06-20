@@ -11,16 +11,14 @@ import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
     readonly property var defaultProfile: ({
+        // Leaf-conservative default: no expand/takeover/retain unless explicitly set.
+        // Backends with group/switch behavior override this in their own evaluationProfile.
         evidence: ["field-match:all", "switch-action", "semantic", "token-claim", "usage", "recency"],
         inherit: ["path-evidence"],
         boost: ["descendant-boost"],
         childVisible: ["visible-flag"],
         childBypass: ["own-score-beats-parent", "score-dominates:0.03"],
         tokenFlow: ["pass-all"],
-        takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"],
-        takeoverAccept: ["accept-dominated-claims"],
-        expand: ["expand-when"],
-        retainParent: ["retain-always"],
         defaultAction: ["default-action-owner"],
         riskGate: ["risk-gate"]
     })

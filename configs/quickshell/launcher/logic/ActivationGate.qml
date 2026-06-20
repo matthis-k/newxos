@@ -24,12 +24,32 @@ Singleton {
         return "normal";
     }
 
+    // Checks whether the user query includes an explicit directive prefix (":").
+    // Prefers structured directive/route context over raw string scanning.
+    function _hasExplicitPrefix(queryText, ctx) {
+        if (ctx) {
+            // Structured directive context (from search pipeline via ctx.directive)
+            if (ctx.directive && ctx.directive.active)
+                return ctx.directive.prefix === ":";
+            if (ctx.route && ctx.route.combine === "exclusive") {
+                var eps = ctx.route.endpoints || [];
+                return eps.length > 0 && eps[0].prefix === ":";
+            }
+            // Controller context fallback (from ActionRegistry via controller.lastDirective)
+            if (ctx.lastDirective && ctx.lastDirective.active)
+                return ctx.lastDirective.prefix === ":";
+        }
+        // Raw query fallback (last resort / backward compat)
+        return !!(queryText && queryText.length > 1 && queryText.indexOf(":") >= 0);
+    }
+
     function resolveActivation(node, ctx, queryText, confirmationSatisfied) {
         var mode = activationModeForNode(node);
         var level = riskLevelForNode(node);
         var allowed = true;
         var reason = "normal activation";
         var conf = !!confirmationSatisfied;
+        var hasPrefix = _hasExplicitPrefix(queryText, ctx);
 
         switch (mode) {
         case "blocked":
@@ -42,16 +62,16 @@ Singleton {
             break;
         case "explicit-prefix":
         case "explicit-prefix-only":
-            allowed = !!(queryText && queryText.length > 1 && queryText.indexOf(":") >= 0);
-            reason = allowed ? "activation via explicit prefix" : "activation blocked: explicit prefix required";
+            allowed = hasPrefix;
+            reason = hasPrefix ? "activation via explicit prefix" : "activation blocked: explicit prefix required";
             break;
         case "confirm-and-explicit-prefix":
-            allowed = conf && !!(queryText && queryText.length > 1 && queryText.indexOf(":") >= 0);
+            allowed = conf && hasPrefix;
             reason = allowed
                 ? "activation via explicit prefix + confirmation"
                 : conf
                     ? "activation blocked: explicit prefix required"
-                    : queryText && queryText.indexOf(":") >= 0
+                    : hasPrefix
                         ? "activation blocked: confirmation required"
                         : "activation blocked: explicit prefix required";
             break;
@@ -63,7 +83,7 @@ Singleton {
         var gateResult = null;
         var riskPolicy = JsRegistry.riskGate.get("risk-gate");
         if (riskPolicy) {
-            gateResult = riskPolicy.apply(node, ctx, { activation: mode, level: level, confirmation: conf });
+            gateResult = riskPolicy.apply(node, ctx, { activation: mode, level: level, confirmation: conf, allowed: allowed });
             if (gateResult && gateResult.allowed !== undefined)
                 allowed = gateResult.allowed;
             if (gateResult && gateResult.reason)

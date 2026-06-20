@@ -5,6 +5,15 @@ import "../../logic/"
 import "../../logic/CompositeSearchPolicyRegistry.js" as JsRegistry
 import "PresentationPresets.qml"
 
+// COMPATIBILITY LAYER — old presentation/groupOptions logic.
+//
+// New nodes with explicit primitive policies (expand, retainParent, takeover)
+// are handled by the PRIMITIVE-FIRST path in ResultShaping.decidePlacement.
+// This file is the fallback for nodes without primitive policies and should
+// not be the canonical source of truth for new behavior.
+//
+// Migration target: move node-specific placement logic out of PresentationPolicy
+// into per-kind primitive policies or backend-specific profiles.
 Singleton {
     id: root
     readonly property var defaultChildVisible: ["visible-flag"]
@@ -14,6 +23,8 @@ Singleton {
         return (ev.node.evaluationProfile || {}).profile || {};
     }
 
+    // COMPATIBILITY: use for nodes without explicit expand/takeover primitives.
+    // Determines visibility of child rows under a group parent.
     function childPassesVisible(childEval, parentEval, ctx) {
         var profile = childProfile(parentEval);
         var names = profile.childVisible || defaultChildVisible;
@@ -24,6 +35,8 @@ Singleton {
         }, "childVisible").value;
     }
 
+    // COMPATIBILITY: determines whether a child visually "dominates" its parent,
+    // meaning the child should be promoted or flatten the parent.
     function childDominates(childEval, parentEval, ctx) {
         var profile = childProfile(parentEval);
         var names = profile.childBypass || defaultChildBypass;
@@ -34,6 +47,11 @@ Singleton {
         }, "childBypass").value;
     }
 
+    // COMPATIBILITY: old group-options config reader. Used when no primitive
+    // expand/retain/takeover policies are configured on the node.
+    // Fields like committedTokenPrefersGroup, showAllChildrenOnParentMatch,
+    // flattenAllChildrenOnParentMatch, maxNestedChildren, etc. should be
+    // replaced by per-kind primitive profiles.
     function groupDisplayPolicy(ev) {
         var flattenPolicy = ev.node.behavior && ev.node.behavior.flattenPolicy || {};
         var groupPolicy = flattenPolicy.groupDisplay || {};
@@ -42,6 +60,8 @@ Singleton {
         return Object.assign({ enabled: true, parentWinsMargin: 0.08, childWinsMargin: 0.03, childDominatesMargin: 0.18, maxFlattenedChildren: 3, minChildScore: 0.25, showGroupHeaderInFilteredMode: true, committedTokenPrefersGroup: true, committedTokenMinParentScore: 0.25, showAllChildrenOnParentMatch: false, parentMatchMinScore: 0.25 }, groupPolicy);
     }
 
+    // COMPATIBILITY: own-score computation used by the old group logic below.
+    // Primitive nodes use the standard Evaluate scoring instead.
     function groupDominanceOwnScore(ev, ctx) {
         var primary = (ev.evidence || []).filter(function(e) {
             if (e.nodeId !== ev.node.id) return false;

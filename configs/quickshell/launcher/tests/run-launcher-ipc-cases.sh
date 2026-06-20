@@ -30,40 +30,41 @@ if [ "$ENDPOINT" = "runCases" ]; then
 fi
 
 # Regression queries with expected behaviors
-# Format: query|expected_min_rows|must_include_title_glob|activation_mode_check|must_be_executable
+# Format: query|expected_min_rows|must_include_title_glob|activation_mode_check|must_be_executable|semantics_check
 # activation_mode_check: confirm, confirm-and-explicit-prefix, normal, blocked, or "" (skip)
 # must_be_executable: 1 (must be true), 0 (must be false), or "" (skip)
+# semantics_check: comma-separated tokens: takeover,notakeover,allowed,notallowed,standalone,nested,flatten,keep-parent,rep:CONTENT
 QUERIES=(
   # Zen browser family — should find zen browser controls
-  "zen|1|Zen||"
-  "zen |1|Zen||"
-  "zen priv|1|Private||"
-  "zen win|1|Window||"
-  "zen browser|1|Zen||"
+  "zen|1|Zen|||"
+  "zen |1|Zen|||takeover,rep:nested"
+  "zen priv|1|Private|||"
+  "zen win|1|Window|||"
+  "zen browser|1|Zen|||"
   # WiFi switch family — should find wifi controls
-  "wifi|1|WiFi||"
-  "wifi on|1|WiFi||"
-  "wifi off|1|WiFi||"
-  "wifi toggle|1|WiFi||"
-  "wo|1|WiFi||"
-  # Math evaluation
-  "= 1+2|1|||"
+  "wifi|1|WiFi|||"
+  "wifi on|1|WiFi|||"
+  "wifi off|1|WiFi|||"
+  "wifi toggle|1|WiFi|||"
+  "wo|1|WiFi|||"
+  # Math evaluation — standalone, no takeover
+  "= 1+2|1|||standalone"
   # Session management
-  "session|1|Session||"
-  # Destructive actions — should appear with risk semantics and be non-executable
-  "shutdown|1|Shutdown|confirm-and-explicit-prefix|0"
-  "reboot|1|Reboot|confirm|0"
-  "logout|1|Logout|confirm-and-explicit-prefix|0"
-  # File path
-  "~/newxos|1|||"
+  "session|1|Session|||"
+  # Destructive actions — risk-gated, non-executable without confirmation
+  "shutdown|1|Shutdown|confirm-and-explicit-prefix|0|notallowed"
+  "reboot|1|Reboot|confirm|0|notallowed"
+  "logout|1|Logout|confirm-and-explicit-prefix|0|notallowed"
+  # File path — standalone
+  "~/newxos|1|||standalone"
   # App directive
-  "@apps|1|Applications||"
+  "@apps|1|Applications|||"
   "@apps zen|1|||"
   # Dashboard
-  "db wifi|1|WiFi||"
+  "db wifi|1|WiFi|||"
   # Newxos group
-  "newxos|1|newxos||"
-  "newxos |1|newxos||"
+  "newxos|1|newxos|||"
+  "newxos |1|newxos|||"
 )
 
 echo "Query count: ${#QUERIES[@]}"
@@ -73,7 +74,7 @@ FAILED=0
 PASSED=0
 
 for entry in "${QUERIES[@]}"; do
-  IFS='|' read -r q min_rows must_include must_activate must_executable <<< "$entry"
+  IFS='|' read -r q min_rows must_include must_activate must_executable must_semantics <<< "$entry"
   if $VERBOSE; then
     echo -n "[$ENDPOINT] \"$q\"... "
   fi
@@ -92,33 +93,41 @@ for entry in "${QUERIES[@]}"; do
       VISIBLE_ROWS=$(echo "$RESULT" | jq '[.results[] | select(.ownVisible == true)] | length' 2>/dev/null || echo "0")
       TOP_TITLE=$(echo "$RESULT" | jq -r '.results[0].title // ""' 2>/dev/null || echo "")
       TOP_ACTIVATION=$(echo "$RESULT" | jq -r '.results[0].semantics.activation.mode // ""' 2>/dev/null || echo "")
+      TOP_ALLOWED=$(echo "$RESULT" | jq -r '.results[0].semantics.activation.allowed // "false"' 2>/dev/null || echo "false")
       TOP_EXECUTABLE=$(echo "$RESULT" | jq -r '.results[0].executable // false' 2>/dev/null || echo "false")
       TOP_TAKEOVER=$(echo "$RESULT" | jq -r '.results[0].semantics.takeover.decision.accepted // false' 2>/dev/null || echo "false")
       TOP_DEFAULT_ACTION=$(echo "$RESULT" | jq -r '.results[0].defaultAction.id // ""' 2>/dev/null || echo "")
+      TOP_REP_MODE=$(echo "$RESULT" | jq -r '.results[0].semantics.representation.mode // ""' 2>/dev/null || echo "")
       ;;
     pipeline)
       VISIBLE_ROWS=$(echo "$RESULT" | jq '.stages.renderedRows // 0' 2>/dev/null || echo "0")
       TOP_TITLE=$(echo "$RESULT" | jq -r '.stages.rows[0].title // ""' 2>/dev/null || echo "")
       TOP_ACTIVATION=$(echo "$RESULT" | jq -r '.stages.rows[0].semantics.activation.mode // ""' 2>/dev/null || echo "")
+      TOP_ALLOWED=$(echo "$RESULT" | jq -r '.stages.rows[0].semantics.activation.allowed // "false"' 2>/dev/null || echo "false")
       TOP_EXECUTABLE=$(echo "$RESULT" | jq -r '.stages.rows[0].executable // false' 2>/dev/null || echo "false")
       TOP_TAKEOVER=$(echo "$RESULT" | jq -r '.stages.rows[0].semantics.takeover.decision.accepted // false' 2>/dev/null || echo "false")
       TOP_DEFAULT_ACTION=$(echo "$RESULT" | jq -r '.stages.rows[0].defaultAction.id // ""' 2>/dev/null || echo "")
+      TOP_REP_MODE=$(echo "$RESULT" | jq -r '.stages.rows[0].semantics.representation.mode // ""' 2>/dev/null || echo "")
       ;;
     shape)
       VISIBLE_ROWS=$(echo "$RESULT" | jq '.totalResults // 0' 2>/dev/null || echo "0")
       TOP_TITLE=$(echo "$RESULT" | jq -r '.results[0].title // ""' 2>/dev/null || echo "")
       TOP_ACTIVATION=$(echo "$RESULT" | jq -r '.results[0].semantics.activation.mode // ""' 2>/dev/null || echo "")
+      TOP_ALLOWED=$(echo "$RESULT" | jq -r '.results[0].semantics.activation.allowed // "false"' 2>/dev/null || echo "false")
       TOP_EXECUTABLE=$(echo "$RESULT" | jq -r '.results[0].executable // false' 2>/dev/null || echo "false")
       TOP_TAKEOVER=$(echo "$RESULT" | jq -r '.results[0].semantics.takeover.decision.accepted // false' 2>/dev/null || echo "false")
       TOP_DEFAULT_ACTION=$(echo "$RESULT" | jq -r '.results[0].defaultAction.id // ""' 2>/dev/null || echo "")
+      TOP_REP_MODE=$(echo "$RESULT" | jq -r '.results[0].semantics.representation.mode // ""' 2>/dev/null || echo "")
       ;;
     *)
       VISIBLE_ROWS=0
       TOP_TITLE=""
       TOP_ACTIVATION=""
+      TOP_ALLOWED="false"
       TOP_EXECUTABLE="false"
       TOP_TAKEOVER="false"
       TOP_DEFAULT_ACTION=""
+      TOP_REP_MODE=""
       ;;
   esac
 
@@ -172,15 +181,71 @@ for entry in "${QUERIES[@]}"; do
     fi
   fi
 
+  # Check semantics tokens (comma-separated)
+  if [ -z "$FAIL_REASON" ] && [ -n "$must_semantics" ]; then
+    IFS=',' read -ra CHECKS <<< "$must_semantics"
+    for check in "${CHECKS[@]}"; do
+      [ -z "$FAIL_REASON" ] || break
+      case "$check" in
+        takeover)
+          if [ "$TOP_TAKEOVER" != "true" ]; then
+            FAIL_REASON="expected takeover.accepted=true, got $TOP_TAKEOVER"
+          fi
+          ;;
+        notakeover)
+          if [ "$TOP_TAKEOVER" != "false" ]; then
+            FAIL_REASON="expected takeover.accepted=false, got $TOP_TAKEOVER"
+          fi
+          ;;
+        allowed)
+          if [ "$TOP_ALLOWED" != "true" ]; then
+            FAIL_REASON="expected activation.allowed=true, got $TOP_ALLOWED"
+          fi
+          ;;
+        notallowed)
+          if [ "$TOP_ALLOWED" != "false" ]; then
+            FAIL_REASON="expected activation.allowed=false, got $TOP_ALLOWED"
+          fi
+          ;;
+        standalone)
+          if [ "$TOP_REP_MODE" != "standalone" ]; then
+            FAIL_REASON="expected representation.mode=standalone, got '$TOP_REP_MODE'"
+          fi
+          ;;
+        nested)
+          if [ "$TOP_REP_MODE" != "nested-child" ]; then
+            FAIL_REASON="expected representation.mode=nested-child, got '$TOP_REP_MODE'"
+          fi
+          ;;
+        flatten)
+          if [ "$TOP_REP_MODE" != "promote-child" ] && [ "$TOP_REP_MODE" != "flatten-children" ]; then
+            FAIL_REASON="expected representation.mode=promote/flatten, got '$TOP_REP_MODE'"
+          fi
+          ;;
+        keep-parent)
+          if [ "$TOP_REP_MODE" != "keep-parent" ]; then
+            FAIL_REASON="expected representation.mode=keep-parent, got '$TOP_REP_MODE'"
+          fi
+          ;;
+        rep:*)
+          expected_rep="${check#rep:}"
+          if [ "$TOP_REP_MODE" != "$expected_rep" ]; then
+            FAIL_REASON="expected representation.mode='$expected_rep', got '$TOP_REP_MODE'"
+          fi
+          ;;
+      esac
+    done
+  fi
+
   if [ -n "$FAIL_REASON" ]; then
     echo "FAIL: $q - $FAIL_REASON"
     if $VERBOSE; then
-      echo "  Context: activation=$TOP_ACTIVATION executable=$TOP_EXECUTABLE takeover=$TOP_TAKEOVER defaultAction=$TOP_DEFAULT_ACTION"
+      echo "  Context: activation=$TOP_ACTIVATION allowed=$TOP_ALLOWED executable=$TOP_EXECUTABLE takeover=$TOP_TAKEOVER rep=$TOP_REP_MODE defaultAction=$TOP_DEFAULT_ACTION"
     fi
     FAILED=$((FAILED + 1))
   else
     if $VERBOSE; then
-      echo "OK ($VISIBLE_ROWS rows, top: '$TOP_TITLE', activation: '$TOP_ACTIVATION', executable: $TOP_EXECUTABLE)"
+      echo "OK ($VISIBLE_ROWS rows, top: '$TOP_TITLE', activation='$TOP_ACTIVATION' allowed=$TOP_ALLOWED executable=$TOP_EXECUTABLE rep=$TOP_REP_MODE)"
     fi
     PASSED=$((PASSED + 1))
   fi

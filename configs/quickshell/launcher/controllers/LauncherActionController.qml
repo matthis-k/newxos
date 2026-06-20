@@ -53,7 +53,15 @@ Item {
         if (!check.confirmed)
             return false;
 
-        return root.executeRecipeSlot(result, shiftPressed ? "complete" : "activate");
+        // Signal downstream (ActivationGate/ActionRegistry) that confirmation was satisfied
+        if (root.controller)
+            root.controller.confirmationSatisfied = true;
+        try {
+            return root.executeRecipeSlot(result, shiftPressed ? "complete" : "activate");
+        } finally {
+            if (root.controller)
+                root.controller.confirmationSatisfied = false;
+        }
     }
 
     function requiresConfirm(activation) {
@@ -178,8 +186,15 @@ Item {
         if (!check.confirmed)
             return { close: false, closeRequested: false, needsConfirm: check.needsConfirm };
 
-        var recipeResult = root.runRecipeSlot("activate");
-        return { close: recipeResult.close, closeRequested: recipeResult.close };
+        if (root.controller)
+            root.controller.confirmationSatisfied = true;
+        try {
+            var recipeResult = root.runRecipeSlot("activate");
+            return { close: recipeResult.close, closeRequested: recipeResult.close };
+        } finally {
+            if (root.controller)
+                root.controller.confirmationSatisfied = false;
+        }
     }
 
     function selectedActionTarget() {
