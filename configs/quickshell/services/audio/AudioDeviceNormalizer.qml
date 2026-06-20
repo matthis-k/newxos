@@ -14,10 +14,10 @@ QtObject {
 
     function normalizeDevice(node, isInput) {
         const muted = root.nodeUtils.isMuted(node);
-        const vol = root.nodeUtils.volumePercent(node);
         const isDefault = isInput
             ? (root.defaultSource && node.id === root.defaultSource.id)
             : (root.defaultSink && node.id === root.defaultSink.id);
+        const vol = root.nodeUtils.volumePercent(node);
 
         return {
             raw: node,
@@ -35,7 +35,7 @@ QtObject {
                 target: "audio",
                 nodeId: node.id,
                 from: 0,
-                to: 150,
+                to: 100,
                 step: 5,
                 value: vol
             },
@@ -86,7 +86,7 @@ QtObject {
                 target: "audio",
                 nodeId: stream.id,
                 from: 0,
-                to: 150,
+                to: 100,
                 step: 5,
                 value: vol
             },
@@ -164,7 +164,7 @@ QtObject {
             target: "pipewire",
             nodeId: node.id,
             from: 0,
-            to: 150,
+            to: 100,
             step: 5,
             value: root.nodeUtils.volumePercent(node)
         };

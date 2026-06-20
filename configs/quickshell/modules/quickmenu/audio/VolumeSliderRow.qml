@@ -25,7 +25,7 @@ Item {
         iconColor: root.entry && root.entry.muted ? Config.styling.critical : Config.styling.text0
         valueText: `${root.volume}%`
         from: 0
-        to: 150
+        to: 100
         value: root.volume
         stepSize: 1
         enabled: !!root.entry

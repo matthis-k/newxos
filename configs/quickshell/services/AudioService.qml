@@ -37,12 +37,15 @@ Singleton {
 
     readonly property var allNodes: root.audioModels.collectNodes(Pipewire.nodes.values || [])
     readonly property var linkGroups: Pipewire.linkGroups.values || []
-    readonly property real outputVolume: defaultSink ? root.nodeUtils.volumePercent(defaultSink) : 0
-    readonly property bool outputMuted: defaultSink ? root.nodeUtils.isMuted(defaultSink) : false
+
+    readonly property int _rev: root._revision
+
+    readonly property real outputVolume: defaultSink && defaultSink.audio ? Math.round((defaultSink.audio.volume || 0) * 100) : 0
+    readonly property bool outputMuted: defaultSink && defaultSink.audio ? defaultSink.audio.muted : false
     readonly property string outputDeviceName: defaultSink ? root.nodeUtils.nodeName(defaultSink, "Output") : "No output"
 
-    readonly property real inputVolume: defaultSource ? root.nodeUtils.volumePercent(defaultSource) : 0
-    readonly property bool inputMuted: defaultSource ? root.nodeUtils.isMuted(defaultSource) : false
+    readonly property real inputVolume: defaultSource && defaultSource.audio ? Math.round((defaultSource.audio.volume || 0) * 100) : 0
+    readonly property bool inputMuted: defaultSource && defaultSource.audio ? defaultSource.audio.muted : false
     readonly property string inputDeviceName: defaultSource ? root.nodeUtils.nodeName(defaultSource, "Input") : "No input"
 
     property var _revision: 0
@@ -71,9 +74,21 @@ Singleton {
         currentOperationLastError = success ? "" : (message || `${currentOperationKind || "operation"} failed`);
     }
 
-    readonly property string outputIconName: defaultSink ? root.nodeUtils.volumeIconName(defaultSink, false) : "audio-volume-muted-symbolic"
+    readonly property string outputIconName: {
+        if (!defaultSink) return "audio-volume-muted-symbolic";
+        if (root.outputMuted) return "audio-volume-muted-symbolic";
+        if (root.outputVolume <= 0) return "audio-volume-muted-symbolic";
+        if (root.outputVolume < 34) return "audio-volume-low-symbolic";
+        if (root.outputVolume < 67) return "audio-volume-medium-symbolic";
+        return "audio-volume-high-symbolic";
+    }
     readonly property color outputIconColor: outputMuted ? Config.styling.critical : (outputVolume === 0 ? Config.styling.warning : Config.styling.text0)
-    readonly property string inputIconName: defaultSource ? root.nodeUtils.volumeIconName(defaultSource, true) : "audio-input-microphone-symbolic"
+    readonly property string inputIconName: {
+        if (!defaultSource) return "audio-input-microphone-symbolic";
+        if (root.inputMuted) return "microphone-sensitivity-muted-symbolic";
+        if (root.inputVolume <= 0) return "microphone-sensitivity-muted-symbolic";
+        return "audio-input-microphone-symbolic";
+    }
     readonly property color inputIconColor: inputMuted ? Config.styling.critical : (inputVolume === 0 ? Config.styling.warning : Config.styling.text0)
 
     readonly property string label: "Audio"
@@ -205,18 +220,25 @@ Singleton {
     }
 
     function setOutputVolume(value) {
-        root.setVolume(defaultSink, value);
+        root.beginOperation("set-volume", defaultSink ? String(defaultSink.id) : "");
+        if (defaultSink && defaultSink.audio) defaultSink.audio.volume = Math.max(0, Math.min(1, value / 100));
+        root._revision++;
+        root.finishOperation(true, "");
     }
 
     function adjustOutputVolume(delta) {
+        const target = root.outputVolume + delta;
         root.beginOperation("set-volume", defaultSink ? String(defaultSink.id) : "");
-        root.nodeUtils.adjustVolume(defaultSink, delta);
+        if (defaultSink && defaultSink.audio) defaultSink.audio.volume = Math.max(0, Math.min(1, target / 100));
         root._revision++;
         root.finishOperation(true, "");
     }
 
     function toggleOutputMute() {
-        root.toggleMute(defaultSink);
+        root.beginOperation("toggle", defaultSink ? String(defaultSink.id) : "");
+        if (defaultSink && defaultSink.audio) defaultSink.audio.muted = !defaultSink.audio.muted;
+        root._revision++;
+        root.finishOperation(true, "");
     }
 
     function setInputVolume(value) {
@@ -268,15 +290,34 @@ Singleton {
     readonly property var outputVolumeControl: defaultSink ? root.normalizer.volumeControl(defaultSink) : null
     readonly property var inputVolumeControl: defaultSource ? root.normalizer.volumeControl(defaultSource) : null
 
-    function outputDeviceEntries() { return root.normalizer.outputDeviceEntries(); }
-    function inputDeviceEntries() { return root.normalizer.inputDeviceEntries(); }
+    readonly property var outputEntries: _rev >= 0 ? root.normalizer.outputDeviceEntries() : []
+    readonly property var inputEntries: _rev >= 0 ? root.normalizer.inputDeviceEntries() : []
+
+    function outputDeviceEntries() { return root.outputEntries; }
+    function inputDeviceEntries() { return root.inputEntries; }
     function streamEntriesForOutput(outputId) { return root.normalizer.streamEntriesForOutput(outputId); }
-    function outputEntriesForStreamMove() { return root.normalizer.outputDeviceEntries(); }
+    function outputEntriesForStreamMove() { return root.outputEntries; }
+
+    PwObjectTracker {
+        objects: root.allNodes
+    }
 
     Connections {
         target: Pipewire
         function onDefaultAudioSinkChanged() { root._revision++; }
         function onDefaultAudioSourceChanged() { root._revision++; }
+    }
+
+    Connections {
+        target: root.defaultSink ? root.defaultSink.audio : null
+        function onVolumesChanged() { root._revision++; }
+        function onMutedChanged() { root._revision++; }
+    }
+
+    Connections {
+        target: root.defaultSource ? root.defaultSource.audio : null
+        function onVolumesChanged() { root._revision++; }
+        function onMutedChanged() { root._revision++; }
     }
 
     Connections {

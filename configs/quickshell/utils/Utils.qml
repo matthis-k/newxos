@@ -17,7 +17,7 @@ Singleton {
 
     function setVolume(node, percent) {
         if (!node || !node.audio) return;
-        node.audio.volume = Math.max(0, Math.min(1.5, percent / 100));
+        node.audio.volume = Math.max(0, Math.min(1, percent / 100));
     }
 
     function toggleMute(node) {

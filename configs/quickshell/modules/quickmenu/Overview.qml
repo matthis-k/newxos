@@ -83,7 +83,7 @@ DashboardPage {
             iconName: AudioService.outputIconName
             iconColor: AudioService.outputIconColor
             valueText: AudioService.defaultSink ? `${AudioService.outputVolume}%` : ""
-            from: 0; to: 150
+            from: 0; to: 100
             value: AudioService.outputVolume
             stepSize: 1
             iconEnabled: !!AudioService.defaultSink
@@ -98,7 +98,7 @@ DashboardPage {
             iconName: AudioService.inputIconName
             iconColor: AudioService.inputIconColor
             valueText: AudioService.defaultSource ? `${AudioService.inputVolume}%` : ""
-            from: 0; to: 150
+            from: 0; to: 100
             value: AudioService.inputVolume
             stepSize: 1
             iconEnabled: !!AudioService.defaultSource

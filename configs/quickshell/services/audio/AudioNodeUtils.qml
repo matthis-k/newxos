@@ -9,12 +9,13 @@ QtObject {
     }
 
     function volumePercent(node) {
-        return node && node.audio ? Math.round((node.audio.volume || 0) * 100) : 0;
+        if (!node || !node.audio) return 0;
+        return Math.round((node.audio.volume || 0) * 100);
     }
 
     function setVolume(node, percent) {
         if (!node || !node.audio) return false;
-        node.audio.volume = Math.max(0, Math.min(1.5, percent / 100));
+        node.audio.volume = Math.max(0, Math.min(1, percent / 100));
         return true;
     }
 
@@ -45,14 +46,14 @@ QtObject {
             return inputNode ? "audio-input-microphone-symbolic" : "audio-volume-muted-symbolic";
         if (node.audio.muted)
             return inputNode ? "microphone-sensitivity-muted-symbolic" : "audio-volume-muted-symbolic";
-        const vol = node.audio.volume || 0;
+        const pct = root.volumePercent(node);
         if (inputNode)
-            return vol <= 0.001 ? "microphone-sensitivity-muted-symbolic" : "audio-input-microphone-symbolic";
-        if (vol <= 0.001)
+            return pct <= 0 ? "microphone-sensitivity-muted-symbolic" : "audio-input-microphone-symbolic";
+        if (pct <= 0)
             return "audio-volume-muted-symbolic";
-        if (vol < 0.34)
+        if (pct < 34)
             return "audio-volume-low-symbolic";
-        if (vol < 0.67)
+        if (pct < 67)
             return "audio-volume-medium-symbolic";
         return "audio-volume-high-symbolic";
     }

@@ -28,8 +28,8 @@ DashboardPage {
 
     AudioDeviceSection {
         title: "Output devices"
-        entries: AudioService.outputDeviceEntries()
-        sinks: AudioService.outputEntriesForStreamMove()
+        entries: AudioService.outputEntries
+        sinks: AudioService.outputEntries
         emptyText: "No output devices found"
         tabSwipeTarget: root.tabSwipeTarget
         contentWidth: root.contentWidth
@@ -49,8 +49,8 @@ DashboardPage {
 
     AudioDeviceSection {
         title: "Input devices"
-        entries: AudioService.inputDeviceEntries()
-        sinks: AudioService.outputEntriesForStreamMove()
+        entries: AudioService.inputEntries
+        sinks: AudioService.outputEntries
         isInput: true
         emptyText: "No input devices found"
         tabSwipeTarget: root.tabSwipeTarget

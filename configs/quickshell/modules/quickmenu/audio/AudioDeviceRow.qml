@@ -42,7 +42,7 @@ Item {
             iconColor: root.entry.iconColor
             valueText: `${root.entry.volume}%`
             from: 0
-            to: 150
+            to: 100
             value: root.entry.volume
             stepSize: 1
             iconEnabled: !!root.node

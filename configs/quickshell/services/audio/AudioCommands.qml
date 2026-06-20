@@ -1,5 +1,6 @@
 import QtQml
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Pipewire
 
 QtObject {
@@ -27,7 +28,7 @@ QtObject {
 
     function setVolume(node, value) {
         if (!node?.audio) return false;
-        node.audio.volume = Math.max(0, Math.min(1.5, value / 100));
+        node.audio.volume = Math.max(0, Math.min(1, value / 100));
         return true;
     }
 
@@ -36,7 +37,7 @@ QtObject {
         const proc = Qt.createQmlObject("import Quickshell.Io; Process {}", root);
         proc.command = ["pw-cli", "move-stream", String(stream.id), String(sink.id)];
         proc.running = true;
-        proc.onExited.connect(function(exitCode) {
+        proc.exited.connect(function(exitCode) {
             root.moveStreamFinished(exitCode === 0, exitCode === 0 ? "" : `move stream failed (${exitCode})`);
             proc.destroy();
         });
