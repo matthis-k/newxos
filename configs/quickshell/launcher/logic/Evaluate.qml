@@ -6,6 +6,7 @@ import "IndexBuilder.qml"
 import "Evidence.qml"
 import "PolicyChain.qml"
 import "ScoreBundle.qml"
+import "TokenFlow.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
@@ -87,7 +88,25 @@ Singleton {
                 ownEvidence = Evidence.bestPerToken(ownEvidence);
         }
 
-        var evaluatedChildren = evaluateChildren(node, query, ctx, directiveActive);
+        var tokenFlowResult = null;
+        var childQuery = query;
+        var childCtx = ctx;
+        if (node.kind !== "root" && node.kind !== "backend") {
+            tokenFlowResult = TokenFlow.evaluate(node, query, ctx);
+            if (tokenFlowResult && tokenFlowResult.value && tokenFlowResult.value.length > 0) {
+                var flow = tokenFlowResult.value[tokenFlowResult.value.length - 1];
+                if (flow && flow.passed) {
+                    childQuery = TokenFlow.buildChildQuery(node, flow, query);
+                    if (childQuery.isEmpty) {
+                        childCtx = Object.assign({}, ctx, { childQuery: childQuery, tokenFlow: flow });
+                    } else {
+                        childCtx = Object.assign({}, ctx, { childQuery: childQuery, tokenFlow: flow });
+                    }
+                }
+            }
+        }
+
+        var evaluatedChildren = evaluateChildren(node, childQuery, childCtx, directiveActive);
 
         var own = selfAllowed ? Evidence.scoreEvidence(ownEvidence, node, ctx) : { value: 0, visible: false, reason: "directive container only" };
         if (own.value > 0 && !query.isEmpty) {
@@ -161,7 +180,10 @@ Singleton {
             ownVisible: own.visible,
             visible: ctx.showHidden || own.visible || retained.some(function(c) { return c.visible || ctx.showHidden; }) || (ctx.query.isEmpty && node.kind === "backend" && !directiveActive),
             visibleReason: own.reason,
-            children: keepAllChildren ? retained : retained.sort(compareEvaluated)
+            children: keepAllChildren ? retained : retained.sort(compareEvaluated),
+            tokenFlow: tokenFlowResult && tokenFlowResult.value && tokenFlowResult.value.length > 0
+                ? tokenFlowResult.value[tokenFlowResult.value.length - 1]
+                : null
         };
 
         result.scoreBundle = ScoreBundle.fromEvaluated(result, query);
@@ -170,6 +192,8 @@ Singleton {
 
     function evaluateChildren(node, query, ctx, directiveActive) {
         var children = node.children || [];
+        var effectiveQuery = (ctx && ctx.childQuery) || query;
+        var effectiveCtx = ctx && ctx.tokenFlow ? ctx : ctx;
 
         var routeCtx = ctx && ctx.route;
         if (routeCtx && routeCtx.combine === "exclusive" && routeCtx.endpoints && routeCtx.endpoints.length > 0) {
@@ -183,9 +207,9 @@ Singleton {
                 return child.backendId && allowedIds[child.backendId];
             });
             if (exclusiveChildren.length > 0)
-                return evaluateChildList(exclusiveChildren, query, ctx, directiveActive);
+                return evaluateChildList(exclusiveChildren, effectiveQuery, effectiveCtx, directiveActive);
         }
-        return evaluateChildList(children, query, ctx, directiveActive);
+        return evaluateChildList(children, effectiveQuery, effectiveCtx, directiveActive);
     }
 
     function evaluateChildList(children, query, ctx, directiveActive) {

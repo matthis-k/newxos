@@ -118,6 +118,10 @@ Item {
     P.ScoreBeatsParentPolicy {}
     P.PresentationChainPolicy {}
     P.ExpandOnTrailingSpace {}
+    P.TokenFlowPolicies {}
+    P.TakeoverPolicies {}
+    P.ExpandRetainPolicies {}
+    P.RiskGatePolicy {}
 
     QtObject {
         Component.onCompleted: PolicyRegistry.registerBaseNameAliases()

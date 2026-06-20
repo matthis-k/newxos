@@ -5,6 +5,8 @@ import "Tokenize.qml"
 import "Evidence.qml"
 import "Evaluate.qml"
 import "PolicyChain.qml"
+import "ResultSemantics.qml"
+import "TakeoverEngine.qml"
 import "../policies/presentation/"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
@@ -35,7 +37,8 @@ Singleton {
                     placement: placement || "standalone",
                     decision: decision || { placement: placement || "standalone", mode: "normal", showParent: true },
                     presentationHints: (decision && decision.presentationHints) || {},
-                    options: options || {}
+                    options: options || {},
+                    semantics: ResultSemantics.build(ev, decision || { placement: placement || "standalone", mode: "normal", showParent: true }, placement || "standalone", ctx)
                 });
             }
         }
@@ -131,6 +134,13 @@ Singleton {
         if (presMode && presMode.mode !== "normal")
             return Object.assign({ placement: placementForMode(presMode.mode) }, presMode);
 
+        var takeoverClaims = ev.children && ev.children.length > 0
+            ? TakeoverEngine.evaluateTakeoverRequests(ev, ev.children, ctx)
+            : [];
+        var takeoverDecision = takeoverClaims.length > 0
+            ? TakeoverEngine.decideTakeover(ev, takeoverClaims, ctx)
+            : null;
+
         if (ev.node.switchActions) {
             if (!ev.children || ev.children.length === 0)
                 return { placement: "group", mode: "group", showParent: true, children: [] };
@@ -225,6 +235,16 @@ Singleton {
         return { placement: "group", mode: "group", showParent: true, children: [] };
     }
 
+    function attachTakeover(decision, claims, takeoverDecision) {
+        if (!takeoverDecision) return decision;
+        return Object.assign({}, decision, {
+            takeover: {
+                claims: claims,
+                decision: takeoverDecision
+            }
+        });
+    }
+
     function flattenActionableChildren(children, limit) {
         var out = [];
         function visit(child) {
@@ -293,7 +313,8 @@ Singleton {
                 placement: item.placement,
                 childCount: (item.childEvs || []).length,
                 showParent: item.decision ? item.decision.showParent : true,
-                mode: item.decision ? item.decision.mode : "normal"
+                mode: item.decision ? item.decision.mode : "normal",
+                semantics: ResultSemantics.toDebug(item.semantics)
             };
         });
     }

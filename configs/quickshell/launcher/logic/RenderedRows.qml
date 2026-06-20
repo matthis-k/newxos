@@ -49,6 +49,8 @@ Singleton {
 
         var hasReplaceQuery = !!(node.meta && node.meta.replaceQuery);
 
+        var semantics = shapedItem && shapedItem.semantics ? shapedItem.semantics : null;
+
         var row = {
             id: "row:" + node.id,
             nodeId: node.id,
@@ -77,6 +79,7 @@ Singleton {
             display: Object.assign({ breadcrumbText: breadcrumbText, showBreadcrumbs: presCtx.showBreadcrumbs, showBackendBadge: presCtx.showBackendBadge, showActionHint: presCtx.showActionHint, density: presCtx.density }, displayPolicy),
             labelMatches: copyRanges(rangesForField(ev.evidence, "label", node.id)),
             subtitleMatches: copyRanges(rangesForField(ev.evidence, "subtitle", node.id)),
+            semantics: semantics,
             actions: actions,
             enter: enterAction
                 ? (enterAction.payload && enterAction.payload.replaceQuery

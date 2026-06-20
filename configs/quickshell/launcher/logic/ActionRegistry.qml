@@ -2,6 +2,7 @@ pragma Singleton
 import QtQml
 import Quickshell
 import qs.services
+import "ActivationGate.qml"
 import "DebugLogger.js" as DebugLogger
 
 Singleton {
@@ -100,7 +101,7 @@ Singleton {
 
         var payload = action.payload || {};
         if (payload && payload.service) {
-            var dispatched = dispatchServicePayload(payload);
+            var dispatched = dispatchServicePayload(payload, target);
             if (dispatched)
                 return { close: false, success: true };
         }
@@ -116,6 +117,13 @@ Singleton {
             return { close: false, success: false };
 
         try {
+            var nodeRisk = target.risk || {};
+            var nodeForGate = { id: target.id || target.nodeId || "", label: target.title || "", risk: nodeRisk, dangerous: target.dangerous };
+            if (!ActivationGate.canActivate(nodeForGate, action, controller, target.title || "")) {
+                if (debugEnabled)
+                    DebugLogger.log("action", "activation blocked by risk gate", { targetId: target.id || target.nodeId || "", actionId: action.id || "" });
+                return { close: false, success: false };
+            }
             backend.activate(target, action);
             if (debugEnabled)
                 DebugLogger.log("action", "run-action activated", {
@@ -139,9 +147,19 @@ Singleton {
         return Math.max(from, Math.min(to, base));
     }
 
-    function dispatchServicePayload(payload) {
+    function dispatchServicePayload(payload, target) {
         if (!payload || !payload.service)
             return false;
+
+        var isDestructive = payload.op === "shutdown" || payload.op === "reboot" || payload.op === "poweroff" ||
+            payload.op === "logout" || payload.op === "hibernate" ||
+            (payload.op === "setWifiEnabled" && payload.enabled === false);
+
+        if (isDestructive && target) {
+            var nodeForGate = { id: target.id || "", label: target.title || "", risk: { level: "state-change", activation: "confirm" }, dangerous: true };
+            if (!ActivationGate.canActivate(nodeForGate, { id: payload.op }, null, target.title || ""))
+                return false;
+        }
 
         switch (String(payload.service)) {
         case "brightness":

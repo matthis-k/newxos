@@ -29,20 +29,32 @@ if [ "$ENDPOINT" = "runCases" ]; then
   exit 0
 fi
 
-# Define regression queries
+# Define regression queries (extends golden cases from launcher policy rework)
 QUERIES=(
-  "?" "? " "?au"
+  # Zen browser family
   "zen" "zen " "zen priv" "zen win" "zen browser" "zen new"
+  # WiFi switch family
   "wifi" "wifi " "wifi on" "wifi off" "wifi toggle" "toggle wifi"
   "wo" "wt"
+  # Explicit prefix routes
   ":" ":wifi" ":wifi " ":wifi on" ":db wifi"
+  # App directive
   "@apps" "@apps zen" "@web nix"
+  # Web search
   "web nix" "web !gh nix"
+  # Dashboard
   "db wifi" "dashboard wifi"
+  # Audio
   "au" "aud" "audi" "audio"
+  # Session
   "en" "screen" "session"
-  "newxos" "vpn of"
+  # Newxos group
+  "newxos" "newxos " "vpn of"
+  # File / path
   "notes" "/tmp"
+  # Golden cases from policy mini-rework
+  "zen browser" "= 1+2" "session" "shutdown" "reboot" "logout"
+  "~/newxos" "~ newxos hyprland" "@apps zen"
 )
 
 echo "Query count: ${#QUERIES[@]}"
