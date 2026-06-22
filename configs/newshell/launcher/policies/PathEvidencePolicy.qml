@@ -3,7 +3,7 @@ import "../" as Launcher
 import "../logic/"
 
 QtObject {
-    function policyApply(evaluated, query, ctx) {
+    function policyApply(evaluated, query, ctx, specArgs) {
         if (evaluated.node.kind === "root" || evaluated.node.kind === "backend")
             return;
         var inherited = pathEvidenceFromAncestorsInner(evaluated.node, query, ctx);

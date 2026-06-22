@@ -176,7 +176,7 @@ Singleton {
         var descendantBoost = (PolicyChain.run(boostNames, function(name, spec) {
             var bpol = PolicyChain.lookupPolicy(JsRegistry.boost, spec);
             if (!bpol || bpol.phase !== "boost") return null;
-            var boostVal = bpol.apply(node, query, ctx, evaluatedChildren, scores);
+            var boostVal = bpol.apply(node, query, ctx, evaluatedChildren, scores, spec && spec.args);
             return boostVal > 0 ? boostVal : null;
         }, "boost", function(tr) {
             if (!node || !node.id || !ctx._policyTrace) return;
@@ -441,7 +441,7 @@ Singleton {
         PolicyChain.run(inheritNames, function(name, spec) {
             var policy = PolicyChain.lookupPolicy(JsRegistry.inherit, spec);
             if (!policy || policy.phase !== "inherit") return null;
-            policy.apply(evaluated, query, ctx);
+            policy.apply(evaluated, query, ctx, spec && spec.args);
             return true;
         }, "inherit", function(tr) {
             if (!evNodeId || !ctx._policyTrace) return;

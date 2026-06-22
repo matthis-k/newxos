@@ -3,21 +3,21 @@ import "../" as Launcher
 import "../logic/"
 
 QtObject {
-    // Returns mode/reason but does NOT override allowed for confirm/prefix modes.
-    // ActivationGate owns the allowed decision — this policy only adds context.
-    // Monotonic rule: may only tighten (allowed=false), never loosen (allowed=true).
-    function riskGateApply(node, ctx, args) {
-        if (!args) return null;
-        var mode = args.activation || "normal";
-        var level = args.level || "none";
-        var upstreamAllowed = args.allowed !== undefined ? args.allowed : true;
+    function riskGateApply(node, ctx, runtime, specArgs) {
+        if (!runtime) return null;
+        var mode = runtime.activation || "normal";
+        var level = runtime.level || "none";
+        var upstreamAllowed = runtime.allowed !== undefined ? runtime.allowed : true;
+
+        var blockLevels = specArgs && specArgs.blockLevels || [];
+        if (blockLevels.length > 0 && blockLevels.indexOf(level) >= 0) {
+            return { allowed: false, mode: "blocked", reason: "risk-gate: blocked risk level " + level };
+        }
 
         switch (mode) {
         case "blocked":
             return { allowed: false, reason: "risk-gate: execution blocked by policy", mode: "blocked" };
         case "confirm":
-            // Advisory only — ActivationGate sets allowed based on confirmationSatisfied.
-            // If upstream already blocked, respect that (monotonic).
             return {
                 allowed: upstreamAllowed === false ? false : undefined,
                 reason: "risk-gate: confirmation required",
@@ -30,10 +30,11 @@ QtObject {
                 mode: "confirm-and-explicit-prefix"
             };
         case "explicit-prefix":
+        case "explicit-prefix-only":
             return {
                 allowed: upstreamAllowed === false ? false : undefined,
                 reason: "risk-gate: explicit prefix required",
-                mode: "explicit-prefix"
+                mode: mode
             };
         default:
             return { allowed: undefined, reason: "risk-gate: normal activation", mode: "normal" };
@@ -42,14 +43,14 @@ QtObject {
 
     Component.onCompleted: {
         Launcher.PolicyRegistry.registerRiskGate("risk-gate", riskGateApply);
-        Launcher.PolicyRegistry.registerRiskGate("risk-gate-confirm", function(node, ctx, args) {
+        Launcher.PolicyRegistry.registerRiskGate("risk-gate-confirm", function(node, ctx, runtime, specArgs) {
             return {
-                allowed: args && args.allowed === false ? false : undefined,
+                allowed: runtime && runtime.allowed === false ? false : undefined,
                 mode: "confirm",
                 reason: "risk-gate: confirm required"
             };
         });
-        Launcher.PolicyRegistry.registerRiskGate("risk-gate-block", function(node, ctx, args) {
+        Launcher.PolicyRegistry.registerRiskGate("risk-gate-block", function(node, ctx, runtime, specArgs) {
             return { allowed: false, mode: "blocked", reason: "risk-gate: blocked" };
         });
     }

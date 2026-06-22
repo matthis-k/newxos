@@ -2,6 +2,7 @@ pragma Singleton
 import QtQml
 import Quickshell
 import "PolicyChain.qml"
+import "PolicySpec.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
@@ -24,32 +25,29 @@ Singleton {
         return "normal";
     }
 
-    // Checks whether the user query includes an explicit directive prefix (":").
-    // Prefers structured directive/route context over raw string scanning.
     function _hasExplicitPrefix(queryText, ctx) {
         if (ctx) {
-            // Structured directive context (from search pipeline via ctx.directive)
             if (ctx.directive && ctx.directive.active)
                 return ctx.directive.prefix === ":";
             if (ctx.route && ctx.route.combine === "exclusive") {
                 var eps = ctx.route.endpoints || [];
                 return eps.length > 0 && eps[0].prefix === ":";
             }
-            // Controller context fallback (from ActionRegistry via controller.lastDirective)
             if (ctx.lastDirective && ctx.lastDirective.active)
                 return ctx.lastDirective.prefix === ":";
         }
-        // Raw query fallback (last resort / backward compat)
         return !!(queryText && queryText.length > 1 && queryText.indexOf(":") >= 0);
     }
 
     function resolveActivation(node, ctx, queryText, confirmationSatisfied) {
+        if (!node) return { allowed: false, mode: "normal", riskLevel: "none", reason: "no node", requiresConfirm: false, requiresExplicitPrefix: false };
+
         var mode = activationModeForNode(node);
         var level = riskLevelForNode(node);
-        var allowed = true;
-        var reason = "normal activation";
         var conf = !!confirmationSatisfied;
         var hasPrefix = _hasExplicitPrefix(queryText, ctx);
+        var allowed = true;
+        var reason = "normal activation";
 
         switch (mode) {
         case "blocked":
@@ -80,15 +78,31 @@ Singleton {
             reason = "normal activation";
         }
 
-        var gateResult = null;
-        var riskPolicy = JsRegistry.riskGate.get("risk-gate");
-        if (riskPolicy) {
-            gateResult = riskPolicy.apply(node, ctx, { activation: mode, level: level, confirmation: conf, allowed: allowed });
-            if (gateResult && gateResult.allowed !== undefined) {
-                allowed = gateResult.allowed;
-                if (gateResult.reason)
-                    reason = gateResult.reason;
-            }
+        var runtime = {
+            activation: mode,
+            level: level,
+            confirmation: conf,
+            allowed: allowed,
+            reason: reason,
+            hasExplicitPrefix: hasPrefix,
+            queryText: queryText || ""
+        };
+
+        var profile = node && node.evaluationProfile && node.evaluationProfile.profile || {};
+        var riskGateNames = profile.riskGate || ["risk-gate"];
+
+        var gateResult = PolicyChain.run(riskGateNames, function(name, spec) {
+            var policy = PolicyChain.lookupPolicy(JsRegistry.riskGate, spec);
+            if (!policy) return null;
+            return policy.apply(node, ctx, runtime, spec && spec.args);
+        }, "first-wins");
+
+        var gateValue = gateResult && gateResult.value;
+        if (gateValue && gateValue.allowed !== undefined) {
+            allowed = gateValue.allowed;
+        }
+        if (gateValue && gateValue.reason) {
+            reason = gateValue.reason;
         }
 
         return {
@@ -96,7 +110,7 @@ Singleton {
             mode: mode,
             riskLevel: level,
             reason: reason,
-            policyReason: gateResult && gateResult.reason ? gateResult.reason : "",
+            policyReason: gateValue && gateValue.reason ? gateValue.reason : "",
             requiresConfirm: mode === "confirm" || mode === "confirm-and-explicit-prefix",
             requiresExplicitPrefix: mode === "explicit-prefix-only" || mode === "confirm-and-explicit-prefix" || mode === "explicit-prefix"
         };

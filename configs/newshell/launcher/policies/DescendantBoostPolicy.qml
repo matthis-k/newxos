@@ -6,7 +6,7 @@ QtObject {
     property string policyId
     property string factor: "auto"
 
-    function policyApply(node, query, ctx, evaluatedChildren, scores) {
+    function policyApply(node, query, ctx, evaluatedChildren, scores, specArgs) {
         var directiveActive = !!(ctx.directive && ctx.directive.active);
         var ownScore = scores ? scores.ownScore || 0 : 0;
         var groupDisplay = node.behavior && node.behavior.flattenPolicy && node.behavior.flattenPolicy.groupDisplay || {};
@@ -31,10 +31,14 @@ QtObject {
         if (bestChildScore <= 0)
             return 0;
 
+        var effectiveFactor = specArgs && specArgs.factor !== undefined
+            ? Tokenize.clamp(Number(specArgs.factor), 0, 1)
+            : factor;
+
         var depthPenalty = bestChildMatchDepth < 9999 ? Math.pow(0.92, bestChildMatchDepth) : 1;
         var factorVal;
-        if (factor !== "auto") {
-            factorVal = Tokenize.clamp(parseFloat(factor), 0, 1);
+        if (effectiveFactor !== "auto") {
+            factorVal = Tokenize.clamp(parseFloat(effectiveFactor), 0, 1);
             factorVal = isFinite(factorVal) ? factorVal : 0.28;
         } else {
             factorVal = node.switchActions ? (ownScore > 0 ? 1 : 0.82)
