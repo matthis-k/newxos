@@ -9,29 +9,26 @@
         { "do": { "type": "setQuery", "query": "network" } },
         {
           "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Networking", "backend": "desktop-actions", "selectable": true },
             "rows": {
-              "contains": [
-                { "title": "Networking" }
-              ]
+              "containsTitle": ["Networking"]
             }
           }
         }
       ]
     },
     {
-      "name": "Backend children match, backend appears as group",
-      "tags": ["groups", "backend"],
+      "name": "Bluetooth appears in actions",
+      "tags": ["groups", "bluetooth"],
       "steps": [
         { "do": { "type": "reset" } },
         { "do": { "type": "open", "visible": false } },
         { "do": { "type": "setQuery", "query": "bluetooth" } },
         {
           "expect": {
-            "rows": {
-              "contains": [
-                { "title": "Bluetooth" }
-              ]
-            }
+            "exactlyOneSelected": true,
+            "selected": { "title": "Bluetooth", "backend": "desktop-actions", "selectable": true }
           }
         }
       ]
@@ -47,6 +44,24 @@
           "expect": {
             "rows": {
               "containsTitle": ["Volume", "Output Devices"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Session actions grouped under Session",
+      "tags": ["groups", "session"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "session" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Session", "backend": "desktop-actions", "selectable": true },
+            "rows": {
+              "notContainsTitle": ["Lock Screen", "Log Out", "Shut Down"]
             }
           }
         }

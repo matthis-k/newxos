@@ -1,0 +1,66 @@
+{
+  "cases": [
+    {
+      "name": "Query 'wifi ' trailing space still shows Wi-Fi",
+      "tags": ["trailing", "wifi"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "wifi " } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Wi-Fi" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'newxos ' trailing space browses children",
+      "tags": ["trailing", "newxos"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "newxos " } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "rows": {
+              "containsTitle": ["AI", "Switch System"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'vpn ' trailing space shows VPN",
+      "tags": ["trailing", "vpn"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn " } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "VPN" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'zen ' trailing space shows Zen Browser unchanged",
+      "tags": ["trailing", "zen"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "zen " } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Zen Browser" }
+          }
+        }
+      ]
+    }
+  ]
+}

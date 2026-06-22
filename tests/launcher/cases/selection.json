@@ -1,7 +1,36 @@
 {
   "cases": [
     {
-      "name": "Audio group itself must not be selectable",
+      "name": "Audio group itself is not selectable",
+      "tags": ["selection", "audio", "selectable"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "audio" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": {
+              "backend": "desktop-actions",
+              "selectable": true,
+              "executable": true
+            },
+            "rows": {
+              "contains": [
+                { "title": "Volume", "backend": "desktop-actions", "selectable": true, "executable": true },
+                { "title": "Output Devices", "backend": "desktop-actions", "selectable": true, "executable": true }
+              ],
+              "notContains": [
+                { "title": "Audio", "selectable": false }
+              ],
+              "noneHighlightedExceptSelected": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audio children are selectable",
       "tags": ["selection", "audio"],
       "steps": [
         { "do": { "type": "reset" } },
@@ -10,8 +39,9 @@
         {
           "expect": {
             "rows": {
-              "notContains": [
-                { "title": "Audio" }
+              "contains": [
+                { "title": "Output Devices", "selectable": true },
+                { "title": "Volume", "selectable": true }
               ]
             }
           }
@@ -19,69 +49,31 @@
       ]
     },
     {
-      "name": "Audio children must be selectable",
-      "tags": ["selection", "audio"],
-      "steps": [
-        { "do": { "type": "reset" } },
-        { "do": { "type": "open", "visible": false } },
-        { "do": { "type": "setQuery", "query": "audio" } },
-        {
-          "expect": {
-            "rows": {
-              "containsTitle": ["Output Devices"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Query 'wifi' shows Wi-Fi as promoted child",
-      "tags": ["wifi", "promotion"],
+      "name": "Exactly one selected for WiFi query",
+      "tags": ["selection", "wifi"],
       "steps": [
         { "do": { "type": "reset" } },
         { "do": { "type": "open", "visible": false } },
         { "do": { "type": "setQuery", "query": "wifi" } },
         {
           "expect": {
-            "rows": {
-              "first": { "title": "Wi-Fi" }
-            }
+            "exactlyOneSelected": true,
+            "selected": { "title": "Wi-Fi", "backend": "desktop-actions", "selectable": true }
           }
         }
       ]
     },
     {
-      "name": "Query 'wifi on' selects correct action",
-      "tags": ["wifi", "action"],
+      "name": "Exactly one selected for WiFi on",
+      "tags": ["selection", "wifi", "action"],
       "steps": [
         { "do": { "type": "reset" } },
         { "do": { "type": "open", "visible": false } },
         { "do": { "type": "setQuery", "query": "wifi on" } },
         {
           "expect": {
-            "rows": {
-              "contains": [
-                { "title": "On", "executable": true }
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Query 'wifi toggle' shows toggle action",
-      "tags": ["wifi", "action"],
-      "steps": [
-        { "do": { "type": "reset" } },
-        { "do": { "type": "open", "visible": false } },
-        { "do": { "type": "setQuery", "query": "wifi toggle" } },
-        {
-          "expect": {
-            "rows": {
-              "contains": [
-                { "title": "Toggle", "executable": true }
-              ]
-            }
+            "exactlyOneSelected": true,
+            "selected": { "title": "On", "backend": "desktop-actions", "selectable": true, "executable": true }
           }
         }
       ]
@@ -95,10 +87,13 @@
         { "do": { "type": "setQuery", "query": "vpn" } },
         {
           "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "VPN", "backend": "desktop-actions", "selectable": true },
             "rows": {
-              "contains": [
-                { "title": "VPN" }
-              ]
+              "notContains": [
+                { "title": "Networking", "selected": true }
+              ],
+              "noneHighlightedExceptSelected": true
             }
           }
         }

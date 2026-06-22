@@ -13,8 +13,8 @@ async fn main() {
     let cli = cli::Cli::parse();
 
     let result = match &cli.command {
-        cli::Command::Validate { path } => {
-            match runner::validate_cases(path) {
+        cli::Command::Validate { path, schema } => {
+            match runner::validate_cases(path, schema.as_deref()) {
                 Ok(errors) if errors.is_empty() => {
                     println!("All test case files valid.");
                     Ok(())
@@ -34,8 +34,8 @@ async fn main() {
                 Err(e) => Err(e),
             }
         }
-        cli::Command::Run { path, mode, filter, socket: _ } => {
-            match runner::run_cases(path, filter.as_deref(), mode) {
+        cli::Command::Run { path, mode, filter, socket } => {
+            match runner::run_cases(path, filter.as_deref(), mode, socket.as_deref()) {
                 Ok(summary) => {
                     if summary.failed > 0 {
                         Err(anyhow::anyhow!("{} test(s) failed", summary.failed))

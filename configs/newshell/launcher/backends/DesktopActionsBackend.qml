@@ -121,13 +121,15 @@ TreeBackendBase {
             id: safeGroup + "." + safeItem,
             aliases: [itemName.toLowerCase()],
             title: itemName,
-            behavior: { filterChildren: true }
+            behavior: { filterChildren: true },
+            executable: true,
+            hasAction: true
         };
 
         if (entry.type === "switch") {
             node.template = "switch";
             node.switchActions = {};
-            node.switchState = false;
+            node.switchState = entry.state !== undefined ? entry.state : false;
         } else {
             node.action = { service: "test", op: "noop" };
             if (entry.risk) {

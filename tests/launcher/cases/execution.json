@@ -1,0 +1,91 @@
+{
+  "cases": [
+    {
+      "name": "Execute wifi on records lastExecutedAction",
+      "tags": ["execution", "safety"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "wifi on" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "On" }
+          }
+        },
+        { "do": { "type": "execute" } },
+        {
+          "expect": {
+            "lastExecutedAction": { "title": "On" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Execute desktop app action records lastExecutedAction",
+      "tags": ["execution", "desktop"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "zen priv" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Zen Browser (Private Window)" }
+          }
+        },
+        { "do": { "type": "execute" } },
+        {
+          "expect": {
+            "lastExecutedAction": { "title": "Zen Browser (Private Window)" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Execute shutdown does not bypass risk gate silently",
+      "tags": ["execution", "risk"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "shutdown" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Shut Down" }
+          }
+        },
+        { "do": { "type": "execute" } },
+        {
+          "expect": {
+            "query": "shutdown",
+            "rows": {
+              "contains": [{ "title": "Shut Down" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Execute newxos switch does not run real system switch",
+      "tags": ["execution", "safety"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "newxos switch" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Switch System" }
+          }
+        },
+        { "do": { "type": "execute" } },
+        {
+          "expect": {
+            "lastExecutedAction": { "title": "Switch System" }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,26 +1,6 @@
 {
   "cases": [
     {
-      "name": "Desktop app child actions only match their own title",
-      "tags": ["desktop", "matching"],
-      "steps": [
-        { "do": { "type": "reset" } },
-        { "do": { "type": "open", "visible": false } },
-        { "do": { "type": "setQuery", "query": "a" } },
-        {
-          "expect": {
-            "rows": {
-              "notContainsTitle": [
-                "New Window",
-                "New Private Window",
-                "Open Incognito Window"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
       "name": "Query 'zen' shows Zen Browser as promoted child",
       "tags": ["desktop", "zen"],
       "steps": [
@@ -29,10 +9,14 @@
         { "do": { "type": "setQuery", "query": "zen" } },
         {
           "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Zen Browser", "backend": "desktop", "selectable": true, "executable": true },
             "rows": {
               "contains": [
-                { "title": "Zen Browser", "executable": true }
-              ]
+                { "title": "Zen Browser", "backend": "desktop", "selectable": true, "executable": true }
+              ],
+              "notContainsTitle": ["Files"],
+              "noneHighlightedExceptSelected": true
             }
           }
         }
@@ -47,11 +31,8 @@
         { "do": { "type": "setQuery", "query": "zen priv" } },
         {
           "expect": {
-            "rows": {
-              "contains": [
-                { "title": "Zen Browser (Private Window)" }
-              ]
-            }
+            "exactlyOneSelected": true,
+            "selected": { "title": "Zen Browser (Private Window)", "backend": "desktop", "selectable": true, "executable": true }
           }
         }
       ]
@@ -66,7 +47,71 @@
         {
           "expect": {
             "rows": {
-              "notContainsTitle": ["Files"]
+              "notContainsTitle": ["Files", "Nautilus"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'a' does not show desktop action child titles",
+      "tags": ["desktop", "matching"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "a" } },
+        {
+          "expect": {
+            "rows": {
+              "notContainsTitle": ["New Window", "New Private Window", "Open Incognito Window"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'files' shows Files as selectable app",
+      "tags": ["desktop", "files"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "files" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Files", "backend": "desktop", "selectable": true, "executable": true }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'new window' matches action by own title",
+      "tags": ["desktop", "matching"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "new window" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "New Window", "backend": "desktop", "selectable": true, "executable": true }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'private' matches private action by own title",
+      "tags": ["desktop", "matching"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "private" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "New Private Window", "backend": "desktop", "selectable": true, "executable": true },
+            "rows": {
+              "noneHighlightedExceptSelected": true
             }
           }
         }

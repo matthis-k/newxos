@@ -1,7 +1,7 @@
 {
   "cases": [
     {
-      "name": "Prefix ':' is recognized by routing tree",
+      "name": "Prefix ':' routes to action backend only",
       "tags": ["prefix"],
       "steps": [
         { "do": { "type": "reset" } },
@@ -9,9 +9,16 @@
         { "do": { "type": "setQuery", "query": ":wifi" } },
         {
           "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Wi-Fi", "backend": "desktop-actions", "selectable": true },
             "rows": {
               "contains": [
-                { "title": "Wi-Fi" }
+                { "title": "Wi-Fi", "backend": "desktop-actions" }
+              ],
+              "notContains": [
+                { "backend": "desktop" },
+                { "backend": "files" },
+                { "backend": "web" }
               ]
             }
           }
@@ -19,7 +26,7 @@
       ]
     },
     {
-      "name": "Prefix ':wifi on' goes to action",
+      "name": "Prefix ':wifi on' selects On action",
       "tags": ["prefix", "action"],
       "steps": [
         { "do": { "type": "reset" } },
@@ -27,9 +34,13 @@
         { "do": { "type": "setQuery", "query": ":wifi on" } },
         {
           "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "On", "backend": "desktop-actions", "selectable": true, "executable": true },
             "rows": {
-              "contains": [
-                { "title": "On", "executable": true }
+              "notContains": [
+                { "backend": "desktop" },
+                { "backend": "files" },
+                { "backend": "web" }
               ]
             }
           }
@@ -37,21 +48,54 @@
       ]
     },
     {
-      "name": "Prefix ':' with trailing space",
+      "name": "Prefix ':audio' shows audio children without non-action backends",
       "tags": ["prefix"],
       "steps": [
         { "do": { "type": "reset" } },
         { "do": { "type": "open", "visible": false } },
-        { "do": { "type": "setQuery", "query": ": " } }
+        { "do": { "type": "setQuery", "query": ":audio" } },
+        {
+          "expect": {
+            "rows": {
+              "notContains": [
+                { "backend": "desktop" },
+                { "backend": "files" },
+                { "backend": "web" }
+              ]
+            }
+          }
+        }
       ]
     },
     {
-      "name": "Prefix '@apps' shows app backend",
+      "name": "Prefix '@app' shows desktop app backend only",
       "tags": ["prefix", "apps"],
       "steps": [
         { "do": { "type": "reset" } },
         { "do": { "type": "open", "visible": false } },
         { "do": { "type": "setQuery", "query": "@app" } }
+      ]
+    },
+    {
+      "name": "Prefix '@apps zen' shows Zen in desktop backend only",
+      "tags": ["prefix", "apps"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "@apps zen" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Zen Browser", "backend": "desktop", "selectable": true },
+            "rows": {
+              "notContains": [
+                { "backend": "desktop-actions" },
+                { "backend": "files" },
+                { "backend": "web" }
+              ]
+            }
+          }
+        }
       ]
     }
   ]

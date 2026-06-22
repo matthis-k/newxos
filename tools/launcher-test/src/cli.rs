@@ -14,6 +14,9 @@ pub enum Command {
     Validate {
         /// Path to test case file or directory
         path: PathBuf,
+        /// Path to JSON schema file for validation
+        #[arg(long)]
+        schema: Option<PathBuf>,
     },
     /// List available test cases
     List {

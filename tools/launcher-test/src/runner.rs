@@ -10,17 +10,13 @@ use crate::schema::*;
 
 pub fn load_cases(path: &Path) -> Result<Vec<TestCase>> {
     let mut cases = Vec::new();
-
     if path.is_dir() {
         let mut entries: Vec<_> = std::fs::read_dir(path)
             .context("Failed to read test cases directory")?
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.path().extension().map_or(false, |ext| ext == "json")
-            })
+            .filter(|e| e.path().extension().map_or(false, |ext| ext == "json"))
             .collect();
         entries.sort_by_key(|e| e.file_name());
-
         for entry in entries {
             let content = std::fs::read_to_string(entry.path())
                 .context(format!("Failed to read {}", entry.path().display()))?;
@@ -37,13 +33,19 @@ pub fn load_cases(path: &Path) -> Result<Vec<TestCase>> {
     } else {
         anyhow::bail!("Path does not exist: {}", path.display());
     }
-
     Ok(cases)
 }
 
-pub fn validate_cases(path: &Path) -> Result<Vec<String>> {
+pub fn validate_cases(path: &Path, schema_path: Option<&Path>) -> Result<Vec<String>> {
     let cases = load_cases(path)?;
     let mut errors = Vec::new();
+
+    if let Some(schema_path) = schema_path {
+        let schema_content = std::fs::read_to_string(schema_path)
+            .context("Failed to read schema file")?;
+        let _schema: serde_json::Value = serde_json::from_str(&schema_content)
+            .context("Failed to parse schema JSON")?;
+    }
 
     for (i, case) in cases.iter().enumerate() {
         if case.name.is_empty() {
@@ -52,7 +54,7 @@ pub fn validate_cases(path: &Path) -> Result<Vec<String>> {
         if case.query.is_none() && case.steps.is_none() {
             errors.push(format!("Case '{}': must have either 'query' or 'steps'", case.name));
         }
-        if let Some(ref expect) = case.expect {
+        if let Some(ref _expect) = case.expect {
             if case.steps.is_some() {
                 errors.push(format!(
                     "Case '{}': 'expect' at top level is ignored when 'steps' are defined",
@@ -91,7 +93,6 @@ pub fn list_cases(path: &Path, filter: Option<&str>) -> Result<Vec<TestCase>> {
         };
         println!("  {} - {}{}", case.name, case.query.as_deref().unwrap_or("<step-based>"), tags);
     }
-
     Ok(filtered)
 }
 
@@ -99,8 +100,13 @@ pub fn run_cases(
     path: &Path,
     filter: Option<&str>,
     mode: &crate::cli::RunMode,
+    socket: Option<&std::path::Path>,
 ) -> Result<RunSummary> {
-    let ipc = LauncherIpc::new()?;
+    let ipc = if let Some(sock) = socket {
+        LauncherIpc::with_socket(Some(sock.to_path_buf()))?
+    } else {
+        LauncherIpc::new()?
+    };
     let cases = load_cases(path)?;
 
     let filtered: Vec<TestCase> = cases.into_iter()
@@ -180,11 +186,10 @@ pub fn run_cases(
     };
 
     pretty::print_summary(&summary);
-
     Ok(summary)
 }
 
-fn run_single_case(case: &TestCase, ipc: &LauncherIpc, _mode: &crate::cli::RunMode) -> Result<Vec<String>> {
+fn run_single_case(case: &TestCase, ipc: &LauncherIpc, mode: &crate::cli::RunMode) -> Result<Vec<String>> {
     let steps = case.normalized_steps();
     let mut all_failures = Vec::new();
 
@@ -193,49 +198,36 @@ fn run_single_case(case: &TestCase, ipc: &LauncherIpc, _mode: &crate::cli::RunMo
             NormalizedStep::Do(action) => {
                 let resp = match action {
                     StepAction::Reset => ipc.reset()?,
-                    StepAction::Open { .. } => ipc.open(false)?,
+                    StepAction::Open { visible } => {
+                        let vis = visible.unwrap_or_else(|| matches!(mode, crate::cli::RunMode::Visible));
+                        ipc.open(vis)?
+                    }
                     StepAction::Close => ipc.close()?,
-                    StepAction::SetQuery { query } => {
-                        ipc.set_query(query)?
-                    }
-                    StepAction::TypeText { text } => {
-                        ipc.type_text(text)?
-                    }
-                    StepAction::Backspace { count } => {
-                        ipc.backspace(count.unwrap_or(1))?
-                    }
-                    StepAction::MoveSelection { direction } => {
-                        ipc.move_selection(direction)?
-                    }
-                    _ => {
-                        // For execute, expand, collapse - just acknowledge for now
-                        format!("{{}}")
-                    }
+                    StepAction::SetQuery { query } => ipc.set_query(query)?,
+                    StepAction::TypeText { text } => ipc.type_text(text)?,
+                    StepAction::Backspace { count } => ipc.backspace(count.unwrap_or(1))?,
+                    StepAction::MoveSelection { direction } => ipc.move_selection(direction)?,
+                    StepAction::Expand { .. } => ipc.expand_selected()?,
+                    StepAction::Collapse { .. } => ipc.collapse_selected()?,
+                    StepAction::Execute { .. } => ipc.activate_selected()?,
                 };
-                // Wait for model to settle after action
                 let _ = ipc.wait_for_settled(2000)
                     .context("State did not settle after action")?;
-                // Don't fail on the response itself in bad cases
                 std::mem::drop(resp);
             }
             NormalizedStep::Expect(expect) => {
-                // Get pipeline result for current query
-                let state = ipc.state()?;
-                let pipeline_resp = ipc.call("query", "pipeline", &state.query)?;
-                let pipeline: PipelineResponse = serde_json::from_str(&pipeline_resp)
-                    .context("Failed to parse pipeline response")?;
+                let state = ipc.visual_state()
+                    .context("Failed to get visual state for assertion")?;
 
-                let failures = assertions::assert_expectation(&state, &pipeline.rows, expect);
+                let failures = assertions::assert_expectation(&state, expect);
                 if !failures.is_empty() {
-                    pretty::print_rows(&pipeline.rows);
+                    pretty::print_visual_state(&state);
                 }
                 all_failures.extend(failures);
             }
         }
     }
 
-    // Close after each case
     let _ = ipc.close();
-
     Ok(all_failures)
 }

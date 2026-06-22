@@ -1,0 +1,69 @@
+{
+  "cases": [
+    {
+      "name": "Query 'wifi' shows Wi-Fi promoted child first",
+      "tags": ["scoring", "promotion"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "wifi" } },
+        {
+          "expect": {
+            "rows": {
+              "first": { "title": "Wi-Fi" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Switch actions match by action keyword",
+      "tags": ["scoring", "switch"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "wifi on" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "On", "backend": "desktop-actions" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "VPN children appear after trailing space",
+      "tags": ["scoring", "vpn"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn " } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "VPN" },
+            "rows": {
+              "containsTitle": ["VPN"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'network' shows Networking group first",
+      "tags": ["scoring", "group"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "network" } },
+        {
+          "expect": {
+            "rows": {
+              "first": { "title": "Networking" }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

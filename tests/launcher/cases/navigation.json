@@ -1,0 +1,112 @@
+{
+  "cases": [
+    {
+      "name": "Move selection down changes selected row",
+      "tags": ["navigation", "movement"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "wifi" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Wi-Fi" }
+          }
+        },
+        { "do": { "type": "moveSelection", "direction": "down" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "rows": { "first": { "selected": false } }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Non-selectable rows skipped during navigation",
+      "tags": ["navigation", "selectable"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "audio" } },
+        {
+          "expect": {
+            "rows": {
+              "notContains": [
+                { "title": "Audio", "selected": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Letter-by-letter: w -> wi -> wifi converges",
+      "tags": ["navigation", "stability"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "w" } },
+        { "expect": { "exactlyOneSelected": true } },
+        { "do": { "type": "typeText", "text": "i" } },
+        { "expect": { "exactlyOneSelected": true } },
+        { "do": { "type": "typeText", "text": "f" } },
+        { "expect": { "exactlyOneSelected": true } },
+        { "do": { "type": "typeText", "text": "i" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Wi-Fi" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Letter-by-letter: z -> ze -> zen converges to Zen Browser",
+      "tags": ["navigation", "stability"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "z" } },
+        { "expect": { "exactlyOneSelected": true } },
+        { "do": { "type": "typeText", "text": "e" } },
+        { "expect": { "exactlyOneSelected": true } },
+        { "do": { "type": "typeText", "text": "n" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Zen Browser" },
+            "rows": {
+              "notContainsTitle": ["Files", "Nautilus"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Letter-by-letter: n -> ne -> new -> newxos converges",
+      "tags": ["navigation", "stability"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "n" } },
+        { "expect": { "exactlyOneSelected": true } },
+        { "do": { "type": "typeText", "text": "e" } },
+        { "expect": { "exactlyOneSelected": true } },
+        { "do": { "type": "typeText", "text": "w" } },
+        { "expect": { "exactlyOneSelected": true } },
+        { "do": { "type": "typeText", "text": "x" } },
+        { "expect": { "exactlyOneSelected": true } },
+        { "do": { "type": "typeText", "text": "o" } },
+        { "expect": { "exactlyOneSelected": true } },
+        { "do": { "type": "typeText", "text": "s" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Newxos" }
+          }
+        }
+      ]
+    }
+  ]
+}

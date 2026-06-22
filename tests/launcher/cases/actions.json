@@ -9,10 +9,10 @@
         { "do": { "type": "setQuery", "query": "newxos" } },
         {
           "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Newxos", "backend": "desktop-actions", "selectable": true },
             "rows": {
-              "contains": [
-                { "title": "Newxos" }
-              ]
+              "notContainsTitle": ["AI", "Switch System"]
             }
           }
         }
@@ -27,6 +27,7 @@
         { "do": { "type": "setQuery", "query": "newxos " } },
         {
           "expect": {
+            "exactlyOneSelected": true,
             "rows": {
               "containsTitle": ["AI", "Switch System"]
             }
@@ -35,17 +36,31 @@
       ]
     },
     {
-      "name": "Query 'newxos' and 'newxos ' behave the same",
-      "tags": ["newxos", "trailing-space"],
+      "name": "Query 'newxos ai' selects AI action",
+      "tags": ["newxos", "action"],
       "steps": [
         { "do": { "type": "reset" } },
         { "do": { "type": "open", "visible": false } },
-        { "do": { "type": "setQuery", "query": "newxos" } },
+        { "do": { "type": "setQuery", "query": "newxos ai" } },
         {
           "expect": {
-            "rows": {
-              "first": { "title": "Newxos" }
-            }
+            "exactlyOneSelected": true,
+            "selected": { "title": "AI", "backend": "desktop-actions", "selectable": true, "executable": true }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'newxos switch' selects Switch System with risk",
+      "tags": ["newxos", "action", "risk"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "newxos switch" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Switch System", "backend": "desktop-actions", "selectable": true, "executable": true }
           }
         }
       ]
@@ -59,11 +74,44 @@
         { "do": { "type": "setQuery", "query": "ai" } },
         {
           "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "AI", "backend": "desktop-actions", "selectable": true, "executable": true },
             "rows": {
-              "contains": [
-                { "title": "AI" }
-              ]
+              "notContains": [
+                { "title": "Newxos", "selected": true }
+              ],
+              "noneHighlightedExceptSelected": true
             }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'switch' shows Switch System",
+      "tags": ["newxos", "action"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "switch" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Switch System", "backend": "desktop-actions", "selectable": true, "executable": true }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'rebuild' also selects Switch System",
+      "tags": ["newxos", "action"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "rebuild" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Switch System", "backend": "desktop-actions", "selectable": true, "executable": true }
           }
         }
       ]
@@ -77,9 +125,11 @@
         { "do": { "type": "setQuery", "query": "shutdown" } },
         {
           "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Shut Down", "backend": "desktop-actions", "selectable": true, "executable": true },
             "rows": {
               "contains": [
-                { "title": "Shut Down" }
+                { "title": "Shut Down", "backend": "desktop-actions" }
               ]
             }
           }

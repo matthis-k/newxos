@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestSuite {
@@ -25,9 +24,7 @@ pub struct Setup {
     pub visible: bool,
 }
 
-fn default_true() -> bool {
-    true
-}
+fn default_true() -> bool { true }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -68,17 +65,18 @@ pub struct Step {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Expectation {
     pub query: Option<String>,
     pub exactly_one_selected: Option<bool>,
-    #[serde(alias = "exactlyOneSelected")]
-    pub exactly_one_selected_alias: Option<bool>,
     pub selected: Option<RowMatcher>,
     pub expanded: Option<Vec<RowMatcher>>,
     pub rows: Option<RowsExpectation>,
+    pub last_executed_action: Option<RowMatcher>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RowsExpectation {
     pub count: Option<usize>,
     pub contains: Option<Vec<RowMatcher>>,
@@ -91,6 +89,7 @@ pub struct RowsExpectation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RowMatcher {
     pub key: Option<String>,
     pub title: Option<String>,
@@ -106,31 +105,43 @@ pub struct RowMatcher {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LauncherState {
+#[serde(rename_all = "camelCase")]
+pub struct LauncherVisualState {
     pub version: u64,
     #[serde(rename = "type")]
     pub state_type: String,
     pub visible: bool,
     pub closing: bool,
     pub query: String,
+    pub input_text: String,
     pub generation: u64,
     pub query_revision: u64,
     pub loading: bool,
     pub model_busy: bool,
-    pub results_count: usize,
+    pub last_executed_action: Option<ExecutedAction>,
     pub selected_index: i64,
-    pub active_node_key: String,
-    pub in_tree: bool,
-    pub current_tree_key: String,
+    pub selected_key: Option<String>,
+    pub expanded_keys: Vec<String>,
+    pub rows: Vec<VisualRow>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExecutedAction {
+    pub key: Option<String>,
+    pub title: Option<String>,
+    pub timestamp: Option<u64>,
+    pub test_mode: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct VisualRow {
     pub key: String,
     pub title: String,
     pub subtitle: Option<String>,
     pub backend: Option<String>,
     pub depth: u64,
+    pub path: Vec<String>,
     pub placement: Option<String>,
     pub executable: bool,
     pub selectable: bool,
@@ -140,44 +151,6 @@ pub struct VisualRow {
     pub visible: bool,
     pub breadcrumb_text: Option<String>,
     pub default_action: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PipelineResponse {
-    pub version: u64,
-    #[serde(rename = "type")]
-    pub response_type: String,
-    pub query: Option<String>,
-    pub directive: Option<DirectiveInfo>,
-    pub rows: Vec<PipelineRow>,
-    pub total_results: Option<usize>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DirectiveInfo {
-    pub active: bool,
-    pub prefix: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PipelineRow {
-    pub node_id: Option<String>,
-    pub title: Option<String>,
-    pub subtitle: Option<String>,
-    pub source: Option<String>,
-    pub kind: Option<String>,
-    pub placement: Option<String>,
-    pub executable: Option<bool>,
-    pub own_visible: Option<bool>,
-    pub score: Option<f64>,
-    pub own_score: Option<f64>,
-    pub breadcrumbs: Option<Vec<String>>,
-    pub breadcrumb_text: Option<String>,
-    pub children: Option<Vec<PipelineRow>>,
-    pub child_count: Option<usize>,
-    pub switch_state: Option<serde_json::Value>,
-    pub default_action: Option<serde_json::Value>,
-    pub semantics: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -202,7 +175,6 @@ impl TestCase {
     pub fn normalized_steps(&self) -> Vec<NormalizedStep> {
         if let Some(ref steps) = self.steps {
             let mut out = Vec::new();
-            // If first step doesn't have a reset/open, add them
             let has_initial_reset = steps.first().map_or(false, |s| {
                 matches!(s.action, Some(StepAction::Reset))
             });

@@ -1,23 +1,7 @@
 {
   "cases": [
     {
-      "name": "Query 'a' does not expand Files/nautilus from action metadata",
-      "tags": ["files", "matching"],
-      "steps": [
-        { "do": { "type": "reset" } },
-        { "do": { "type": "open", "visible": false } },
-        { "do": { "type": "setQuery", "query": "a" } },
-        {
-          "expect": {
-            "rows": {
-              "notContainsTitle": ["Files", "Nautilus"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Files backend responds to file path queries",
+      "name": "Files backend responds to path queries",
       "tags": ["files"],
       "steps": [
         { "do": { "type": "reset" } },
@@ -29,6 +13,76 @@
               "contains": [
                 { "backend": "files" }
               ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'documents' shows Documents from files backend",
+      "tags": ["files"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "documents" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "Documents", "backend": "files" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'downloads' shows Downloads from files backend",
+      "tags": ["files"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "downloads" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "Downloads", "backend": "files" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'pictures' shows Pictures from files backend",
+      "tags": ["files"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "pictures" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "Pictures", "backend": "files" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'a' does not expand Files through action metadata",
+      "tags": ["files", "matching"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "a" } },
+        {
+          "expect": {
+            "rows": {
+              "notContainsTitle": ["Files", "Nautilus"]
             }
           }
         }

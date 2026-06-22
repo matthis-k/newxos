@@ -1,14 +1,9 @@
 [
-  {
-    "path": "/home/testuser/Documents",
-    "name": "Documents"
-  },
-  {
-    "path": "/home/testuser/Downloads",
-    "name": "Downloads"
-  },
-  {
-    "path": "/home/testuser/Pictures",
-    "name": "Pictures"
-  }
+  { "path": "/home/testuser/Documents", "name": "Documents" },
+  { "path": "/home/testuser/Documents/report.md", "name": "report.md" },
+  { "path": "/home/testuser/Documents/notes.txt", "name": "notes.txt" },
+  { "path": "/home/testuser/Downloads", "name": "Downloads" },
+  { "path": "/home/testuser/Pictures", "name": "Pictures" },
+  { "path": "/home/testuser/Pictures/screenshot.png", "name": "screenshot.png" },
+  { "path": "/tmp", "name": "tmp" }
 ]
