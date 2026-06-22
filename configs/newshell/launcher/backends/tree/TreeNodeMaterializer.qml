@@ -18,7 +18,7 @@ QtObject {
         const rawSwitchActions = node.switchActions || (node.switchState === undefined ? null : (switchInferer ? switchInferer.switchActionMap(node, children) : null));
         const switchActions = switchInferer ? switchInferer.actionDtosForSwitchActions(rawSwitchActions) : null;
         const kind = switchActions && children.length === 0 ? "switch" : (children.length > 0 || node.template === "action-group" || node.template === "flat-action-group") ? "action-group" : "desktop-action";
-        const evaluationProfile = root._evaluationProfileForNode(node, !!rawSwitchActions);
+        const evaluationProfile = root._evaluationProfileForNode(node, !!rawSwitchActions, children.length > 0);
         const actions = switchActions
             ? [switchActions.toggle, switchActions.on, switchActions.off].filter(Boolean)
             : action ? [root._actionDto(action.actionId || action.id || "run", action.title || qsTr("Run"), action)] : [];
@@ -26,7 +26,6 @@ QtObject {
             actions[0].default = true;
 
         const nodeBehavior = defaults ? defaults.behaviorForNode(node, children, {}) : {};
-        const flattenPolicy = nodeBehavior.flattenPolicy || (children.length > 0 ? (defaults ? defaults.defaultFlattenPolicy(root.priority || 0) : null) : null);
 
         return root._makeNodeDto({
             id: root.backendId + ":" + path.concat([node]).map(function(item) { return item.id || item.title; }).join(":"),
@@ -51,7 +50,6 @@ QtObject {
             lastUsedDaysAgo: node.lastUsedDaysAgo === undefined ? 9999 : node.lastUsedDaysAgo,
             behavior: Object.assign({
                 tokenPolicy: node.tokenPolicy ? node.tokenPolicy : node.aliases && node.aliases.length ? { tokens: node.aliases, weight: 0.62 } : null,
-                flattenPolicy: flattenPolicy,
                 displayPolicy: nodeBehavior.displayPolicy || null
             }, node.behavior || {}),
             semanticTerms: root._semanticTermsForNode(node),
@@ -75,18 +73,24 @@ QtObject {
         return nodeFactory ? nodeFactory.actionDto(id, label, payload) : { id: id, label: label || id, icon: null, default: false, payload: payload || null };
     }
 
-    function _evaluationProfileForNode(node, hasSwitchActions) {
-        const fallback = defaults ? defaults.defaultEvaluationProfile : { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default", profile: {} };
-        const source = node.evaluationProfile || (hasSwitchActions && defaults ? defaults.switchProfile : fallback) || fallback;
-        const out = Object.assign({}, source);
-        const sourceProfile = source.profile || {};
-        out.profile = Object.assign({}, sourceProfile);
-        if (node.childVisible)
-            out.profile.childVisible = node.childVisible;
-        // Legacy compatibility hook for unmigrated PresentationPolicy groups.
-        if (node.childBypass)
-            out.profile.childBypass = node.childBypass;
-        return out;
+    function _evaluationProfileForNode(node, hasSwitchActions, hasChildren) {
+        const hasExplicitProfile = !!node.evaluationProfile;
+
+        if (hasExplicitProfile)
+            return node.evaluationProfile;
+
+        if (hasSwitchActions && defaults)
+            return defaults.switchProfile;
+
+        if (hasChildren && defaults)
+            return defaults.groupProfile();
+
+        return defaults ? defaults.defaultEvaluationProfile : {
+            mode: "generic+custom",
+            strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
+            scorePolicy: "default",
+            profile: {}
+        };
     }
 
     function _makeNodeDto(options) {

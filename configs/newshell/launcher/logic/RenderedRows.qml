@@ -7,7 +7,6 @@ import "Evaluate.qml"
 import "ScoreBundle.qml"
 import "PolicyChain.qml"
 import "PresentationContext.qml"
-import "../policies/presentation/"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
@@ -307,28 +306,7 @@ Singleton {
     }
 
     function parentMatchShowsChildren(ev, ctx) {
-        if (!ev || !ev.node) return false;
-        var behavior = ev.node.behavior || {};
-        var flattenPolicy = behavior.flattenPolicy || {};
-        var groupDisplay = flattenPolicy.groupDisplay || {};
-        if (!groupDisplay.showAllChildrenOnParentMatch && !groupDisplay.flattenAllChildrenOnParentMatch)
-            return false;
-        var minScore = groupDisplay.parentMatchMinScore === undefined ? 0.25 : groupDisplay.parentMatchMinScore;
-        return ev.ownVisible && groupDominanceOwnScore(ev, ctx) >= minScore;
-    }
-
-    function groupDominanceOwnScore(ev, ctx) {
-        var primary = (ev.evidence || []).filter(function(e) {
-            if (e.nodeId !== ev.node.id) return false;
-            var group = Evidence.evidenceFieldGroup(e.field);
-            return group === "primary-text" || group === "path-text" || group === "semantic-text";
-        });
-        if (!primary.length) return ev.ownScore;
-        var score = 0;
-        var overlaid = Evidence.overlayEvidence(primary, ctx.query);
-        for (var i = 0; i < overlaid.length; i += 1)
-            score = 1 - (1 - score) * (1 - Tokenize.clamp(overlaid[i].effective));
-        return Tokenize.clamp(Math.min(score, ev.ownScore));
+        return false;
     }
 
     function copyEvidence(items) {

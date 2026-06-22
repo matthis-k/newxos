@@ -29,22 +29,6 @@ Singleton {
         });
     }
 
-    function registerChildBypass(id, applyFn) {
-        JsRegistry.childBypass.register(id, {
-            name: id,
-            phase: "child-bypass",
-            apply: applyFn
-        });
-    }
-
-    function registerPresentation(id, applyFn) {
-        JsRegistry.presentation.register(id, {
-            name: id,
-            phase: "presentation",
-            apply: applyFn
-        });
-    }
-
     function registerTokenFlow(id, applyFn) {
         JsRegistry.tokenFlow.register(id, {
             name: id,

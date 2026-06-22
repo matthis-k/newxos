@@ -1,3 +1,3 @@
 ActionGroupNode {
-    groupOptions: ({ maxNestedChildren: 5 })
+    template: "flat-action-group"
 }

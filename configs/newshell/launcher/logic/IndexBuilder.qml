@@ -190,8 +190,7 @@ Singleton {
             if (isFinite(configured) && configured >= 0)
                 return configured;
         }
-        var groupDisplay = behavior.flattenPolicy && behavior.flattenPolicy.groupDisplay || {};
-        return groupDisplay.maxNestedChildren || groupDisplay.maxFlattenedChildren || 8;
+        return 8;
     }
 
     function markPreviewChildren(marked, node, limit) {

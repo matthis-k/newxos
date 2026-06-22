@@ -7,9 +7,7 @@ Singleton {
     readonly property var defaultModes: ({
         evidence: "accumulate",
         boost: "best-wins",
-        childVisible: "all-and",
-        childBypass: "all-or",
-        presentation: "first-wins"
+        childVisible: "all-and"
     })
 
     function lookupPolicy(registry, spec) {

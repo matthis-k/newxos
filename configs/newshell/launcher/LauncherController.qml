@@ -118,7 +118,6 @@ Item {
     P.ScoreDominatesPolicy { policyId: "score-dominates" }
     P.OwnScoreDominatesPolicy { policyId: "own-score-dominates" }
     P.ScoreBeatsParentPolicy {}
-    P.PresentationChainPolicy {}
     P.ExpandOnTrailingSpace {}
     P.TokenFlowPolicies {}
     P.TakeoverPolicies {}

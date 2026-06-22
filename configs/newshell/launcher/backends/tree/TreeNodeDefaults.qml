@@ -50,76 +50,60 @@ QtObject {
             tokenFlow: ["consume-switch-pass-rest"],
             takeoverRequest: [],
             takeoverAccept: [],
-            expand: [],
+            expand: ["expand-on-own-match-or-trailing-space"],
             retainParent: [],
             defaultAction: ["default-action-owner"],
             riskGate: ["risk-gate"]
         }
     })
 
-    function defaultFlattenPolicy(priority) {
-        // Legacy PresentationPolicy fallback for nodes without primitive
-        // expand/retain/takeover profiles. Do not use for migrated groups.
+    property var defaultPriority: 0
+
+    function groupProfile(options) {
+        var opts = options || {};
         return {
-            modeHint: "group-dominance",
-            priority: priority || 0,
-            groupDisplay: {
-                parentWinsMargin: 0.08,
-                childWinsMargin: 0.03,
-                childDominatesMargin: 0.18,
-                maxFlattenedChildren: 3,
-                minChildScore: 0.25,
-                showGroupHeaderInFilteredMode: true,
-                showAllChildrenOnParentMatch: true,
-                parentMatchMinScore: 0.15
+            mode: "generic+custom",
+            strategies: opts.strategies || ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
+            scorePolicy: opts.scorePolicy || "default",
+            profile: {
+                evidence: opts.evidence || [["field-match", { filterType: "all" }], "switch-action", "semantic", "token-claim", "usage", "recency"],
+                boost: opts.boost || ["descendant-boost"],
+                childVisible: opts.childVisible || ["visible-flag"],
+                tokenFlow: opts.tokenFlow || ["consume-namespace-pass-rest"],
+                takeoverRequest: opts.takeoverRequest || [
+                    "child-own-match-parent-no-own-match",
+                    "explicit-child-token",
+                    "child-covers-passed-tokens",
+                    "own-score-dominates-takeover"
+                ],
+                takeoverAccept: opts.takeoverAccept || ["accept-dominated-claims"],
+                expand: opts.expand || ["expand-on-own-match-or-trailing-space"],
+                retainParent: opts.retainParent || [{ name: "retain-parent-when", args: { condition: "own-match" } }],
+                defaultAction: opts.defaultAction || ["default-action-expand"],
+                riskGate: opts.riskGate || ["risk-gate"]
             }
         };
     }
 
-    property int defaultPriority: 0
-
-    function categoryGroupBehavior(options) {
+    function leafProfile(options) {
         var opts = options || {};
         return {
-            // Legacy PresentationPolicy fallback for compatibility with simple
-            // action-group templates. Primitive profiles control row retention.
-            flattenPolicy: {
-                modeHint: "group-dominance",
-                priority: opts.priority === undefined ? root.defaultPriority : opts.priority,
-                groupDisplay: {
-                    parentWinsMargin: opts.parentWinsMargin === undefined ? 0.08 : opts.parentWinsMargin,
-                    childWinsMargin: opts.childWinsMargin === undefined ? 0.03 : opts.childWinsMargin,
-                    childDominatesMargin: opts.childDominatesMargin === undefined ? 0.18 : opts.childDominatesMargin,
-                    maxFlattenedChildren: opts.maxFlattenedChildren === undefined ? 3 : opts.maxFlattenedChildren,
-                    minChildScore: opts.minChildScore === undefined ? 0.25 : opts.minChildScore,
-                    showGroupHeaderInFilteredMode: opts.showGroupHeaderInFilteredMode === undefined ? true : opts.showGroupHeaderInFilteredMode,
-                    showAllChildrenOnParentMatch: opts.showAllChildrenOnParentMatch === undefined ? true : opts.showAllChildrenOnParentMatch,
-                    flattenAllChildrenOnParentMatch: !!opts.flattenAllChildrenOnParentMatch,
-                    parentMatchMinScore: opts.parentMatchMinScore === undefined ? 0.25 : opts.parentMatchMinScore,
-                    maxNestedChildren: opts.maxNestedChildren
-                }
-            },
-            displayPolicy: opts.displayPolicy || (opts.breadcrumbMode ? { breadcrumbMode: opts.breadcrumbMode } : null)
+            mode: "generic+custom",
+            strategies: opts.strategies || ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
+            scorePolicy: opts.scorePolicy || "default",
+            profile: {
+                evidence: opts.evidence || [["field-match", { filterType: "all" }], "semantic", "token-claim", "usage", "recency"],
+                boost: opts.boost || [],
+                childVisible: opts.childVisible || ["visible-flag"],
+                tokenFlow: opts.tokenFlow || ["pass-all"],
+                takeoverRequest: [],
+                takeoverAccept: [],
+                expand: [],
+                retainParent: [],
+                defaultAction: opts.defaultAction || ["default-action-owner"],
+                riskGate: opts.riskGate || ["risk-gate"]
+            }
         };
-    }
-
-    // Placement/representation primitives only.
-    //
-    // defaultAction intentionally does not count here: it controls activation,
-    // not whether legacy PresentationPolicy/groupOptions should attach.
-    function hasPrimitivePresentationProfile(node) {
-        var profile = node && node.evaluationProfile && node.evaluationProfile.profile || {};
-        return (profile.expand && profile.expand.length > 0)
-            || (profile.retainParent && profile.retainParent.length > 0)
-            || (profile.takeoverRequest && profile.takeoverRequest.length > 0)
-            || (profile.takeoverAccept && profile.takeoverAccept.length > 0);
-    }
-
-    function hasExplicitLegacyGroupOptions(node) {
-        var opts = node && node.groupOptions;
-        if (!opts || typeof opts !== "object")
-            return false;
-        return Object.keys(opts).length > 0;
     }
 
     function isGroupTemplate(node) {
@@ -127,11 +111,9 @@ QtObject {
     }
 
     function behaviorForNode(node, children, extra) {
-        if (root.isGroupTemplate(node) && root.hasExplicitLegacyGroupOptions(node) && !root.hasPrimitivePresentationProfile(node))
-            extra = root.categoryGroupBehavior(node.groupOptions);
         if (node.behavior)
-            return Object.assign({}, extra, node.behavior);
-        return extra;
+            return Object.assign({}, extra || {}, node.behavior);
+        return extra || {};
     }
 
     function defaultAction(node) {

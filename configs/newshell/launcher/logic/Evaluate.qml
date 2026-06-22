@@ -208,9 +208,7 @@ Singleton {
         if (actionAliasBoost > 0)
             finalScore = Tokenize.clamp(finalScore + own.value * 0.15 * actionAliasBoost);
 
-        var groupDisplay = node.behavior && node.behavior.flattenPolicy && node.behavior.flattenPolicy.groupDisplay || {};
-        var keepAllChildren = (groupDisplay.showAllChildrenOnParentMatch || groupDisplay.flattenAllChildrenOnParentMatch) && own.visible;
-        var retained = evaluatedChildren.filter(function(c) { return keepAllChildren || c.candidate || c.visible || ctx.showHidden; });
+        var retained = evaluatedChildren.filter(function(c) { return c.candidate || c.visible || ctx.showHidden; });
         var bestChildMatchDepth = 9999;
         for (var b = 0; b < retained.length; b += 1) {
             if (retained[b].visible || ctx.showHidden) {
@@ -462,8 +460,7 @@ Singleton {
     function depthPenaltyFor(node) {
         var behavior = node && node.behavior || {};
         var raw = behavior.depthPenalty;
-        if (raw === undefined && behavior.flattenPolicy && behavior.flattenPolicy.depthPenalty !== undefined)
-            raw = behavior.flattenPolicy.depthPenalty;
+
         var n = Number(raw === undefined ? 0 : raw);
         return isFinite(n) ? Tokenize.clamp(n, 0, 1) : 0;
     }

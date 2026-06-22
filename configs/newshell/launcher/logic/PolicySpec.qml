@@ -58,15 +58,6 @@ Singleton {
         case "recency": return "evidence";
         case "descendant-boost": return "boost";
         case "visible-flag": return "childVisible";
-        case "own-score-beats-parent": return "childBypass";
-        case "score-dominates": return "childBypass";
-        case "own-score-min": return "childBypass";
-        case "above-min-score": return "childBypass";
-        case "own-score-dominates": return "childBypass";
-        case "has-evidence": return "childBypass";
-        case "candidate-or-visible": return "childBypass";
-        case "score-beats-parent": return "childBypass";
-        case "has-base-evidence": return "childBypass";
         case "switch-aliases": return "boost";
         case "pass-all":
         case "consume-own-pass-rest":

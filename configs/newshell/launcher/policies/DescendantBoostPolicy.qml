@@ -9,11 +9,9 @@ QtObject {
     function policyApply(node, query, ctx, evaluatedChildren, scores, specArgs) {
         var directiveActive = !!(ctx.directive && ctx.directive.active);
         var ownScore = scores ? scores.ownScore || 0 : 0;
-        var groupDisplay = node.behavior && node.behavior.flattenPolicy && node.behavior.flattenPolicy.groupDisplay || {};
-        var keepAllChildren = (groupDisplay.showAllChildrenOnParentMatch || groupDisplay.flattenAllChildrenOnParentMatch) && false;
 
         var retained = (evaluatedChildren || []).filter(function(c) {
-            return keepAllChildren || c.candidate || c.visible || ctx.showHidden;
+            return c.candidate || c.visible || ctx.showHidden;
         });
 
         var bestChildScore = 0;

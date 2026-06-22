@@ -83,15 +83,13 @@ Node {
                     tokenFlow: ["consume-switch-pass-rest"],
                     takeoverRequest: [],
                     takeoverAccept: [],
-                    expand: [],
+                    expand: ["expand-on-own-match-or-trailing-space"],
                     retainParent: [],
                     defaultAction: ["default-action-owner"],
                     riskGate: ["risk-gate"]
                 }
             }
         };
-        if (root.groupOptions && Object.keys(root.groupOptions).length > 0)
-            out.groupOptions = root.groupOptions;
         if (root.switchState !== undefined)
             out.switchState = root.switchState;
         return out;

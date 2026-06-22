@@ -30,8 +30,6 @@ function makeRegistry() {
 var evidence = makeRegistry();
 var boost = makeRegistry();
 var childVisible = makeRegistry();
-var childBypass = makeRegistry();
-var presentation = makeRegistry();
 var tokenFlow = makeRegistry();
 var takeoverRequest = makeRegistry();
 var takeoverAccept = makeRegistry();

@@ -74,7 +74,7 @@ For full debug flow (policies, benchmark, cases, probes), see `configs/opencode/
 - Let web fallback compete when non-web visible rows exist.
 - Put ranking or action-selection logic in UI delegates.
 - Serialize raw QML objects in IPC responses.
-- Remove legacy policy names without migration path.
+- Keep old policy names or compatibility APIs. The launcher has one pipeline: primitive policies → ResultShaping → row DTOs.
 
 ## Deferred Architecture
 

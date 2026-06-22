@@ -74,7 +74,7 @@ All flake behavior changes go in `modules/`. Never edit generated `flake.nix` di
 - Edit `flake.nix` directly — it is generated.
 - Put `imports` inside `lib.mkMerge`.
 - Duplicate exact package lists or option values in docs.
-- Add compatibility layers without concrete persisted/shipped/external need.
+- Add backward-compat shims or migration wrappers without concrete persisted/shipped/external need.
 - Parameterize exported NixOS modules with ad hoc outer args.
 
 ## Done Criteria

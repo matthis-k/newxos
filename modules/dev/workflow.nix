@@ -92,6 +92,14 @@
           errors=$((errors + 1))
         fi
 
+        # 10.8 No old launcher compatibility API
+        if ${pkgs.ripgrep}/bin/rg -n 'PresentationPolicy|PresentationPresets|PresentationChainPolicy|flattenPolicy|groupOptions|groupDisplay|childBypass|flattenAllChildrenOnParentMatch|showAllChildrenOnParentMatch|committedTokenPrefersGroup|childWinsMargin|parentWinsMargin|childDominatesMargin|maxFlattenedChildren|group-dominance|group-mode-inhibit|legacy PresentationPolicy|compatibility layer|unmigrated' \
+          configs/newshell/launcher configs/opencode/skills docs \
+          --glob '!docs/history/**' 2>/dev/null; then
+          echo "error: old launcher compatibility API found. Use primitive pipeline policies only." >&2
+          errors=$((errors + 1))
+        fi
+
         if [ "$errors" -gt 0 ]; then
           echo "repo-doctor: $errors check(s) failed" >&2
           exit 1
@@ -788,6 +796,14 @@
             # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
             if [ -n "$(find configs/newshell/launcher/tests/cases -maxdepth 1 -name '*.json' -print -quit 2>/dev/null)" ]; then
               echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
+              errors=$((errors + 1))
+            fi
+
+            # 10.8 No old launcher compatibility API
+            if rg -n 'PresentationPolicy|PresentationPresets|PresentationChainPolicy|flattenPolicy|groupOptions|groupDisplay|childBypass|flattenAllChildrenOnParentMatch|showAllChildrenOnParentMatch|committedTokenPrefersGroup|childWinsMargin|parentWinsMargin|childDominatesMargin|maxFlattenedChildren|group-dominance|group-mode-inhibit|legacy PresentationPolicy|compatibility layer|unmigrated' \
+              configs/newshell/launcher configs/opencode/skills docs \
+              --glob '!docs/history/**' 2>/dev/null; then
+              echo "error: old launcher compatibility API found. Use primitive pipeline policies only." >&2
               errors=$((errors + 1))
             fi
 

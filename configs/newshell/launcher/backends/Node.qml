@@ -18,7 +18,7 @@ QtObject {
     property bool dangerous: false
     property var risk: null
     property var behavior: null
-    property var groupOptions: ({})
+    property var _legacyGroupOptions: ({})
     property var tokenPolicy: null
     property var action: null
     property var actionProps: ({})
@@ -77,8 +77,7 @@ QtObject {
         };
         if (root.switchState !== undefined)
             out.switchState = root.switchState;
-        if (root.groupOptions && Object.keys(root.groupOptions).length > 0)
-            out.groupOptions = root.groupOptions;
+
         var payload = ownAction();
         if (payload)
             out.action = payload;
