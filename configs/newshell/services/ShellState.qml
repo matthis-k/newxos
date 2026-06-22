@@ -198,8 +198,23 @@ Singleton {
         delegate: ScreenState {}
     }
 
+    function isTestMode() {
+        return Quickshell.env("NEWSHELL_TEST_MODE") === "1";
+    }
+
+    function activeScreenStates() {
+        const focused = root.instances.filter(screenState =>
+            Hyprland.focusedMonitor && Hyprland.focusedMonitor === Hyprland.monitorFor(screenState.screen)
+        );
+        if (focused.length > 0)
+            return focused;
+        if (root.isTestMode() && root.instances.length > 0)
+            return [root.instances[0]];
+        return [];
+    }
+
     function forActiveScreens(callback) {
-        Quickshell.screens.filter(screen => Hyprland.focusedMonitor && Hyprland.focusedMonitor === Hyprland.monitorFor(screen)).forEach(callback);
+        root.activeScreenStates().forEach(screenState => callback(screenState.screen));
     }
 
     IpcHandler {

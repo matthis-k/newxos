@@ -89,9 +89,9 @@ esac
 
 # IPC wrappers — use namespaced targets in self-managed/external, global in session
 if [ "$INSTANCE_MODE" = "session" ]; then
-  ipc_launcher() { newshell ipc call launcher "$@"; }
-  ipc_query()    { newshell ipc call query "$@"; }
-  IPC_TARGET_DESC="global launcher/query"
+  ipc_launcher() { "$NEWSHELL_BIN" ipc call launcher "$@"; }
+  ipc_query()    { "$NEWSHELL_BIN" ipc call query "$@"; }
+  IPC_TARGET_DESC="global launcher/query via $NEWSHELL_BIN"
 else
   ipc_launcher() { "$NEWSHELL_BIN" ipc call "$IPC_NS.launcher" "$@"; }
   ipc_query()    { "$NEWSHELL_BIN" ipc call "$IPC_NS.query" "$@"; }
@@ -181,34 +181,45 @@ echo ""
 echo "--- IPC envelope and launch identity ---"
 
 data="$(state)"
-assert_jq_data "response-test-mode" "$data" \
-  '.testMode == true' \
-  "state should have testMode true"
+if [ "$INSTANCE_MODE" = "session" ]; then
+  assert_jq_data "session-state-shape" "$data" \
+    '.version == 1 and .type == "launcherInteractionState"' \
+    "session state should return launcher interaction state"
+  echo "(session mode: skipping testMode/testInstanceId/ipcNamespace identity assertions)"
+else
+  assert_jq_data "response-test-mode" "$data" \
+    '.testMode == true' \
+    "state should have testMode true"
 
-assert_jq_data "response-test-instance-id" "$data" \
-  --arg id "$INSTANCE_ID" '.testInstanceId == $id' \
-  "state should have matching testInstanceId"
+  assert_jq_data "response-test-instance-id" "$data" \
+    --arg id "$INSTANCE_ID" '.testInstanceId == $id' \
+    "state should have matching testInstanceId"
 
-assert_jq_data "response-ipc-namespace" "$data" \
-  --arg ns "$IPC_NS" '.ipcNamespace == $ns' \
-  "state should have matching ipcNamespace"
+  assert_jq_data "response-ipc-namespace" "$data" \
+    --arg ns "$IPC_NS" '.ipcNamespace == $ns' \
+    "state should have matching ipcNamespace"
+fi
 
 data=$(call_interact '{"action":"state"}')
 assert_jq_data "state-envelope" "$data" \
   '.version == 1 and .ok == true and .after.type == "launcherInteractionState"' \
   "state action should return state envelope"
 
-assert_jq_data "state-envelope-test-mode" "$data" \
-  '.after.testMode == true' \
-  "state envelope should have testMode"
+if [ "$INSTANCE_MODE" = "session" ]; then
+  echo "(session mode: skipping testMode/testInstanceId/ipcNamespace envelope assertions)"
+else
+  assert_jq_data "state-envelope-test-mode" "$data" \
+    '.after.testMode == true' \
+    "state envelope should have testMode"
 
-assert_jq_data "state-envelope-instance-id" "$data" \
-  --arg id "$INSTANCE_ID" '.after.testInstanceId == $id' \
-  "state envelope should have matching instance ID"
+  assert_jq_data "state-envelope-instance-id" "$data" \
+    --arg id "$INSTANCE_ID" '.after.testInstanceId == $id' \
+    "state envelope should have matching instance ID"
 
-assert_jq_data "state-envelope-namespace" "$data" \
-  --arg ns "$IPC_NS" '.after.ipcNamespace == $ns' \
-  "state envelope should have matching IPC namespace"
+  assert_jq_data "state-envelope-namespace" "$data" \
+    --arg ns "$IPC_NS" '.after.ipcNamespace == $ns' \
+    "state envelope should have matching IPC namespace"
+fi
 
 data=$(call_interact '{"action":"open"}')
 assert_jq_data "open" "$data" \

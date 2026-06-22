@@ -13,6 +13,7 @@
   perSystem =
     {
       config,
+      inputs',
       pkgs,
       self',
       ...
@@ -69,14 +70,15 @@
           errors=$((errors + 1))
         fi
 
-        # 10.5 Runtime test packages must use namespaced targets.
-        # The test script supports session/external/self-managed modes;
-        # session mode intentionally uses global targets.
-        # Check the Nix package wrappers, not the test script itself.
-        if ${pkgs.ripgrep}/bin/rg -n 'newshell ipc call (launcher|query)\b' \
-          packages \
-          --glob '!*.md' 2>/dev/null; then
-          echo "error: newshell runtime tests must use NEWSHELL_IPC_NAMESPACE targets, never global launcher/query" >&2
+        # 10.5 Runtime test packages must use the correct mode for their intended backend.
+        # hyprland runner: must set NEWSHELL_TEST_INSTANCE_MODE=external (namespaced).
+        # self-managed runner: must default to namespaced mode (no session/external override).
+        # session runner: the only mode that intentionally uses global IPC targets.
+        if ${pkgs.ripgrep}/bin/rg -n 'runNewshellIpcTestsHyprland' \
+          modules/dev/workflow.nix 2>/dev/null \
+          && ! ${pkgs.ripgrep}/bin/rg -q 'INSTANCE_MODE=external' \
+            modules/dev/workflow.nix; then
+          echo "error: hyprland test runner must set NEWSHELL_TEST_INSTANCE_MODE=external" >&2
           errors=$((errors + 1))
         fi
 
@@ -93,126 +95,166 @@
         echo "repo-doctor: all checks passed"
       '';
 
-      runNewshellIpcTests = pkgs.writeShellScriptBin "run-newshell-launcher-ipc-tests" ''
-        set -euo pipefail
+      runNewshellIpcTests = pkgs.writeShellApplication {
+        name = "run-newshell-launcher-ipc-tests";
+        runtimeInputs = [
+          self'.packages.newshell
+          pkgs.bash
+          pkgs.coreutils
+          pkgs.jq
+        ];
+        text = ''
+          set -euo pipefail
 
-        if [ "''${NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS:-0}" != "1" ]; then
-          echo "Skipping newshell runtime IPC tests. Set NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 to run."
-          exit 0
-        fi
+          if [ "''${NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS:-0}" != "1" ]; then
+            echo "Skipping newshell runtime IPC tests. Set NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 to run."
+            exit 0
+          fi
 
-        export NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
-        exec ${pkgs.bash}/bin/bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh"
-      '';
+          export NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
+          exec bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh"
+        '';
+      };
 
       # Hyprland-headless mode: starts a private compositor that launches newshell via exec-once
-      runNewshellIpcTestsHyprland = pkgs.writeShellScriptBin "run-newshell-launcher-ipc-tests-hyprland" ''
-        set -euo pipefail
+      runNewshellIpcTestsHyprland = pkgs.writeShellApplication {
+        name = "run-newshell-launcher-ipc-tests-hyprland";
+        runtimeInputs = [
+          self'.packages.newshell
+          inputs'.hyprland.packages.hyprland
+          pkgs.bash
+          pkgs.coreutils
+          pkgs.findutils
+          pkgs.jq
+        ];
+        text = ''
+          set -euo pipefail
 
-        if [ "''${NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS:-0}" != "1" ]; then
-          echo "Skipping newshell runtime IPC tests (hyprland). Set NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 to run."
-          exit 0
-        fi
-
-        NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
-
-        tmp_root="$(${pkgs.coreutils}/bin/mktemp -d)"
-        runtime_dir="$tmp_root/runtime"
-        hypr_config="$tmp_root/hyprland.conf"
-        hypr_log="$tmp_root/hyprland.log"
-        test_log="$tmp_root/newshell-ipc-test.log"
-
-        INSTANCE_ID="newshell-hypr-test-$$-''${RANDOM}"
-        IPC_NS="$INSTANCE_ID"
-
-        cleanup() {
-          local status=$?
-
-          if [ -n "''${HYPRLAND_PID:-}" ] && kill -0 "$HYPRLAND_PID" 2>/dev/null; then
-            kill "$HYPRLAND_PID" 2>/dev/null || true
-            wait "$HYPRLAND_PID" 2>/dev/null || true
+          if [ "''${NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS:-0}" != "1" ]; then
+            echo "Skipping newshell runtime IPC tests (hyprland). Set NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 to run."
+            exit 0
           fi
 
-          if [ "$status" -ne 0 ]; then
-            echo "=== Hyprland log ===" >&2
-            ${pkgs.coreutils}/bin/cat "$hypr_log" >&2 2>/dev/null || true
-            echo "=== newshell test log ===" >&2
-            ${pkgs.coreutils}/bin/cat "$test_log" >&2 2>/dev/null || true
-            echo "tmp_root=$tmp_root" >&2
-          else
-            ${pkgs.coreutils}/bin/rm -rf "$tmp_root"
-          fi
+          NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
 
-          exit "$status"
-        }
-        trap cleanup EXIT INT TERM
+          tmp_root="$(mktemp -d)"
+          runtime_dir="$tmp_root/runtime"
+          hypr_config="$tmp_root/hyprland.conf"
+          hypr_log="$tmp_root/hyprland.log"
+          test_log="$tmp_root/newshell-ipc-test.log"
 
-        ${pkgs.coreutils}/bin/mkdir -p "$runtime_dir"
-        ${pkgs.coreutils}/bin/chmod 700 "$runtime_dir"
+          INSTANCE_ID="newshell-hypr-test-$$-''${RANDOM}"
+          IPC_NS="$INSTANCE_ID"
 
-        export XDG_RUNTIME_DIR="$runtime_dir"
-        export XDG_SESSION_TYPE=wayland
-        export QT_QPA_PLATFORM=wayland
-        export WLR_BACKENDS=headless
-        export WLR_RENDERER=pixman
-        export WLR_LIBINPUT_NO_DEVICES=1
+          cleanup() {
+            local status=$?
 
-        ${pkgs.coreutils}/bin/cat > "$hypr_config" <<EOF
-        monitor=,1280x720@60,0x0,1
+            if [ -n "''${HYPRLAND_PID:-}" ] && kill -0 "$HYPRLAND_PID" 2>/dev/null; then
+              kill "$HYPRLAND_PID" 2>/dev/null || true
+              wait "$HYPRLAND_PID" 2>/dev/null || true
+            fi
 
-        misc {
-          disable_hyprland_logo = true
-          disable_splash_rendering = true
-        }
+            if [ "$status" -ne 0 ]; then
+              echo "=== Hyprland log ===" >&2
+              cat "$hypr_log" >&2 2>/dev/null || true
+              echo "=== newshell test log ===" >&2
+              cat "$test_log" >&2 2>/dev/null || true
+              echo "=== runtime dir ===" >&2
+              ls -la "$runtime_dir" >&2 2>/dev/null || true
+              echo "=== generated Hyprland config ===" >&2
+              cat "$hypr_config" >&2 2>/dev/null || true
+              echo "=== environment ===" >&2
+              echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >&2
+              echo "WAYLAND_DISPLAY=''${WAYLAND_DISPLAY:-}" >&2
+              echo "WLR_BACKENDS=''${WLR_BACKENDS:-}" >&2
+              echo "QT_QPA_PLATFORM=''${QT_QPA_PLATFORM:-}" >&2
+              echo "NEWSHELL_BIN=$NEWSHELL_BIN" >&2
+              echo "tmp_root=$tmp_root" >&2
+            else
+              rm -rf "$tmp_root"
+            fi
 
-        exec-once = env NEWSHELL_TEST_MODE=1 NEWSHELL_TEST_INSTANCE_ID=$INSTANCE_ID NEWSHELL_IPC_NAMESPACE=$IPC_NS NEWXOS_DEV=0 $NEWSHELL_BIN
-        EOF
+            exit "$status"
+          }
+          trap cleanup EXIT INT TERM
 
-        Hyprland --config "$hypr_config" >"$hypr_log" 2>&1 &
-        HYPRLAND_PID=$!
+          mkdir -p "$runtime_dir"
+          chmod 700 "$runtime_dir"
 
-        wayland_socket=""
-        for i in $(seq 1 200); do
-          if ! kill -0 "$HYPRLAND_PID" 2>/dev/null; then
-            echo "error: Hyprland exited early" >&2
+          export XDG_RUNTIME_DIR="$runtime_dir"
+          export XDG_SESSION_TYPE=wayland
+          export QT_QPA_PLATFORM=wayland
+          export WLR_BACKENDS=headless
+          export WLR_RENDERER=pixman
+          export WLR_LIBINPUT_NO_DEVICES=1
+
+          cat > "$hypr_config" <<EOF
+          monitor=,1280x720@60,0x0,1
+
+          misc {
+            disable_hyprland_logo = true
+            disable_splash_rendering = true
+          }
+
+          exec-once = env NEWSHELL_TEST_MODE=1 NEWSHELL_TEST_INSTANCE_ID=$INSTANCE_ID NEWSHELL_IPC_NAMESPACE=$IPC_NS NEWXOS_DEV=0 $NEWSHELL_BIN
+          EOF
+
+          Hyprland --config "$hypr_config" >"$hypr_log" 2>&1 &
+          HYPRLAND_PID=$!
+
+          wayland_socket=""
+          for wait_try in $(seq 1 200); do
+            if ! kill -0 "$HYPRLAND_PID" 2>/dev/null; then
+              echo "error: Hyprland exited early after ''${wait_try} tries" >&2
+              exit 1
+            fi
+
+            found="$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' | head -n1 || true)"
+            if [ -n "$found" ]; then
+              wayland_socket="$found"
+              break
+            fi
+
+            sleep 0.05
+          done
+
+          if [ -z "$wayland_socket" ]; then
+            echo "error: no Wayland socket appeared" >&2
             exit 1
           fi
 
-          found="$(${pkgs.findutils}/bin/find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' | ${pkgs.coreutils}/bin/head -n1 || true)"
-          if [ -n "$found" ]; then
-            wayland_socket="$found"
-            break
-          fi
+          export WAYLAND_DISPLAY="$wayland_socket"
+          export NEWSHELL_TEST_INSTANCE_MODE=external
+          export NEWSHELL_TEST_MODE=1
+          export NEWSHELL_TEST_INSTANCE_ID="$INSTANCE_ID"
+          export NEWSHELL_IPC_NAMESPACE="$IPC_NS"
+          export NEWSHELL_BIN="$NEWSHELL_BIN"
 
-          sleep 0.05
-        done
-
-        if [ -z "$wayland_socket" ]; then
-          echo "error: no Wayland socket appeared" >&2
-          exit 1
-        fi
-
-        export WAYLAND_DISPLAY="$wayland_socket"
-        export NEWSHELL_TEST_INSTANCE_MODE=external
-        export NEWSHELL_TEST_MODE=1
-        export NEWSHELL_TEST_INSTANCE_ID="$INSTANCE_ID"
-        export NEWSHELL_IPC_NAMESPACE="$IPC_NS"
-        export NEWSHELL_BIN="$NEWSHELL_BIN"
-
-        ${pkgs.bash}/bin/bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh" >"$test_log" 2>&1
-        ${pkgs.coreutils}/bin/cat "$test_log"
-      '';
+          bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh" >"$test_log" 2>&1
+          cat "$test_log"
+        '';
+      };
 
       # Session mode: test against the currently running user service (manual smoke only)
-      runNewshellIpcTestsSession = pkgs.writeShellScriptBin "run-newshell-launcher-ipc-tests-session" ''
-        set -euo pipefail
+      runNewshellIpcTestsSession = pkgs.writeShellApplication {
+        name = "run-newshell-launcher-ipc-tests-session";
+        runtimeInputs = [
+          self'.packages.newshell
+          pkgs.bash
+          pkgs.coreutils
+          pkgs.jq
+        ];
+        text = ''
+          set -euo pipefail
 
-        echo "WARNING: Session mode tests against running user service — not isolated, not CI-safe." >&2
-        echo "" >&2
+          echo "WARNING: Session mode tests against running user service — not isolated, not CI-safe." >&2
+          echo "" >&2
 
-        export NEWSHELL_TEST_INSTANCE_MODE=session
-        exec ${pkgs.bash}/bin/bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh"
-      '';
+          export NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
+          export NEWSHELL_TEST_INSTANCE_MODE=session
+          exec bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh"
+        '';
+      };
 
       reinstallGitHooks = pkgs.writeShellScriptBin "repo-install-git-hooks" ''
         set -euo pipefail
@@ -510,14 +552,13 @@
                   errors=$((errors + 1))
                 fi
 
-            # 10.5 Runtime test packages must use namespaced targets.
-            # The test script supports session/external/self-managed modes;
-            # session mode intentionally uses global targets.
-            # Check the Nix package wrappers, not the test script itself.
-            if rg -n 'newshell ipc call (launcher|query)\b' \
-              packages \
-              --glob '!*.md' 2>/dev/null; then
-              echo "error: newshell runtime tests must use NEWSHELL_IPC_NAMESPACE targets, never global launcher/query" >&2
+            # 10.5 Runtime test packages must use the correct mode for their intended backend.
+            # hyprland runner: must set NEWSHELL_TEST_INSTANCE_MODE=external (namespaced).
+            # self-managed runner: must default to namespaced mode.
+            # session runner: the only mode allowed to use global IPC targets.
+            if rg -n 'runNewshellIpcTestsHyprland' modules/dev/workflow.nix 2>/dev/null \
+              && ! rg -q 'INSTANCE_MODE=external' modules/dev/workflow.nix; then
+              echo "error: hyprland test runner must set NEWSHELL_TEST_INSTANCE_MODE=external" >&2
               errors=$((errors + 1))
             fi
 
