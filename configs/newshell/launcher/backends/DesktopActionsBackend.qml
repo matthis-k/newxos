@@ -37,7 +37,114 @@ TreeBackendBase {
     Connections { target: NotificationCenter; function onDoNotDisturbEnabledChanged() { root.invalidateCompositeRootCache(); } function onHasCriticalChanged() { root.invalidateCompositeRootCache(); } }
     Connections { target: NetworkService; function onWifiEnabledChanged() { root.invalidateCompositeRootCache(); } function onWifiHardwareEnabledChanged() { root.invalidateCompositeRootCache(); } function onConnectedSsidChanged() { root.invalidateCompositeRootCache(); } function onHasWiredConnectionChanged() { root.invalidateCompositeRootCache(); } function onConnectedNetworkChanged() { root.invalidateCompositeRootCache(); } }
 
+    function fixtureProfile() {
+        return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"], scorePolicy: "default", profile: { evidence: ["field-match:all", "switch-action", "semantic"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["consume-namespace-pass-rest"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-own-match-or-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }], defaultAction: ["default-action-expand"], riskGate: ["risk-gate"] } };
+    }
+
+    readonly property var fixtureTree: TestMode.isActive ? buildFixtureTree() : null
+
+    function buildFixtureTree() {
+        var path = TestMode.fixturePath("ACTIONS");
+        var entries = TestMode.loadFixtureSync(path);
+        if (!entries || entries.length === 0) return [];
+
+        var groupBehaviors = {
+            "Audio": { filterChildren: true, selectable: false }
+        };
+
+        var groups = {};
+        for (var i = 0; i < entries.length; i++) {
+            var entry = entries[i];
+            var p = entry.path || [];
+            if (p.length < 3) continue;
+
+            var groupName = p[1];
+            var itemName = p[p.length - 2];
+            var isSwitch = entry.type === "switch";
+
+            if (!groups[groupName]) {
+                var safeId = groupName.toLowerCase().replace(/[\s-]/g, "_");
+                groups[groupName] = {
+                    id: safeId,
+                    aliases: [groupName.toLowerCase()],
+                    title: groupName,
+                    template: "flat-action-group",
+                    behavior: groupBehaviors[groupName] || { filterChildren: true, selectable: true },
+                    evaluationProfile: root.fixtureProfile(),
+                    children: {}
+                };
+            }
+
+            var itemKey = itemName.toLowerCase().replace(/[\s-]/g, "_");
+            if (!groups[groupName].children[itemKey]) {
+                groups[groupName].children[itemKey] = root.fixtureItemNode(entry, itemName, groupName);
+            }
+
+            if (isSwitch) {
+                var actionKey = entry.id || entry.title.toLowerCase().replace(/[\s-]/g, "_");
+                var item = groups[groupName].children[itemKey];
+                if (!item.switchActions) item.switchActions = {};
+                item.switchActions[entry.group || actionKey] = {
+                    id: actionKey,
+                    title: entry.title,
+                    state: entry.state !== undefined ? entry.state : null,
+                    payload: { service: "test", op: "noop" }
+                };
+            }
+        }
+
+        var result = [];
+        var groupOrder = ["Newxos", "Session", "Networking", "Audio", "Power", "Notifications"];
+        var sorted = Object.keys(groups).sort(function(a, b) {
+            var ai = groupOrder.indexOf(a);
+            var bi = groupOrder.indexOf(b);
+            return (ai >= 0 ? ai : 99) - (bi >= 0 ? bi : 99);
+        });
+        for (var gi = 0; gi < sorted.length; gi++) {
+            var g = groups[sorted[gi]];
+            var children = [];
+            var itemKeys = Object.keys(g.children);
+            itemKeys.sort();
+            for (var ci = 0; ci < itemKeys.length; ci++) {
+                children.push(g.children[itemKeys[ci]]);
+            }
+            g.children = children;
+            result.push(g);
+        }
+        return result;
+    }
+
+    function fixtureItemNode(entry, itemName, groupName) {
+        var safeGroup = groupName.toLowerCase().replace(/[\s-]/g, "_");
+        var safeItem = itemName.toLowerCase().replace(/[\s-]/g, "_");
+        var node = {
+            id: safeGroup + "." + safeItem,
+            aliases: [itemName.toLowerCase()],
+            title: itemName,
+            behavior: { filterChildren: true }
+        };
+
+        if (entry.type === "switch") {
+            node.template = "switch";
+            node.switchActions = {};
+            node.switchState = false;
+        } else {
+            node.action = { service: "test", op: "noop" };
+            if (entry.risk) {
+                node.risk = entry.risk;
+                node.dangerous = true;
+            }
+            if (entry.semantics) {
+                node.semantics = entry.semantics;
+            }
+        }
+        return node;
+    }
+
     function effectiveTreeRoots() {
+        if (TestMode.isActive && root.fixtureTree)
+            return root.fixtureTree;
+
         return [].concat(
             newxosActions.roots({}),
             sessionActions.roots({}),
@@ -51,6 +158,9 @@ TreeBackendBase {
     }
 
     function activate(result, action) {
+        if (TestMode.isActive)
+            return;
+
         var payload = action && action.payload || {};
         if (!payload.service)
             return;

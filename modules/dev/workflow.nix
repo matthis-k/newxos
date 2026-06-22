@@ -99,9 +99,9 @@
         path = "${self}/configs/hypr";
       };
 
-      quickshellConfigDir = builtins.path {
-        name = "quickshell-config";
-        path = "${self}/configs/quickshell";
+      newshellConfigDir = builtins.path {
+        name = "newshell-config";
+        path = "${self}/configs/newshell";
       };
 
       checkHyprlandConfig = pkgs.writeShellApplication {
@@ -132,13 +132,13 @@
         '';
       };
 
-      checkQuickshellConfig = pkgs.writeShellApplication {
-        name = "check-quickshell-config";
+      checkNewshellConfig = pkgs.writeShellApplication {
+        name = "check-newshell-config";
         runtimeInputs = [ pkgs.kdePackages.qtdeclarative ];
         text = ''
           set -euo pipefail
 
-          shell_qml="${quickshellConfigDir}/shell.qml"
+          shell_qml="${newshellConfigDir}/shell.qml"
 
           if [ ! -f "$shell_qml" ]; then
             echo "ERROR: $shell_qml not found"
@@ -251,12 +251,12 @@
         pass_filenames = false;
       };
 
-      pre-commit.settings.hooks.check-quickshell-config = {
+      pre-commit.settings.hooks.check-newshell-config = {
         enable = true;
-        name = "check quickshell config";
-        description = "Verify QuickShell QML files pass qmllint.";
-        entry = lib.getExe checkQuickshellConfig;
-        files = "^configs/quickshell/";
+        name = "check newshell config";
+        description = "Verify newshell QML files pass qmllint.";
+        entry = lib.getExe checkNewshellConfig;
+        files = "^configs/newshell/";
         pass_filenames = false;
       };
 

@@ -1,0 +1,244 @@
+# Launcher Testing
+
+## Why external tests
+
+Tests are no longer embedded in QML/JS config files or ad-hoc shell scripts.
+The launcher exposes semantic control and inspection over IPC, while the standalone
+`newshell-launcher-test` binary reads JSON test cases and verifies the launcher state.
+
+```
+tests/launcher/*.json
+        ↓
+newshell-launcher-test
+        ↓ semantic IPC
+newshell launcher
+        ↓
+deterministic visualState
+        ↓
+semantic assertions
+```
+
+## How IPC control works
+
+The test runner drives the launcher through semantic IPC commands (not keyboard events):
+
+| Command | Effect |
+|---|---|
+| `reset` | Clear query and state |
+| `open` | Show the launcher (headless or visible) |
+| `close` | Hide the launcher |
+| `setQuery` | Set the search query |
+| `typeText` | Append to the query |
+| `backspace` | Remove characters from the query |
+| `moveSelection` | Move up/down the result list |
+| `expandSelected` | Expand the selected result |
+| `collapseSelected` | Collapse the selected result |
+| `activateSelected` | Execute the selected action |
+
+The launcher exposes `interactionState()` and `visualState()` IPC endpoints that
+return deterministic snapshots for assertions. The `modelBusy` field tells the
+runner when the launcher has settled after an action — no fixed sleeps needed.
+
+## Running tests
+
+### Headless mode (suitable for CI)
+
+```bash
+nix run .#newshell-launcher-test -- run tests/launcher/cases --mode headless
+```
+
+### Visible mode (manual verification)
+
+```bash
+nix run .#newshell-launcher-test -- run tests/launcher/cases --mode visible --filter audio
+```
+
+Visible mode opens the launcher visibly so you can watch animations and focus
+changes. It still performs logical assertions through the same IPC layer.
+
+### Validate test files
+
+```bash
+nix run .#newshell-launcher-test -- validate tests/launcher/cases
+```
+
+### List test cases
+
+```bash
+nix run .#newshell-launcher-test -- list tests/launcher/cases
+nix run .#newshell-launcher-test -- list tests/launcher/cases --filter wifi
+```
+
+## Adding a new JSON case
+
+Add a file to `tests/launcher/cases/` or append to an existing file.
+
+Compact format (single query + expectation):
+
+```json
+{
+  "name": "wifi on selects correct action",
+  "query": "wifi on",
+  "expect": {
+    "selected": {
+      "title": "On",
+      "path": ["Actions", "Networking", "Wi-Fi", "On"],
+      "executable": true
+    },
+    "rows": {
+      "containsInOrder": ["Networking", "Wi-Fi", "On"]
+    }
+  }
+}
+```
+
+Step-based format (multiple actions + assertions):
+
+```json
+{
+  "name": "desktop app actions only match their own title",
+  "tags": ["desktop", "matching"],
+  "steps": [
+    { "do": { "type": "setQuery", "query": "a" } },
+    {
+      "expect": {
+        "rows": {
+          "notContainsTitle": ["New Window"]
+        }
+      }
+    }
+  ]
+}
+```
+
+## Fixture mode
+
+The launcher supports fixture-based deterministic testing via environment variables.
+Fixture file paths must be absolute:
+
+```bash
+NEWSHELL_TEST_MODE=1
+NEWSHELL_DESKTOP_FIXTURE=/path/to/tests/launcher/fixtures/desktop-apps.json
+NEWSHELL_FILES_FIXTURE=/path/to/tests/launcher/fixtures/files.json
+NEWSHELL_ACTIONS_FIXTURE=/path/to/tests/launcher/fixtures/actions.json
+```
+
+When `NEWSHELL_TEST_MODE=1` is set, launcher backends read from fixture files
+instead of scanning the host system. This makes tests deterministic in CI
+regardless of what apps, files, or network state exist on the machine.
+
+The launcher backend loading code checks test mode early and uses fixture
+providers instead of host state. The launcher search/model pipeline does not
+care whether nodes came from real providers or fixtures.
+
+### Which backends support fixture mode
+
+| Backend | Fixture source | Behavior in test mode |
+|---|---|---|
+| `DesktopAppsBackend` | `NEWSHELL_DESKTOP_FIXTURE` | Loads app entries from fixture JSON instead of `DesktopEntries.applications` |
+| `DesktopActionsBackend` | `NEWSHELL_ACTIONS_FIXTURE` | Builds action tree from fixture entries; `activate()` is no-op |
+| `FilesBackend` | `NEWSHELL_FILES_FIXTURE` | Returns fixture directory listing; `activate()` is no-op |
+| `WebSearchBackend` | none | `activate()` is no-op; search results unchanged |
+| `CalculatorBackend` | none | Pure computation, already deterministic |
+
+### Fixture file format
+
+**desktop-apps.json** — Array of desktop entry fixtures:
+```json
+[
+  {
+    "id": "zen_beta",
+    "name": "Zen Browser",
+    "desktopName": "zen-beta.desktop",
+    "executable": "zen-browser",
+    "categories": ["Network", "WebBrowser"],
+    "keywords": ["web", "browser"],
+    "actions": [
+      { "id": "new-window", "name": "New Window" }
+    ]
+  }
+]
+```
+
+**actions.json** — Flat action tree entries. Each entry's `path` defines its
+position in the action group hierarchy (`["Actions", "Group", "Item", "SubItem"]`):
+```json
+[
+  {
+    "id": "networking.wifi.on",
+    "title": "On",
+    "path": ["Actions", "Networking", "Wi-Fi", "On"],
+    "group": "wifi",
+    "type": "switch",
+    "state": true
+  },
+  {
+    "id": "session.shutdown",
+    "title": "Shut Down",
+    "path": ["Actions", "Session", "Shut Down"],
+    "type": "action",
+    "semantics": { "activation": { "requiresConfirm": true } }
+  }
+]
+```
+
+**files.json** — Array of file/directory entries:
+```json
+[
+  { "path": "/home/testuser/Documents", "name": "Documents" }
+]
+```
+
+## Side-effect safety
+
+In test mode (`NEWSHELL_TEST_MODE=1`), `launcher.execute` does not:
+- Launch real applications
+- Toggle real network state
+- Run arbitrary shell commands
+
+Instead, the visual state records:
+
+```json
+{
+  "lastExecutedAction": {
+    "key": "actions.networking.wifi.on",
+    "title": "On"
+  }
+}
+```
+
+Tests can assert on `lastExecutedAction` to verify execution behavior safely.
+
+## Available assertion matchers
+
+### RowMatcher
+
+| Field | Type | Description |
+|---|---|---|
+| `title` | string | Exact row title match |
+| `backend` | string | Backend source (e.g. "desktop", "actions") |
+| `placement` | string | Row placement (e.g. "promoted-child", "nested-group") |
+| `executable` | boolean | Whether the row can be executed |
+| `breadcrumbText` | string | Row breadcrumb context |
+| `path` | string[] | Hierarchical path of the row |
+
+### RowsExpectation
+
+| Field | Type | Description |
+|---|---|---|
+| `count` | number | Exact row count |
+| `contains` | RowMatcher[] | At least one row matches each matcher |
+| `notContains` | RowMatcher[] | No row matches any matcher |
+| `containsTitle` | string[] | At least one row has this title |
+| `notContainsTitle` | string[] | No row has this title |
+| `containsInOrder` | string[] | Titles appear in this relative order |
+
+## Migrated regression cases
+
+The test suite covers:
+
+- **Selection/highlight**: Audio group not selectable, children selectable, single selection, parent highlight on child selection
+- **Desktop actions**: Child actions match own title only, no cross-backend contamination
+- **Backend grouping**: Backend groups appear when children match
+- **Search**: wifi, wifi on, wifi toggle, zen, zen priv, zen win, vpn, newxos, prefix cases
+- **Trailing space**: Queries with trailing space behave correctly

@@ -16,7 +16,7 @@ Run the narrowest check that covers the change first, then broader gates when pr
 | `modules/**` | `nix run "path:$PWD#fmt"` | `nix flake show "path:$PWD"` |
 | Flake-file declarations changed | `nix run "path:$PWD#write-flake"` | `nix flake show "path:$PWD"` |
 | New or changed flake outputs | `nix flake show "path:$PWD"` | `nix flake check "path:$PWD"` |
-| `configs/quickshell/**` | `nix run "path:$PWD#repo-gate"` | — |
+| `configs/newshell/**` | `nix run "path:$PWD#repo-gate"` | — |
 | `configs/hypr/**` or Hyprland modules | `nix run "path:$PWD#repo-gate"` | — |
 | `configs/nvim/**` or Neovim modules | `nix run "path:$PWD#repo-gate"` | — |
 | `docs/**` | `nix run "path:$PWD#newxos" -- memory reindex` | — |

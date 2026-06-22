@@ -1,0 +1,38 @@
+{
+  "cases": [
+    {
+      "name": "Query 'a' does not expand Files/nautilus from action metadata",
+      "tags": ["files", "matching"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "a" } },
+        {
+          "expect": {
+            "rows": {
+              "notContainsTitle": ["Files", "Nautilus"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Files backend responds to file path queries",
+      "tags": ["files"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "/tmp" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "backend": "files" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

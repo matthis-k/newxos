@@ -1,6 +1,6 @@
 # QuickShell State Singleton Audit
 
-Scope: `configs/quickshell/services/*.qml` plus launcher/global singleton-like modules touched by dashboard, bar, and launcher behavior.
+Scope: `configs/newshell/services/*.qml` plus launcher/global singleton-like modules touched by dashboard, bar, and launcher behavior.
 
 Classification key:
 - A: Reasonable complexity

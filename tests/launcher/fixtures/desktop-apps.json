@@ -1,0 +1,38 @@
+[
+  {
+    "id": "zen_beta",
+    "name": "Zen Browser",
+    "desktopName": "zen-beta.desktop",
+    "executable": "zen-browser",
+    "categories": ["Network", "WebBrowser"],
+    "keywords": ["web", "browser", "internet"],
+    "actions": [
+      { "id": "new-window", "name": "New Window" },
+      { "id": "new-private-window", "name": "New Private Window" }
+    ]
+  },
+  {
+    "id": "zen_beta_private",
+    "name": "Zen Browser (Private Window)",
+    "desktopName": "zen-beta-private.desktop",
+    "executable": "zen-browser",
+    "categories": ["Network", "WebBrowser"],
+    "keywords": ["private", "incognito"]
+  },
+  {
+    "id": "org_gnome_nautilus",
+    "name": "Files",
+    "desktopName": "org.gnome.Nautilus.desktop",
+    "executable": "nautilus",
+    "categories": ["Utility", "FileManager"],
+    "keywords": ["files", "folder", "directory"]
+  },
+  {
+    "id": "foot",
+    "name": "Foot",
+    "desktopName": "foot.desktop",
+    "executable": "foot",
+    "categories": ["System", "TerminalEmulator"],
+    "keywords": ["terminal", "console", "shell"]
+  }
+]

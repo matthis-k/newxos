@@ -1,5 +1,6 @@
 import QtCore
 import Quickshell.Io
+import qs.services
 import "../logic/"
 
 ProcessBackendBase {
@@ -11,6 +12,24 @@ ProcessBackendBase {
     property var lazyNodeCache: ({})
     property var lazyScanPath: ""
     property var lazyScanCallback: null
+
+    readonly property var fixtureFileList: TestMode.isActive ? loadFixtureFiles() : []
+
+    function loadFixtureFiles() {
+        var path = TestMode.fixturePath("FILES");
+        var data = TestMode.loadFixtureSync(path);
+        return data || [];
+    }
+
+    function fixtureRootNode(queryText) {
+        var children = root.fixtureFileList.map(function(f, i) {
+            return root.nodeForPath(f.path, i, f.name, null, null, true);
+        });
+        return root.backendRootDto(children, {
+            subtitle: qsTr("Fixture results (%1)").arg(children.length),
+            evaluationProfile: root.defaultProfile()
+        });
+    }
 
     category: qsTr("Files")
 
@@ -87,6 +106,9 @@ ProcessBackendBase {
         const rawQuery = context && context.directive && context.directive.active ? context.directive.raw : (query ? query.raw : "");
         if (!shouldParticipate(rawQuery, context ? context.directive : null, query))
             return null;
+
+        if (TestMode.isActive)
+            return root.fixtureRootNode(rawQuery);
 
         var parsed = root.fileQueryParser.parseFileQuery(rawQuery);
 
@@ -270,6 +292,10 @@ ProcessBackendBase {
     }
 
     function activate(result, action) {
+        if (TestMode.isActive) {
+            print("FILES BACKEND: test mode, skipping file activation");
+            return;
+        }
         const payload = action && action.payload ? action.payload : null;
         const metadata = result ? result.metadata || {} : {};
         if (!result || !(metadata.path || payload && payload.path))

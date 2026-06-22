@@ -30,7 +30,7 @@ Fix: keep `imports` at the module top level, put conditional options under `conf
 
 Quickshell 0.3.0 segfaults during Wi-Fi scan due to `NMAccessPoint` use-after-free.
 
-Fix: use `nmcli` via `Process` instead of `Quickshell.Networking`. Source: `configs/quickshell/services/NetworkService.qml`.
+Fix: use `nmcli` via `Process` instead of `Quickshell.Networking`. Source: `configs/newshell/services/NetworkService.qml`.
 
 ### Module version mismatch
 
@@ -78,11 +78,11 @@ Fix: reserve a minimum height from model count whenever results exist.
 
 Resizing the list/content item itself during shrink/grow makes QML preserve internal position, so a short result set can appear vertically centered after filtering. Letting a layout fill an animated parent height has the same effect: the layout can redistribute children during the intermediate shrink frames.
 
-Fix: animate only the clipped wrapper height and keep the content item/layout at its real target height, top-anchored. Source: `configs/quickshell/components/Expander.qml`, `configs/quickshell/components/ListReveal.qml`.
+Fix: animate only the clipped wrapper height and keep the content item/layout at its real target height, top-anchored. Source: `configs/newshell/components/Expander.qml`, `configs/newshell/components/ListReveal.qml`.
 
-For `ListView` removals, set `ListView.delayRemove` on the delegate wrapper and clear it after the clipped wrapper height animates to zero. Prefer `configs/quickshell/components/AnimatedListDelegate.qml` for list rows so normal height changes and removals share the same top-clipped behavior.
+For `ListView` removals, set `ListView.delayRemove` on the delegate wrapper and clear it after the clipped wrapper height animates to zero. Prefer `configs/newshell/components/AnimatedListDelegate.qml` for list rows so normal height changes and removals share the same top-clipped behavior.
 
-When inserting replacement launcher rows and removing old rows in the same snapshot, do not remove variable-height `ListView` rows immediately. Mark them as leaving, collapse their clipped delegate height, then remove them from the model after the collapse settles; immediate removal can leave new delegates with stale `y` geometry and an oversized results frame. Source: `configs/quickshell/launcher/visual/`.
+When inserting replacement launcher rows and removing old rows in the same snapshot, do not remove variable-height `ListView` rows immediately. Mark them as leaving, collapse their clipped delegate height, then remove them from the model after the collapse settles; immediate removal can leave new delegates with stale `y` geometry and an oversized results frame. Source: `configs/newshell/launcher/visual/`.
 
 If a launcher row replays its add/expand animation on every keystroke, the view is probably receiving snapshot-array resets for the same logical row. Fix: pass stable row ids into `AnimatedListDelegate.animationKey` with a shared `seenKeys` object so only genuinely new ids run add animation.
 
@@ -152,7 +152,7 @@ Fix: ignore the `qmlls` unresolved-type warning for `PanelWindow`. Leave `.qmlls
 
 Config changes managed by a nix-wrapper-modules wrapper take effect only after a NixOS or Home Manager rebuild.
 
-Fix: use the source-tree wrapper (dev specialization) when iterating on `configs/quickshell/` without rebuilding.
+Fix: use the source-tree wrapper (dev specialization) when iterating on `configs/newshell/` without rebuilding.
 
 ### Breaking changes expected before Quickshell 1.0
 

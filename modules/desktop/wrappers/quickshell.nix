@@ -1,8 +1,8 @@
 _:
 let
   configDir = builtins.path {
-    name = "quickshell-config";
-    path = ../../../configs/quickshell;
+    name = "newshell-config";
+    path = ../../../configs/newshell;
     filter = path: type: !(type == "regular" && builtins.baseNameOf path == ".qmlls.ini");
   };
 in
@@ -19,7 +19,7 @@ in
           config_dir=${configDir}
           quickshell_args=()
           if [ "''${NEWXOS_DEV:-0}" = 1 ]; then
-            config_dir="''${NEWXOS_FLAKE:-$HOME/newxos}/configs/quickshell"
+            config_dir="''${NEWXOS_FLAKE:-$HOME/newxos}/configs/newshell"
             quickshell_args+=(--verbose)
           fi
 

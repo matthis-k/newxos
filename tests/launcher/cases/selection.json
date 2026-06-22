@@ -1,0 +1,108 @@
+{
+  "cases": [
+    {
+      "name": "Audio group itself must not be selectable",
+      "tags": ["selection", "audio"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "audio" } },
+        {
+          "expect": {
+            "rows": {
+              "notContains": [
+                { "title": "Audio" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audio children must be selectable",
+      "tags": ["selection", "audio"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "audio" } },
+        {
+          "expect": {
+            "rows": {
+              "containsTitle": ["Output Devices"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'wifi' shows Wi-Fi as promoted child",
+      "tags": ["wifi", "promotion"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "wifi" } },
+        {
+          "expect": {
+            "rows": {
+              "first": { "title": "Wi-Fi" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'wifi on' selects correct action",
+      "tags": ["wifi", "action"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "wifi on" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "On", "executable": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'wifi toggle' shows toggle action",
+      "tags": ["wifi", "action"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "wifi toggle" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "Toggle", "executable": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "VPN shows promoted without visible Networking parent",
+      "tags": ["vpn", "promotion"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "VPN" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

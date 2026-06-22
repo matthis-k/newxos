@@ -157,7 +157,7 @@ Expanding buttons reveal a label alongside an icon on hover or active state. Key
 - Active state uses `primaryAccent` for icon/label color.
 - Expansion direction respects layout context (right-side clusters expand inward).
 
-Reference implementation: `configs/quickshell/components/ExpandableButton.qml`.
+Reference implementation: `configs/newshell/components/ExpandableButton.qml`.
 
 ## Dashboard-Bar Integration
 
@@ -167,7 +167,7 @@ Do not duplicate dashboard open/close/tab state in animated button components. B
 
 ## Dashboard Expanders
 
-Use `configs/quickshell/components/Expander.qml` for clipped expand/collapse reveals. It owns the standard settled initial state, height progress, content-height changes, and slide-down/up motion so content appears to come from the parent.
+Use `configs/newshell/components/Expander.qml` for clipped expand/collapse reveals. It owns the standard settled initial state, height progress, content-height changes, and slide-down/up motion so content appears to come from the parent.
 
 Use `DashboardSection { collapsible: true }` for dashboard sections such as NordVPN/VPN. It delegates body reveal to `Expander`.
 
@@ -213,7 +213,7 @@ Avoid adding a second behavior to nested `TreeView` row heights when child row h
 
 ## Shared Transition Policy
 
-`configs/quickshell/animations/TransitionPolicy.qml` centralizes transition mode selection, duration/easing derivation, and fast-input adaptation.
+`configs/newshell/animations/TransitionPolicy.qml` centralizes transition mode selection, duration/easing derivation, and fast-input adaptation.
 
 Modes:
 
@@ -268,7 +268,7 @@ Behavior:
 
 ## Generic Visual List Coordinator
 
-`configs/quickshell/animations/TransitionListCoordinator.qml` manages stable-keyed visual list lifecycle:
+`configs/newshell/animations/TransitionListCoordinator.qml` manages stable-keyed visual list lifecycle:
 
 - Normalize incoming items with stable keys.
 - Update survivors, insert new rows, move to target order.
@@ -299,7 +299,7 @@ coordinator.applySnapshot(items, {
 
 ## Generic Animated List and Delegate
 
-`configs/quickshell/animations/AnimatedTransitionList.qml` and `TransitionListDelegate.qml` consume the coordinator model and animate insert/remove/move through the shared transition policy.
+`configs/newshell/animations/AnimatedTransitionList.qml` and `TransitionListDelegate.qml` consume the coordinator model and animate insert/remove/move through the shared transition policy.
 
 The list accepts a `payloadDelegate` component. The delegate handles phase lifecycle (`entering`, `live`, `leaving`) using `TransitionItemAnimator`.
 
@@ -307,7 +307,7 @@ Launcher-specific wiring stays in `launcher/visual/LauncherResultList.qml` and `
 
 ## Generic Item Animator
 
-`configs/quickshell/animations/TransitionItemAnimator.qml` animates reveal, opacity, and scale for enter/exit transitions. It derives durations and easing from `TransitionPolicy` based on the current animation mode.
+`configs/newshell/animations/TransitionItemAnimator.qml` animates reveal, opacity, and scale for enter/exit transitions. It derives durations and easing from `TransitionPolicy` based on the current animation mode.
 
 ## When to Use Each Component
 
@@ -332,7 +332,7 @@ Search/ranking/scoring/evidence/backends remain untouched. Only the visual layer
 
 ## Avoiding Local Animations
 
-Prefer shared recipes over local `NumberAnimation`, `Behavior`, or `Transition` blocks. If a local animation is needed, check whether it belongs in `configs/quickshell/animations/` as a new recipe.
+Prefer shared recipes over local `NumberAnimation`, `Behavior`, or `Transition` blocks. If a local animation is needed, check whether it belongs in `configs/newshell/animations/` as a new recipe.
 
 Do not scatter duration literals. Derive from `Config.motion.*` or `TransitionPolicy`.
 

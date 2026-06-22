@@ -1,4 +1,5 @@
 import Quickshell
+import qs.services
 import "../logic/DebugLogger.js" as DebugLogger
 
 ModelTreeBackendBase {
@@ -25,6 +26,25 @@ ModelTreeBackendBase {
 
     readonly property var appTree: buildAppTree()
 
+    readonly property var fixtureApps: TestMode.isActive ? loadFixtureApps() : []
+
+    function loadFixtureApps() {
+        var path = TestMode.fixturePath("DESKTOP");
+        var data = TestMode.loadFixtureSync(path);
+        if (!data) return [];
+        return data.map(function(f) { return {
+            id: f.desktopName || (f.name ? f.name.toLowerCase().replace(/[\s-]/g, "_") + ".desktop" : "unknown.desktop"),
+            name: f.name || f.id || "",
+            genericName: null,
+            comment: null,
+            icon: f.icon || "application-x-executable",
+            actions: f.actions || [],
+            noDisplay: false,
+            categories: f.categories || [],
+            command: f.executable ? [f.executable] : []
+        };});
+    }
+
     function appProfile() { return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default", profile: { evidence: ["field-match:^label$", "semantic", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["consume-own-pass-rest"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } }; }
     function visualRootProfile() { return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"], scorePolicy: "default", profile: { evidence: ["field-match:^label$", "semantic"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["pass-all"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-own-match-or-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }], defaultAction: ["default-action-expand"], riskGate: ["risk-gate"] } }; }
 
@@ -43,7 +63,7 @@ ModelTreeBackendBase {
     }
 
     function buildAppTree() {
-        const entries = DesktopEntries.applications.values || [];
+        const entries = TestMode.isActive ? root.fixtureApps : (DesktopEntries.applications.values || []);
         const children = [];
         for (const entry of entries) {
             if (skipEntry(entry))
@@ -93,6 +113,12 @@ ModelTreeBackendBase {
     }
 
     function activate(result, action) {
+        if (TestMode.isActive) {
+            root.debugLog("desktop-launch", "Test mode: skipping desktop activation", {
+                resultId: result ? result.id : null
+            });
+            return;
+        }
         const metadata = result ? result.metadata || {} : {};
         const cmdAction = (action && action.payload) || (metadata.action && metadata.action.payload) || metadata.action || {};
         const entryId = metadata.desktopEntry || cmdAction.entryId;

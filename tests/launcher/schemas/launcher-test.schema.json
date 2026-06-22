@@ -1,0 +1,163 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LauncherTestSuite",
+  "type": "object",
+  "required": ["cases"],
+  "properties": {
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "oneOf": [
+          { "required": ["query", "expect"] },
+          { "required": ["steps"] }
+        ],
+        "properties": {
+          "name": { "type": "string" },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "query": { "type": "string" },
+          "expect": { "$ref": "#/definitions/Expectation" },
+          "setup": {
+            "type": "object",
+            "properties": {
+              "reset": { "type": "boolean" },
+              "visible": { "type": "boolean" }
+            }
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "do": { "$ref": "#/definitions/StepAction" },
+                "expect": { "$ref": "#/definitions/Expectation" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "StepAction": {
+      "type": "object",
+      "required": ["type"],
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "enum": ["setQuery"] },
+            "query": { "type": "string" }
+          },
+          "required": ["query"]
+        },
+        {
+          "properties": {
+            "type": { "enum": ["typeText"] },
+            "text": { "type": "string" }
+          },
+          "required": ["text"]
+        },
+        {
+          "properties": {
+            "type": { "enum": ["backspace"] },
+            "count": { "type": "integer", "minimum": 1 }
+          }
+        },
+        {
+          "properties": {
+            "type": { "enum": ["open"] },
+            "visible": { "type": "boolean" }
+          }
+        },
+        {
+          "properties": {
+            "type": { "enum": ["close", "reset"] }
+          }
+        },
+        {
+          "properties": {
+            "type": { "enum": ["moveSelection"] },
+            "direction": { "enum": ["up", "down", "left", "right"] }
+          },
+          "required": ["direction"]
+        },
+        {
+          "properties": {
+            "type": { "enum": ["expand", "collapse", "execute"] },
+            "selector": { "$ref": "#/definitions/NodeSelector" }
+          }
+        }
+      ]
+    },
+    "NodeSelector": {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "title": { "type": "string" }
+      }
+    },
+    "Expectation": {
+      "type": "object",
+      "properties": {
+        "query": { "type": "string" },
+        "exactlyOneSelected": { "type": "boolean" },
+        "selected": { "$ref": "#/definitions/RowMatcher" },
+        "expanded": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/RowMatcher" }
+        },
+        "rows": {
+          "type": "object",
+          "properties": {
+            "count": { "type": "integer" },
+            "contains": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/RowMatcher" }
+            },
+            "notContains": {
+              "type": "array",
+              "items": { "$ref": "#/definitions/RowMatcher" }
+            },
+            "containsTitle": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "notContainsTitle": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "containsInOrder": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "first": { "$ref": "#/definitions/RowMatcher" },
+            "noneHighlightedExceptSelected": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "RowMatcher": {
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "title": { "type": "string" },
+        "backend": { "type": "string" },
+        "placement": { "type": "string" },
+        "executable": { "type": "boolean" },
+        "selectable": { "type": "boolean" },
+        "selected": { "type": "boolean" },
+        "highlighted": { "type": "boolean" },
+        "expanded": { "type": "boolean" },
+        "breadcrumbText": { "type": "string" },
+        "path": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

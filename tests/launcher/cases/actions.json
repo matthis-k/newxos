@@ -1,0 +1,90 @@
+{
+  "cases": [
+    {
+      "name": "Query 'newxos' shows Newxos group",
+      "tags": ["newxos", "group"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "newxos" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "Newxos" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'newxos ' with trailing space browses children",
+      "tags": ["newxos", "trailing-space"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "newxos " } },
+        {
+          "expect": {
+            "rows": {
+              "containsTitle": ["AI", "Switch System"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'newxos' and 'newxos ' behave the same",
+      "tags": ["newxos", "trailing-space"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "newxos" } },
+        {
+          "expect": {
+            "rows": {
+              "first": { "title": "Newxos" }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'ai' promotes AI from Newxos group",
+      "tags": ["newxos", "promotion"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "ai" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "AI" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'shutdown' shows Shut Down with risk gate",
+      "tags": ["actions", "risk"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "shutdown" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "Shut Down" }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

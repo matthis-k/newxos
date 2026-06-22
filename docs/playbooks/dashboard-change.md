@@ -11,22 +11,22 @@ Do not duplicate dashboard open/close/tab state inside tab pages, bar delegates,
 ## Canonical Structure
 
 ```txt
-configs/quickshell/services/ShellState.qml
+configs/newshell/services/ShellState.qml
   -> owns dashboard phase, active tab, tab list, transition timing
 
-configs/quickshell/modules/quickmenu/Window.qml
+configs/newshell/modules/quickmenu/Window.qml
   -> owns panel window, backdrop, animation, SwipeView, tab host, swipe/wheel navigation
 
-configs/quickshell/modules/quickmenu/*.qml
+configs/newshell/modules/quickmenu/*.qml
   -> own tab page layout and content
 
-configs/quickshell/modules/bar/
+configs/newshell/modules/bar/
   -> owns dashboard entry buttons/indicators
 
-configs/quickshell/services/
+configs/newshell/services/
   -> own system data and side effects
 
-configs/quickshell/components/
+configs/newshell/components/
   -> reusable dashboard rows/cards/controls
 ```
 

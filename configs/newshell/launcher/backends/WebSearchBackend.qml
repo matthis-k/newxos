@@ -1,4 +1,5 @@
 import Quickshell
+import qs.services
 
 LauncherBackendBase {
     id: root
@@ -43,6 +44,9 @@ LauncherBackendBase {
     }
 
     function activate(result, action) {
+        if (TestMode.isActive)
+            return;
+
         const metadata = result ? result.metadata || {} : {};
         const cmdAction = metadata.action || {};
         const searchQuery = metadata.query || cmdAction.query || (action && action.payload && action.payload.query) || "";

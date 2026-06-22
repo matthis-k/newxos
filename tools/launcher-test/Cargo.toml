@@ -1,0 +1,18 @@
+[package]
+name = "newshell-launcher-test"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "0.8"
+tokio = { version = "1", features = ["full"] }
+similar = "2"
+colored = "2"
+
+[[bin]]
+name = "newshell-launcher-test"
+path = "src/main.rs"

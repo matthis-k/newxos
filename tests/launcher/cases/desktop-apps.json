@@ -1,0 +1,76 @@
+{
+  "cases": [
+    {
+      "name": "Desktop app child actions only match their own title",
+      "tags": ["desktop", "matching"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "a" } },
+        {
+          "expect": {
+            "rows": {
+              "notContainsTitle": [
+                "New Window",
+                "New Private Window",
+                "Open Incognito Window"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'zen' shows Zen Browser as promoted child",
+      "tags": ["desktop", "zen"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "zen" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "Zen Browser", "executable": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'zen priv' shows private window action",
+      "tags": ["desktop", "zen"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "zen priv" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "Zen Browser (Private Window)" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'zen' does not expand Files/Nautilus",
+      "tags": ["desktop", "matching"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "zen" } },
+        {
+          "expect": {
+            "rows": {
+              "notContainsTitle": ["Files"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

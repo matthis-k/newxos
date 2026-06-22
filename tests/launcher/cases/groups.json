@@ -1,0 +1,56 @@
+{
+  "cases": [
+    {
+      "name": "Networking group appears on 'network' query",
+      "tags": ["groups", "networking"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "network" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "Networking" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Backend children match, backend appears as group",
+      "tags": ["groups", "backend"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "bluetooth" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "Bluetooth" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audio children appear when query matches",
+      "tags": ["groups", "audio"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "audio" } },
+        {
+          "expect": {
+            "rows": {
+              "containsTitle": ["Volume", "Output Devices"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -18,7 +18,7 @@ For QuickShell/QML work, consult in this order:
 3. `docs/architecture.md` → launcher pipeline, wrapper behavior
 4. `docs/contracts/quickshell-design.md` → visual style, spacing, QML conventions
 5. `docs/pitfalls.md` → known Quickshell bugs and workarounds
-6. Source files in `configs/quickshell/` → actual behavior
+6. Source files in `configs/newshell/` → actual behavior
 7. Qt Documentation MCP → Qt/QML framework API
 8. Context7 → external library docs not covered by Qt or local source
 
@@ -29,7 +29,7 @@ For QuickShell/QML work, consult in this order:
 | Visual style, spacing, animation | `docs/contracts/quickshell-design.md` |
 | Launcher pipeline, IPC | `docs/architecture.md` |
 | Known bugs and workarounds | `docs/pitfalls.md` |
-| QML source | `configs/quickshell/` |
+| QML source | `configs/newshell/` |
 | Wrapper, dev mode, newshell binary | `modules/desktop/wrappers/quickshell.nix` |
 | Theming | `modules/theming/` |
 | Qt/QML framework API | Qt Documentation MCP |

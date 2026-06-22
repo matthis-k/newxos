@@ -1,6 +1,6 @@
 # Launcher ranking expectations
 
-Use `newshell ipc call query pipeline '<query>'` or `newshell ipc call query visual '<query>'` after `systemctl --user restart newshell` to verify results. Plain `pipeline` calls are compact/visible-only overviews; use `newshell ipc call query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta","details":["rows","phases"]}'` for focused hidden evaluation of one node family with selected detail sections. Source: `configs/quickshell/launcher/logic/` (QML pipeline modules).
+Use `newshell ipc call query pipeline '<query>'` or `newshell ipc call query visual '<query>'` after `systemctl --user restart newshell` to verify results. Plain `pipeline` calls are compact/visible-only overviews; use `newshell ipc call query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta","details":["rows","phases"]}'` for focused hidden evaluation of one node family with selected detail sections. Source: `configs/newshell/launcher/logic/` (QML pipeline modules).
 
 ## Core checklist
 
@@ -43,17 +43,17 @@ Run these queries after any launcher search change:
 
 ## Source owners
 
-- Engine and pipeline orchestration: `configs/quickshell/launcher/logic/Engine.qml`
-- Tokenization and normalized node construction: `configs/quickshell/launcher/logic/Tokenize.qml`
-- Indexing and candidate collection: `configs/quickshell/launcher/logic/IndexBuilder.qml`
-- Evidence scoring and field matching: `configs/quickshell/launcher/logic/Evidence.qml`
-- Evaluation tree construction and inherit policies: `configs/quickshell/launcher/logic/Evaluate.qml`
-- Presentation decisions and group display: `configs/quickshell/launcher/policies/presentation/PresentationPolicy.qml`, `PresentationPresets.qml`
-- Shaping, default action selection, and row generation: `configs/quickshell/launcher/logic/ResultShaping.qml` + `ActionPolicy.qml` + `RenderedRows.qml`
-- Row post-processing and sorting: `configs/quickshell/launcher/logic/Rows.qml`
-- Policy registry: `configs/quickshell/launcher/logic/CompositeSearchPolicyRegistry.js`, `configs/quickshell/launcher/PolicyRegistry.qml`
-- Policy chaining and aggregation: `configs/quickshell/launcher/logic/PolicyChain.qml` (includes `lookupPolicy(registry, spec)` helper for normalized spec-aware lookups)
-- Pipeline model/utility modules: `configs/quickshell/launcher/logic/ScoreBundle.qml`, `ResultShaping.qml`, `PresentationContext.qml`, `ActionPolicy.qml`, `RenderedRows.qml`, `PolicySpec.qml`
-- Controller/session ownership: `configs/quickshell/launcher/controllers/` for debounce/async, result navigation, activation, and debug endpoints; `LauncherController.qml` remains the public compatibility façade
+- Engine and pipeline orchestration: `configs/newshell/launcher/logic/Engine.qml`
+- Tokenization and normalized node construction: `configs/newshell/launcher/logic/Tokenize.qml`
+- Indexing and candidate collection: `configs/newshell/launcher/logic/IndexBuilder.qml`
+- Evidence scoring and field matching: `configs/newshell/launcher/logic/Evidence.qml`
+- Evaluation tree construction and inherit policies: `configs/newshell/launcher/logic/Evaluate.qml`
+- Presentation decisions and group display: `configs/newshell/launcher/policies/presentation/PresentationPolicy.qml`, `PresentationPresets.qml`
+- Shaping, default action selection, and row generation: `configs/newshell/launcher/logic/ResultShaping.qml` + `ActionPolicy.qml` + `RenderedRows.qml`
+- Row post-processing and sorting: `configs/newshell/launcher/logic/Rows.qml`
+- Policy registry: `configs/newshell/launcher/logic/CompositeSearchPolicyRegistry.js`, `configs/newshell/launcher/PolicyRegistry.qml`
+- Policy chaining and aggregation: `configs/newshell/launcher/logic/PolicyChain.qml` (includes `lookupPolicy(registry, spec)` helper for normalized spec-aware lookups)
+- Pipeline model/utility modules: `configs/newshell/launcher/logic/ScoreBundle.qml`, `ResultShaping.qml`, `PresentationContext.qml`, `ActionPolicy.qml`, `RenderedRows.qml`, `PolicySpec.qml`
+- Controller/session ownership: `configs/newshell/launcher/controllers/` for debounce/async, result navigation, activation, and debug endpoints; `LauncherController.qml` remains the public compatibility façade
 - Current gaps: TokenFlowDecision not implemented; PolicySpec parameterized semantics still incremental
-- Routing tree: `configs/quickshell/launcher/logic/RoutingTree.js`
+- Routing tree: `configs/newshell/launcher/logic/RoutingTree.js`

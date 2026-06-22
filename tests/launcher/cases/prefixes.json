@@ -1,0 +1,58 @@
+{
+  "cases": [
+    {
+      "name": "Prefix ':' is recognized by routing tree",
+      "tags": ["prefix"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": ":wifi" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "Wi-Fi" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Prefix ':wifi on' goes to action",
+      "tags": ["prefix", "action"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": ":wifi on" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "On", "executable": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Prefix ':' with trailing space",
+      "tags": ["prefix"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": ": " } }
+      ]
+    },
+    {
+      "name": "Prefix '@apps' shows app backend",
+      "tags": ["prefix", "apps"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "@app" } }
+      ]
+    }
+  ]
+}

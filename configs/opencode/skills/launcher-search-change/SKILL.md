@@ -15,7 +15,7 @@ Launcher behavior changes should be policy-driven. Backend data must cross the D
 - `docs/contracts/quickshell-design.md` — anti-patterns section
 - `docs/pitfalls.md` — launcher pitfalls (retained trees, circular references, children bypass)
 - `docs/playbooks/launcher-sanity-check.md` — ranking intent, IPC debugging, pipeline schema, capability cases
-- Owning backend or logic file in `configs/quickshell/launcher/`
+- Owning backend or logic file in `configs/newshell/launcher/`
 
 ## Architecture Boundary
 

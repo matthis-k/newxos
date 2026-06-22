@@ -22,11 +22,11 @@ All UI must follow the flat-design contract: no gradients, shadows, or 3D. Use p
 
 | Path | Owns |
 |------|------|
-| `configs/quickshell/shell.qml` | Root window, panel layout, per-screen instantiation |
-| `configs/quickshell/services/` | Singleton services (network, brightness, config, notifications) |
-| `configs/quickshell/components/` | Shared UI components (buttons, sliders, icons, dashboard pieces) |
-| `configs/quickshell/modules/*/` | Panel modules (quickmenu, background, hyprland preview) |
-| `configs/quickshell/launcher/` | Launcher search pipeline (see launcher-search-change skill) |
+    | `configs/newshell/shell.qml` | Root window, panel layout, per-screen instantiation |
+    | `configs/newshell/services/` | Singleton services (network, brightness, config, notifications) |
+    | `configs/newshell/components/` | Shared UI components (buttons, sliders, icons, dashboard pieces) |
+    | `configs/newshell/modules/*/` | Panel modules (quickmenu, background, hyprland preview) |
+    | `configs/newshell/launcher/` | Launcher search pipeline (see launcher-search-change skill) |
 | `modules/desktop/wrappers/quickshell.nix` | Wrapper, newshell binary, dev mode config routing |
 | `modules/theming/` | Palette, generated QuickShell theme JSON |
 

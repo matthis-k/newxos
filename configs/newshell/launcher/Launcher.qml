@@ -35,6 +35,7 @@ PanelWindow {
     property int iconSize: 32
     property bool launcherRevealed: false
     property bool closing: false
+    property var lastExecutedAction: null
 
     function open(arg) {
         if (arg === undefined) {
@@ -333,6 +334,13 @@ PanelWindow {
 
     function activateSelectedSemantic(shiftPressed) {
         const result = root.activateSelectedCore(!!shiftPressed);
+        const target = controller.actions.selectedActionTarget();
+        root.lastExecutedAction = target ? {
+            key: target.nodeId || target.id || "",
+            title: target.title || "",
+            timestamp: Date.now(),
+            testMode: Quickshell.env("NEWSHELL_TEST_MODE") === "1"
+        } : null;
         root.applyActivationClose(result);
         return {
             mode: shiftPressed ? "shift-activate" : "activate",
@@ -393,6 +401,11 @@ PanelWindow {
             generation: controller.generation,
             queryRevision: controller.queryRevision,
             loading: controller.loading,
+            modelBusy: controller.loading || (
+                (controller.query || "") !== "" &&
+                (controller.resultsQuery || "") !== (controller.query || "")
+            ),
+            lastExecutedAction: root.lastExecutedAction,
             resultsCount: controller.results ? controller.results.length : 0,
             selectedIndex: controller.selectedIndex,
             selectedActionIndex: controller.selectedActionIndex,

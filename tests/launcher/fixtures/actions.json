@@ -1,0 +1,18 @@
+[
+  { "id": "networking.wifi.on", "title": "On", "path": ["Actions", "Networking", "Wi-Fi", "On"], "group": "wifi", "type": "switch", "state": true },
+  { "id": "networking.wifi.off", "title": "Off", "path": ["Actions", "Networking", "Wi-Fi", "Off"], "group": "wifi", "type": "switch", "state": false },
+  { "id": "networking.wifi.toggle", "title": "Toggle", "path": ["Actions", "Networking", "Wi-Fi", "Toggle"], "group": "wifi", "type": "switch" },
+  { "id": "networking.vpn.on", "title": "On", "path": ["Actions", "Networking", "VPN", "On"], "group": "vpn", "type": "switch", "state": true },
+  { "id": "networking.vpn.off", "title": "Off", "path": ["Actions", "Networking", "VPN", "Off"], "group": "vpn", "type": "switch", "state": false },
+  { "id": "networking.vpn.toggle", "title": "Toggle", "path": ["Actions", "Networking", "VPN", "Toggle"], "group": "vpn", "type": "switch" },
+  { "id": "networking.bluetooth.on", "title": "On", "path": ["Actions", "Networking", "Bluetooth", "On"], "group": "bluetooth", "type": "switch", "state": true },
+  { "id": "networking.bluetooth.off", "title": "Off", "path": ["Actions", "Networking", "Bluetooth", "Off"], "group": "bluetooth", "type": "switch", "state": false },
+  { "id": "networking.bluetooth.toggle", "title": "Toggle", "path": ["Actions", "Networking", "Bluetooth", "Toggle"], "group": "bluetooth", "type": "switch" },
+  { "id": "newxos.switch", "title": "Switch System", "path": ["Actions", "Newxos", "Switch System"], "type": "action", "risk": { "level": "privileged", "activation": "confirm" } },
+  { "id": "newxos.ai", "title": "AI", "path": ["Actions", "Newxos", "AI"], "type": "action" },
+  { "id": "session.shutdown", "title": "Shut Down", "path": ["Actions", "Session", "Shut Down"], "type": "action", "semantics": { "activation": { "requiresConfirm": true } } },
+  { "id": "session.lock", "title": "Lock Screen", "path": ["Actions", "Session", "Lock Screen"], "type": "action" },
+  { "id": "session.logout", "title": "Log Out", "path": ["Actions", "Session", "Log Out"], "type": "action" },
+  { "id": "audio.volume", "title": "Volume", "path": ["Actions", "Audio", "Volume"], "type": "action" },
+  { "id": "audio.output-devices", "title": "Output Devices", "path": ["Actions", "Audio", "Output Devices"], "type": "action" }
+]
