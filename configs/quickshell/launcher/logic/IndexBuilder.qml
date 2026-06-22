@@ -213,8 +213,12 @@ Singleton {
 
     function collectCandidateIdsForRoots(roots, query, cap) {
         if (query.isEmpty) return null;
+        // Single-character queries get a lower cap to prevent excessive weak matches
+        var isSingleChar = query && !query.isEmpty && query.tokens && query.tokens.length === 1
+            && query.tokens[0].raw.length <= 1;
+        var effectiveCap = isSingleChar ? Math.min(cap || 256, 80) : (cap || 256);
         var marked = {};
-        var capState = { hits: 0, cap: cap || 256, query: query };
+        var capState = { hits: 0, cap: effectiveCap, query: query };
         for (var i = 0; i < (roots || []).length; i += 1) {
             if (capState.hits >= capState.cap) break;
             var index = roots[i].__searchIndex || buildSearchIndex(roots[i]);

@@ -194,6 +194,16 @@ Singleton {
             retainParent = true;
             reason = "standalone row";
             break;
+        case "promoted-child":
+            reprMode = "promoted";
+            retainParent = true;
+            reason = "child promoted to standalone row";
+            break;
+        case "flattened":
+            reprMode = "flat";
+            retainParent = true;
+            reason = "flattened child row";
+            break;
         default:
             reprMode = placement || mode;
             reason = "placement from decision";
@@ -282,7 +292,10 @@ Singleton {
             allowed: activation.allowed,
             mode: activation.mode || "normal",
             riskLevel: riskLevel,
-            reason: activation.reason || "normal activation"
+            reason: activation.reason || "normal activation",
+            policyReason: activation.policyReason || "",
+            requiresConfirm: !!activation.requiresConfirm,
+            requiresExplicitPrefix: !!activation.requiresExplicitPrefix
         };
     }
 
@@ -299,7 +312,7 @@ Singleton {
             } : null,
             representation: sem.representation ? { mode: sem.representation.mode, retainParent: sem.representation.retainParent, reason: sem.representation.reason } : null,
             action: sem.action ? { ownerId: sem.action.selectedOwnerId, actionId: sem.action.actionId, reason: sem.action.reason } : null,
-            activation: sem.activation ? { allowed: sem.activation.allowed, mode: sem.activation.mode, riskLevel: sem.activation.riskLevel, reason: sem.activation.reason } : null
+            activation: sem.activation ? { allowed: sem.activation.allowed, mode: sem.activation.mode, riskLevel: sem.activation.riskLevel, reason: sem.activation.reason, policyReason: sem.activation.policyReason, requiresConfirm: sem.activation.requiresConfirm, requiresExplicitPrefix: sem.activation.requiresExplicitPrefix } : null
         };
     }
 }

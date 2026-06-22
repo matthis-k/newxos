@@ -198,6 +198,50 @@ Singleton {
         };
     }
 
+    function consumeSwitchPassRest(node, query, ctx, args) {
+        var consumed = [];
+        var consumedIds = {};
+        var serviceFields = (args && args.fields) || ["label", "alias"];
+        var actionAliases = ["on", "off", "toggle", "enable", "disable", "start", "stop"];
+
+        for (var ti = 0; ti < (query.tokens || []).length; ti += 1) {
+            var token = query.tokens[ti];
+            var matched = false;
+
+            for (var fi = 0; fi < serviceFields.length; fi += 1) {
+                var values = nodeFieldValues(node, serviceFields[fi]);
+                for (var vi = 0; vi < values.length; vi += 1) {
+                    var norm = Tokenize.normalizeText(values[vi]);
+                    if (norm === token.normalized || norm.indexOf(token.normalized) === 0) {
+                        consumed.push({ tokenId: "tok_" + ti, tokenText: token.raw, field: serviceFields[fi], strength: norm === token.normalized ? 1.0 : 0.75, mode: "hard", reason: "switch service token matched " + serviceFields[fi] });
+                        consumedIds[ti] = true;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (matched) break;
+            }
+
+            if (!matched && actionAliases.indexOf(token.normalized) >= 0) {
+                consumed.push({ tokenId: "tok_" + ti, tokenText: token.raw, field: "action", strength: 1.0, mode: "hard", reason: "switch action token matched" });
+                consumedIds[ti] = true;
+            }
+        }
+
+        var passed = [];
+        for (var pi = 0; pi < (query.tokens || []).length; pi += 1) {
+            if (!consumedIds[pi])
+                passed.push(query.tokens[pi]);
+        }
+
+        return {
+            consumed: consumed,
+            passed: passed,
+            inherited: [],
+            reason: "consume-switch-pass-rest: consumed " + consumed.length + " switch tokens"
+        };
+    }
+
     function consumePathSegment(node, query, ctx, args) {
         var sameLevelFirst = args && args.sameLevelFirst;
         var recurseWhenNoLocalMatch = args && args.recurseWhenNoLocalMatch;

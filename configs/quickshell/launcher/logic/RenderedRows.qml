@@ -129,12 +129,17 @@ Singleton {
         }
         var actions = copyActionList(sourceActions, action);
         var enterAction = action ? copyAction(action, true) : null;
+        var hasAction = !!action;
 
         var placement = shapedItem ? shapedItem.placement : presCtx.placement;
 
-        var hasReplaceQuery = !!(node.meta && node.meta.replaceQuery);
+        var replaceQueryInfo = replaceQuerySource(node, action, selectedAction);
+        var hasReplaceQuery = !!replaceQueryInfo.value;
 
         var semantics = shapedItem && shapedItem.semantics ? shapedItem.semantics : null;
+        var activation = semantics && semantics.activation ? semantics.activation : null;
+        var canExecuteNow = hasAction && (!activation || activation.allowed !== false);
+        var needsConfirmation = hasAction && activation && activation.allowed === false && !!activation.requiresConfirm;
 
         var row = {
             id: "row:" + node.id,
@@ -166,13 +171,16 @@ Singleton {
             subtitleMatches: copyRanges(rangesForField(ev.evidence, "subtitle", node.id)),
             semantics: semantics,
             actions: actions,
-            enter: enterAction
-                ? (enterAction.payload && enterAction.payload.replaceQuery
-                    ? { type: "sequence", steps: [{ type: "activate", action: enterAction }] }
-                    : { type: "sequence", steps: [{ type: "activate", action: enterAction }, { type: "close" }] })
+            enter: hasReplaceQuery
+                ? { type: "sequence", steps: [{ type: "edit-query", value: replaceQueryInfo.value }] }
+                : enterAction
+                ? { type: "sequence", steps: [{ type: "activate", action: enterAction }, { type: "close" }] }
                 : { type: "noop" },
             shiftEnter: { type: "noop" },
-            executable: !!action,
+            hasAction: hasAction,
+            canExecuteNow: canExecuteNow,
+            needsConfirmation: needsConfirmation,
+            executable: canExecuteNow,
             dangerous: !!node.dangerous,
             risk: node.risk
                 ? { level: node.risk.level || "none", activation: node.risk.activation || "normal" }
@@ -180,10 +188,15 @@ Singleton {
                     ? { level: "state-change", activation: "confirm" }
                     : null,
             filterable: suppressOwnActions ? false : !!(node.behavior && node.behavior.filterable),
+            filterChildren: !!(node.behavior && (node.behavior.filterChildren || node.behavior.filterable)),
+            selectable: !(node.behavior && node.behavior.selectable === false),
+            explicitBrowseChild: !!(options && options.explicitBrowseChild),
             lazy: !!node.lazy,
             alwaysExpanded: hasExplicitAlwaysExpanded(node)
                 ? node.behavior.alwaysExpanded !== false
-                : (parentMatchShowsChildren(ev, ctx) || childHasGoodMatch(childRows) || switchHasResidualChildren(ev, ctx)),
+                : hasExplicitExpandPolicy(node)
+                    ? shapedAsNestedGroup(shapedItem)
+                    : (parentMatchShowsChildren(ev, ctx) || childHasGoodMatch(childRows) || switchHasResidualChildren(ev, ctx)),
             children: childRows || [],
             switchActions: suppressOwnActions ? null : copySwitchActions(node.switchActions, action),
             defaultAction: ActionPolicy.selectedActionMetadata(selectedAction),
@@ -251,6 +264,17 @@ Singleton {
 
     function hasExplicitAlwaysExpanded(node) {
         return !!(node && node.behavior && Object.prototype.hasOwnProperty.call(node.behavior, "alwaysExpanded"));
+    }
+
+    function hasExplicitExpandPolicy(node) {
+        var profile = node && node.evaluationProfile && node.evaluationProfile.profile || {};
+        return !!(profile.expand && profile.expand.length > 0);
+    }
+
+    function shapedAsNestedGroup(shapedItem) {
+        return !!(shapedItem
+            && shapedItem.decision
+            && shapedItem.decision.mode === "nested-group");
     }
 
     function childHasGoodMatch(childRows) {
@@ -354,7 +378,9 @@ Singleton {
         return {
             id: a.id || "", label: a.label || a.title || a.id || "",
             icon: a.icon || null, default: isDef === undefined ? !!a.default : !!isDef,
-            intent: a.intent || null, payload: copyPayload(a.payload)
+            intent: a.intent || null, payload: copyPayload(a.payload),
+            dangerous: !!a.dangerous,
+            risk: a.risk || null
         };
     }
 
@@ -369,6 +395,16 @@ Singleton {
         return out;
     }
 
+    function replaceQuerySource(node, action, selectedAction) {
+        var meta = node && node.meta || {};
+        if (meta.replaceQuery) return { value: meta.replaceQuery, from: "metadata.replaceQuery" };
+        if (action && action.payload && action.payload.replaceQuery) return { value: action.payload.replaceQuery, from: "defaultAction.payload.replaceQuery" };
+        if (selectedAction && selectedAction.action && selectedAction.action.payload && selectedAction.action.payload.replaceQuery) return { value: selectedAction.action.payload.replaceQuery, from: "defaultAction.payload.replaceQuery" };
+        if (meta.action && meta.action.replaceQuery) return { value: meta.action.replaceQuery, from: "metadata.action.replaceQuery" };
+        if (meta.action && meta.action.payload && meta.action.payload.replaceQuery) return { value: meta.action.payload.replaceQuery, from: "metadata.action.payload.replaceQuery" };
+        return { value: "", from: "metadata.replaceQuery" };
+    }
+
     function copyMetadata(meta, node, action) {
         var out = {};
         for (var k in meta || {}) {
@@ -379,6 +415,8 @@ Singleton {
         }
         out.nodeId = node.id;
         if (action) out.actionId = action.id || "";
+        var rq = replaceQuerySource(node, action, null);
+        if (rq.value) out.replaceQuery = rq.value;
         return out;
     }
 

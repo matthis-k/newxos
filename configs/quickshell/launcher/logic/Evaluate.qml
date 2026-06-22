@@ -17,7 +17,6 @@ Singleton {
         inherit: ["path-evidence"],
         boost: ["descendant-boost"],
         childVisible: ["visible-flag"],
-        childBypass: ["own-score-beats-parent", "score-dominates:0.03"],
         tokenFlow: ["pass-all"],
         defaultAction: ["default-action-owner"],
         riskGate: ["risk-gate"]
@@ -49,12 +48,17 @@ Singleton {
         return false;
     }
 
+    function isSingleCharQuery(query) {
+        return query && !query.isEmpty && query.tokens && query.tokens.length === 1 && query.tokens[0].raw.length <= 1;
+    }
+
     function evaluateNode(node, query, ctx) {
         var directiveActive = !!(ctx.directive && ctx.directive.active);
         var selfAllowed = !directiveActive || nodeMatchesDirective(node, ctx);
         if (directiveActive && !selfAllowed && !nodeTreeMayContainDirective(node, ctx))
             return { node: node, allowed: false, candidate: false, pruned: true, evidence: [], ownEvidence: [], inheritedEvidence: [], ownScore: 0, inheritedScore: 0, score: 0, visible: false, children: [] };
 
+        var singleCharQuery = isSingleCharQuery(query);
         var qEmpty = query.isEmpty;
         var directiveBrowse = directiveActive && qEmpty;
         if (ctx.candidateIds && !ctx.candidateIds[node.id] && node.kind !== "root" && node.kind !== "backend" && !node.showWhenQueryEmpty && !(qEmpty && node.backendId === "backends" && directiveActive) && !directiveBrowse && !ctx.showHidden)
@@ -107,6 +111,26 @@ Singleton {
                 ownEvidence = Evidence.bestPerToken(ownEvidence);
         }
 
+        // Single-character query: require stronger evidence, filter weak matches
+        if (singleCharQuery && ownEvidence.length > 0) {
+            ownEvidence = ownEvidence.filter(function(e) {
+                var k = String(e.kind || e.strategy || "");
+                // Allow only exact, acronym, prefix, compact, word-start matches
+                if (k.indexOf("exact") >= 0) return true;
+                if (k.indexOf("acronym") >= 0) return true;
+                if (k.indexOf("prefix") >= 0) return e.tokenIndex === 0 || e.coverageCount > 0;
+                if (k.indexOf("compact") >= 0) return true;
+                if (k.indexOf("word-start") >= 0) return true;
+                // Filter out: substring, fuzzy, inherited-only, usage/recency
+                if (k.indexOf("substring") >= 0) return false;
+                if (k.indexOf("fuzzy") >= 0) return false;
+                if (k.indexOf("semantic") >= 0) return false;
+                if (k === "usage" || k === "recency") return false;
+                if (e.field === "usage" || e.field === "recency") return false;
+                return false;
+            });
+        }
+
         var tokenFlowResult = null;
         var childQuery = query;
         var childCtx = ctx;
@@ -117,6 +141,8 @@ Singleton {
             if (tokenFlow && tokenFlow.passed) {
                 childQuery = TokenFlow.buildChildQuery(node, tokenFlow, query);
                 childCtx = Object.assign({}, ctx, { childQuery: childQuery, tokenFlow: tokenFlow });
+                if (directCandidate && tokenFlow.consumed && tokenFlow.consumed.length > 0 && tokenFlow.passed.length > 0)
+                    childCtx.candidateIds = null;
             }
         }
 
@@ -192,6 +218,111 @@ Singleton {
 
         var mergedEvidence = ownEvidence.concat(inheritedEvidence);
 
+        // Capture evidence trace
+        if (node && node.id && ctx._evidenceTrace) {
+            var matchedTokens = [];
+            var consumedTokens = [];
+            var missingTokens = [];
+            var tokenIndexes = {};
+            for (var ei = 0; ei < mergedEvidence.length; ei += 1) {
+                var evItem = mergedEvidence[ei];
+                var ti = evItem.tokenIndex;
+                if (ti !== undefined && ti >= 0) {
+                    tokenIndexes[ti] = true;
+                    matchedTokens.push(query.tokens[ti] ? query.tokens[ti].normalized : String(ti));
+                    consumedTokens.push(query.tokens[ti] ? query.tokens[ti].normalized : String(ti));
+                }
+            }
+            for (var ti2 = 0; ti2 < (query.tokens || []).length; ti2 += 1) {
+                if (!tokenIndexes[ti2]) missingTokens.push(query.tokens[ti2].normalized);
+            }
+            var fields = [];
+            for (var ei2 = 0; ei2 < mergedEvidence.length; ei2 += 1) {
+                var e2 = mergedEvidence[ei2];
+                if (fields.length < 20) {
+                    fields.push({
+                        name: e2.field || "",
+                        value: e2.fieldText || "",
+                        normalized: Tokenize.normalizeText(e2.fieldText || ""),
+                        weight: e2.weight || 0
+                    });
+                }
+            }
+            ctx._evidenceTrace[node.id] = {
+                nodeId: node.id,
+                fields: fields,
+                consumedTokens: consumedTokens,
+                matchedTokens: matchedTokens,
+                missingTokens: missingTokens,
+                summaries: null
+            };
+        }
+
+        // Capture score trace
+        if (node && node.id && ctx._scoreTrace) {
+            ctx._scoreTrace[node.id] = {
+                nodeId: node.id,
+                final: finalScore,
+                own: own.value,
+                parent: inheritedScore,
+                child: descendantBoost,
+                inherited: inheritedScore,
+                breakdown: [
+                    { source: "own", value: own.value, reason: { code: "own_evidence", text: "Own evidence score" } },
+                    { source: "inherited", value: inheritedScore, reason: { code: "inherited_evidence", text: "Inherited evidence score" } },
+                    { source: "descendant", value: descendantBoost, reason: { code: "descendant_boost", text: "Descendant boost" } }
+                ]
+            };
+        }
+
+        // Capture policy trace (for evidence policies that ran)
+        if (node && node.id && ctx._policyTrace) {
+            var evidencePolicyResults = [];
+            for (var ei3 = 0; ei3 < mergedEvidence.length; ei3 += 1) {
+                var e3 = mergedEvidence[ei3];
+                evidencePolicyResults.push({
+                    name: e3.strategy || e3.field || "unknown",
+                    priority: 0,
+                    enabled: true,
+                    returned: { value: { score: e3.score, weight: e3.weight, effective: e3.effective }, reasons: [{ code: e3.kind || "match", text: e3.reason || "evidence match" }] },
+                    effect: "selected",
+                    reasons: [{ code: e3.kind || "match", text: e3.reason || "evidence match" }]
+                });
+            }
+            if (!ctx._policyTrace[node.id]) ctx._policyTrace[node.id] = {};
+            ctx._policyTrace[node.id].evidence = {
+                kind: "evidence",
+                evaluated: evidencePolicyResults,
+                aggregate: { strategy: "accumulate", inputCount: evidencePolicyResults.length, result: { score: own.value }, reasons: [{ code: "accumulated", text: "Evidence accumulated from " + evidencePolicyResults.length + " policies" }] },
+                final: { value: { score: own.value }, reasons: [{ code: "evidence_done", text: "Evidence computed" }] }
+            };
+            ctx._policyTrace[node.id].scoring = {
+                kind: "scoring",
+                evaluated: [
+                    { name: "ownScore", priority: 0, enabled: true, returned: { value: own.value, reasons: [{ code: "score_own", text: "Own score: " + own.value }] }, effect: "combined", reasons: [{ code: "scored", text: "Score computed" }] },
+                    { name: "inheritedScore", priority: 0, enabled: true, returned: { value: inheritedScore, reasons: [{ code: "score_inherited", text: "Inherited score: " + inheritedScore }] }, effect: "combined", reasons: [] },
+                    { name: "descendantBoost", priority: 0, enabled: true, returned: { value: descendantBoost, reasons: [{ code: "score_descendant", text: "Descendant boost: " + descendantBoost }] }, effect: "combined", reasons: [] }
+                ],
+                aggregate: { strategy: "max", inputCount: 3, result: finalScore, reasons: [{ code: "max_score", text: "Final score is max of own/inherited/descendant" }] },
+                final: { value: finalScore, reasons: [{ code: "score_final", text: "Final score: " + finalScore }] }
+            };
+            ctx._policyTrace[node.id].tokenFlow = {
+                kind: "tokenFlow",
+                evaluated: [{
+                    name: (tokenFlowResult && tokenFlowResult.value && tokenFlowResult.value.reason) || "token-flow",
+                    priority: 0,
+                    enabled: true,
+                    returned: tokenFlowResult && tokenFlowResult.value ? {
+                        value: { consumed: (tokenFlowResult.value.consumed || []).length, passed: (tokenFlowResult.value.passed || []).length },
+                        reasons: [{ code: "token_flow", text: (tokenFlowResult.value.reason || "token flow evaluated") }]
+                    } : null,
+                    effect: "selected",
+                    reasons: [{ code: "token_flow", text: (tokenFlowResult && tokenFlowResult.value && tokenFlowResult.value.reason) || "token flow" }]
+                }],
+                final: { value: tokenFlowResult ? tokenFlowResult.value : null, reasons: [{ code: "token_flow_done", text: "Token flow evaluated" }] }
+            };
+        }
+
         var result = {
             node: node,
             allowed: selfAllowed,
@@ -218,6 +349,18 @@ Singleton {
 
     function evaluateChildren(node, query, ctx, directiveActive) {
         var children = node.children || [];
+
+        // Gate expensive child expansion for single-character or very short queries
+        // when this node has exploration.descend === false (e.g., VPN country list).
+        // Without this, every child (even pruned ones) gets walk-evaluated.
+        var behavior = node && node.behavior || {};
+        var exploration = behavior.exploration || {};
+        var isShortQuery = query && !query.isEmpty && query.tokens && query.tokens.length <= 1
+            && query.tokens[0].raw.length <= 2;
+        if (isShortQuery && exploration.descend === false && children.length > 16) {
+            return [];
+        }
+
         var effectiveQuery = (ctx && ctx.childQuery) || query;
         var effectiveCtx = ctx && ctx.tokenFlow ? ctx : ctx;
 
@@ -290,14 +433,43 @@ Singleton {
         var ep = evaluated.node.evaluationProfile || {};
         var profile = ep.profile || defaultProfile;
         var inheritNames = profile.inherit || [];
+        var evNodeId = evaluated && evaluated.node && evaluated.node.id;
+        if (evNodeId && ctx._policyTrace && !ctx._policyTrace[evNodeId]) ctx._policyTrace[evNodeId] = {};
         PolicyChain.run(inheritNames, function(name, spec) {
             var policy = PolicyChain.lookupPolicy(JsRegistry.inherit, spec);
             if (!policy || policy.phase !== "inherit") return null;
             policy.apply(evaluated, query, ctx);
             return true;
-        }, "inherit");
+        }, "inherit", function(tr) {
+            if (!evNodeId || !ctx._policyTrace) return;
+            if (!ctx._policyTrace[evNodeId]) return;
+            if (!ctx._policyTrace[evNodeId].inherit) {
+                ctx._policyTrace[evNodeId].inherit = { kind: "inherit", evaluated: [], aggregate: null, final: null };
+            }
+            ctx._policyTrace[evNodeId].inherit.evaluated.push({
+                name: tr.name, priority: tr.priority || 0, enabled: true,
+                args: tr.args,
+                returned: tr.returned,
+                effect: tr.effect || "combined",
+                reasons: tr.returned && tr.returned.reasons ? tr.returned.reasons.slice() : []
+            });
+        });
 
         evaluated.scoreBundle = ScoreBundle.fromEvaluated(evaluated, query);
+
+        // Leaf admission gate: inherited/path evidence must not admit a leaf.
+        // A leaf requires own-title evidence (label or aliases field) for non-empty queries,
+        // unless the leaf is an explicit browse child (parent with trailing-space expand).
+        if (!query.isEmpty && (!evaluated.node.children || evaluated.node.children.length === 0)) {
+            var ownTitleEvidence = (evaluated.ownEvidence || []).some(function(evItem) {
+                return (evItem.field === "label" || evItem.field === "aliases")
+                    && evItem.nodeId === evaluated.node.id;
+            });
+            if (!ownTitleEvidence) {
+                evaluated.visible = false;
+                evaluated.ownVisible = false;
+            }
+        }
     }
 
     function hasBaseEvidence(ev) {

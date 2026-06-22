@@ -130,11 +130,25 @@ Singleton {
     }
 
     function hasReplaceQuery(target) {
-        return !!(target.metadata && target.metadata.replaceQuery);
+        return !!replaceQueryValue(target);
+    }
+
+    function replaceQueryValue(target) {
+        if (!target) return "";
+        if (target.metadata && target.metadata.replaceQuery) return target.metadata.replaceQuery;
+        if (target.defaultAction && target.defaultAction.payload && target.defaultAction.payload.replaceQuery) return target.defaultAction.payload.replaceQuery;
+        if (target.metadata && target.metadata.action && target.metadata.action.replaceQuery) return target.metadata.action.replaceQuery;
+        if (target.metadata && target.metadata.action && target.metadata.action.payload && target.metadata.action.payload.replaceQuery) return target.metadata.action.payload.replaceQuery;
+        var actions = target.actions || [];
+        for (var i = 0; i < actions.length; i += 1) {
+            if (actions[i] && actions[i].default && actions[i].payload && actions[i].payload.replaceQuery)
+                return actions[i].payload.replaceQuery;
+        }
+        return "";
     }
 
     function hasDefaultExecutableAction(target) {
-        if (target.executable)
+        if (target.canExecuteNow || target.executable)
             return true;
         var actions = target.actions || [];
         for (var i = 0; i < actions.length; i += 1) {

@@ -3,8 +3,17 @@ import QtQml
 import Quickshell
 
 Singleton {
+    function isContextOnly(row) {
+        return !!(row
+            && row.semantics
+            && row.semantics.representation
+            && row.semantics.representation.retainParent === false);
+    }
+
     function hasActivation(row) {
-        return !!(row && (row.actions && row.actions.length > 0 || row.executable || row.switchActions || row.control || (row.filterable && row.children && row.children.length > 0)));
+        if (!row || isContextOnly(row))
+            return false;
+        return !!(row.actions && row.actions.length > 0 || row.hasAction || row.canExecuteNow || row.executable || row.switchActions || row.control || row.expandable || (row.children && row.children.length > 0));
     }
 
     function isSelectable(row, queryInfo) {
@@ -32,7 +41,8 @@ Singleton {
         for (var i = 0; i < (rows || []).length; i += 1) {
             var row = rows[i];
             var children = row && row.children || [];
-            if (row && !isSelectable(row, queryInfo) && children.length > 0 && !row.filterable) {
+            var contextOnly = isContextOnly(row);
+            if (row && (!isSelectable(row, queryInfo) || contextOnly) && children.length > 0) {
                 var promoted = promoteContainerRows(children, queryInfo);
                 for (var pi = 0; pi < promoted.length; pi += 1)
                     out.push(shiftRowDepth(promoted[pi], (row.depth || 0) - (promoted[pi].depth || 0)));
@@ -115,7 +125,7 @@ Singleton {
     }
 
     function filterRowChildren(row, queryTokens) {
-        if (!row || !row.filterable || !row.children || !queryTokens || queryTokens.length === 0)
+        if (!row || !row.filterChildren || !row.children || !queryTokens || queryTokens.length === 0)
             return;
         var parentTitle = (row.title || "").toLowerCase();
         var consumedParentPos = {};

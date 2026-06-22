@@ -30,7 +30,7 @@ Singleton {
         var takeoverNames = profile.takeoverRequest || [];
 
         if (takeoverNames.length === 0) {
-            takeoverNames = ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"];
+            takeoverNames = ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"];
         }
 
         PolicyChain.run(takeoverNames, function(name, spec) {
@@ -115,11 +115,11 @@ Singleton {
         var activation = "normal";
         var reason = "";
 
-        var dominanceClaim = claims.filter(function(c) { return c.kind === "selection" || c.kind === "defaultAction"; });
+        var dominanceClaim = claims.filter(function(c) { return c.kind === "selection" || c.kind === "defaultAction" || c.kind === "structuralChildOwnMatch"; });
         if (dominanceClaim.length > 0) {
             var dc = dominanceClaim[0];
             selectedOwnerId = dc.claimantId;
-            if (dc.kind === "defaultAction" || (dc.kind === "selection" && scoreDominance)) {
+            if (dc.kind === "defaultAction" || dc.kind === "structuralChildOwnMatch" || (dc.kind === "selection" && scoreDominance)) {
                 defaultActionOwnerId = dc.claimantId;
                 retainParent = false;
                 representation = "promote-child";
@@ -157,6 +157,26 @@ Singleton {
                 return parentEv.children[i];
         }
         return null;
+    }
+
+    function childOwnMatchParentNoOwnMatch(childEv, parentEv, ctx, args) {
+        var claims = [];
+        if (!childEv || !parentEv || !childEv.node || !parentEv.node) return claims;
+        var minChildScore = (args && args.minChildScore) || 0.05;
+        var maxParentScore = (args && args.maxParentScore) || 0;
+        var childOwn = !!(childEv.ownVisible || (childEv.ownScore || 0) > minChildScore);
+        var parentOwn = !!(parentEv.ownVisible || (parentEv.ownScore || 0) > maxParentScore);
+        if (childOwn && !parentOwn) {
+            claims.push({
+                claimantId: childEv.node.id,
+                targetId: parentEv.node.id,
+                kind: "structuralChildOwnMatch",
+                strength: 0.95,
+                reason: "child-own-match-parent-no-own-match: parent is context only",
+                evidence: [{ field: "structural-child-own-match", value: childEv.ownScore || childEv.score || 0 }]
+            });
+        }
+        return claims;
     }
 
     function explicitChildToken(childEv, parentEv, ctx, args) {
@@ -204,13 +224,19 @@ Singleton {
         var tokenFlow = parentEv.tokenFlow;
         if (!tokenFlow || !tokenFlow.passed || tokenFlow.passed.length === 0) return claims;
 
-        var passedTexts = tokenFlow.passed.map(function(t) { return t.normalized; });
+        var passedTokenIndexes = {};
+        var queryTokens = ctx.query && ctx.query.tokens || [];
+        for (var pti = 0; pti < tokenFlow.passed.length; pti += 1) {
+            var originalIndex = queryTokens.indexOf(tokenFlow.passed[pti]);
+            if (originalIndex >= 0)
+                passedTokenIndexes[originalIndex] = true;
+        }
         var childEvidence = childEv.ownEvidence || childEv.evidence || [];
         var coveredTokens = 0;
 
         for (var ei = 0; ei < childEvidence.length; ei += 1) {
             var e = childEvidence[ei];
-            if (e.tokenIndex !== undefined && e.tokenIndex < passedTexts.length) {
+            if (e.tokenIndex !== undefined && passedTokenIndexes[e.tokenIndex]) {
                 coveredTokens += 1;
             }
         }
@@ -220,9 +246,9 @@ Singleton {
                 claimantId: childEv.node.id,
                 targetId: parentEv.node.id,
                 kind: "defaultAction",
-                strength: 0.5 + (coveredTokens / passedTexts.length) * 0.3,
-                reason: "child-covers-passed-tokens: covers " + coveredTokens + " of " + passedTexts.length + " passed tokens",
-                evidence: [{ field: "passed-token-coverage", value: coveredTokens / passedTexts.length }]
+                strength: 0.5 + (coveredTokens / tokenFlow.passed.length) * 0.3,
+                reason: "child-covers-passed-tokens: covers " + coveredTokens + " of " + tokenFlow.passed.length + " passed tokens",
+                evidence: [{ field: "passed-token-coverage", value: coveredTokens / tokenFlow.passed.length }]
             });
         }
 
