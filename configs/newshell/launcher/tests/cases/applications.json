@@ -1,0 +1,17 @@
+[
+  {
+    "query": "zen",
+    "expect": "(.rows[0].title | contains(\"Zen\")) and .rows[0].placement == \"promoted-child\" and (.rows[0].breadcrumbText | contains(\"Applications\")) and .rows[0].recipes.activate == [[\"run-action\", {\"action\":\"default\"}], [\"close\"]] and .rows[0].executable == true and .rows[0].canExecuteNow == true",
+    "description": "Zen should promote, launch, and close"
+  },
+  {
+    "query": "zen ",
+    "expect": "(.rows[0].title | contains(\"Zen\")) and .rows[0].placement == \"promoted-child\" and .rows[0].recipes.activate == [[\"run-action\", {\"action\":\"default\"}], [\"close\"]] and .rows[0].executable == true and .rows[0].canExecuteNow == true",
+    "description": "Zen trailing space should not be intercepted by Applications"
+  },
+  {
+    "query": "zen browser",
+    "expect": "(.rows[0].title | contains(\"Zen\")) and .rows[0].placement == \"promoted-child\" and (.rows[0].breadcrumbText | contains(\"Applications\"))",
+    "description": "Zen Browser should stay promoted"
+  }
+]

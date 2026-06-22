@@ -67,7 +67,7 @@ All flake behavior changes go in `modules/`. Never edit generated `flake.nix` di
 |---------|---------|
 | Declarations changed | `nix run "path:$PWD#write-flake"` |
 | Outputs changed | `nix flake show "path:$PWD"` |
-| Handoff | `nix run "path:$PWD#repo-gate"` |
+| Handoff | `repo-gate nix` or `repo-gate all` |
 
 ## Do Not
 

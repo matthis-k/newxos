@@ -98,9 +98,40 @@ This repo prefers wrapper packages when it owns opinionated config:
 
 ## Check and gate
 
-`nix flake check "path:$PWD"` runs static flake checks and build-time checks only.
-`nix run "path:$PWD#repo-gate"` is the full local gate: write-flake, format, static checks, repo doctor, and optional runtime newshell IPC tests.
-Set `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1` to include isolated newshell runtime IPC tests.
+Validation follows a deterministic workflow: JSON cases → harness → targeted repo-gate checks → git hooks.
+
+### Architecture
+
+```
+JSON launcher cases (configs/newshell/launcher/tests/cases/*.json)
+  ↓ harness (configs/newshell/launcher/tests/run-json-cases.sh)
+  ↓ targeted repo-gate checks
+  ↓ git hooks (repo-gate --hook <check>)
+  └── no nested flake re-evaluation inside scripts
+```
+
+### repo-gate
+
+`repo-gate` is a selector/orchestrator over individual deterministic checks. It never calls `nix run "path:$PWD#..."` internally — all check executables are injected as store paths at build time.
+
+| Command | Effect |
+|---------|--------|
+| `repo-gate --list` | Show all checks and aliases |
+| `repo-gate write-flake` | Regenerate flake.nix, fail on drift |
+| `repo-gate fmt` | treefmt |
+| `repo-gate statix` | statix fix |
+| `repo-gate flake-check` | `nix flake check` |
+| `repo-gate repo-doctor` | Repo invariant checks |
+| `repo-gate rust` | newxos-cli Rust tests |
+| `repo-gate newshell-static` | qmllint shell.qml |
+| `repo-gate newshell-cases` | JSON launcher behavior cases |
+| `repo-gate newshell-runtime` | Headless Hyprland IPC tests (opt-in) |
+| `repo-gate hyprland` | Verify Hyprland config |
+| `repo-gate neovim` | Verify Neovim headless start |
+| `repo-gate docs-index` | Reindex Basic Memory |
+| `repo-gate all` | Full gate (all except runtime) |
+
+Inside `nix develop`, `repo-gate <checks>` avoids flake re-evaluation. Runtime tests require `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1`.
 
 ## Basic Memory
 

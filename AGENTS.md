@@ -26,12 +26,19 @@ NixOS flake (`newxos`) managing two personal machines (desktop, laptop) and a li
 | `nix flake check "path:$PWD"` | Run static flake checks and build-time checks (NOT full gate) |
 | `nix run "path:$PWD#write-flake"` | Regenerate `flake.nix` |
 | `nix run "path:$PWD#fmt"` | Format repo (treefmt) |
-| `nix run "path:$PWD#repo-gate"` | Full local gate: write-flake → statix → fmt → flake check → hooks → repo-doctor → optional runtime tests |
+| `repo-gate --list` | List all available checks and aliases |
+| `repo-gate all` | Full local gate (write-flake + fmt + statix + flake-check + repo-doctor + rust + newshell + hyprland + neovim) |
+| `repo-gate nix` | Nix-only checks (write-flake + statix + fmt + flake-check) |
+| `repo-gate newshell` | newshell-static + newshell-cases |
+| `repo-gate newshell-runtime` | Headless Hyprland IPC tests (opt-in) |
+| `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate all` | Full gate with isolated newshell runtime IPC tests |
+| `nix run "path:$PWD#repo-gate" -- all` | Eval flake once, run full gate (also: `-- newshell statix`, `-- rust`, etc.) |
+| `repo-gate --staged newshell statix` | Run checks with temp staged index |
 | `nix run "path:$PWD#install-git-hooks"` | Install managed pre-commit hooks |
-| `nix run "path:$PWD#repo-doctor"` | Run repo invariant checks (stale applauncher, knowledge/, tryEval masking, etc.) |
-| `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 nix run "path:$PWD#repo-gate"` | Full gate with isolated newshell runtime IPC tests |
 | `newxos memory reindex` | Rebuild Basic Memory index (uses `docs/` as project root) |
 | `newxos memory reset` | Reset and rebuild Basic Memory |
+
+Inside `nix develop`, `repo-gate <checks>` avoids flake re-evaluation — all check executables are injected as store paths.
 
 Use `"path:$PWD"` (not `.`) for local flake references — `.` fails in untracked checkouts.
 
@@ -63,7 +70,7 @@ Use `"path:$PWD"` (not `.`) for local flake references — `.` fails in untracke
 1. Search Basic Memory first for relevant knowledge before reading files or running commands.
 2. Inspect before editing. Prefer minimal diffs — avoid broad rewrites unless requested.
 3. Update docs and tests when behavior changes.
-4. Run the narrowest relevant check first (`write-flake` → `fmt` → `flake check`).
+4. Run the narrowest relevant check first (`repo-gate nix` or `repo-gate newshell`, etc.).
 5. Report skipped checks explicitly.
 6. When a task reveals a repeatable mistake, append to `docs/pitfalls.md`.
 7. When a task adds/changes a major tool, update the relevant docs and cross-link related pages.

@@ -68,11 +68,12 @@ All UI must follow the flat-design contract: no gradients, shadows, or 3D. Use p
 2. Match existing conventions and patterns.
 3. Make the smallest QML/source change.
 4. Check hot reload assumptions if state or wrapper paths changed.
-5. Verify with dev specialization or repo-gate.
+5. Verify with dev specialization or `repo-gate newshell`.
 
 ## Validation
 
-- `nix run "path:$PWD#repo-gate"` for handoff.
+- `repo-gate newshell` for handoff (static + cases).
+- `repo-gate newshell-runtime` for headless IPC tests (opt-in, requires compositor).
 - In dev mode: restart `newshell` session to hot-reload.
 - For hot-reload state: verify with `newshell ipc` queries.
 

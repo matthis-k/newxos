@@ -19,22 +19,30 @@
       ...
     }:
     let
+      # ================================================
+      # Individual check executables (deterministic,
+      # individually runnable, no nested nix run)
+      # ================================================
+
       writeFlake = pkgs.writeShellScriptBin "repo-write-flake" ''
         set -euo pipefail
-
-        ${pkgs.nix}/bin/nix run "path:$PWD#write-flake"
+        ${lib.getExe self'.packages.write-flake}
+        if ! git diff --exit-code -- flake.nix; then
+          echo "error: flake.nix has uncommitted changes after write-flake; regenerate and commit" >&2
+          exit 1
+        fi
       '';
 
       flakeCheck = pkgs.writeShellScriptBin "repo-flake-check" ''
         set -euo pipefail
 
-        ${pkgs.nix}/bin/nix flake check "path:$PWD"
+        nix flake check "path:$PWD"
       '';
 
       updateDocsIndex = pkgs.writeShellScriptBin "repo-update-docs-index" ''
         set -euo pipefail
 
-        ${pkgs.nix}/bin/nix run "path:$PWD#newxos" -- memory reindex
+        ${lib.getExe' self'.packages.newxos "newxos"} memory reindex
       '';
 
       repoDoctor = pkgs.writeShellScriptBin "repo-doctor" ''
@@ -43,18 +51,12 @@
         errors=0
 
         # 10.1 Generated flake is current
-        if ! ${pkgs.nix}/bin/nix run "path:$PWD#write-flake" 2>/dev/null; then
-          echo "error: write-flake failed" >&2
-          errors=$((errors + 1))
-        fi
-        if ! ${pkgs.git}/bin/git diff --exit-code -- flake.nix; then
-          echo "error: flake.nix has uncommitted changes after write-flake; regenerate and commit" >&2
+        if ! git diff --exit-code -- flake.nix; then
+          echo "error: flake.nix has uncommitted changes; run write-flake and commit" >&2
           errors=$((errors + 1))
         fi
 
         # 10.3 Basic Memory root is consistent
-        # Only flag actual source code references to `knowledge/` as project root.
-        # The specific pattern is `root.join("knowledge")` which was the Rust CLI bug.
         if ${pkgs.ripgrep}/bin/rg -n 'root\.join\("knowledge"\)' \
           packages modules configs docs \
           --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
@@ -63,7 +65,6 @@
         fi
 
         # 10.4 No stale IPC target names
-        # Only flag actual source file references, not the doctor check itself
         if ${pkgs.ripgrep}/bin/rg -n 'applauncher' configs modules packages \
           --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
           echo "error: stale applauncher IPC target found; use launcher" >&2
@@ -71,9 +72,6 @@
         fi
 
         # 10.5 Runtime test packages must use the correct mode for their intended backend.
-        # hyprland runner: must set NEWSHELL_TEST_INSTANCE_MODE=external (namespaced).
-        # self-managed runner: must default to namespaced mode (no session/external override).
-        # session runner: the only mode that intentionally uses global IPC targets.
         if ${pkgs.ripgrep}/bin/rg -n 'runNewshellIpcTestsHyprland' \
           modules/dev/workflow.nix 2>/dev/null \
           && ! ${pkgs.ripgrep}/bin/rg -q 'INSTANCE_MODE=external' \
@@ -93,6 +91,12 @@
           exit 1
         fi
         echo "repo-doctor: all checks passed"
+      '';
+
+      rustCheck = pkgs.writeShellScriptBin "repo-rust" ''
+        set -euo pipefail
+        cd "${self}/packages/newxos-cli"
+        ${pkgs.cargo}/bin/cargo test
       '';
 
       runNewshellIpcTests = pkgs.writeShellApplication {
@@ -117,6 +121,7 @@
       };
 
       # Hyprland-headless mode: starts a private compositor that launches newshell via exec-once
+      # with timeout protection.
       runNewshellIpcTestsHyprland = pkgs.writeShellApplication {
         name = "run-newshell-launcher-ipc-tests-hyprland";
         runtimeInputs = [
@@ -230,7 +235,10 @@
           export NEWSHELL_IPC_NAMESPACE="$IPC_NS"
           export NEWSHELL_BIN="$NEWSHELL_BIN"
 
-          bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh" >"$test_log" 2>&1
+          # Run test suite with timeout — cleanup trap fires on timeout/exit
+          timeout "''${NEWSHELL_TEST_TIMEOUT_SECONDS:-30}" \
+            bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh" >"$test_log" 2>&1
+
           cat "$test_log"
         '';
       };
@@ -258,81 +266,10 @@
 
       reinstallGitHooks = pkgs.writeShellScriptBin "repo-install-git-hooks" ''
         set -euo pipefail
-
-        ${pkgs.nix}/bin/nix run "path:$PWD#install-git-hooks"
+        # Nested nix run only here — hooks reinstalled on workflow.nix changes only
+        nix run "path:$PWD#install-git-hooks"
       '';
 
-      repoGate = pkgs.writeShellScriptBin "repo-gate" ''
-        set -euo pipefail
-
-        real_index="$(${pkgs.git}/bin/git rev-parse --git-path index)"
-        temp_index="$(${pkgs.coreutils}/bin/mktemp)"
-
-        cleanup() {
-          ${pkgs.coreutils}/bin/rm -f "$temp_index"
-        }
-        trap cleanup EXIT
-
-        prepare_temp_index() {
-          if [ -f "$real_index" ]; then
-            ${pkgs.coreutils}/bin/cp "$real_index" "$temp_index"
-          else
-            : > "$temp_index"
-          fi
-
-          GIT_INDEX_FILE="$temp_index" ${pkgs.git}/bin/git add -A -- .
-        }
-
-        run_hooks() {
-          GIT_INDEX_FILE="$temp_index" \
-            ${pkgs.nix}/bin/nix develop "path:$PWD" -c pre-commit run --hook-stage pre-commit
-        }
-
-        attempt=1
-        max_attempts=2
-
-        while [ "$attempt" -le "$max_attempts" ]; do
-          prepare_temp_index
-
-          if run_hooks; then
-            break
-          fi
-
-          if [ "$attempt" -eq "$max_attempts" ]; then
-            exit 1
-          fi
-
-          attempt=$((attempt + 1))
-        done
-
-        # Run repo doctor after hooks (generated file drift check)
-        echo ""
-        echo "--- repo-doctor ---"
-        ${pkgs.nix}/bin/nix run "path:$PWD#repo-doctor"
-
-        # Optional runtime newshell IPC tests
-        echo ""
-        echo "--- newshell runtime IPC tests ---"
-        if [ "''${NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS:-0}" = "1" ]; then
-          case "''${NEWXOS_NEWSHELL_TEST_BACKEND:-hyprland}" in
-            hyprland)
-              ${pkgs.nix}/bin/nix run "path:$PWD#run-newshell-launcher-ipc-tests-hyprland"
-              ;;
-            session)
-              ${pkgs.nix}/bin/nix run "path:$PWD#run-newshell-launcher-ipc-tests-session"
-              ;;
-            self-managed)
-              ${pkgs.nix}/bin/nix run "path:$PWD#run-newshell-launcher-ipc-tests"
-              ;;
-            *)
-              echo "error: unknown NEWSHELL_TEST_BACKEND" >&2
-              exit 1
-              ;;
-          esac
-        else
-          echo "Skipping newshell runtime IPC tests; set NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 to run."
-        fi
-      '';
       treefmtProjectRoot = lib.cleanSourceWith {
         src = self;
         filter =
@@ -401,6 +338,236 @@
           done
         '';
       };
+
+      newshellCasesCheck = pkgs.writeShellApplication {
+        name = "repo-newshell-cases";
+        runtimeInputs = [
+          self'.packages.newshell
+          pkgs.bash
+          pkgs.coreutils
+          pkgs.jq
+        ];
+        text = ''
+          set -euo pipefail
+
+          # Check if a newshell instance is reachable
+          if ! newshell ipc call query pipeline "?" >/dev/null 2>&1; then
+            echo "Skipping launcher cases (no running newshell instance - use newshell-runtime or run from a running session)"
+            exit 0
+          fi
+
+          export NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
+          exec bash "${self}/configs/newshell/launcher/tests/run-json-cases.sh"
+        '';
+      };
+
+      # ================================================
+      # Repo-Gate: selector / orchestrator over checks
+      # ================================================
+
+      repoGate = pkgs.writeShellApplication {
+        name = "repo-gate";
+        runtimeInputs = [
+          pkgs.bash
+          pkgs.coreutils
+          pkgs.git
+          pkgs.jq
+          pkgs.statix
+          writeFlake
+          flakeCheck
+          repoDoctor
+          rustCheck
+          checkNewshellConfig
+          newshellCasesCheck
+          runNewshellIpcTestsHyprland
+          checkHyprlandConfig
+          checkNeovimConfig
+          updateDocsIndex
+          reinstallGitHooks
+          config.treefmt.build.wrapper
+        ];
+        text = ''
+            MODE="normal"
+            ARGS=()
+
+            while [[ $# -gt 0 ]]; do
+              case "$1" in
+                --list|-l)
+                  cat <<'LISTEOF'
+          Available checks:
+            write-flake       regenerate flake.nix and fail on drift
+            fmt               run treefmt
+            statix            run statix fix/check
+            flake-check       run nix flake check
+            repo-doctor       run repo invariants
+            rust              run newxos-cli Rust tests
+            newshell-static   qmllint shell.qml + best-effort lint
+            newshell-cases    validate and run JSON launcher case expectations
+            newshell-runtime  run headless Hyprland newshell IPC tests (opt-in)
+            hyprland          verify Hyprland config
+            neovim            verify Neovim starts headless
+            docs-index        reindex Basic Memory docs
+            hooks             reinstall managed git hooks
+
+          Aliases:
+            newshell          newshell-static + newshell-cases
+            runtime           newshell-runtime
+            nix               write-flake + statix + fmt + flake-check
+            quick             write-flake + fmt + statix + newshell-static
+            all               write-flake + fmt + statix + flake-check + repo-doctor + rust + newshell + hyprland + neovim
+          LISTEOF
+                  exit 0
+                  ;;
+                --hook)
+                  MODE="hook"
+                  shift
+                  ARGS+=("$1")
+                  shift
+                  ;;
+                --staged)
+                  MODE="staged"
+                  shift
+                  ARGS=("$@")
+                  break
+                  ;;
+                -*)
+                  echo "Unknown option: $1" >&2
+                  exit 1
+                  ;;
+                *)
+                  ARGS=("$@")
+                  break
+                  ;;
+              esac
+            done
+
+            # --hook pre-commit emulates the old behavior: temp index + all checks
+            if [ "$MODE" = "hook" ] && [ "''${ARGS[0]}" = "pre-commit" ]; then
+              ARGS=("all")
+            fi
+
+            if [ "''${#ARGS[@]}" -eq 0 ]; then
+              ARGS=("all")
+            fi
+
+            # Alias resolution
+            resolve_alias() {
+              local name="$1"
+              case "$name" in
+                newshell)  echo "newshell-static newshell-cases" ;;
+                runtime)   echo "newshell-runtime" ;;
+                nix)       echo "write-flake statix fmt flake-check" ;;
+                quick)     echo "write-flake fmt statix newshell-static" ;;
+                all)       echo "write-flake fmt statix flake-check repo-doctor rust newshell-static newshell-cases hyprland neovim" ;;
+                *)         echo "$name" ;;
+              esac
+            }
+
+            # Build flat check list
+            CHECKS=()
+            for arg in "''${ARGS[@]}"; do
+              resolved=$(resolve_alias "$arg")
+              for check in $resolved; do
+                CHECKS+=("$check")
+              done
+            done
+
+            # Dedup (preserve order)
+            unique=()
+            for check in "''${CHECKS[@]}"; do
+              found=false
+              for u in "''${unique[@]}"; do
+                [ "$u" = "$check" ] && found=true && break
+              done
+              $found || unique+=("$check")
+            done
+            CHECKS=("''${unique[@]}")
+
+            # Staged mode: create temp index with all files
+            if [ "$MODE" = "staged" ] || { [ "$MODE" = "hook" ] && [ "''${ARGS[0]}" = "pre-commit" ]; }; then
+              real_index="$(git rev-parse --git-path index 2>/dev/null || echo "")"
+              temp_index="$(mktemp)"
+              trap 'rm -f "$temp_index"' EXIT
+
+              if [ -f "$real_index" ]; then
+                cp "$real_index" "$temp_index"
+              fi
+              GIT_INDEX_FILE="$temp_index" git add -A -- .
+              export GIT_INDEX_FILE
+            fi
+
+            # Run checks
+            FAILED=0
+            for check in "''${CHECKS[@]}"; do
+              printf "==> %s ... " "$check"
+
+              case "$check" in
+                write-flake)
+                  repo-write-flake
+                  ;;
+                fmt)
+                  treefmt --fail-on-change
+                  ;;
+                statix)
+                  statix fix
+                  ;;
+                flake-check)
+                  repo-flake-check
+                  ;;
+                repo-doctor)
+                  repo-doctor
+                  ;;
+                rust)
+                  repo-rust
+                  ;;
+                newshell-static)
+                  check-newshell-config
+                  ;;
+                newshell-cases)
+                  repo-newshell-cases
+                  ;;
+                newshell-runtime)
+                  if [ "''${NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS:-0}" != "1" ]; then
+                    echo "skipped (set NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 to run)"
+                    continue
+                  fi
+                  run-newshell-launcher-ipc-tests-hyprland
+                  ;;
+                hyprland)
+                  check-hyprland-config
+                  ;;
+                neovim)
+                  check-neovim-config
+                  ;;
+                docs-index)
+                  repo-update-docs-index
+                  ;;
+                hooks)
+                  repo-install-git-hooks
+                  ;;
+                *)
+                  echo "unknown check: $check" >&2
+                  exit 1
+                  ;;
+              esac
+
+              status=$?
+              if [ "$status" -ne 0 ]; then
+                FAILED=$((FAILED + 1))
+                echo "FAIL: $check"
+              else
+                echo "OK: $check"
+              fi
+            done
+
+            echo ""
+            if [ "$FAILED" -gt 0 ]; then
+              echo "repo-gate: $FAILED check(s) failed" >&2
+              exit 1
+            fi
+            echo "repo-gate: all checks passed"
+        '';
+      };
     in
     {
       pre-commit.check.enable = false;
@@ -415,7 +582,7 @@
       pre-commit.settings.hooks.statix = {
         enable = true;
         after = [ "repo-write-flake" ];
-        entry = "${pkgs.statix}/bin/statix fix";
+        entry = "${lib.getExe repoGate} --hook statix";
         types = [ "nix" ];
       };
 
@@ -423,7 +590,7 @@
         enable = true;
         name = "write flake";
         description = "Regenerate flake.nix before commit.";
-        entry = lib.getExe writeFlake;
+        entry = "${lib.getExe repoGate} --hook write-flake";
         pass_filenames = false;
         always_run = true;
       };
@@ -444,7 +611,7 @@
         enable = true;
         name = "format repo";
         description = "Format the repo after generated files are refreshed.";
-        entry = "${config.treefmt.build.wrapper}/bin/treefmt";
+        entry = "${lib.getExe repoGate} --hook fmt";
         after = [
           "statix"
         ]
@@ -457,7 +624,7 @@
         enable = true;
         name = "flake check";
         description = "Run flake checks after formatting when staged Nix files changed.";
-        entry = lib.getExe flakeCheck;
+        entry = "${lib.getExe repoGate} --hook flake-check";
         after = [ "repo-fmt" ];
         pass_filenames = false;
         types = [ "nix" ];
@@ -467,7 +634,7 @@
         enable = true;
         name = "update docs index";
         description = "Reindex Basic Memory when docs files change.";
-        entry = lib.getExe updateDocsIndex;
+        entry = "${lib.getExe repoGate} --hook docs-index";
         after = [ "repo-fmt" ];
         files = "^docs/";
         pass_filenames = false;
@@ -477,7 +644,7 @@
         enable = true;
         name = "install git hooks";
         description = "Reinstall managed git hooks when the workflow module changes.";
-        entry = lib.getExe reinstallGitHooks;
+        entry = "${lib.getExe repoGate} --hook hooks";
         after = [
           "repo-flake-check"
           "repo-update-docs-index"
@@ -490,7 +657,7 @@
         enable = true;
         name = "check hyprland config";
         description = "Verify Hyprland Lua config parses without errors.";
-        entry = lib.getExe checkHyprlandConfig;
+        entry = "${lib.getExe repoGate} --hook hyprland";
         files = "^configs/hypr/";
         pass_filenames = false;
       };
@@ -499,7 +666,7 @@
         enable = true;
         name = "check neovim config";
         description = "Verify Neovim starts without errors in headless mode.";
-        entry = lib.getExe checkNeovimConfig;
+        entry = "${lib.getExe repoGate} --hook neovim";
         files = "^configs/nvim/";
         pass_filenames = false;
       };
@@ -508,7 +675,7 @@
         enable = true;
         name = "check newshell config";
         description = "Verify newshell shell.qml passes qmllint; best-effort lint for other QML files (some imports may not resolve in CI).";
-        entry = lib.getExe checkNewshellConfig;
+        entry = "${lib.getExe repoGate} --hook newshell-static";
         files = "^configs/newshell/";
         pass_filenames = false;
       };
@@ -522,62 +689,63 @@
       '';
       packages.repo-gate = repoGate;
       packages.repo-doctor = repoDoctor;
+      packages.repo-rust = rustCheck;
+      packages.repo-write-flake = writeFlake;
+      packages.repo-flake-check = flakeCheck;
+      packages.repo-newshell-cases = newshellCasesCheck;
+      packages.repo-update-docs-index = updateDocsIndex;
+      packages.repo-install-git-hooks = reinstallGitHooks;
       packages.run-newshell-launcher-ipc-tests = runNewshellIpcTests;
       packages.run-newshell-launcher-ipc-tests-hyprland = runNewshellIpcTestsHyprland;
       packages.run-newshell-launcher-ipc-tests-session = runNewshellIpcTestsSession;
 
       # Static checks that can run in nix flake check
-      # Runs only non-git-dependent invariants (generated-file drift is checked by repo-gate)
       checks.repo-doctor =
         pkgs.runCommand "repo-doctor-check"
           {
             nativeBuildInputs = with pkgs; [ ripgrep ];
           }
           ''
-                errors=0
-                cd ${self}
+            errors=0
+            cd ${self}
 
-                # 10.3 Basic Memory root is consistent
-                if rg -n 'root\.join\("knowledge"\)' \
-                  packages modules configs docs \
-                  --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
-                  echo "error: Basic Memory must use docs/ as project root, not knowledge/" >&2
-                  errors=$((errors + 1))
-                fi
+            # 10.3 Basic Memory root is consistent
+            if rg -n 'root\.join\("knowledge"\)' \
+              packages modules configs docs \
+              --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
+              echo "error: Basic Memory must use docs/ as project root, not knowledge/" >&2
+              errors=$((errors + 1))
+            fi
 
-                # 10.4 No stale IPC target names
-                if rg -n 'applauncher' configs modules packages \
-                  --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
-                  echo "error: stale applauncher IPC target found; use launcher" >&2
-                  errors=$((errors + 1))
-                fi
+            # 10.4 No stale IPC target names
+            if rg -n 'applauncher' configs modules packages \
+              --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
+              echo "error: stale applauncher IPC target found; use launcher" >&2
+              errors=$((errors + 1))
+            fi
 
             # 10.5 Runtime test packages must use the correct mode for their intended backend.
-            # hyprland runner: must set NEWSHELL_TEST_INSTANCE_MODE=external (namespaced).
-            # self-managed runner: must default to namespaced mode.
-            # session runner: the only mode allowed to use global IPC targets.
             if rg -n 'runNewshellIpcTestsHyprland' modules/dev/workflow.nix 2>/dev/null \
               && ! rg -q 'INSTANCE_MODE=external' modules/dev/workflow.nix; then
               echo "error: hyprland test runner must set NEWSHELL_TEST_INSTANCE_MODE=external" >&2
               errors=$((errors + 1))
             fi
 
-                # 10.6 OpenCode package must not mask eval failure
-                if rg -n 'builtins\.tryEval' modules/dev/opencode.nix 2>/dev/null; then
-                  echo "error: opencode wrapper evaluation must fail at evaluation/build time; do not mask with tryEval" >&2
-                  errors=$((errors + 1))
-                fi
+            # 10.6 OpenCode package must not mask eval failure
+            if rg -n 'builtins\.tryEval' modules/dev/opencode.nix 2>/dev/null; then
+              echo "error: opencode wrapper evaluation must fail at evaluation/build time; do not mask with tryEval" >&2
+              errors=$((errors + 1))
+            fi
 
-                if [ "$errors" -gt 0 ]; then
-                  echo "repo-doctor: $errors check(s) failed" >&2
-                  exit 1
-                fi
-                echo "repo-doctor: all checks passed"
-                touch $out
+            if [ "$errors" -gt 0 ]; then
+              echo "repo-doctor: $errors check(s) failed" >&2
+              exit 1
+            fi
+            echo "repo-doctor: all checks passed"
+            touch $out
           '';
 
       # Newxos CLI tests (Rust unit tests)
-      # Builds the CLI package with tests enabled.
       checks.newxos-cli-tests = self'.packages.newxos-cli.overrideAttrs (old: {
         doCheck = true;
       });

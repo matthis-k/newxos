@@ -1,0 +1,17 @@
+[
+  {
+    "query": "newxos",
+    "expect": ".rows[0].title == \"Newxos\" and .rows[0].placement == \"nested-group\" and (.rows[0].recipes.activate // [] | tostring | contains(\"run-action\") | not)",
+    "description": "Newxos should be retained expanded group with safe enter"
+  },
+  {
+    "query": "newxos ",
+    "expect": ".rows[0].title == \"Newxos\" and .rows[0].placement == \"nested-group\" and ((.rows[0].children // []) | length) > 0",
+    "description": "newxos trailing space should browse Newxos children"
+  },
+  {
+    "query": "ai",
+    "expect": ".rows[0].title == \"AI\" and .rows[0].placement == \"promoted-child\" and ([.rows[] | select(.title == \"Newxos\" and .ownVisible == true)] | length) == 0 and (.rows[0].breadcrumbText | contains(\"Newxos\"))",
+    "description": "AI should promote with Newxos only as context"
+  }
+]

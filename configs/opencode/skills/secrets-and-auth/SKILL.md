@@ -50,7 +50,7 @@ Prefer checking wiring, paths, permissions, and filenames over reading plaintext
 
 - `nix flake show "path:$PWD"` — verify packages/outputs
 - `nix flake check "path:$PWD"` — full evaluation
-- `nix run "path:$PWD#repo-gate"` for handoff
+- `repo-gate all` for handoff
 
 ## Do Not
 

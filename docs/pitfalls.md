@@ -130,11 +130,11 @@ After changing `flake-file` declarations, `show` and `check` may reflect old out
 
 Fix: run `nix run "path:$PWD#write-flake"` before running flake introspection commands.
 
-### `repo-gate` reuses hook graph without staging
+### `repo-gate` is now a selector, not a monolithic runner
 
-`repo-gate` runs the full pre-commit hook graph over the whole worktree without requiring staged files.
+`repo-gate` no longer runs all hooks via `pre-commit run`. Instead it dispatches individual checks by name.
 
-Fix: use `repo-gate` as the handoff check — it catches issues `git commit` would catch without needing `git add` first.
+Fix: use targeted commands like `repo-gate newshell statix` for narrow checks, or `repo-gate all` for the full gate. Use `--staged` to emulate old temp-index behavior. Use `--hook <check>` from pre-commit entries.
 
 ### Lua multi-return collapses in table constructors
 

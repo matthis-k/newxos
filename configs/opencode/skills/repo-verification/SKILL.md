@@ -13,24 +13,54 @@ Run the narrowest check that covers the change first, then broader gates when pr
 
 | Changed Path | First Check | Then |
 |-------------|-------------|------|
-| `modules/**` | `nix run "path:$PWD#fmt"` | `nix flake show "path:$PWD"` |
-| Flake-file declarations changed | `nix run "path:$PWD#write-flake"` | `nix flake show "path:$PWD"` |
+| `modules/**` | `repo-gate nix` | `nix flake show "path:$PWD"` |
+| Flake-file declarations changed | `repo-gate write-flake` | `nix flake show "path:$PWD"` |
 | New or changed flake outputs | `nix flake show "path:$PWD"` | `nix flake check "path:$PWD"` |
-| `configs/newshell/**` | `nix run "path:$PWD#repo-gate"` | — |
-| `configs/hypr/**` or Hyprland modules | `nix run "path:$PWD#repo-gate"` | — |
-| `configs/nvim/**` or Neovim modules | `nix run "path:$PWD#repo-gate"` | — |
-| `docs/**` | `nix run "path:$PWD#newxos" -- memory reindex` | — |
+| `configs/newshell/**` | `repo-gate newshell` | — |
+| `configs/hypr/**` or Hyprland modules | `repo-gate hyprland` | — |
+| `configs/nvim/**` or Neovim modules | `repo-gate neovim` | — |
+| `docs/**` | `repo-gate docs-index` | — |
+| `packages/` or Rust code | `repo-gate rust` | — |
 
 ## Standard Commands
 
 | Command | Purpose |
 |---------|---------|
-| `nix run "path:$PWD#fmt"` | Format all files (treefmt) |
-| `nix run "path:$PWD#write-flake"` | Regenerate `flake.nix` |
-| `nix flake show "path:$PWD"` | Show all flake outputs |
-| `nix flake check "path:$PWD"` | Full flake evaluation + pre-commit hooks |
-| `nix run "path:$PWD#repo-gate"` | write-flake → statix → fmt → flake check → hooks |
-| `nix run "path:$PWD#newxos" -- memory reindex` | Rebuild Basic Memory index |
+| `repo-gate --list` | List all available checks and aliases |
+| `repo-gate write-flake` | Regenerate `flake.nix`, fail on drift |
+| `repo-gate fmt` | Format all files (treefmt) |
+| `repo-gate statix` | Auto-fix Nix lint issues |
+| `repo-gate flake-check` | Run `nix flake check` |
+| `repo-gate repo-doctor` | Run repo invariant checks |
+| `repo-gate rust` | Run newxos-cli Rust unit tests |
+| `repo-gate newshell` | newshell-static + newshell-cases |
+| `repo-gate newshell-runtime` | Headless Hyprland IPC tests (opt-in) |
+| `repo-gate hyprland` | Verify Hyprland Lua config |
+| `repo-gate neovim` | Verify Neovim starts headless |
+| `repo-gate docs-index` | Rebuild Basic Memory index |
+| `repo-gate nix` | write-flake + statix + fmt + flake-check |
+| `repo-gate quick` | write-flake + fmt + statix + newshell-static |
+| `repo-gate all` | Full gate (all except runtime) |
+
+## Usage Modes
+
+```bash
+# Inside nix develop — zero flake re-evaluation
+repo-gate --list
+repo-gate newshell statix
+repo-gate all
+
+# From outside — evaluates flake once
+nix run "path:$PWD#repo-gate" -- newshell statix
+nix run "path:$PWD#repo-gate" -- all
+
+# Staged mode — emulate pre-commit behavior with temp index
+repo-gate --staged newshell statix
+
+# Hook mode — run single check for pre-commit framework
+repo-gate --hook write-flake
+repo-gate --hook pre-commit
+```
 
 ## Principles
 
@@ -38,7 +68,9 @@ Run the narrowest check that covers the change first, then broader gates when pr
 - Do not claim verification unless command output was inspected.
 - Report skipped checks and why.
 - Do not stage broadly or rely on staged-only hooks in a dirty worktree.
-- `repo-gate` runs the full hook graph over the whole worktree without requiring staged files.
+- `--staged` mode uses a temporary git index with `git add -A` (like old repo-gate).
+- Inside `nix develop`, `repo-gate <checks>` avoids flake re-evaluation.
+- Runtime tests are opt-in: set `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1`.
 
 ## Do Not
 
