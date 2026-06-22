@@ -25,11 +25,12 @@ QtObject {
         case "energy": return PowerService.iconColor;
         case "stats": return Stats.presentation.color;
         case "overview": return Config.styling.primaryAccent;
-        default: return Config.styling.text0;
+            default: return Config.styling.text0;
         }
     }
+    function dashboardProfile() { return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"], scorePolicy: "default", profile: { evidence: ["field-match:all", "semantic"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["consume-namespace-pass-rest"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-own-match-or-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }], defaultAction: ["default-action-expand"], riskGate: ["risk-gate"] } }; }
     function roots(context) {
         var tabs = (shellScreenState && shellScreenState.dashboardTabs) || ["overview", "audio", "notifications", "bluetooth", "wifi", "energy", "stats"];
-        return [{ id: "dashboard", aliases: ["db", "dashboard"], title: qsTr("Dashboard"), icon: iconForTab("overview"), iconColor: colorForTab("overview"), template: "flat-action-group", groupOptions: { flattenAllChildrenOnParentMatch: true, maxNestedChildren: 8 }, behavior: { filterable: true }, action: { service: "dashboard", tab: "overview" }, children: tabs.map(function(tab) { return { id: tab, title: titleForTab(tab), icon: iconForTab(tab), iconColor: colorForTab(tab), action: { service: "dashboard", tab: tab } }; }) }];
+        return [{ id: "dashboard", aliases: ["db", "dashboard"], title: qsTr("Dashboard"), icon: iconForTab("overview"), iconColor: colorForTab("overview"), template: "flat-action-group", behavior: { filterChildren: true }, evaluationProfile: dashboardProfile(), action: { service: "dashboard", tab: "overview" }, children: tabs.map(function(tab) { return { id: tab, title: titleForTab(tab), icon: iconForTab(tab), iconColor: colorForTab(tab), action: { service: "dashboard", tab: tab } }; }) }];
     }
 }
