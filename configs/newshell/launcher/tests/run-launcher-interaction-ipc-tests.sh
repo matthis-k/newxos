@@ -95,9 +95,15 @@ state()           { ipc_launcher state; }
 fail()            { echo "FAIL: $1 - $2"; FAILED=$((FAILED + 1)); }
 pass()            { PASSED=$((PASSED + 1)); $VERBOSE && echo "OK: $1"; }
 
+# assert_jq_data name data [jq args...] message
+# Supports optional --arg etc. before the jq expression.
+# The last positional arg is always the failure message.
 assert_jq_data() {
-  local name="$1" data="$2" expr="$3" msg="$4"
-  if echo "$data" | jq -e "$expr" >/dev/null 2>&1; then
+  local name="$1" data="$2"
+  shift 2
+  local msg="${*: -1}"
+  set -- "${@:1:$(($#-1))}"
+  if echo "$data" | jq -e "$@" >/dev/null 2>&1; then
     pass "$name"
   else
     $VERBOSE && echo "$data" | jq '.' 2>/dev/null || true
@@ -121,19 +127,17 @@ wait_for_query() {
 echo ""
 echo "--- IPC envelope and launch identity ---"
 
-data=$state
+data="$(state)"
 assert_jq_data "response-test-mode" "$data" \
   '.testMode == true' \
   "state should have testMode true"
 
 assert_jq_data "response-test-instance-id" "$data" \
-  --arg id "$INSTANCE_ID" \
-  '.testInstanceId == $id' \
+  --arg id "$INSTANCE_ID" '.testInstanceId == $id' \
   "state should have matching testInstanceId"
 
 assert_jq_data "response-ipc-namespace" "$data" \
-  --arg ns "$IPC_NS" \
-  '.ipcNamespace == $ns' \
+  --arg ns "$IPC_NS" '.ipcNamespace == $ns' \
   "state should have matching ipcNamespace"
 
 data=$(call_interact '{"action":"state"}')
@@ -146,13 +150,11 @@ assert_jq_data "state-envelope-test-mode" "$data" \
   "state envelope should have testMode"
 
 assert_jq_data "state-envelope-instance-id" "$data" \
-  --arg id "$INSTANCE_ID" \
-  '.after.testInstanceId == $id' \
+  --arg id "$INSTANCE_ID" '.after.testInstanceId == $id' \
   "state envelope should have matching instance ID"
 
 assert_jq_data "state-envelope-namespace" "$data" \
-  --arg ns "$IPC_NS" \
-  '.after.ipcNamespace == $ns' \
+  --arg ns "$IPC_NS" '.after.ipcNamespace == $ns' \
   "state envelope should have matching IPC namespace"
 
 data=$(call_interact '{"action":"open"}')

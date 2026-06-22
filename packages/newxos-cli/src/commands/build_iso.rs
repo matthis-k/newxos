@@ -8,7 +8,6 @@ use crate::support::process::run_status;
 pub struct CommandPlan {
     pub program: String,
     pub args: Vec<String>,
-    pub env: Vec<(String, String)>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,7 +31,6 @@ pub fn build_iso_plan(root: &Path, key: Option<&str>, key_access: KeyAccess) -> 
         return Ok(CommandPlan {
             program: "nix".to_string(),
             args: vec!["build".to_string(), attr],
-            env: vec![],
         });
     };
 
@@ -53,7 +51,6 @@ pub fn build_iso_plan(root: &Path, key: Option<&str>, key_access: KeyAccess) -> 
                     "--impure".to_string(),
                     attr,
                 ],
-                env: vec![("NEWXOS_INSTALLER_SOPS_KEY".to_string(), key_path_str)],
             })
         }
         KeyAccess::Sudo => Ok(CommandPlan {
@@ -66,7 +63,6 @@ pub fn build_iso_plan(root: &Path, key: Option<&str>, key_access: KeyAccess) -> 
                 "--impure".to_string(),
                 attr,
             ],
-            env: vec![("NEWXOS_INSTALLER_SOPS_KEY".to_string(), key_path_str)],
         }),
     }
 }
@@ -136,10 +132,5 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn plan_env_is_populated_for_user_key() {
-        let root = Path::new("/home/user/newxos");
-        let plan = build_iso_plan(root, Some("/home/user/key.txt"), KeyAccess::User).unwrap();
-        assert!(plan.env.iter().any(|(k, v)| k == "NEWXOS_INSTALLER_SOPS_KEY" && v == "/home/user/key.txt"));
-    }
+
 }

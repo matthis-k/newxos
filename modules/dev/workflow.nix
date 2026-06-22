@@ -99,7 +99,8 @@
           exit 0
         fi
 
-        exec ${lib.getExe self'.packages.newshell} -- "${pkgs.bash}/bin/bash" "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh"
+        export NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
+        exec ${pkgs.bash}/bin/bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh"
       '';
 
       reinstallGitHooks = pkgs.writeShellScriptBin "repo-install-git-hooks" ''
@@ -339,7 +340,7 @@
       pre-commit.settings.hooks.check-newshell-config = {
         enable = true;
         name = "check newshell config";
-        description = "Verify newshell QML files pass qmllint.";
+        description = "Verify newshell shell.qml passes qmllint; best-effort lint for other QML files (some imports may not resolve in CI).";
         entry = lib.getExe checkNewshellConfig;
         files = "^configs/newshell/";
         pass_filenames = false;
@@ -405,20 +406,10 @@
           '';
 
       # Newxos CLI tests (Rust unit tests)
-      # Verifies the Rust source structure is intact.
-      # Full cargo test runs during package build.
-      checks.newxos-cli-tests =
-        pkgs.runCommand "newxos-cli-tests"
-          {
-            src = self + "/packages/newxos-cli";
-          }
-          ''
-            test -f "$src/Cargo.toml" || { echo "ERROR: Cargo.toml missing"; exit 1; }
-            test -f "$src/src/main.rs" || { echo "ERROR: main.rs missing"; exit 1; }
-            test -f "$src/src/cli.rs" || { echo "ERROR: cli.rs missing"; exit 1; }
-            echo "newxos-cli source structure OK"
-            touch $out
-          '';
+      # Builds the CLI package with tests enabled.
+      checks.newxos-cli-tests = self'.packages.newxos-cli.overrideAttrs (old: {
+        doCheck = true;
+      });
 
       # Enhance newshell static check to lint all .qml files (uses same logic as hook)
       checks.check-newshell-static = checkNewshellConfig;

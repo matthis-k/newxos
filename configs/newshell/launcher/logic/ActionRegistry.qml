@@ -13,6 +13,19 @@ Singleton {
         _executors[name] = executor;
     }
 
+    function isTestMode() {
+        return Quickshell.env("NEWSHELL_TEST_MODE") === "1";
+    }
+
+    function isDestructiveStep(step) {
+        if (!step) return false;
+        var name = String(step.name || "").toLowerCase();
+        var args = step.args || {};
+        return name === "shutdown" || name === "reboot" || name === "logout" ||
+            name === "power-off" || name === "hibernate" || name === "suspend" ||
+            args.service === "session" || String(args.op || "").match(/^(shutdown|reboot|logout|power-off|hibernate|suspend)$/);
+    }
+
     function execute(step, target, controller) {
         step = ActionSpec.normalize(step);
         var name = step.name || "";
@@ -23,6 +36,12 @@ Singleton {
             if (debugEnabled)
                 console.warn("[ActionRegistry] no executor for step: " + name);
             return { close: false, success: false };
+        }
+
+        if (isTestMode() && isDestructiveStep(step)) {
+            if (debugEnabled)
+                console.log("[ActionRegistry] dry-run in test mode for step: " + name);
+            return { close: false, success: true, dryRun: true, step: name, reason: "NEWSHELL_TEST_MODE" };
         }
 
         try {

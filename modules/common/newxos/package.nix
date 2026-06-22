@@ -61,6 +61,7 @@
       '';
     in
     {
+      packages.newxos-cli = newxos-cli;
       packages.newxos =
         pkgs.runCommand "newxos"
           {
