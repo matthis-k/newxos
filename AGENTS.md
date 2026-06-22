@@ -29,8 +29,10 @@ NixOS flake (`newxos`) managing two personal machines (desktop, laptop) and a li
 | `repo-gate --list` | List all available checks and aliases |
 | `repo-gate all` | Full local gate (write-flake + fmt + statix + flake-check + repo-doctor + rust + newshell + hyprland + neovim) |
 | `repo-gate nix` | Nix-only checks (write-flake + statix + fmt + flake-check) |
-| `repo-gate newshell` | newshell-static + newshell-cases |
-| `repo-gate newshell-runtime` | Headless Hyprland IPC tests (opt-in) |
+| `repo-gate newshell` | newshell-static + newshell-cases + newshell-session |
+| `repo-gate newshell-cases` | Validate canonical case files (no runtime needed) |
+| `repo-gate newshell-session` | Run canonical cases against running service/session |
+| `repo-gate newshell-runtime` | Headless Hyprland IPC + canonical cases (opt-in) |
 | `repo-gate newshell-probe` | Derive launcher debug probes from canonical cases |
 | `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate all` | Full gate with isolated newshell runtime IPC tests |
 | `nix run "path:$PWD#repo-gate" -- all` | Eval flake once, run full gate (also: `-- newshell statix`, `-- rust`, etc.) |

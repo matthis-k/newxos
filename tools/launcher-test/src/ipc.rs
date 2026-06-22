@@ -10,6 +10,19 @@ pub struct LauncherIpc {
     _socket: Option<PathBuf>,
 }
 
+fn ipc_namespace() -> String {
+    std::env::var("NEWSHELL_IPC_NAMESPACE").unwrap_or_default()
+}
+
+fn qualify_target(target: &str) -> String {
+    let ns = ipc_namespace();
+    if ns.is_empty() {
+        target.to_string()
+    } else {
+        format!("{}.{}", ns, target)
+    }
+}
+
 impl LauncherIpc {
     pub fn new() -> Result<Self> {
         let newshell_bin = which_newshell()?;
@@ -22,7 +35,8 @@ impl LauncherIpc {
     }
 
     fn build_args(&self, target: &str, method: &str, arg: &str) -> Vec<String> {
-        let mut args = vec!["ipc".to_string(), "call".to_string(), target.to_string(), method.to_string(), arg.to_string()];
+        let qualified = qualify_target(target);
+        let mut args = vec!["ipc".to_string(), "call".to_string(), qualified, method.to_string(), arg.to_string()];
         if let Some(ref socket) = self._socket {
             args.push("--socket".to_string());
             args.push(socket.to_string_lossy().to_string());
@@ -183,6 +197,11 @@ impl LauncherIpc {
 }
 
 fn which_newshell() -> Result<String> {
+    if let Ok(bin) = std::env::var("NEWSHELL_BIN") {
+        if std::path::Path::new(&bin).exists() {
+            return Ok(bin);
+        }
+    }
     if let Ok(path) = std::env::var("PATH") {
         for dir in path.split(':') {
             let candidate = format!("{}/newshell", dir);

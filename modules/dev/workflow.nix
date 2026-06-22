@@ -86,6 +86,12 @@
           errors=$((errors + 1))
         fi
 
+        # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
+        if ls "${self}/configs/newshell/launcher/tests/cases/"*.json 2>/dev/null | head -n1 | grep -q .; then
+          echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
+          errors=$((errors + 1))
+        fi
+
         if [ "$errors" -gt 0 ]; then
           echo "repo-doctor: $errors check(s) failed" >&2
           exit 1
@@ -126,6 +132,7 @@
         name = "run-newshell-launcher-ipc-tests-hyprland";
         runtimeInputs = [
           self'.packages.newshell
+          self'.packages.newshell-launcher-test
           inputs'.hyprland.packages.hyprland
           pkgs.bash
           pkgs.coreutils
@@ -141,12 +148,14 @@
           fi
 
           NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
+          LAUNCHER_TEST_BIN=${lib.getExe self'.packages.newshell-launcher-test}
 
           tmp_root="$(mktemp -d)"
           runtime_dir="$tmp_root/runtime"
           hypr_config="$tmp_root/hyprland.conf"
           hypr_log="$tmp_root/hyprland.log"
-          test_log="$tmp_root/newshell-ipc-test.log"
+          ipc_test_log="$tmp_root/newshell-ipc-test.log"
+          canonical_log="$tmp_root/newshell-canonical-test.log"
 
           INSTANCE_ID="newshell-hypr-test-$$-''${RANDOM}"
           IPC_NS="$INSTANCE_ID"
@@ -162,8 +171,10 @@
             if [ "$status" -ne 0 ]; then
               echo "=== Hyprland log ===" >&2
               cat "$hypr_log" >&2 2>/dev/null || true
-              echo "=== newshell test log ===" >&2
-              cat "$test_log" >&2 2>/dev/null || true
+              echo "=== newshell IPC test log ===" >&2
+              cat "$ipc_test_log" >&2 2>/dev/null || true
+              echo "=== canonical case test log ===" >&2
+              cat "$canonical_log" >&2 2>/dev/null || true
               echo "=== runtime dir ===" >&2
               ls -la "$runtime_dir" >&2 2>/dev/null || true
               echo "=== generated Hyprland config ===" >&2
@@ -235,11 +246,18 @@
           export NEWSHELL_IPC_NAMESPACE="$IPC_NS"
           export NEWSHELL_BIN="$NEWSHELL_BIN"
 
-          # Run test suite with timeout — cleanup trap fires on timeout/exit
+          # Run the existing IPC test suite
+          echo "=== Running IPC interaction tests ==="
           timeout "''${NEWSHELL_TEST_TIMEOUT_SECONDS:-30}" \
-            bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh" >"$test_log" 2>&1
+            bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh" >"$ipc_test_log" 2>&1
+          cat "$ipc_test_log"
 
-          cat "$test_log"
+          # Run canonical cases against the same namespaced instance
+          echo ""
+          echo "=== Running canonical launcher cases ==="
+          timeout "''${NEWSHELL_TEST_TIMEOUT_SECONDS:-30}" \
+            $LAUNCHER_TEST_BIN run "${self}/tests/launcher/cases" --mode headless >"$canonical_log" 2>&1
+          cat "$canonical_log"
         '';
       };
 
@@ -342,26 +360,33 @@
       newshellCasesCheck = pkgs.writeShellApplication {
         name = "repo-newshell-cases";
         runtimeInputs = [
+          self'.packages.newshell-launcher-test
+          pkgs.bash
+          pkgs.coreutils
+        ];
+        text = ''
+          set -euo pipefail
+          ${lib.getExe self'.packages.newshell-launcher-test} validate "${self}/tests/launcher/cases"
+        '';
+      };
+
+      newshellSessionCheck = pkgs.writeShellApplication {
+        name = "repo-newshell-session";
+        runtimeInputs = [
           self'.packages.newshell
           self'.packages.newshell-launcher-test
           pkgs.bash
           pkgs.coreutils
-          pkgs.jq
         ];
         text = ''
           set -euo pipefail
 
-          # Validate and list canonical cases
-          ${lib.getExe self'.packages.newshell-launcher-test} validate "${self}/tests/launcher/cases"
-
-          # Check if a newshell instance is reachable
           if ! newshell ipc call query pipeline "?" >/dev/null 2>&1; then
-            echo "Skipping launcher case execution (no running newshell instance - use newshell-runtime or run from a running session)"
-            exit 0
+            echo "error: No running newshell instance. Start the service or use newshell-runtime."
+            exit 1
           fi
 
-          # Run canonical cases against the reachable instance
-          export NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
+          export NEWSHELL_BIN="${lib.getExe self'.packages.newshell}"
           ${lib.getExe self'.packages.newshell-launcher-test} run "${self}/tests/launcher/cases" --mode headless
         '';
       };
@@ -384,6 +409,7 @@
           rustCheck
           checkNewshellConfig
           newshellCasesCheck
+          newshellSessionCheck
           runNewshellIpcTestsHyprland
           checkHyprlandConfig
           checkNeovimConfig
@@ -407,8 +433,9 @@
             repo-doctor       run repo invariants
             rust              run newxos-cli Rust tests
             newshell-static   qmllint shell.qml + best-effort lint
-            newshell-cases    validate and run JSON launcher case expectations
-            newshell-runtime  run headless Hyprland newshell IPC tests (opt-in)
+            newshell-cases    validate canonical launcher case files (no runtime needed)
+            newshell-session  run canonical cases against running service/session
+            newshell-runtime  run headless Hyprland newshell IPC + canonical cases (opt-in)
             newshell-probe    derive/debug launcher probes from canonical cases (diagnostic)
             hyprland          verify Hyprland config
             neovim            verify Neovim starts headless
@@ -416,7 +443,8 @@
             hooks             reinstall managed git hooks
 
           Aliases:
-            newshell          newshell-static + newshell-cases
+            newshell          newshell-static + newshell-cases + newshell-session
+            session           newshell-session
             runtime           newshell-runtime
             nix               write-flake + statix + fmt + flake-check
             quick             write-flake + fmt + statix + newshell-static
@@ -461,12 +489,13 @@
             resolve_alias() {
               local name="$1"
               case "$name" in
-                newshell)  echo "newshell-static newshell-cases" ;;
+                newshell)  echo "newshell-static newshell-cases newshell-session" ;;
                 runtime)   echo "newshell-runtime" ;;
                 nix)       echo "write-flake statix fmt flake-check" ;;
                 quick)     echo "write-flake fmt statix newshell-static" ;;
                 all)       echo "write-flake fmt statix flake-check repo-doctor rust newshell-static newshell-cases hyprland neovim" ;;
                 probe)     echo "newshell-probe" ;;
+                session)   echo "newshell-session" ;;
                 *)         echo "$name" ;;
               esac
             }
@@ -533,6 +562,9 @@
                   ;;
                 newshell-cases)
                   repo-newshell-cases
+                  ;;
+                newshell-session)
+                  repo-newshell-session
                   ;;
                 newshell-probe)
                   ${lib.getExe self'.packages.newshell-launcher-test} list "${self}/tests/launcher/cases"
@@ -708,6 +740,7 @@
       packages.repo-write-flake = writeFlake;
       packages.repo-flake-check = flakeCheck;
       packages.repo-newshell-cases = newshellCasesCheck;
+      packages.repo-newshell-session = newshellSessionCheck;
       packages.repo-update-docs-index = updateDocsIndex;
       packages.repo-install-git-hooks = reinstallGitHooks;
       packages.run-newshell-launcher-ipc-tests = runNewshellIpcTests;
@@ -747,25 +780,18 @@
                 fi
 
             # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
-            if ${pkgs.ripgrep}/bin/rg -q '\.json"' configs/newshell/launcher/tests/cases/ 2>/dev/null \
-              || ls "${self}/configs/newshell/launcher/tests/cases/"*.json 2>/dev/null | head -n1 | grep -q .; then
+            if ls configs/newshell/launcher/tests/cases/*.json 2>/dev/null | head -n1 | grep -q .; then
               echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
               errors=$((errors + 1))
             fi
 
-                # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
-                if ls configs/newshell/launcher/tests/cases/*.json 2>/dev/null | head -n1 | grep -q .; then
-                  echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
-                  errors=$((errors + 1))
-                fi
+            # 10.6 OpenCode package must not mask eval failure
+            if rg -n 'builtins\.tryEval' modules/dev/opencode.nix 2>/dev/null; then
+              echo "error: opencode wrapper evaluation must fail at evaluation/build time; do not mask with tryEval" >&2
+              errors=$((errors + 1))
+            fi
 
-                # 10.6 OpenCode package must not mask eval failure
-                if rg -n 'builtins\.tryEval' modules/dev/opencode.nix 2>/dev/null; then
-                  echo "error: opencode wrapper evaluation must fail at evaluation/build time; do not mask with tryEval" >&2
-                  errors=$((errors + 1))
-                fi
-
-                if [ "$errors" -gt 0 ]; then
+            if [ "$errors" -gt 0 ]; then
                   echo "repo-doctor: $errors check(s) failed" >&2
                   exit 1
                 fi

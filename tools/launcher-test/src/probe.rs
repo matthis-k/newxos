@@ -240,17 +240,28 @@ pub fn print_probe(probe: &ProbeInfo, show_jq: bool) {
 }
 
 pub fn run_probe(probe: &ProbeInfo, verbose: bool) -> Result<(), String> {
-    let parts: Vec<&str> = probe.command.splitn(2, '|').collect();
-    let ipc_cmd = parts[0].trim();
+    let newshell_bin = std::env::var("NEWSHELL_BIN").unwrap_or_else(|_| "newshell".to_string());
+
+    let ipc_cmd = if probe.command.contains("$NEWSHELL_IPC_NAMESPACE") {
+        let ns = std::env::var("NEWSHELL_IPC_NAMESPACE").unwrap_or_default();
+        probe.command.replace("$NEWSHELL_IPC_NAMESPACE", &ns)
+    } else {
+        probe.command.clone()
+    };
 
     let ipc_parts: Vec<&str> = ipc_cmd.split_whitespace().collect();
-    if ipc_parts.len() < 2 {
+    if ipc_parts.is_empty() {
         return Err("Invalid IPC command".to_string());
     }
 
-    let output = std::process::Command::new(&ipc_parts[0])
-        .args(&ipc_parts[1..])
-        .output()
+    let mut cmd = std::process::Command::new(&newshell_bin);
+    if ipc_parts[0] == "newshell" && ipc_parts.len() > 1 {
+        cmd.args(&ipc_parts[1..]);
+    } else {
+        cmd.args(&ipc_parts);
+    }
+
+    let output = cmd.output()
         .map_err(|e| format!("Failed to execute probe: {}", e))?;
 
     if !output.status.success() {
