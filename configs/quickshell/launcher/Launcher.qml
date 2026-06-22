@@ -6,7 +6,7 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs.animations as Animations
 import qs.services
-        import "backends" as Backends
+import "backends" as Backends
 import "delegates" as Delegates
 import "visual" as Visual
 import "logic/DebugLogger.js" as DebugLogger
@@ -116,6 +116,28 @@ PanelWindow {
         });
     }
 
+    function debugOverview(args) {
+        return controller.debugOverview(args || "");
+    }
+    function debugInspect(args) {
+        return controller.debugInspect(args || "");
+    }
+    function debugPolicies(args) {
+        return controller.debugPolicies(args || "");
+    }
+    function debugFind(args) {
+        return controller.debugFind(args || "");
+    }
+    function debugAction(args) {
+        return controller.debugAction(args || "");
+    }
+    function debugStats(args) {
+        return controller.debugStats(args || "");
+    }
+    function debugRaw(args) {
+        return controller.debugRaw(args || "");
+    }
+
     function queryVisualState() {
         return JSON.stringify({
             version: 1,
@@ -134,10 +156,377 @@ PanelWindow {
         });
     }
 
+    // ── helpers ──────────────────────────────────────────
+
+    function interactionEnvelope(action, ok, before, result, error, includeVisual) {
+        return JSON.stringify({
+            version: 1,
+            type: "launcherInteraction",
+            ok: !!ok,
+            action: action || "",
+            before: before || null,
+            after: root.interactionState(!!includeVisual),
+            result: result === undefined ? null : result,
+            error: error || null
+        });
+    }
+
+    function interactionError(action, before, code, message, includeVisual) {
+        return root.interactionEnvelope(action, false, before, null, { code: code, message: message }, includeVisual);
+    }
+
+    function parseInteractionArg(arg) {
+        if (arg === undefined || arg === null || arg === "")
+            return {};
+        if (typeof arg === "object")
+            return arg;
+        const text = String(arg).trim();
+        if (text.length === 0)
+            return {};
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            return { _parseError: String(e), raw: String(arg) };
+        }
+    }
+
+    // ── query/input helpers ─────────────────────────────
+
+    function setLauncherQuery(text) {
+        const next = String(text || "");
+        input.text = next;
+        if (next.trim().length === 0)
+            controller.reset();
+        else
+            controller.updateQuery(next);
+        if (root.visible) {
+            input.forceActiveFocus();
+            input.cursorPosition = input.text.length;
+        }
+        return {
+            query: controller.query || "",
+            inputText: input.text || "",
+            queryRevision: controller.queryRevision,
+            generation: controller.generation
+        };
+    }
+
+    function appendLauncherText(text) {
+        return root.setLauncherQuery((input.text || "") + String(text || ""));
+    }
+
+    function backspaceLauncherText(count) {
+        const n = Math.max(1, Number(count || 1));
+        const current = input.text || "";
+        return root.setLauncherQuery(current.slice(0, Math.max(0, current.length - n)));
+    }
+
+    function clearLauncherQuery() {
+        input.text = "";
+        controller.reset();
+        if (root.visible)
+            input.forceActiveFocus();
+        return { query: controller.query || "", inputText: input.text || "" };
+    }
+
+    // ── core semantic methods (shared by keyboard and IPC) ──
+
+    function normalizeInteractionKey(key) {
+        const k = String(key || "").toLowerCase();
+        if (k === "space" || k === "spc")
+            return "space";
+        if (["h", "j", "k", "l", "m"].indexOf(k) >= 0)
+            return k;
+        if (k.length === 1)
+            return k;
+        return "";
+    }
+
+    function activateSelectedCore(shiftPressed) {
+        return controller.actions.activateSelectedFromInteraction(!!shiftPressed);
+    }
+
+    function altInteractCore(keyName, qtKey) {
+        const normalized = root.normalizeInteractionKey(keyName);
+        if (!normalized)
+            return { close: false, success: false, reason: "empty_key" };
+
+        const target = controller.actions.selectedActionTarget();
+
+        if (qtKey !== undefined && qtKey !== null) {
+            const preset = KeybindPresets.altActionForKey(target, qtKey);
+
+            if (preset === "switch-on" || preset === "slider-inc") {
+                const result = controller.actions.adjustSelectedValue(1);
+                return result === undefined
+                    ? { close: false, success: true, mode: preset }
+                    : Object.assign({ mode: preset }, result);
+            }
+
+            if (preset === "switch-off" || preset === "slider-dec") {
+                const result = controller.actions.adjustSelectedValue(-1);
+                return result === undefined
+                    ? { close: false, success: true, mode: preset }
+                    : Object.assign({ mode: preset }, result);
+            }
+
+            if (preset === "switch-toggle") {
+                const result = controller.actions.toggleSelectedMute();
+                return result === undefined
+                    ? { close: false, success: true, mode: preset }
+                    : Object.assign({ mode: preset }, result);
+            }
+        }
+
+        const recipeResult = controller.actions.runInteractionForKey(normalized);
+        return recipeResult === undefined
+            ? { close: false, success: false, mode: "recipe" }
+            : Object.assign({ mode: "recipe" }, recipeResult);
+    }
+
+    // ── semantic wrapper facades ────────────────────────
+
+    function expandSelectedSemantic() {
+        let result = null;
+        if (controller.navigation.isInTree())
+            result = controller.navigation.treeExpandSelected();
+        else
+            result = controller.navigation.toggleExpandResultTree();
+        return {
+            result: result === undefined ? null : result,
+            selectedIndex: controller.selectedIndex,
+            activeNodeKey: controller.activeNodeKey || "",
+            inTree: controller.navigation.isInTree(),
+            currentTreeKey: controller.currentTreeKey || ""
+        };
+    }
+
+    function collapseSelectedSemantic() {
+        let result = null;
+        if (controller.navigation.isInTree())
+            result = controller.navigation.treeCollapseSelected();
+        else
+            result = controller.navigation.toggleCollapseResultTree();
+        return {
+            result: result === undefined ? null : result,
+            selectedIndex: controller.selectedIndex,
+            activeNodeKey: controller.activeNodeKey || "",
+            inTree: controller.navigation.isInTree(),
+            currentTreeKey: controller.currentTreeKey || ""
+        };
+    }
+
+    function toggleSelectedExpansionSemantic() {
+        if (controller.navigation.isInTree()) {
+            const current = controller.findTreeRowData(controller.currentTreeKey);
+            if (current && current.children && current.children.length > 0)
+                return root.expandSelectedSemantic();
+            return root.collapseSelectedSemantic();
+        }
+        const row = controller.selectedResult();
+        if (!row)
+            return { changed: false, reason: "no_selected_row" };
+        if (row.children && row.children.length > 0)
+            return root.expandSelectedSemantic();
+        return { changed: false, reason: "selected_row_not_expandable" };
+    }
+
+    function activateSelectedSemantic(shiftPressed) {
+        const result = root.activateSelectedCore(!!shiftPressed);
+        root.applyActivationClose(result);
+        return {
+            mode: shiftPressed ? "shift-activate" : "activate",
+            closeRequested: result ? !!result.closeRequested : false,
+            close: result ? result.close !== false : false,
+            result: result === undefined ? null : result
+        };
+    }
+
+    function altInteractSemantic(key, qtKey) {
+        const normalized = root.normalizeInteractionKey(key);
+        if (!normalized)
+            return { changed: false, reason: "empty_key" };
+
+        const target = controller.actions.selectedActionTarget();
+        const result = root.altInteractCore(normalized, qtKey);
+
+        return {
+            key: normalized,
+            qtKey: qtKey === undefined ? null : qtKey,
+            targetId: target ? target.id || target.nodeId || "" : "",
+            targetKind: target ? target.kind || "" : "",
+            result: result === undefined ? null : result
+        };
+    }
+
+    function setVisualDebugSemantic(enabled) {
+        const value = String(enabled === undefined ? "" : enabled).toLowerCase();
+        transitionCoordinator.debugEnabled =
+            enabled === true ||
+            value === "1" || value === "true" || value === "on" || value === "yes";
+        return { debugEnabled: transitionCoordinator.debugEnabled };
+    }
+
+    // ── visual debug (refactored to use semantic helper) ──
+
     function queryVisualDebug(arg) {
-        const value = String(arg === undefined ? "" : arg).toLowerCase();
-        transitionCoordinator.debugEnabled = value === "1" || value === "true" || value === "on" || value === "yes";
+        root.setVisualDebugSemantic(arg);
         return root.queryVisualState();
+    }
+
+    function applyActivationClose(result) {
+        if (result && result.close !== false && result.closeRequested)
+            root.close();
+    }
+
+    // ── interaction state ────────────────────────────────
+
+    function interactionState(includeVisual) {
+        const state = {
+            version: 1,
+            type: "launcherInteractionState",
+            visible: root.visible,
+            closing: root.closing,
+            revealed: root.launcherRevealed,
+            query: controller.query || "",
+            inputText: input.text || "",
+            generation: controller.generation,
+            queryRevision: controller.queryRevision,
+            loading: controller.loading,
+            resultsCount: controller.results ? controller.results.length : 0,
+            selectedIndex: controller.selectedIndex,
+            selectedActionIndex: controller.selectedActionIndex,
+            activeNodeKey: controller.activeNodeKey || "",
+            inTree: controller.navigation.isInTree(),
+            currentTreeKey: controller.currentTreeKey || "",
+            treeVisualRow: controller.treeVisualRow
+        };
+        if (!!includeVisual)
+            state.visual = root.visualMetrics();
+        return state;
+    }
+
+    function interactionStateJson(includeVisual) {
+        return JSON.stringify(root.interactionState(!!includeVisual));
+    }
+
+    // ── perform interaction (core dispatcher) ────────────
+
+    function performInteraction(action, payload, before, includeVisual) {
+        try {
+            let result = null;
+
+            switch (action) {
+            case "state":
+                return root.interactionEnvelope(action, true, before, root.interactionState(!!includeVisual), null, includeVisual);
+
+            case "open":
+                root.open(payload.openArg);
+                result = { visible: root.visible };
+                break;
+
+            case "close":
+                root.close();
+                result = { visible: root.visible, closing: root.closing };
+                break;
+
+            case "toggle":
+                if (root.visible)
+                    root.close();
+                else
+                    root.open(payload.openArg);
+                result = { visible: root.visible, closing: root.closing };
+                break;
+
+            case "setQuery":
+                result = root.setLauncherQuery(payload.query);
+                break;
+
+            case "typeText":
+                result = root.appendLauncherText(payload.text);
+                break;
+
+            case "backspace":
+                result = root.backspaceLauncherText(payload.count);
+                break;
+
+            case "clearQuery":
+                result = root.clearLauncherQuery();
+                break;
+
+            case "reset":
+                input.text = "";
+                controller.reset();
+                result = { query: controller.query || "", inputText: input.text || "" };
+                break;
+
+            case "moveSelection":
+                controller.navigation.moveSelection(Number(payload.delta || 0));
+                result = { selectedIndex: controller.selectedIndex, activeNodeKey: controller.activeNodeKey || "" };
+                break;
+
+            case "expandSelected":
+                result = root.expandSelectedSemantic();
+                break;
+
+            case "collapseSelected":
+                result = root.collapseSelectedSemantic();
+                break;
+
+            case "toggleSelectedExpansion":
+                result = root.toggleSelectedExpansionSemantic();
+                break;
+
+            case "completeSelected":
+                result = controller.actions.runRecipeSlot("complete");
+                break;
+
+            case "activateSelected":
+                result = root.activateSelectedSemantic(!!payload.shift);
+                break;
+
+            case "altInteract":
+                result = root.altInteractSemantic(
+                    String(payload.key || ""),
+                    payload.qtKey === undefined ? undefined : Number(payload.qtKey)
+                );
+                break;
+
+            case "visualDebug":
+                result = root.setVisualDebugSemantic(payload.enabled);
+                break;
+
+            default:
+                return root.interactionError(action, before, "unknown_action",
+                    "Unknown launcher interaction action: " + action);
+            }
+
+            return root.interactionEnvelope(action, true, before, result, null, includeVisual);
+        } catch (e) {
+            return root.interactionError(action, before, "exception", String(e), includeVisual);
+        }
+    }
+
+    // ── IPC entry points ─────────────────────────────────
+
+    function interact(action, arg) {
+        const payload = root.parseInteractionArg(arg);
+        payload.action = String(action || payload.action || "");
+        const includeVisual = !!payload.visual;
+        const before = root.interactionState(includeVisual);
+        if (payload._parseError)
+            return root.interactionError(payload.action || "parse", before, "invalid_json", payload._parseError, includeVisual);
+        return root.performInteraction(payload.action, payload, before, includeVisual);
+    }
+
+    function interactJson(payloadStr) {
+        const payload = root.parseInteractionArg(payloadStr);
+        const includeVisual = !!payload.visual;
+        const before = root.interactionState(includeVisual);
+        if (payload._parseError)
+            return root.interactionError("parse", before, "invalid_json", payload._parseError, includeVisual);
+        const action = String(payload.action || "");
+        return root.performInteraction(action, payload, before, includeVisual);
     }
 
     anchors {
@@ -200,29 +589,42 @@ PanelWindow {
     function visualMetrics() {
         const items = [];
         if (resultsList) {
-            for (let i = 0; i < resultsList.count; i += 1) {
-                const delegate = resultsList.itemAtIndex(i);
+            for (let i = 0; i < transitionCoordinator.model.count; i += 1) {
+                const row = transitionCoordinator.model.get(i);
+                const delegate = resultsList.itemAtIndex(row.rank);
                 items.push({
-                    index: i,
-                    y: delegate ? delegate.y : null,
-                    height: delegate ? delegate.height : null,
-                    fullHeight: delegate ? delegate.fullHeight : null,
-                    reveal: delegate ? delegate.reveal : null,
-                    phase: delegate ? delegate.phase : "",
-                    key: delegate ? delegate.key : ""
+                    modelIndex: i,
+                    key: row.key,
+                    rank: row.rank,
+                    targetRank: row.targetRank,
+                    phase: row.phase,
+                    x: delegate ? delegate.x : 0,
+                    y: delegate ? delegate.y : row.targetY,
+                    targetY: row.targetY,
+                    width: delegate ? delegate.width : 0,
+                    height: delegate ? delegate.height : row.visualHeight,
+                    targetHeight: row.targetHeight,
+                    measuredHeight: row.measuredHeight,
+                    opacity: delegate ? delegate.opacity : row.targetOpacity,
+                    scale: delegate ? delegate.scale : row.targetScale,
+                    reveal: delegate ? (row.targetHeight > 0 ? delegate.height / row.targetHeight : 0) : 0
                 });
             }
         }
+
+        const cardGeom = card ? { x: card.x, y: card.y, width: card.width, height: card.height } : {};
+        const inputGeom = input ? { x: input.x, y: input.y, width: input.width, height: input.height } : {};
+        const frameGeom = resultsFrame ? { x: resultsFrame.x, y: resultsFrame.y, width: resultsFrame.width, height: resultsFrame.height, targetHeight: resultsFrame.targetHeight } : {};
+        const listGeom = resultsList ? { x: resultsList.x, y: resultsList.y, width: resultsList.width, height: resultsList.height, contentHeight: resultsList.contentHeight, contentY: resultsList.contentY } : {};
+
         return {
             query: controller.query || "",
             resultsCount: controller.results.length,
             selectedIndex: controller.selectedIndex,
-            cardHeight: card ? card.height : 0,
-            frameHeight: resultsFrame ? resultsFrame.height : 0,
-            frameTargetHeight: resultsFrame ? resultsFrame.targetHeight : 0,
-            listHeight: resultsList ? resultsList.height : 0,
-            listContentHeight: resultsList ? resultsList.contentHeight : 0,
-            listContentY: resultsList ? resultsList.contentY : 0,
+            card: cardGeom,
+            input: inputGeom,
+            resultsFrame: frameGeom,
+            resultsList: listGeom,
             items: items
         };
     }
@@ -369,19 +771,8 @@ PanelWindow {
                     if (event.key === Qt.Key_Escape)
                         return handleEscapeKey(event);
 
-                    if (event.modifiers & Qt.AltModifier) {
-                        var target = controller.actions.selectedActionTarget();
-                        var action = KeybindPresets.altActionForKey(target, event.key);
-                        if (action) {
-                            if (action === "switch-on" || action === "slider-inc")
-                                { controller.actions.adjustSelectedValue(1); return true; }
-                            if (action === "switch-off" || action === "slider-dec")
-                                { controller.actions.adjustSelectedValue(-1); return true; }
-                            if (action === "switch-toggle")
-                                { controller.actions.toggleSelectedMute(); return true; }
-                        }
+                    if (event.modifiers & Qt.AltModifier)
                         return handleAltInteractionKey(event);
-                    }
 
                     if (event.modifiers & Qt.ControlModifier)
                         return handleCtrlKey(event);
@@ -406,25 +797,18 @@ PanelWindow {
                 }
 
                 function handleActivationKey(event) {
-                    if (event.modifiers & Qt.ShiftModifier && controller.navigation.isInTree()) {
-                        controller.navigation.treeToggleSelected();
-                        return true;
-                    }
-
+                    var shift = !!(event.modifiers & Qt.ShiftModifier);
                     var target = controller.actions.selectedActionTarget();
                     DebugLogger.log("activate", "enter", {
                         targetId: target ? target.id || target.nodeId || "" : "none",
                         targetKind: target ? target.kind || "" : "",
-                        inTree: controller.navigation.isInTree()
+                        inTree: controller.navigation.isInTree(),
+                        shift: shift
                     });
 
-                    var result = controller.actions._handleActivationWithConfirm();
-                    DebugLogger.log("activate", "result", {
-                        closeRequested: result ? result.closeRequested : false,
-                        close: result ? result.close : false
-                    });
-                    if (result && result.close !== false && result.closeRequested)
-                        root.close();
+                    var result = root.activateSelectedCore(shift);
+                    DebugLogger.log("activate", "result", result);
+                    root.applyActivationClose(result);
                     return true;
                 }
 
@@ -469,17 +853,14 @@ PanelWindow {
                     var target = controller.actions.selectedActionTarget();
                     DebugLogger.log("alt-interaction", "dispatch", {
                         keyName: keyName,
+                        qtKey: event.key,
                         targetId: target ? target.id || target.nodeId || "" : "none",
                         targetKind: target ? target.kind || "" : "",
                         availableKeys: target ? Object.keys(RecipeResolver.effectiveInteractions(target)) : []
                     });
 
-                    var result = controller.actions.runInteractionForKey(keyName);
-                    DebugLogger.log("alt-interaction", "result", {
-                        keyName: keyName,
-                        close: result ? result.close : false,
-                        success: result ? result.success : false
-                    });
+                    var result = root.altInteractCore(keyName, event.key);
+                    DebugLogger.log("alt-interaction", "result", result);
                     return true;
                 }
 
@@ -502,7 +883,7 @@ PanelWindow {
             Item {
                 id: resultsFrame
                 readonly property real targetHeight: {
-                    const contentHeight = resultsList.contentHeight || 0;
+                    const contentHeight = transitionCoordinator.contentHeight || resultsList.contentHeight || 0;
                     const bootstrapHeight = transitionCoordinator.hasActiveItems ? root.rowHeight : 0;
                     return Math.min(Math.max(contentHeight, bootstrapHeight), root.rowHeight * root.visibleResultRows);
                 }
@@ -514,18 +895,24 @@ PanelWindow {
                 Layout.maximumHeight: root.rowHeight * root.visibleResultRows
 
                 function ensureActiveVisible() {
-                    if (controller.selectedIndex < 0 || controller.selectedIndex >= resultsList.count)
+                    if (controller.selectedIndex < 0)
                         return;
+
                     var current = resultsList.itemAtIndex(controller.selectedIndex);
-                    var y = current ? current.y : controller.selectedIndex * (root.rowHeight + resultsList.spacing);
-                    var height = current ? current.height : root.rowHeight;
+                    if (!current)
+                        return;
+
+                    var y = current.y;
+                    var height = current.height;
+
                     if (controller.navigation.isInTree()) {
                         var treeRowH = 44;
-                        if (current && current.item && current.item.treeRowHeight)
+                        if (current.item && current.item.treeRowHeight)
                             treeRowH = current.item.treeRowHeight;
-                        y += root.rowHeight + resultsList.spacing + Math.max(0, controller.treeVisualRow) * treeRowH;
+                        y += root.rowHeight + Math.max(0, controller.treeVisualRow) * treeRowH;
                         height = treeRowH;
                     }
+
                     if (y < resultsList.contentY)
                         resultsList.contentY = y;
                     else if (y + height > resultsList.contentY + resultsList.height)
@@ -542,7 +929,7 @@ PanelWindow {
                     }
                 }
 
-                Visual.LauncherResultList {
+                Visual.PositionedResultList {
                     id: resultsList
                     anchors.fill: parent
                     coordinator: transitionCoordinator

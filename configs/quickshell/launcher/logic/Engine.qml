@@ -9,6 +9,8 @@ import "RenderedRows.qml"
 import "Rows.qml"
 import "ScoreBundle.qml"
 import "RoutingTree.js" as JsRoutingTree
+import "Evaluation.js" as EvalBuilder
+import "FormatUtils.qml"
 
 Singleton {
     function buildDirectiveFromRoute(rawQuery, route, backends) {
@@ -87,7 +89,7 @@ Singleton {
             return filtered.map(function(child) {
                 var grandChildren = buildChildTree(child, currentDepth + 1, maxDepth - 1, includeAllChildren, exploringFromAncestor || includeAllChildren);
                 var childShapedItem = { ev: child, depth: currentDepth + 1, placement: "group-child", decision: { placement: "group-child", mode: "normal", showParent: false }, options: {} };
-                return RenderedRows.toResultRow(child, currentDepth + 1, state, ctx, grandChildren, {}, childShapedItem);
+                return RenderedRows.toResultRow(child, currentDepth + 1, state, ctx, grandChildren, { explicitBrowseChild: includeAllChildren }, childShapedItem);
             });
         }
 
@@ -116,6 +118,10 @@ Singleton {
         var totalStart = Tokenize.nowMs();
         var routingTree = options && options.routingTree;
         var ctx = Object.assign({ query: null, directive: null, routingTree: routingTree, route: null, visibilityThreshold: 0.18, showHidden: false, includePath: true }, options || {});
+        ctx._evidenceTrace = {};
+        ctx._scoreTrace = {};
+        ctx._policyTrace = {};
+        ctx._decisionTrace = {};
 
         var active = null;
         var children = null;
@@ -149,6 +155,10 @@ Singleton {
                 if (typeof b.shouldParticipate === "function" && !b.shouldParticipate(rawQuery, directive, query)) return false;
                 return !directive.active || directive.backendIds.indexOf(b.backendId) >= 0;
             }).sort(function(a, b) { return (b.priority || 0) - (a.priority || 0); });
+            ctx._activeBackends = backends || [];
+            ctx._participatingBackends = active;
+            ctx._backendCandidateCounts = {};
+            ctx._backendVisibleCounts = {};
 
             if (ctx.trace) {
                 phases.push({
@@ -291,6 +301,13 @@ Singleton {
             rows = Rows.finalizeRows(rows, query, directive, ctx);
             var shapeMs = Tokenize.nowMs() - shapeStart;
 
+            timings = {
+                totalMs: Tokenize.nowMs() - totalStart, rootNodeMs: ctx.rootNodeMs, candidateMs: ctx.candidateMs,
+                evaluateMs: ctx.evaluateMs, pathMs: ctx.pathMs, shapeMs: shapeMs,
+                activeBackends: active.length, backendRoots: children.length, candidateIds: ctx.candidateCount,
+                backends: ctx.backendTimings, rows: rows.length
+            };
+
             if (ctx.trace) {
                 var placements = {};
                 var shapedItems = [];
@@ -315,12 +332,6 @@ Singleton {
                         });
                     }
                 }
-                timings = {
-                    totalMs: Tokenize.nowMs() - totalStart, rootNodeMs: ctx.rootNodeMs, candidateMs: ctx.candidateMs,
-                    evaluateMs: ctx.evaluateMs, pathMs: ctx.pathMs, shapeMs: shapeMs,
-                    activeBackends: active.length, backendRoots: children.length, candidateIds: ctx.candidateCount,
-                    backends: ctx.backendTimings, rows: rows.length
-                };
                 phases.push({
                     phase: 5, name: "shaping",
                     shapeMs: shapeMs,
@@ -332,7 +343,17 @@ Singleton {
                 });
             }
 
-            var result = { rows: rows, query: query, directive: directive, route: route, evaluatedRoot: ctx.evaluated, shapedResult: shapedResult, timings: timings, phases: phases };
+            var evaluation = EvalBuilder.build(query, {
+                rows: rows, query: query, directive: directive, route: route,
+                evaluatedRoot: ctx.evaluated, shapedResult: shapedResult,
+                timings: timings, phases: phases
+            }, ctx);
+            FormatUtils.mergeToEvaluation(evaluation);
+            evaluation._stages = phases.map(function(p) {
+                return { name: p.name || "", durationMs: p.evaluateMs || p.shapeMs || p.candidateMs || p.rootNodeMs || 0 };
+            });
+
+            var result = { rows: rows, query: query, directive: directive, route: route, evaluatedRoot: ctx.evaluated, shapedResult: shapedResult, timings: timings, phases: phases, evaluation: evaluation };
             syncResult = result;
             if (onComplete) onComplete(result);
         }

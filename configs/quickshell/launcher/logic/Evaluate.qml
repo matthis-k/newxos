@@ -69,6 +69,7 @@ Singleton {
 
         if (selfAllowed && directCandidate) {
             var evidenceNames = profile.evidence || [];
+            if (node && node.id && ctx._policyTrace && !ctx._policyTrace[node.id]) ctx._policyTrace[node.id] = {};
             var evidenceResult = PolicyChain.run(evidenceNames, function(name, spec) {
                 var policy = PolicyChain.lookupPolicy(JsRegistry.evidence, spec);
                 if (!policy || policy.phase !== "evidence") return null;
@@ -77,7 +78,20 @@ Singleton {
                 var group = policy.group || "own";
                 items.forEach(function(item) { item.originGroup = group; });
                 return items;
-            }, "evidence");
+            }, "evidence", function(tr) {
+                if (!node || !node.id || !ctx._policyTrace) return;
+                if (!ctx._policyTrace[node.id]) return;
+                if (!ctx._policyTrace[node.id].evidence) {
+                    ctx._policyTrace[node.id].evidence = { kind: "evidence", evaluated: [], aggregate: null, final: null };
+                }
+                ctx._policyTrace[node.id].evidence.evaluated.push({
+                    name: tr.name, priority: tr.priority || 0, enabled: true,
+                    args: tr.args,
+                    returned: tr.returned,
+                    effect: "combined",
+                    reasons: tr.returned && tr.returned.reasons ? tr.returned.reasons.slice() : []
+                });
+            });
             var allEvidence = evidenceResult.value || [];
             for (var ei = 0; ei < allEvidence.length; ei += 1) {
                 if (allEvidence[ei].originGroup === "inherited")
@@ -129,12 +143,26 @@ Singleton {
 
         var scores = { ownScore: own.value, inheritedScore: inheritedScore };
         var boostNames = profile.boost || [];
+        if (node && node.id && ctx._policyTrace && !ctx._policyTrace[node.id]) ctx._policyTrace[node.id] = {};
         var descendantBoost = (PolicyChain.run(boostNames, function(name, spec) {
             var bpol = PolicyChain.lookupPolicy(JsRegistry.boost, spec);
             if (!bpol || bpol.phase !== "boost") return null;
             var boostVal = bpol.apply(node, query, ctx, evaluatedChildren, scores);
             return boostVal > 0 ? boostVal : null;
-        }, "boost").value) || 0;
+        }, "boost", function(tr) {
+            if (!node || !node.id || !ctx._policyTrace) return;
+            if (!ctx._policyTrace[node.id]) return;
+            if (!ctx._policyTrace[node.id].boost) {
+                ctx._policyTrace[node.id].boost = { kind: "boost", evaluated: [], aggregate: null, final: null };
+            }
+            ctx._policyTrace[node.id].boost.evaluated.push({
+                name: tr.name, priority: tr.priority || 0, enabled: true,
+                args: tr.args,
+                returned: tr.returned,
+                effect: tr.effect || "combined",
+                reasons: tr.returned && tr.returned.reasons ? tr.returned.reasons.slice() : []
+            });
+        }).value) || 0;
 
         var finalScore = Tokenize.clamp(Math.max(own.value, inheritedScore, descendantBoost));
 

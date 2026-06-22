@@ -7,6 +7,14 @@ Item {
 
     property var controller: null
 
+    OverviewFormatter { id: _overviewFmt }
+    InspectFormatter  { id: _inspectFmt }
+    PoliciesFormatter { id: _policiesFmt }
+    FindFormatter     { id: _findFmt }
+    ActionFormatter   { id: _actionFmt }
+    StatsFormatter    { id: _statsFmt }
+    RawFormatter      { id: _rawFmt }
+
     function copyJsonValue(value, depth) {
         depth = depth === undefined ? 0 : depth;
         if (depth > 6 || value === undefined || typeof value === "function")
@@ -135,8 +143,11 @@ Item {
             control: root.copyJsonValue(row.control),
             presentation: root.copyJsonValue(row.presentation),
             defaultAction: root.copyJsonValue(row.defaultAction),
+            enter: root.copyJsonValue(row.enter),
+            metadata: root.copyJsonValue(row.metadata),
+            semantics: root.copyJsonValue(row.semantics),
             actions: (row.actions || []).map(function(a) {
-                return { id: a.id || "", label: a.label || "", icon: a.icon || null, default: !!a.default };
+                return { id: a.id || "", label: a.label || "", icon: a.icon || null, default: !!a.default, payload: root.copyJsonValue(a.payload) };
             }),
             evidence: (row.evidence || []).map(function(e) {
                 return {
@@ -697,9 +708,9 @@ Item {
             "db wifi", "dashboard wifi",
             "au", "aud", "audi", "audio",
             "en", "screen", "session",
-            "newxos", "vpn", "vpn ", "vpn ger", "vpn germany", "vpn of",
+            "newxos", "ai", "vpn", "vpn ", "vpn ger", "vpn germany", "vpn of",
             "ger", "alg", "bel", "swe", "germany", "algeria", "belgium", "sweden",
-            "net", "networking",
+            "net", "network", "networking", "bluetooth",
             "notes", "/tmp"
         ];
     }
@@ -714,5 +725,185 @@ Item {
             totalCases: results.length,
             maxRows: results.reduce(function(m, r) { return Math.max(m, r.totalRows); }, 0)
         };
+    }
+
+    // --- Debug V2 IPC methods (canonical Evaluation-based) ---
+
+    function parseDebugArgs(argsJson) {
+        var args = {};
+        if (argsJson) {
+            var trimmed = String(argsJson).trim();
+            if (trimmed.length > 0 && (trimmed[0] === "{" || trimmed[0] === "[")) {
+                try {
+                    args = JSON.parse(trimmed);
+                } catch (e) {}
+            } else {
+                args.query = trimmed;
+            }
+        }
+        return args;
+    }
+
+    // ── Shared JSON-safe IPC return boundary ────────────────────────
+    // Every debug endpoint MUST use this helper — never raw JSON.stringify(envelope).
+
+    function returnDebugEnvelope(mode, evaluation, result, source) {
+        var queryInfo = evaluation ? evaluation.query : null
+        var envelope = FormatUtils.make(mode, queryInfo, result, source || "query")
+        var safe = FormatUtils.toJsonSafe(envelope)
+
+        if (!FormatUtils.validateJsonSafe("debug." + mode, safe)) {
+            var err = FormatUtils.make(
+                mode,
+                queryInfo,
+                FormatUtils.errorResult(
+                    "json_unsafe",
+                    "Debug response contained non-JSON-safe data after normalization."
+                ),
+                source || "query"
+            )
+            return JSON.stringify(FormatUtils.toJsonSafe(err))
+        }
+
+        return JSON.stringify(safe)
+    }
+
+    function resolveEvaluation(argsJson) {
+        var args = root.parseDebugArgs(argsJson);
+
+        // IPC boundary hardening: validate input before touching pipeline
+        var query = String(args.query || "");
+        if (query.length > 200) {
+            return { args: args, error: { code: "query_too_long", message: "Query exceeds 200 character limit" } };
+        }
+        var source = String(args.source || "query");
+        if (["query", "current"].indexOf(source) < 0) {
+            return { args: args, error: { code: "unknown_source", message: "Unknown source '" + source + "'. Supported: query, current" } };
+        }
+        var nodeId = args.nodeId ? String(args.nodeId) : "";
+        if (nodeId && nodeId.length > 200) {
+            return { args: args, error: { code: "node_id_too_long", message: "nodeId exceeds 200 character limit" } };
+        }
+        if (nodeId && !/^[a-zA-Z0-9:_-]+$/.test(nodeId)) {
+            return { args: args, error: { code: "invalid_node_id", message: "nodeId contains invalid characters" } };
+        }
+
+        // Run query through normal pipeline — with the SAME searchOptions as the UI (no showHidden)
+        if (source === "query" && query) {
+            var opts = Object.assign({}, controller.searchOptions(), { trace: false });
+            var output = Engine.search(controller.backends || [], query, controller.stateForSearch(), opts);
+            if (!output || !output.evaluation) {
+                return { args: args, error: { code: "no_evaluation", message: "Pipeline did not produce evaluation" } };
+            }
+            return { args: args, evaluation: output.evaluation, queryInfo: output.query || null, source: "query" };
+        }
+
+        // Use current launcher state
+        if (source === "current" || (!source && query === "")) {
+            var currentQuery = controller.lastQuery;
+            var currentEval = controller.lastEvaluation;
+            if (currentEval) {
+                return { args: args, evaluation: currentEval, queryInfo: currentQuery || null, source: "current" };
+            }
+            // Fall back: run evaluation for current query
+            var currentText = String(controller.query || "");
+            if (currentText) {
+                var curOpts = Object.assign({}, controller.searchOptions(), { trace: false });
+                var curOutput = Engine.search(controller.backends || [], currentText, controller.stateForSearch(), curOpts);
+                if (curOutput && curOutput.evaluation) {
+                    controller.lastEvaluation = curOutput.evaluation;
+                    return { args: args, evaluation: curOutput.evaluation, queryInfo: curOutput.query || null, source: "query" };
+                }
+            }
+            return { args: args, error: { code: "no_current", message: "No current evaluation available and no query provided" } };
+        }
+
+        // Fallback safety (should not reach here due to validation above)
+        return { args: args, error: { code: "unknown_source", message: "Unknown source '" + source + "'. Supported: query, current" } };
+    }
+
+    function debugOverview(argsJson) {
+        var resolved = root.resolveEvaluation(argsJson);
+        if (resolved.error) return root.returnDebugEnvelope("overview", null, resolved.error, "error");
+        var args = resolved.args || {};
+        var result = _overviewFmt.serialize(resolved.evaluation, { maxDepth: args.maxDepth, maxChildren: args.maxChildren });
+        return root.returnDebugEnvelope("overview", resolved.evaluation, result, resolved.source);
+    }
+
+    function debugInspect(argsJson) {
+        var resolved = root.resolveEvaluation(argsJson);
+        if (resolved.error) return root.returnDebugEnvelope("inspect", null, resolved.error, "error");
+        var args = resolved.args || {};
+        if (!args.nodeId) return root.returnDebugEnvelope("inspect", null, FormatUtils.errorResult("no_node_id", "nodeId is required"), "error");
+        var result = _inspectFmt.serialize(resolved.evaluation, {
+            nodeId: args.nodeId,
+            include: args.include || { fields: true, matching: true, scoring: true, decisions: true, childrenSummary: true }
+        });
+        return root.returnDebugEnvelope("inspect", resolved.evaluation, result, resolved.source);
+    }
+
+    function debugPolicies(argsJson) {
+        var resolved = root.resolveEvaluation(argsJson);
+        if (resolved.error) return root.returnDebugEnvelope("policies", null, resolved.error, "error");
+        var args = resolved.args || {};
+        var result = _policiesFmt.serialize(resolved.evaluation, {
+            nodeId: args.nodeId || "",
+            kind: args.kind || "",
+            maxNodes: args.maxNodes
+        });
+        return root.returnDebugEnvelope("policies", resolved.evaluation, result, resolved.source);
+    }
+
+    function debugFind(argsJson) {
+        var resolved = root.resolveEvaluation(argsJson);
+        if (resolved.error) return root.returnDebugEnvelope("find", null, resolved.error, "error");
+        var args = resolved.args || {};
+        if (!args.search) return root.returnDebugEnvelope("find", null, FormatUtils.errorResult("no_search", "search string is required"), "error");
+        var result = _findFmt.serialize(resolved.evaluation, {
+            search: args.search,
+            backend: args.backend || "",
+            includeHidden: args.includeHidden !== false,
+            maxResults: args.maxResults
+        });
+        return root.returnDebugEnvelope("find", resolved.evaluation, result, resolved.source);
+    }
+
+    function debugAction(argsJson) {
+        var resolved = root.resolveEvaluation(argsJson);
+        if (resolved.error) return root.returnDebugEnvelope("action", null, resolved.error, "error");
+        var args = resolved.args || {};
+        if (!args.nodeId) return root.returnDebugEnvelope("action", null, FormatUtils.errorResult("no_node_id", "nodeId is required"), "error");
+        var result = _actionFmt.serialize(resolved.evaluation, {
+            nodeId: args.nodeId,
+            input: args.input || "enter"
+        });
+        return root.returnDebugEnvelope("action", resolved.evaluation, result, resolved.source);
+    }
+
+    function debugStats(argsJson) {
+        var resolved = root.resolveEvaluation(argsJson);
+        if (resolved.error) return root.returnDebugEnvelope("stats", null, resolved.error, "error");
+        var args = resolved.args || {};
+        var result = _statsFmt.serialize(resolved.evaluation, {
+            includeStages: args.includeStages !== false,
+            includeBackends: args.includeBackends !== false,
+            includeValidation: args.includeValidation !== false
+        });
+        return root.returnDebugEnvelope("stats", resolved.evaluation, result, resolved.source);
+    }
+
+    function debugRaw(argsJson) {
+        var resolved = root.resolveEvaluation(argsJson);
+        if (resolved.error) return root.returnDebugEnvelope("raw", null, resolved.error, "error");
+        var args = resolved.args || {};
+        var result = _rawFmt.serialize(resolved.evaluation, {
+            maxNodes: args.maxNodes || 50,
+            maxDepth: args.maxDepth || 5,
+            includeHidden: args.includeHidden !== false,
+            includeRawNodes: args.includeRawNodes,
+            includePipelineStages: args.includePipelineStages,
+            backend: args.backend
+        });
+        return root.returnDebugEnvelope("raw", resolved.evaluation, result, resolved.source);
     }
 }

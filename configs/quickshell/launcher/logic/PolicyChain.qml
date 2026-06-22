@@ -22,7 +22,7 @@ Singleton {
         return policy;
     }
 
-    function run(names, call, modeOrPhase) {
+    function run(names, call, modeOrPhase, tracePerPolicy) {
         var mode = defaultModes[modeOrPhase] || modeOrPhase;
         if (!mode)
             return { value: null, priority: 0 };
@@ -34,9 +34,59 @@ Singleton {
             if (raw === null || raw === undefined)
                 continue;
             var r = normalize(raw);
+
+            // Trace each policy at the real execution site
+            if (typeof tracePerPolicy === "function") {
+                var effect = "no-op";
+                var modeEffect = "";
+                if (mode === "first-wins")
+                    modeEffect = "selected";
+                else if (mode === "best-wins")
+                    modeEffect = "considered";
+                else if (mode === "accumulate")
+                    modeEffect = "accumulated";
+                else if (mode === "all-and" || mode === "all-or")
+                    modeEffect = "evaluated";
+                if (r.value !== null && r.value !== undefined) {
+                    if (mode === "first-wins" && results.length === 0)
+                        effect = "selected";
+                    else if (mode !== "first-wins")
+                        effect = modeEffect;
+                    else
+                        effect = "ignored";
+                }
+                tracePerPolicy({
+                    name: spec.legacyName || spec.name,
+                    priority: spec.priority || 0,
+                    enabled: true,
+                    args: spec.args || null,
+                    returned: { value: r.value, reasons: r.reasons || [], priority: r.priority || 0 },
+                    effect: effect
+                });
+            }
+
             results.push(r);
-            if (mode === "first-wins")
+            if (mode === "first-wins") {
+                // Trace remaining not-evaluated policies
+                if (typeof tracePerPolicy === "function") {
+                    for (var j = i + 1; j < names.length; j += 1) {
+                        var remainingSpec = PolicySpec.normalize(names[j]);
+                        tracePerPolicy({
+                            name: remainingSpec.legacyName || remainingSpec.name,
+                            priority: remainingSpec.priority || 0,
+                            enabled: true,
+                            args: remainingSpec.args || null,
+                            returned: null,
+                            effect: "not-evaluated",
+                            reasons: [{
+                                code: "first_wins_short_circuit",
+                                text: "Policy was not evaluated because an earlier first-wins policy already selected a result."
+                            }]
+                        });
+                    }
+                }
                 break;
+            }
             if (mode === "all-and" && !r.value)
                 return { value: false, priority: 0 };
             if (mode === "all-or" && r.value)
@@ -49,10 +99,18 @@ Singleton {
         if (raw === null || raw === undefined)
             return null;
         if (typeof raw !== "object" || Array.isArray(raw))
-            return { value: raw, priority: 0 };
+            return { value: raw, priority: 0, reasons: [] };
         if (raw.hasOwnProperty("value"))
-            return { value: raw.value, priority: raw.priority || 0 };
-        return { value: raw, priority: 0 };
+            return {
+                value: raw.value,
+                priority: raw.priority || 0,
+                reasons: raw.reasons || []
+            };
+        return {
+            value: raw,
+            priority: 0,
+            reasons: raw.reasons || []
+        };
     }
 
     function combine(results, mode) {

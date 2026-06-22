@@ -259,6 +259,80 @@ Singleton {
             }
         }
 
+        // Semantic interaction IPC — drives launcher state via semantic actions, not key events
+        function state(arg: string): string {
+            const launcher = root.activeLauncher();
+            const includeVisual = String(arg || "").toLowerCase() === "visual"
+                || String(arg || "").toLowerCase() === "true"
+                || String(arg || "").toLowerCase() === "1";
+            return launcher
+                ? launcher.interactionStateJson(includeVisual)
+                : root.launcherError("state", "no_launcher", "No launcher instance available");
+        }
+        function visualState(): string {
+            const launcher = root.activeLauncher();
+            return launcher
+                ? launcher.interactionStateJson(true)
+                : root.launcherError("visualState", "no_launcher", "No launcher instance available");
+        }
+        function interact(action: string, arg: string): string {
+            const launcher = root.activeLauncher();
+            return launcher
+                ? launcher.interact(action, arg || "")
+                : root.launcherError(action, "no_launcher", "No launcher instance available");
+        }
+        function interactJson(payload: string): string {
+            const launcher = root.activeLauncher();
+            return launcher
+                ? launcher.interactJson(payload || "{}")
+                : root.launcherError("interactJson", "no_launcher", "No launcher instance available");
+        }
+        // Convenience wrappers — route through interactJson for consistency
+        function setQuery(query: string): string {
+            const launcher = root.activeLauncher();
+            return launcher
+                ? launcher.interactJson(JSON.stringify({ action: "setQuery", query: query }))
+                : root.launcherError("setQuery", "no_launcher", "No launcher instance available");
+        }
+        function typeText(text: string): string {
+            const launcher = root.activeLauncher();
+            return launcher
+                ? launcher.interactJson(JSON.stringify({ action: "typeText", text: text }))
+                : root.launcherError("typeText", "no_launcher", "No launcher instance available");
+        }
+        function backspace(count: string): string {
+            const launcher = root.activeLauncher();
+            return launcher
+                ? launcher.interactJson(JSON.stringify({ action: "backspace", count: Number(count || 1) }))
+                : root.launcherError("backspace", "no_launcher", "No launcher instance available");
+        }
+        function moveSelection(delta: string): string {
+            const launcher = root.activeLauncher();
+            return launcher
+                ? launcher.interactJson(JSON.stringify({ action: "moveSelection", delta: Number(delta || 0) }))
+                : root.launcherError("moveSelection", "no_launcher", "No launcher instance available");
+        }
+        function expandSelected(): string {
+            const launcher = root.activeLauncher();
+            return launcher
+                ? launcher.interactJson(JSON.stringify({ action: "expandSelected" }))
+                : root.launcherError("expandSelected", "no_launcher", "No launcher instance available");
+        }
+        function collapseSelected(): string {
+            const launcher = root.activeLauncher();
+            return launcher
+                ? launcher.interactJson(JSON.stringify({ action: "collapseSelected" }))
+                : root.launcherError("collapseSelected", "no_launcher", "No launcher instance available");
+        }
+        function activateSelected(arg: string): string {
+            let payload = { action: "activateSelected" };
+            try { if (arg) payload = Object.assign(payload, JSON.parse(arg)); } catch (e) {}
+            const launcher = root.activeLauncher();
+            return launcher
+                ? launcher.interactJson(JSON.stringify(payload))
+                : root.launcherError("activateSelected", "no_launcher", "No launcher instance available");
+        }
+
     }
 
     IpcHandler {
@@ -299,6 +373,36 @@ Singleton {
             const state = root.instances[0];
             return state ? state.launcher.queryVisualDebug(enabled) : "{}";
         }
+
+        // Debug V2 IPC endpoints (canonical Evaluation-based)
+        function debugOverview(args: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugOverview(args) : "{}";
+        }
+        function debugInspect(args: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugInspect(args) : "{}";
+        }
+        function debugPolicies(args: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugPolicies(args) : "{}";
+        }
+        function debugFind(args: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugFind(args) : "{}";
+        }
+        function debugAction(args: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugAction(args) : "{}";
+        }
+        function debugStats(args: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugStats(args) : "{}";
+        }
+        function debugRaw(args: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugRaw(args) : "{}";
+        }
     }
 
     function getScreenByName(screenName: string): ScreenState {
@@ -308,5 +412,26 @@ Singleton {
     function getScreenByRegex(screenRegex: string): list<ScreenState> {
         const regex = new RegExp(screenRegex);
         return root.instances.filter(screenState => regex.test(screenState.screen.name));
+    }
+
+    function activeScreenState() {
+        const focused = root.instances.find(screenState =>
+            Hyprland.focusedMonitor && Hyprland.focusedMonitor === Hyprland.monitorFor(screenState.screen)
+        );
+        return focused || (root.instances.length > 0 ? root.instances[0] : null);
+    }
+
+    function activeLauncher() {
+        const ss = root.activeScreenState();
+        return ss ? ss.launcher : null;
+    }
+
+    function launcherError(action, code, message) {
+        return JSON.stringify({
+            version: 1, type: "launcherInteraction", ok: false,
+            action: action || "", before: null, after: null,
+            result: null,
+            error: { code: code, message: message }
+        });
     }
 }

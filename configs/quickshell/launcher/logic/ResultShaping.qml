@@ -13,6 +13,47 @@ import "CompositeSearchPolicyRegistry.js" as JsRegistry
 Singleton {
     id: root
 
+    function initPolicyTrace(ev, ctx) {
+        if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
+        var nid = ev.node.id;
+        if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
+    }
+
+    function tracePolicyDecision(ev, ctx, kind, name, returned, effect, reasons) {
+        if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
+        var nid = ev.node.id;
+        if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
+        if (!ctx._policyTrace[nid][kind]) {
+            ctx._policyTrace[nid][kind] = {
+                kind: kind,
+                evaluated: [],
+                aggregate: null,
+                final: null
+            };
+        }
+        ctx._policyTrace[nid][kind].evaluated.push({
+            name: String(name || kind),
+            priority: 0,
+            enabled: true,
+            returned: returned !== undefined ? returned : null,
+            effect: String(effect || "no-op"),
+            reasons: (reasons || []).slice()
+        });
+    }
+
+    function traceFinalDecision(ev, ctx, kind, value, reasons) {
+        if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
+        var nid = ev.node.id;
+        if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
+        if (!ctx._policyTrace[nid][kind]) {
+            ctx._policyTrace[nid][kind] = { kind: kind, evaluated: [], aggregate: null, final: null };
+        }
+        ctx._policyTrace[nid][kind].final = {
+            value: value,
+            reasons: (reasons || []).slice()
+        };
+    }
+
     function shape(evaluatedRoot, state, ctx) {
         var collected = [];
 
@@ -69,18 +110,40 @@ Singleton {
                 return;
             }
             var decision = decidePlacement(ev, ctx);
+            // Capture decision trace (source of truth for visible node decisions)
+            if (ev && ev.node && ev.node.id && ctx._decisionTrace) {
+                var nid = ev.node.id;
+                var expandFinal = ctx._policyTrace && ctx._policyTrace[nid] && ctx._policyTrace[nid].expand && ctx._policyTrace[nid].expand.final;
+                var retainFinal = ctx._policyTrace && ctx._policyTrace[nid] && ctx._policyTrace[nid].retain && ctx._policyTrace[nid].retain.final;
+                var takeoverFinal = ctx._policyTrace && ctx._policyTrace[nid] && ctx._policyTrace[nid].takeover && ctx._policyTrace[nid].takeover.final;
+                ctx._decisionTrace[nid] = {
+                    nodeId: nid,
+                    visibility: { value: { visible: ev.visible }, reasons: [{ code: "visibility", text: "visible=" + ev.visible + " ownVisible=" + ev.ownVisible }] },
+                    placement: { value: decision.placement || decision.mode || "unknown", reasons: [{ code: "placement", text: "mode=" + (decision.mode || "normal") + " showParent=" + (decision.showParent !== false) + " placement=" + (decision.placement || decision.mode || "unknown") }] },
+                    flattening: { value: { flatten: decision.mode === "flatten-children" || decision.mode === "flatten-all-children", mode: decision.mode || "normal" }, reasons: [{ code: "flattening", text: "mode=" + (decision.mode || "normal") }] },
+                    breadcrumbs: null,
+                    defaultAction: null,
+                    childVisibility: null,
+                    _expand: expandFinal || null,
+                    _retain: retainFinal || null,
+                    _takeover: takeoverFinal || null
+                };
+                traceFinalDecision(ev, ctx, "placement", { placement: decision.placement || decision.mode || "unknown", mode: decision.mode || "normal", showParent: decision.showParent !== false }, [{ code: "placement_decided", text: "final placement=" + (decision.placement || decision.mode || "unknown") + " mode=" + (decision.mode || "normal") }]);
+            }
             if (decision.mode === "flatten-all-children") {
                 for (var ai = 0; ai < decision.children.length; ai += 1) {
                     var child = decision.children[ai];
                     if (child.children && child.children.length > 0)
                         collect(child, depth + 1, true);
-                    else
-                        makeShaped(child, depth + 1, child.score, [], true, {}, "flattened", { placement: "flattened", mode: "flatten-all-children", showParent: false });
+                    else if (child.visible || child.score >= 0.25)
+                        makeShaped(child, depth + 1, child.score, [], true, {}, "flattened", { placement: "flattened", mode: "flattened", showParent: true });
                 }
                 return;
             }
             if (decision.mode === "normal") {
-                makeShaped(ev, depth, undefined, [], forceInclude, {}, "standalone", decision);
+                if (forceInclude || ev.ownVisible || ev.ownScore > 0 || (ev.children && ev.children.some(function(c) { return c.visible || c.score >= 0.25; }))) {
+                    makeShaped(ev, depth, undefined, [], forceInclude, {}, "standalone", decision);
+                }
                 for (var n = 0; n < ev.children.length; n += 1) collect(ev.children[n], depth + 1, forceInclude);
                 return;
             }
@@ -102,8 +165,11 @@ Singleton {
             }
             if (decision.mode === "group") return;
             if (decision.mode === "flatten-children") {
-                for (var di = 0; di < decision.children.length; di += 1)
-                    makeShaped(decision.children[di], depth, decision.children[di].score, [], true, {}, "promoted-child", { placement: "promoted-child", mode: "flatten-children", showParent: false, parentDecision: decision });
+                for (var di = 0; di < decision.children.length; di += 1) {
+                    var fc = decision.children[di];
+                    if (fc.visible || fc.score >= 0.25)
+                        makeShaped(fc, depth, fc.score, [], true, {}, "promoted-child", { placement: "promoted-child", mode: "promoted-child", showParent: true });
+                }
                 return;
             }
             for (var ci = 0; ci < decision.children.length; ci += 1)
@@ -136,22 +202,37 @@ Singleton {
         var takeoverDecision = takeoverClaims.length > 0
             ? TakeoverEngine.decideTakeover(ev, takeoverClaims, ctx)
             : null;
+        // Trace takeover
+        initPolicyTrace(ev, ctx);
+        if (takeoverClaims.length > 0) {
+            tracePolicyDecision(ev, ctx, "takeover", "takeover-claims", takeoverClaims.map(function(c) { return { claimantId: c.claimantId, kind: c.kind, strength: c.strength }; }), takeoverDecision && takeoverDecision.accepted ? "accepted" : "rejected", [{ code: "takeover_result", text: "accepted=" + (takeoverDecision && takeoverDecision.accepted) + " representation=" + (takeoverDecision && takeoverDecision.representation || "") }]);
+        }
+        if (takeoverDecision && takeoverDecision.accepted) {
+            traceFinalDecision(ev, ctx, "takeover", { accepted: true, representation: takeoverDecision.representation, retainParent: takeoverDecision.retainParent !== false, selectedOwnerId: takeoverDecision.selectedOwnerId }, [{ code: "takeover_accepted", text: "Takeover accepted: " + takeoverDecision.representation + " by " + (takeoverDecision.selectedOwnerId || "") }]);
+        } else if (takeoverClaims.length > 0) {
+            traceFinalDecision(ev, ctx, "takeover", { accepted: false, reason: takeoverDecision ? takeoverDecision.reason : "no decision" }, [{ code: "takeover_rejected", text: "Takeover rejected: " + (takeoverDecision ? takeoverDecision.reason : "no decision") }]);
+        }
 
         function _applyExpandRetain(d) {
             var profile = (ev.node.evaluationProfile && ev.node.evaluationProfile.profile) || {};
             var expandNames = profile.expand || [];
             var retainNames = profile.retainParent || [];
+            initPolicyTrace(ev, ctx);
             var expandResult = expandNames.length > 0
                 ? PolicyChain.run(expandNames, function(name, spec) {
                     var policy = PolicyChain.lookupPolicy(JsRegistry.expand, spec);
                     if (!policy) return null;
-                    return policy.apply(ev, ctx, spec && spec.args);
+                    var result = policy.apply(ev, ctx, spec && spec.args);
+                    tracePolicyDecision(ev, ctx, "expand", name, result || null, result && result.expand ? "expand" : "no-expand", result ? [{ code: "expand_result", text: "expand=" + !!result.expand }] : [{ code: "no_effect", text: "No effect from expand policy" }]);
+                    return result;
                 }, "first-wins") : null;
             var retainResult = retainNames.length > 0
                 ? PolicyChain.run(retainNames, function(name, spec) {
                     var policy = PolicyChain.lookupPolicy(JsRegistry.retainParent, spec);
                     if (!policy) return null;
-                    return policy.apply(ev, ctx, spec && spec.args);
+                    var result = policy.apply(ev, ctx, spec && spec.args);
+                    tracePolicyDecision(ev, ctx, "retain", name, result || null, result && result.retain === false ? "suppress" : "retain", result ? [{ code: "retain_result", text: "retain=" + (result.retain !== false) }] : [{ code: "no_effect", text: "No effect from retain policy" }]);
+                    return result;
                 }, "first-wins") : null;
             var out = Object.assign({}, d);
             if (expandResult && expandResult.value && expandResult.value.expand) {
@@ -180,35 +261,44 @@ Singleton {
             || (takeoverDecision && takeoverDecision.accepted);
 
         if (_pfHasPrimitives) {
-            // --- expand policy ---
+            // --- expand policy (traced at real call site) ---
             if (_pfExpand.length > 0) {
                 var _pfExpandResult = PolicyChain.run(_pfExpand, function(name, spec) {
+                    initPolicyTrace(ev, ctx);
                     var policy = PolicyChain.lookupPolicy(JsRegistry.expand, spec);
                     if (!policy) return null;
-                    return policy.apply(ev, ctx, spec && spec.args);
+                    var result = policy.apply(ev, ctx, spec && spec.args);
+                    tracePolicyDecision(ev, ctx, "expand", name, result || null, result && result.expand ? "expand" : "no-expand", result ? [{ code: "expand_result", text: "expand=" + !!result.expand }] : [{ code: "no_effect", text: "No effect from expand policy" }]);
+                    return result;
                 }, "first-wins");
                 if (_pfExpandResult && _pfExpandResult.value && _pfExpandResult.value.expand
                     && ev.children && ev.children.length > 0) {
                     var _pfKids = ev.children.filter(function(c) {
-                        return c.allowed && (c.visible || c.score >= 0.25);
+                        return c.allowed && (_pfExpandResult.value.includeAllChildren || c.visible || c.score >= 0.25);
                     }).sort(Evaluate.compareEvaluated);
                     if (_pfKids.length > 0) {
                         var _pfShowParent = true;
                         if (_pfRetain.length > 0) {
                             var _pfRetainResult = PolicyChain.run(_pfRetain, function(name, spec) {
+                                initPolicyTrace(ev, ctx);
                                 var policy = PolicyChain.lookupPolicy(JsRegistry.retainParent, spec);
                                 if (!policy) return null;
-                                return policy.apply(ev, ctx, spec && spec.args);
+                                var result = policy.apply(ev, ctx, spec && spec.args);
+                                tracePolicyDecision(ev, ctx, "retain", name, result || null, result && result.retain === false ? "suppress" : "retain", result ? [{ code: "retain_result", text: "retain=" + (result.retain !== false) }] : [{ code: "no_effect", text: "No effect from retain policy" }]);
+                                return result;
                             }, "first-wins");
                             if (_pfRetainResult && _pfRetainResult.value && _pfRetainResult.value.retain === false)
                                 _pfShowParent = false;
                         }
+                        traceFinalDecision(ev, ctx, "expand", { expand: true, children: _pfKids.length, includeAllChildren: !!_pfExpandResult.value.includeAllChildren }, [{ code: "expand_decision", text: "Expanded " + _pfKids.length + " children" }]);
+                        if (_pfRetain.length > 0) traceFinalDecision(ev, ctx, "retain", { retain: _pfShowParent }, [{ code: "retain_decision", text: "showParent=" + _pfShowParent }]);
                         return _d({
                             placement: "nested-group",
                             mode: "nested-group",
                             showParent: _pfShowParent,
                             suppressParentActions: false,
-                            children: _pfKids
+                            includeAllChildren: !!_pfExpandResult.value.includeAllChildren,
+                            children: _pfExpandResult.value.maxChildren ? _pfKids.slice(0, _pfExpandResult.value.maxChildren) : _pfKids
                         });
                     }
                 }
@@ -223,6 +313,7 @@ Singleton {
                         }).sort(Evaluate.compareEvaluated);
                         if (_pfTkKids.length > 0) {
                             var _pfTkShowParent = takeoverDecision.retainParent !== false;
+                            traceFinalDecision(ev, ctx, "takeover", { accepted: true, representation: "flatten", children: _pfTkKids.length }, [{ code: "takeover_flatten", text: "Takeover flattens to " + _pfTkKids.length + " children" }]);
                             return _d({
                                 placement: _pfTkKids.length === 1 ? "promoted-child" : "flattened",
                                 mode: _pfTkKids.length === 1 ? "flatten-children" : "flatten-all-children",
@@ -239,6 +330,7 @@ Singleton {
                             return c.allowed && (c.visible || c.score >= 0.25);
                         }).sort(Evaluate.compareEvaluated);
                         var _pfNgShowParent = takeoverDecision.retainParent !== false;
+                        traceFinalDecision(ev, ctx, "takeover", { accepted: true, representation: "nested-group", children: _pfNgKids.length }, [{ code: "takeover_nested_group", text: "Takeover nested-group with " + _pfNgKids.length + " children" }]);
                         return _d({
                             placement: "nested-group",
                             mode: "nested-group",
@@ -251,19 +343,22 @@ Singleton {
             }
 
             // --- retainParent only (no expand/takeover action needed) ---
-            // If only retain policy is set and says false, flatten children
             if (_pfRetain.length > 0 && !_pfExpand.length
                 && (!takeoverDecision || !takeoverDecision.accepted)) {
                 var _pfRetainResult = PolicyChain.run(_pfRetain, function(name, spec) {
+                    initPolicyTrace(ev, ctx);
                     var policy = PolicyChain.lookupPolicy(JsRegistry.retainParent, spec);
                     if (!policy) return null;
-                    return policy.apply(ev, ctx, spec && spec.args);
+                    var result = policy.apply(ev, ctx, spec && spec.args);
+                    tracePolicyDecision(ev, ctx, "retain", name, result || null, result && result.retain === false ? "suppress" : "retain", result ? [{ code: "retain_result", text: "retain=" + (result.retain !== false) }] : [{ code: "no_effect", text: "No effect from retain policy" }]);
+                    return result;
                 }, "first-wins");
                 if (_pfRetainResult && _pfRetainResult.value && _pfRetainResult.value.retain === false
                     && ev.children && ev.children.length > 0) {
                     var _pfFlatKids = ev.children.filter(function(c) {
                         return c.allowed;
                     }).sort(Evaluate.compareEvaluated);
+                    traceFinalDecision(ev, ctx, "retain", { retain: false, children: _pfFlatKids.length }, [{ code: "retain_suppress", text: "Retain suppressed parent, flattening " + _pfFlatKids.length + " children" }]);
                     return _d({
                         placement: "flattened",
                         mode: "flatten-all-children",
@@ -276,13 +371,18 @@ Singleton {
         }
         // --- END PRIMITIVE-FIRST (compatibility fallback follows) ---
 
+        // --- Presentation compatibility tracing ---
         var presMode = PresentationPolicy.decidePresentation(ev, ctx);
-        if (presMode && presMode.mode !== "normal")
+        if (presMode && presMode.mode !== "normal") {
+            tracePolicyDecision(ev, ctx, "presentationCompat", "decidePresentation", presMode, presMode.mode, [{ code: "presentation_mode", text: "Presentation mode=" + presMode.mode }]);
             return _d(Object.assign({ placement: placementForMode(presMode.mode) }, presMode));
+        }
 
         if (ev.node.switchActions) {
-            if (!ev.children || ev.children.length === 0)
+            if (!ev.children || ev.children.length === 0) {
+                tracePolicyDecision(ev, ctx, "placement", "switch-group-empty", { placement: "group", mode: "group" }, "no-op", [{ code: "switch_group_empty", text: "Switch node with no children -> group" }]);
                 return _d({ placement: "group", mode: "group", showParent: true, children: [] });
+            }
             var switchPolicy = PresentationPolicy.groupDisplayPolicy(ev) || {};
             var switchGroupPolicy = switchPolicy.groupDisplay || {};
             var switchMinChildScore = switchGroupPolicy.minChildScore === undefined ? 0.25 : switchGroupPolicy.minChildScore;
@@ -292,15 +392,20 @@ Singleton {
                 var browseChildren = ev.children.filter(function(c) {
                     return c.candidate || c.visible;
                 }).sort(Evaluate.compareEvaluated).slice(0, switchMaxChildren);
-                if (browseChildren.length > 0)
+                if (browseChildren.length > 0) {
+                    tracePolicyDecision(ev, ctx, "placement", "switch-browse", { placement: "nested-group", children: browseChildren.length }, "selected", [{ code: "switch_browse", text: "Switch browse mode: last token empty, showing " + browseChildren.length + " children" }]);
                     return _d({ placement: "nested-group", mode: "nested-group", showParent: true, children: browseChildren });
+                }
             }
 
             var switchChildren = ev.children.filter(function(c) {
                 return PresentationPolicy.childPassesVisible(c, ev, ctx);
             }).sort(Evaluate.compareEvaluated).slice(0, switchMaxChildren);
-            if (switchChildren.length > 0)
+            if (switchChildren.length > 0) {
+                tracePolicyDecision(ev, ctx, "placement", "switch-group", { placement: "nested-group", children: switchChildren.length }, "selected", [{ code: "switch_group", text: "Switch group with " + switchChildren.length + " passing children" }]);
                 return _d({ placement: "nested-group", mode: "nested-group", showParent: true, children: switchChildren });
+            }
+            tracePolicyDecision(ev, ctx, "placement", "switch-group-fallback", { placement: "group", mode: "group" }, "no-op", [{ code: "switch_group_fallback", text: "Switch node with no passing children -> group" }]);
             return _d({ placement: "group", mode: "group", showParent: true, children: [] });
         }
 
@@ -316,14 +421,22 @@ Singleton {
                     var dominantChildren = visibleChildren.filter(function(c) {
                         return PresentationPolicy.childDominates(c, ev, ctx);
                     });
-                    if (dominantChildren.length === 1)
+                    if (dominantChildren.length === 1) {
+                        tracePolicyDecision(ev, ctx, "placement", "filterable-dominant", { placement: "promoted-child", dominantChild: dominantChildren[0].node ? dominantChildren[0].node.id : "" }, "selected", [{ code: "filterable_dominant", text: "Filterable: one dominant child promoted" }]);
                         return _d({ placement: "promoted-child", mode: "flatten-children", showParent: false, children: dominantChildren });
-                    if (dominantChildren.length > 1)
+                    }
+                    if (dominantChildren.length > 1) {
+                        tracePolicyDecision(ev, ctx, "placement", "filterable-multi-dominant", { placement: "nested-group", dominantCount: dominantChildren.length }, "selected", [{ code: "filterable_multi_dominant", text: "Filterable: " + dominantChildren.length + " dominant children in nested-group" }]);
                         return _d({ placement: "nested-group", mode: "nested-group", showParent: true, suppressParentActions: true, children: dominantChildren.slice(0, filterableMaxChildren) });
+                    }
+                    tracePolicyDecision(ev, ctx, "placement", "filterable-nested", { placement: "nested-group", children: visibleChildren.length }, "selected", [{ code: "filterable_nested", text: "Filterable: " + visibleChildren.length + " visible children in nested-group" }]);
                     return _d({ placement: "nested-group", mode: "nested-group", showParent: true, children: visibleChildren.slice(0, filterableMaxChildren) });
                 }
-                if (ctx.query.lastTokenEmpty)
+                if (ctx.query.lastTokenEmpty) {
+                    tracePolicyDecision(ev, ctx, "placement", "filterable-empty-browse", { placement: "nested-group", children: ev.children.length }, "selected", [{ code: "filterable_empty_browse", text: "Filterable: no visible children, browse mode" }]);
                     return _d({ placement: "nested-group", mode: "nested-group", showParent: true, children: ev.children.slice(0, filterableMaxChildren) });
+                }
+                tracePolicyDecision(ev, ctx, "placement", "filterable-empty-group", { placement: "group", mode: "group" }, "no-op", [{ code: "filterable_empty_group", text: "Filterable: no visible children, returning group" }]);
                 return _d({ placement: "group", mode: "group", showParent: true, children: [] });
             }
         }
@@ -331,6 +444,7 @@ Singleton {
         var hasActions = (ev.node.actionList && ev.node.actionList.length > 0);
         if (!hasActions && ev.children.length > 0) {
             var maxChildren = policy ? (policy.maxNestedChildren || ev.children.length) : ev.children.length;
+            tracePolicyDecision(ev, ctx, "placement", "no-actions-flatten", { placement: "flattened", children: maxChildren }, "selected", [{ code: "no_actions_flatten", text: "Node has no own actions, flattening " + maxChildren + " children" }]);
             return _d({ placement: "flattened", mode: "flatten-all-children", showParent: false, children: flattenActionableChildren(ev.children, maxChildren) });
         }
 
