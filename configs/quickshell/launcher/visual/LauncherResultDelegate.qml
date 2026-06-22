@@ -72,9 +72,8 @@ Item {
                 root.removing = false;
                 root.delayModelRemove = false;
                 root.removeFallbackTimer.stop();
-                if (root.delayModelRemove)
-                    root.ListView.delayRemove = false;
-                animator.animateIn();
+                root.ListView.delayRemove = false;
+                animator.snapToLive();
             } else {
                 animator.snapToLive();
             }
@@ -151,10 +150,6 @@ Item {
     }
 
     function currentResult() {
-        if (root.removing || root.phase === "leaving")
-            return root.result;
-        if (root.controller && root.controller.results && root.rank >= 0 && root.rank < root.controller.results.length)
-            return root.controller.results[root.rank] || root.result;
         return root.result;
     }
 
@@ -178,7 +173,7 @@ Item {
         if ("resultIndex" in loaded)
             loaded.resultIndex = Qt.binding(function() { return root.rank; });
         if ("selected" in loaded)
-            loaded.selected = Qt.binding(function() { return root.controller && root.controller.selectedIndex === root.rank; });
+            loaded.selected = Qt.binding(function() { return root.controller && root.controller.activeNodeKey === root.key; });
         if ("iconSize" in loaded)
             loaded.iconSize = Qt.binding(function() { return root.iconSize; });
         if ("showSubtitle" in loaded)

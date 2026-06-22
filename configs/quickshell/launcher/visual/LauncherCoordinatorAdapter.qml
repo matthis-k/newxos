@@ -47,7 +47,8 @@ QtObject {
                 key: key,
                 payload: result,
                 rank: i,
-                animationRole: result.animationRole || ""
+                animationRole: result.animationRole || "",
+                estimatedHeight: 56
             });
         }
 
@@ -59,7 +60,13 @@ QtObject {
             return;
 
         const items = adaptResults(root.controller.results || []);
-        root.coordinator.applySnapshot(items, context || {});
+
+        const ctx = Object.assign({}, context || {}, {
+            queryRevision: root.controller.queryRevision,
+            generation: root.controller.generation
+        });
+
+        root.coordinator.applySnapshot(items, ctx);
     }
 
     function resetTransientState() {

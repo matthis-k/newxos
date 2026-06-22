@@ -63,12 +63,12 @@ Item {
             animator.animateOut();
         } else if (root.phase === "live") {
             if (root.removing) {
+                // Resurrection: leaving → live. Cancel leave, snap to fully visible, clear timers.
                 root.removing = false;
                 root.delayModelRemove = false;
                 root.removeFallbackTimer.stop();
-                if (root.delayModelRemove)
-                    root.ListView.delayRemove = false;
-                animator.animateIn();
+                root.ListView.delayRemove = false;
+                animator.snapToLive();
             } else {
                 animator.snapToLive();
             }
@@ -170,7 +170,7 @@ Item {
         if ("resultIndex" in loaded)
             loaded.resultIndex = Qt.binding(function() { return root.rank; });
         if ("selected" in loaded)
-            loaded.selected = Qt.binding(function() { return root.controller && root.controller.selectedIndex === root.rank; });
+            loaded.selected = Qt.binding(function() { return root.controller && root.controller.activeNodeKey === root.key; });
         if ("iconSize" in loaded)
             loaded.iconSize = Qt.binding(function() { return root.iconSize; });
         if ("showSubtitle" in loaded)
