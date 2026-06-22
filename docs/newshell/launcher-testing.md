@@ -1,5 +1,13 @@
 # Launcher Testing
 
+> Validity is determined by deterministic checks, not by reading this document.
+>
+> See:
+> - **Debugging**: `configs/opencode/skills/newshell-debugging/SKILL.md`
+> - **Lightweight cases**: `configs/newshell/launcher/tests/cases/*.json` (via `repo-gate newshell-cases`)
+> - **Full cases**: `tests/launcher/cases/*.json` (via `newshell-launcher-test` binary)
+> - **Orchestrator**: `repo-gate newshell` / `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate newshell-runtime`
+
 ## Why external tests
 
 Tests are no longer embedded in QML/JS config files or ad-hoc shell scripts.
@@ -41,32 +49,41 @@ runner when the launcher has settled after an action — no fixed sleeps needed.
 
 ## Running tests
 
-### Headless mode (suitable for CI)
+### Via repo-gate (recommended)
+
+These run the deterministic harness and static checks:
 
 ```bash
-nix run .#newshell-launcher-test -- run tests/launcher/cases --mode headless
+repo-gate newshell-static              # qmllint shell.qml
+repo-gate newshell-cases               # lightweight JSON cases (requires running newshell)
+NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate newshell-runtime  # headless IPC + cases
+repo-gate newshell                     # static + cases
 ```
 
-### Visible mode (manual verification)
+Through Nix without entering `nix develop`:
 
 ```bash
-nix run .#newshell-launcher-test -- run tests/launcher/cases --mode visible --filter audio
+nix run "path:$PWD#repo-gate" -- newshell-cases
+NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 nix run "path:$PWD#repo-gate" -- newshell-runtime
 ```
 
-Visible mode opens the launcher visibly so you can watch animations and focus
-changes. It still performs logical assertions through the same IPC layer.
+### Via newshell-launcher-test binary
 
-### Validate test files
-
-```bash
-nix run .#newshell-launcher-test -- validate tests/launcher/cases
-```
-
-### List test cases
+Full feature set (step-based cases, fixtures, schema validation):
 
 ```bash
-nix run .#newshell-launcher-test -- list tests/launcher/cases
-nix run .#newshell-launcher-test -- list tests/launcher/cases --filter wifi
+# Headless mode (suitable for CI)
+nix run "path:$PWD#newshell-launcher-test" -- run tests/launcher/cases --mode headless
+
+# Visible mode (manual verification)
+nix run "path:$PWD#newshell-launcher-test" -- run tests/launcher/cases --mode visible --filter audio
+
+# Validate test files
+nix run "path:$PWD#newshell-launcher-test" -- validate tests/launcher/cases
+
+# List test cases
+nix run "path:$PWD#newshell-launcher-test" -- list tests/launcher/cases
+nix run "path:$PWD#newshell-launcher-test" -- list tests/launcher/cases --filter wifi
 ```
 
 ## Adding a new JSON case
@@ -110,6 +127,14 @@ Step-based format (multiple actions + assertions):
   ]
 }
 ```
+
+Lightweight JSON cases (query + jq assertion only) can also be added to:
+
+```text
+configs/newshell/launcher/tests/cases/
+```
+
+These are run by `repo-gate newshell-cases` via `run-json-cases.sh`.
 
 ## Fixture mode
 
@@ -268,18 +293,38 @@ Four invalid fixture files live in `tests/launcher/invalid/` to verify that unkn
 To verify that the schema catches what serde misses:
 
 ```bash
-newshell-launcher-test validate tests/launcher/invalid/unknown-action-field.json \
+nix run "path:$PWD#newshell-launcher-test" -- validate tests/launcher/invalid/unknown-action-field.json \
   --schema tests/launcher/schemas/launcher-test.schema.json
 ```
 
 This should exit non-zero with a `oneOf` validation error.
 
-## Migrated regression cases
+## Regression cases
 
-The test suite covers:
+Regression expectations are not listed in this document. They live in the deterministic case files and are executed by the harness through `repo-gate` or the `newshell-launcher-test` binary.
 
-- **Selection/highlight**: Audio group not selectable, children selectable, single selection, parent highlight on child selection
-- **Desktop actions**: Child actions match own title only, no cross-backend contamination
-- **Backend grouping**: Backend groups appear when children match
-- **Search**: wifi, wifi on, wifi toggle, zen, zen priv, zen win, vpn, newxos, prefix cases
-- **Trailing space**: Queries with trailing space behave correctly
+Canonical locations:
+
+```text
+tests/launcher/cases/                         # full step-based cases (newshell-launcher-test binary)
+configs/newshell/launcher/tests/cases/         # lightweight query→jq cases (run-json-cases.sh / repo-gate)
+```
+
+Use:
+
+```bash
+repo-gate newshell-cases
+NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate newshell-runtime
+```
+
+## Debugging failures
+
+Do not debug by manually deciding whether launcher behavior is valid. First reproduce the smallest deterministic failing check.
+
+Agents should use:
+
+```text
+configs/opencode/skills/newshell-debugging/SKILL.md
+```
+
+That skill is procedural only. It does not contain behavior expectations.
