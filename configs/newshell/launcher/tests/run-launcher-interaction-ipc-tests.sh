@@ -78,6 +78,9 @@ case "$INSTANCE_MODE" in
   session)
     echo "=== Launcher Interaction IPC Test Suite ==="
     echo "Mode: session (testing running service — not isolated, not CI-safe)"
+    if [ "''${NEWSHELL_TEST_ALLOW_ACTIONS:-0}" = "1" ]; then
+      echo "  NEWSHELL_TEST_ALLOW_ACTIONS=1: mutating tests will run (activateSelected, open/close/toggle, etc.)"
+    fi
     echo ""
     NEWSHELL_PID=""
     ;;
@@ -221,7 +224,7 @@ else
     "state envelope should have matching IPC namespace"
 fi
 
-if [ "$INSTANCE_MODE" = "session" ]; then
+if [ "$INSTANCE_MODE" = "session" ] && [ "''${NEWSHELL_TEST_ALLOW_ACTIONS:-0}" != "1" ]; then
   echo "(session mode: skipping open/close/toggle — would change running service launcher visibility)"
 else
   data=$(call_interact '{"action":"open"}')
@@ -289,7 +292,7 @@ assert_jq_data "move-selection-back" "$data" \
 echo ""
 echo "--- Expand/collapse ---"
 
-if [ "$INSTANCE_MODE" = "session" ]; then
+if [ "$INSTANCE_MODE" = "session" ] && [ "${NEWSHELL_TEST_ALLOW_ACTIONS:-0}" != "1" ]; then
   echo "(session mode: skipping expand/collapse — may trigger backend actions)"
 else
   data=$(call_interact '{"action":"expandSelected"}')
@@ -306,7 +309,7 @@ fi
 echo ""
 echo "--- Risk/confirmation safety ---"
 
-if [ "$INSTANCE_MODE" = "session" ]; then
+if [ "$INSTANCE_MODE" = "session" ] && [ "${NEWSHELL_TEST_ALLOW_ACTIONS:-0}" != "1" ]; then
   echo "(skipped in session mode — cannot safely execute destructive actions against running service)"
 else
   data=$(call_interact '{"action":"setQuery","query":"shutdown"}')
@@ -377,7 +380,7 @@ assert_jq_data "query-visual-state" "$data" \
 echo ""
 echo "--- Activation structured result ---"
 
-if [ "$INSTANCE_MODE" = "session" ]; then
+if [ "$INSTANCE_MODE" = "session" ] && [ "${NEWSHELL_TEST_ALLOW_ACTIONS:-0}" != "1" ]; then
   echo "(skipped in session mode — activateSelected may execute real running-service actions)"
 else
   data=$(call_interact '{"action":"activateSelected"}')
