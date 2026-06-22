@@ -137,7 +137,8 @@
             "first": { "$ref": "#/definitions/RowMatcher" },
             "noneHighlightedExceptSelected": { "type": "boolean" }
           }
-        }
+        },
+        "lastExecutedAction": { "$ref": "#/definitions/RowMatcher" }
       }
     },
     "RowMatcher": {

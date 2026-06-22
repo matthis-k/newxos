@@ -17,11 +17,13 @@
             },
             "rows": {
               "contains": [
-                { "title": "Volume", "backend": "desktop-actions", "selectable": true, "executable": true },
-                { "title": "Output Devices", "backend": "desktop-actions", "selectable": true, "executable": true }
+                { "title": "Volume", "backend": "desktop-actions", "selectable": true, "executable": true, "path": ["Actions", "Audio", "Volume"] },
+                { "title": "Output Devices", "backend": "desktop-actions", "selectable": true, "executable": true, "path": ["Actions", "Audio", "Output Devices"] }
               ],
               "notContains": [
-                { "title": "Audio", "selectable": false }
+                { "title": "Audio", "selectable": true },
+                { "title": "Audio", "selected": true },
+                { "title": "Audio", "executable": true }
               ],
               "noneHighlightedExceptSelected": true
             }
@@ -73,7 +75,7 @@
         {
           "expect": {
             "exactlyOneSelected": true,
-            "selected": { "title": "On", "backend": "desktop-actions", "selectable": true, "executable": true }
+            "selected": { "title": "On", "backend": "desktop-actions", "selectable": true, "executable": true, "path": ["Actions", "Networking", "Wi-Fi", "On"] }
           }
         }
       ]

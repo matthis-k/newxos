@@ -6,6 +6,7 @@ pub struct TestSuite {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TestCase {
     pub name: String,
     #[serde(default)]

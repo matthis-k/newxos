@@ -75,7 +75,7 @@
         {
           "expect": {
             "exactlyOneSelected": true,
-            "selected": { "title": "AI", "backend": "desktop-actions", "selectable": true, "executable": true },
+            "selected": { "title": "AI", "backend": "desktop-actions", "selectable": true, "executable": true, "path": ["Actions", "Newxos", "AI"] },
             "rows": {
               "notContains": [
                 { "title": "Newxos", "selected": true }

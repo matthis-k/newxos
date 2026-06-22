@@ -8,45 +8,69 @@ use crate::ipc::LauncherIpc;
 use crate::pretty;
 use crate::schema::*;
 
-pub fn load_cases(path: &Path) -> Result<Vec<TestCase>> {
-    let mut cases = Vec::new();
+fn collect_json_files(path: &Path) -> Result<Vec<std::path::PathBuf>> {
+    let mut files = Vec::new();
     if path.is_dir() {
         let mut entries: Vec<_> = std::fs::read_dir(path)
-            .context("Failed to read test cases directory")?
+            .context("Failed to read directory")?
             .filter_map(|e| e.ok())
             .filter(|e| e.path().extension().map_or(false, |ext| ext == "json"))
             .collect();
         entries.sort_by_key(|e| e.file_name());
         for entry in entries {
-            let content = std::fs::read_to_string(entry.path())
-                .context(format!("Failed to read {}", entry.path().display()))?;
-            let suite: TestSuite = serde_json::from_str(&content)
-                .context(format!("Failed to parse {}", entry.path().display()))?;
-            cases.extend(suite.cases);
+            files.push(entry.path());
         }
     } else if path.is_file() {
-        let content = std::fs::read_to_string(path)
-            .context(format!("Failed to read {}", path.display()))?;
-        let suite: TestSuite = serde_json::from_str(&content)
-            .context(format!("Failed to parse {}", path.display()))?;
-        cases.extend(suite.cases);
+        files.push(path.to_path_buf());
     } else {
         anyhow::bail!("Path does not exist: {}", path.display());
+    }
+    Ok(files)
+}
+
+pub fn load_cases(path: &Path) -> Result<Vec<TestCase>> {
+    let entries = collect_json_files(path)?;
+    let mut cases = Vec::new();
+    for entry_path in &entries {
+        let content = std::fs::read_to_string(entry_path)
+            .context(format!("Failed to read {}", entry_path.display()))?;
+        let suite: TestSuite = serde_json::from_str(&content)
+            .context(format!("Failed to parse {}", entry_path.display()))?;
+        cases.extend(suite.cases);
     }
     Ok(cases)
 }
 
 pub fn validate_cases(path: &Path, schema_path: Option<&Path>) -> Result<Vec<String>> {
-    let cases = load_cases(path)?;
     let mut errors = Vec::new();
 
-    if let Some(schema_path) = schema_path {
-        let schema_content = std::fs::read_to_string(schema_path)
+    if let Some(sp) = schema_path {
+        let schema_content = std::fs::read_to_string(sp)
             .context("Failed to read schema file")?;
-        let _schema: serde_json::Value = serde_json::from_str(&schema_content)
+        let schema_val: serde_json::Value = serde_json::from_str(&schema_content)
             .context("Failed to parse schema JSON")?;
+        let compiled = jsonschema::JSONSchema::options()
+            .with_draft(jsonschema::Draft::Draft7)
+            .compile(&schema_val)
+            .map_err(|e| anyhow::anyhow!("Failed to compile JSON schema: {}", e))?;
+
+        let entries = collect_json_files(path)?;
+        for entry_path in &entries {
+            let content = std::fs::read_to_string(entry_path)?;
+            let instance: serde_json::Value = serde_json::from_str(&content)
+                .context(format!("Failed to parse {}", entry_path.display()))?;
+            {
+                let result = compiled.validate(&instance);
+                if let Err(err_iter) = result {
+                    for e in err_iter {
+                        errors.push(format!("{}: {:?}", entry_path.display(), e));
+                    }
+                }
+            }
+        }
     }
 
+    let cases = load_cases(path)?;
     for (i, case) in cases.iter().enumerate() {
         if case.name.is_empty() {
             errors.push(format!("Case #{}: missing name", i));

@@ -409,7 +409,7 @@ PanelWindow {
             resultsCount: controller.results ? controller.results.length : 0,
             selectedIndex: controller.selectedIndex,
             selectedKey: controller.activeNodeKey || null,
-            expandedKeys: controller.navigation ? (controller.navigation.expandedNodeIds || []) : [],
+            expandedKeys: controller.navigation ? Object.keys(controller.navigation.expandedNodeIds || {}) : [],
             selectedActionIndex: controller.selectedActionIndex,
             activeNodeKey: controller.activeNodeKey || "",
             inTree: controller.navigation.isInTree(),
@@ -425,30 +425,53 @@ PanelWindow {
 
     function logicalRows() {
         const results = controller.results || [];
+        const navigation = controller.navigation;
         const selectedKey = controller.activeNodeKey || "";
-        const expandedIds = controller.navigation ? (controller.navigation.expandedNodeIds || []) : [];
-        const collIndices = controller.navigation ? (controller.navigation.collapsedResultIndices || {}) : {};
-        const inTree = controller.navigation ? controller.navigation.isInTree() : false;
+        const collIndices = navigation ? (navigation.collapsedResultIndices || {}) : {};
+        const inTree = navigation ? navigation.isInTree() : false;
+
+        var navTargets;
+        var navTargetMap = {};
+        if (navigation) {
+            navTargets = navigation.navigationTargets() || [];
+            for (var ti = 0; ti < navTargets.length; ti += 1) {
+                var t = navTargets[ti];
+                navTargetMap[t.key] = t;
+            }
+        }
+
         return results.map(function(result, idx) {
             var key = result.key || result.id || result.nodeId || "";
-            var depth = result.depth !== undefined ? result.depth : 0;
+            var target = navTargetMap ? navTargetMap[key] : null;
+            var targetDepth = target ? (target.depth || target.treeDepth || 0) : (result.depth !== undefined ? result.depth : 0);
             var hasChildren = !!(result.children && result.children.length > 0);
-            var isExpandedTree = inTree && expandedIds.indexOf ? (expandedIds.indexOf(key) >= 0) : false;
-            var isExpandedFlat = hasChildren && collIndices.explicitCollapse ? !collIndices[idx] && result.alwaysExpanded !== false : hasChildren;
+            var isExpanded = inTree
+                ? (result.key ? (navigation.expandedNodeIds && navigation.expandedNodeIds[result.key] === true) : false)
+                : (hasChildren && !(collIndices[idx]));
             var isSelected = (selectedKey && key === selectedKey) || (!selectedKey && idx === controller.selectedIndex);
+            var isSelectable = target ? true : (
+                result.selectable !== false
+                && !(result.behavior && result.behavior.selectable === false)
+                && navigation && navigation.hasActivation(result)
+            );
+            var isExecutable = navigation ? navigation.hasActivation(result) : (
+                !!result.executable || !!result.hasAction || !!result.canExecuteNow
+                || !!(result.switchActions) || !!(result.control)
+                || !!(result.children && result.children.length > 0)
+            );
             return {
                 key: key,
                 title: result.title || result.label || "",
                 subtitle: result.subtitle || result.genericName || null,
                 backend: result.source || result.backendId || null,
-                depth: depth,
+                depth: targetDepth,
                 path: result.breadcrumbs || [],
                 placement: result.placement || null,
-                executable: !!result.executable || !!result.hasAction || !!result.canExecuteNow || !!(result.switchActions) || !!(result.children && result.children.length > 0),
-                selectable: result.selectable !== false && !(result.behavior && result.behavior.selectable === false),
+                executable: isExecutable,
+                selectable: isSelectable,
                 selected: isSelected,
                 highlighted: isSelected,
-                expanded: inTree ? isExpandedTree : (hasChildren && !(collIndices[idx])),
+                expanded: isExpanded,
                 visible: result.ownVisible !== false,
                 breadcrumbText: result.breadcrumbText || null,
                 defaultAction: result.defaultAction ? (typeof result.defaultAction === "string" ? result.defaultAction : (result.defaultAction.id || null)) : null

@@ -10,7 +10,7 @@
         {
           "expect": {
             "exactlyOneSelected": true,
-            "selected": { "title": "On" }
+            "selected": { "title": "On", "path": ["Actions", "Networking", "Wi-Fi", "On"] }
           }
         },
         { "do": { "type": "execute" } },
