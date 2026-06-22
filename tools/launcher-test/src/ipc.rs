@@ -109,29 +109,50 @@ impl LauncherIpc {
         self.interact("activateSelected", "{}")
     }
 
-    /// Move selection to a row matching a selector by title or key
-    pub fn select_by_title(&self, title: &str) -> Result<String> {
+    /// Move selection to a row matching by key
+    pub fn select_by_key(&self, key: &str) -> Result<String> {
         let state = self.visual_state()?;
-        let target = state.rows.iter().find(|r| r.title == title || r.key == title);
+        let target = state.rows.iter().find(|r| r.key == key);
         if let Some(row) = target {
             if row.selected {
                 return Ok("{}".to_string());
             }
-            // Walk through rows via moveSelection until we find the target
             let current_idx = state.rows.iter().position(|r| r.selected);
             let target_idx = state.rows.iter().position(|r| r.key == row.key);
             if let (Some(from), Some(to)) = (current_idx, target_idx) {
                 let delta = to as i64 - from as i64;
                 let direction = if delta > 0 { "down" } else { "up" };
-                let steps = delta.abs();
-                for _ in 0..steps {
+                for _ in 0..delta.abs() {
                     self.move_selection(direction)?;
                     self.wait_for_settled(500)?;
                 }
                 return Ok("{}".to_string());
             }
         }
-        anyhow::bail!("select_by_title: no row matching '{}' found", title);
+        anyhow::bail!("select_by_key: no row matching key '{}' found", key);
+    }
+
+    /// Move selection to a row matching a selector by title
+    pub fn select_by_title(&self, title: &str) -> Result<String> {
+        let state = self.visual_state()?;
+        let target = state.rows.iter().find(|r| r.title == title);
+        if let Some(row) = target {
+            if row.selected {
+                return Ok("{}".to_string());
+            }
+            let current_idx = state.rows.iter().position(|r| r.selected);
+            let target_idx = state.rows.iter().position(|r| r.key == row.key);
+            if let (Some(from), Some(to)) = (current_idx, target_idx) {
+                let delta = to as i64 - from as i64;
+                let direction = if delta > 0 { "down" } else { "up" };
+                for _ in 0..delta.abs() {
+                    self.move_selection(direction)?;
+                    self.wait_for_settled(500)?;
+                }
+                return Ok("{}".to_string());
+            }
+        }
+        anyhow::bail!("select_by_title: no row matching title '{}' found", title);
     }
 
     pub fn visual_state(&self) -> Result<LauncherVisualState> {

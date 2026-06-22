@@ -18,6 +18,7 @@ pub struct TestCase {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Setup {
     #[serde(default = "default_true")]
     pub reset: bool,
@@ -53,12 +54,14 @@ pub enum StepAction {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct NodeSelector {
     pub key: Option<String>,
     pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Step {
     #[serde(rename = "do")]
     pub action: Option<StepAction>,

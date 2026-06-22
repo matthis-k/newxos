@@ -429,24 +429,31 @@ PanelWindow {
         const selectedKey = controller.activeNodeKey || "";
         const collIndices = navigation ? (navigation.collapsedResultIndices || {}) : {};
         const inTree = navigation ? navigation.isInTree() : false;
-        var seenKeys = {};
 
-        // Build from navigation targets (flattened selectable rows, including tree children)
-        var rows = [];
+        // Build lookup from nav targets, preserving display order
         var navTargets = navigation ? (navigation.navigationTargets() || []) : [];
+        var navByParentIdx = {};
+        var navByKey = {};
         for (var ti = 0; ti < navTargets.length; ti += 1) {
             var t = navTargets[ti];
+            var r = t.row || {};
+            var key = t.key || r.key || r.id || r.nodeId || "";
+            if (!key) continue;
+            navByKey[key] = t;
+            var pIdx = t.parentIndex !== undefined ? t.parentIndex : ti;
+            if (!navByParentIdx[pIdx]) navByParentIdx[pIdx] = [];
+            navByParentIdx[pIdx].push(t);
+        }
+
+        function rowForNavTarget(t) {
             var row = t.row || {};
             var key = t.key || row.key || row.id || row.nodeId || "";
-            if (!key) continue;
-            seenKeys[key] = true;
             var depth = t.depth || t.treeDepth || 0;
-            var isSelected = key === selectedKey;
             var hasChildren = !!(row.children && row.children.length > 0);
             var isExpanded = inTree
                 ? (navigation.expandedNodeIds && navigation.expandedNodeIds[key] === true)
                 : (hasChildren && row.alwaysExpanded !== false);
-            rows.push({
+            return {
                 key: key,
                 title: row.title || row.label || "",
                 subtitle: row.subtitle || row.genericName || null,
@@ -456,22 +463,19 @@ PanelWindow {
                 placement: row.placement || null,
                 executable: navigation ? navigation.hasActivation(row) : !!row.executable,
                 selectable: true,
-                selected: isSelected,
-                highlighted: isSelected,
+                selected: key === selectedKey,
+                highlighted: key === selectedKey,
                 expanded: isExpanded,
                 visible: row.ownVisible !== false,
                 breadcrumbText: row.breadcrumbText || null,
                 defaultAction: row.defaultAction ? (typeof row.defaultAction === "string" ? row.defaultAction : (row.defaultAction.id || null)) : null
-            });
+            };
         }
 
-        // Also include non-selectable results (e.g. Audio group) not in navigation targets
-        for (var ri = 0; ri < results.length; ri += 1) {
-            var r = results[ri];
+        function rowForResult(r, ri) {
             var rk = r.key || r.id || r.nodeId || "";
-            if (!rk || seenKeys[rk]) continue;
-            var isSelected = rk === selectedKey || (!selectedKey && ri === controller.selectedIndex);
-            rows.push({
+            var isSel = rk === selectedKey || (!selectedKey && ri === controller.selectedIndex);
+            return {
                 key: rk,
                 title: r.title || r.label || "",
                 subtitle: r.subtitle || r.genericName || null,
@@ -481,13 +485,48 @@ PanelWindow {
                 placement: r.placement || null,
                 executable: navigation ? navigation.hasActivation(r) : false,
                 selectable: false,
-                selected: isSelected || false,
-                highlighted: isSelected || false,
+                selected: isSel || false,
+                highlighted: isSel || false,
                 expanded: false,
                 visible: r.ownVisible !== false,
                 breadcrumbText: r.breadcrumbText || null,
                 defaultAction: r.defaultAction ? (typeof r.defaultAction === "string" ? r.defaultAction : (r.defaultAction.id || null)) : null
-            });
+            };
+        }
+
+        // Emit rows in display order: for each top-level result, emit its nav target
+        // (if selectable), then its non-selectable entry (if not selectable), then
+        // any tree children whose parentIndex matches.
+        var rows = [];
+        var seenKeys = {};
+        for (var ri = 0; ri < results.length; ri += 1) {
+            var r = results[ri];
+            var rk = r.key || r.id || r.nodeId || "";
+            if (!rk) continue;
+
+            var navEntry = navByKey[rk];
+            if (navEntry) {
+                // Selectable: emit nav target
+                var emitted = rowForNavTarget(navEntry);
+                rows.push(emitted);
+                seenKeys[rk] = true;
+            } else {
+                // Non-selectable: emit result entry at correct position
+                rows.push(rowForResult(r, ri));
+                seenKeys[rk] = true;
+            }
+
+            // Emit tree children (depth > 0) right after their parent
+            var children = navByParentIdx[ri] || [];
+            for (var ci = 0; ci < children.length; ci += 1) {
+                var child = children[ci];
+                var ckey = child.key || "";
+                if (!ckey || seenKeys[ckey]) continue;
+                var cdepth = child.depth || child.treeDepth || 0;
+                if (cdepth === 0) continue; // skip root-level, already emitted
+                seenKeys[ckey] = true;
+                rows.push(rowForNavTarget(child));
+            }
         }
 
         return rows;

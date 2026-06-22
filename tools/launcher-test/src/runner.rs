@@ -233,7 +233,9 @@ fn run_single_case(case: &TestCase, ipc: &LauncherIpc, mode: &crate::cli::RunMod
                     StepAction::MoveSelection { direction } => ipc.move_selection(direction)?,
                     StepAction::Expand { selector } => {
                         if let Some(ref sel) = selector {
-                            if let Some(ref title) = sel.title {
+                            if let Some(ref key) = sel.key {
+                                ipc.select_by_key(key)?;
+                            } else if let Some(ref title) = sel.title {
                                 ipc.select_by_title(title)?;
                             }
                         }
@@ -241,7 +243,9 @@ fn run_single_case(case: &TestCase, ipc: &LauncherIpc, mode: &crate::cli::RunMod
                     }
                     StepAction::Collapse { selector } => {
                         if let Some(ref sel) = selector {
-                            if let Some(ref title) = sel.title {
+                            if let Some(ref key) = sel.key {
+                                ipc.select_by_key(key)?;
+                            } else if let Some(ref title) = sel.title {
                                 ipc.select_by_title(title)?;
                             }
                         }
@@ -249,7 +253,9 @@ fn run_single_case(case: &TestCase, ipc: &LauncherIpc, mode: &crate::cli::RunMod
                     }
                     StepAction::Execute { selector } => {
                         if let Some(ref sel) = selector {
-                            if let Some(ref title) = sel.title {
+                            if let Some(ref key) = sel.key {
+                                ipc.select_by_key(key)?;
+                            } else if let Some(ref title) = sel.title {
                                 ipc.select_by_title(title)?;
                             }
                         }
