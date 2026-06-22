@@ -35,6 +35,7 @@ Item {
     ResultActionResolver {
         id: resultActionResolver
         controller: root.controller
+        actionController: root
         controlHandler: controlHandler
     }
 
@@ -49,15 +50,22 @@ Item {
         if (!result)
             return false;
 
-        var check = confirmHandler.checkActivation(result);
+        return root.activateWithConfirmation(result, function() {
+            return root.executeRecipeSlot(result, shiftPressed ? "complete" : "activate");
+        });
+    }
+
+    function activateWithConfirmation(target, activationFn) {
+        if (!target || typeof activationFn !== "function")
+            return false;
+        var check = confirmHandler.checkActivation(target);
         if (!check.confirmed)
             return false;
 
-        // Signal downstream (ActivationGate/ActionRegistry) that confirmation was satisfied
         if (root.controller)
             root.controller.confirmationSatisfied = true;
         try {
-            return root.executeRecipeSlot(result, shiftPressed ? "complete" : "activate");
+            return activationFn();
         } finally {
             if (root.controller)
                 root.controller.confirmationSatisfied = false;
@@ -82,8 +90,11 @@ Item {
             var editResult = ActionRegistry.executeRecipe([["edit-query", { from: "metadata.replaceQuery" }]], result, root.controller);
             return !!editResult.success;
         }
-        var recipeResult = ActionRegistry.executeRecipe([["run-action", { action: action.id || "default" }]], result, root.controller);
-        return !!recipeResult.success;
+        var confirmationTarget = Object.assign({}, result, { risk: action.risk || result.risk, dangerous: !!(action.dangerous || result.dangerous) });
+        return root.activateWithConfirmation(confirmationTarget, function() {
+            var recipeResult = ActionRegistry.executeRecipe([["run-action", { action: action.id || "default" }]], result, root.controller);
+            return !!recipeResult.success;
+        });
     }
 
     function executeRecipeSlot(target, slotName) {
@@ -171,6 +182,12 @@ Item {
         return root.applyIntent(result, intent);
     }
 
+    function activateSelectedFromInteraction(shiftPressed) {
+        if (shiftPressed && root.controller && root.controller.navigation && root.controller.navigation.isInTree())
+            return { close: root.controller.navigation.treeToggleSelected(), closeRequested: false };
+        return root._handleActivationWithConfirm();
+    }
+
     function _handleActivationWithConfirm() {
         if (root.controller && root.controller.isInTree()) {
             if (root.controller.currentTreeKey)
@@ -182,19 +199,11 @@ Item {
         if (!result)
             return { close: false };
 
-        var check = confirmHandler.checkActivation(result);
-        if (!check.confirmed)
-            return { close: false, closeRequested: false, needsConfirm: check.needsConfirm };
-
-        if (root.controller)
-            root.controller.confirmationSatisfied = true;
-        try {
+        var activationResult = root.activateWithConfirmation(result, function() {
             var recipeResult = root.runRecipeSlot("activate");
             return { close: recipeResult.close, closeRequested: recipeResult.close };
-        } finally {
-            if (root.controller)
-                root.controller.confirmationSatisfied = false;
-        }
+        });
+        return activationResult || { close: false, closeRequested: false };
     }
 
     function selectedActionTarget() {

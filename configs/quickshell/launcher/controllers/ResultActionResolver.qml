@@ -5,6 +5,7 @@ QtObject {
     id: root
 
     property var controller: null
+    property var actionController: null
     property var controlHandler: null
 
     function activateResultAction(result, actionId) {
@@ -29,7 +30,10 @@ QtObject {
 
         for (var i = 0; i < actions.length; i += 1) {
             if (actions[i] && actions[i].id === actionId) {
-                var recipeResult = ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root.controller);
+                var confirmTarget = Object.assign({}, result, { risk: actions[i].risk || result.risk, dangerous: !!(actions[i].dangerous || result.dangerous) });
+                var recipeResult = root.actionController
+                    ? { success: root.actionController.activateWithConfirmation(confirmTarget, function() { return ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root.controller).success; }) }
+                    : ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root.controller);
                 if (root.controller && root.controller.debugEnabled)
                     console.warn("[Actions] activateResultAction matched action list", {
                         resultId: result.id || result.nodeId || "",
@@ -44,7 +48,11 @@ QtObject {
         }
 
         if (result.switchActions && result.switchActions[actionId]) {
-            var switchResult = ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root.controller);
+            var switchAction = result.switchActions[actionId];
+            var switchConfirmTarget = Object.assign({}, result, { risk: switchAction.risk || result.risk, dangerous: !!(switchAction.dangerous || result.dangerous) });
+            var switchResult = root.actionController
+                ? { success: root.actionController.activateWithConfirmation(switchConfirmTarget, function() { return ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root.controller).success; }) }
+                : ActionRegistry.executeRecipe([["run-action", { action: actionId }]], result, root.controller);
             if (root.controller && root.controller.debugEnabled)
                 console.warn("[Actions] activateResultAction matched switchActions", {
                     resultId: result.id || result.nodeId || "",

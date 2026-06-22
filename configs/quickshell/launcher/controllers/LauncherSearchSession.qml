@@ -14,12 +14,13 @@ Item {
     property bool loading: false
     property int generation: 0
     property int asyncGeneration: 0
+    property int queryRevision: 0
     property var asyncBackendQueries: ({})
 
     signal resultsClearRequested()
-    signal searchStarted(string text, int generation)
-    signal searchCompleted(string text, int generation, var output)
-    signal resultsAvailable(string text, int generation, var rows, var output)
+    signal searchStarted(string text, int generation, int revision)
+    signal searchCompleted(string text, int generation, int revision, var output)
+    signal resultsAvailable(string text, int generation, int revision, var rows, var output)
 
     Timer {
         id: searchTimer
@@ -29,6 +30,7 @@ Item {
     }
 
     function updateQuery(text) {
+        queryRevision += 1;
         generation += 1;
         query = text || "";
         if (controller)
@@ -63,8 +65,9 @@ Item {
 
     function startSearch(text, requestGeneration, bumpAsyncGeneration) {
         var ag = bumpAsyncGeneration ? (root.asyncGeneration += 1) : root.asyncGeneration;
+        var revision = root.queryRevision;
         triggerAsyncBackends(text, requestGeneration);
-        searchStarted(text, requestGeneration);
+        searchStarted(text, requestGeneration, revision);
         Engine.searchAsync(backends || [], text || "", stateForSearch(), searchOptions(),
             function() { return root.generation === requestGeneration && root.asyncGeneration === ag; },
             function(output) {
@@ -73,8 +76,9 @@ Item {
                 if (requestGeneration !== root.generation || text !== root.query)
                     return;
 
-                root.searchCompleted(text, requestGeneration, output);
-                root.resultsAvailable(text, requestGeneration, output.rows.slice(0, maxResults), output);
+                output.queryRevision = revision;
+                root.searchCompleted(text, requestGeneration, revision, output);
+                root.resultsAvailable(text, requestGeneration, revision, output.rows.slice(0, maxResults), output);
             }
         );
     }

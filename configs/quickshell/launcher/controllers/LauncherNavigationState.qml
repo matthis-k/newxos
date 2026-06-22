@@ -70,11 +70,32 @@ Item {
     }
 
     function hasActivation(row) {
-        return !!(row && (row.actions && row.actions.length > 0 || row.executable || row.switchActions || row.control || (row.filterable && row.children && row.children.length > 0)));
+        if (!row)
+            return false;
+
+        if (row.selectable === false)
+            return false;
+
+        return !!((row.actions && row.actions.length > 0)
+            || row.hasAction
+            || row.canExecuteNow
+            || row.executable
+            || row.switchActions
+            || row.control
+            || row.lazy
+            || row.filterable);
     }
 
     function isSelectable(row) {
-        return root.hasActivation(row) && (root.queryIsEmptyForSelection() || (row.ownScore || 0) > 0 || !!row.ownVisible);
+        if (!root.hasActivation(row))
+            return false;
+
+        if (root.queryIsEmptyForSelection())
+            return true;
+
+        return (row.ownScore || 0) > 0
+            || !!row.ownVisible
+            || row.explicitBrowseChild === true;
     }
 
     function isRowSelectable(row) {

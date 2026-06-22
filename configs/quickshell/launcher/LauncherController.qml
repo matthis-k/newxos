@@ -17,6 +17,7 @@ Item {
     property alias loading: searchSession.loading
     property alias generation: searchSession.generation
     property alias _asyncGen: searchSession.asyncGeneration
+    property alias queryRevision: searchSession.queryRevision
     property int maxResults: 12
     property real visibilityThreshold: 0.18
     property bool includePath: true
@@ -60,9 +61,9 @@ Item {
     signal asyncBackendSearchStarted(var backend, string key, string text)
     signal asyncBackendResultsReceived(var backend, string key, string text, int generation, var update)
     signal searchRequested(string text, int generation)
-    signal searchStarted(string text, int generation)
-    signal searchCompleted(string text, int generation, var output)
-    signal resultsAvailable(string text, int generation, var rows, var output)
+    signal searchStarted(string text, int generation, int revision)
+    signal searchCompleted(string text, int generation, int revision, var output)
+    signal resultsAvailable(string text, int generation, int revision, var rows, var output)
     signal treeSwitchRefreshRequested(int resultIndex)
 
     Controllers.LauncherSearchSession {
@@ -73,14 +74,14 @@ Item {
         maxResults: root.maxResults
 
         onResultsClearRequested: root.resultsClearRequested()
-        onSearchStarted: function(text, requestGeneration) {
-            root.searchStarted(text, requestGeneration);
+        onSearchStarted: function(text, requestGeneration, revision) {
+            root.searchStarted(text, requestGeneration, revision);
         }
-        onSearchCompleted: function(text, requestGeneration, output) {
-            root.searchCompleted(text, requestGeneration, output);
+        onSearchCompleted: function(text, requestGeneration, revision, output) {
+            root.searchCompleted(text, requestGeneration, revision, output);
         }
-        onResultsAvailable: function(text, requestGeneration, rows, output) {
-            root.resultsAvailable(text, requestGeneration, rows, output);
+        onResultsAvailable: function(text, requestGeneration, revision, rows, output) {
+            root.resultsAvailable(text, requestGeneration, revision, rows, output);
         }
     }
 
@@ -141,13 +142,17 @@ Item {
     onAsyncBackendSearchStarted: function(backend, key, text) { searchSession.beginAsyncBackendSearch(backend, key, text); }
     onAsyncBackendResultsReceived: function(backend, key, text, requestGeneration, update) { searchSession.receiveAsyncBackendResults(backend, key, text, requestGeneration, update); }
     onSearchRequested: function(text, requestGeneration) { searchSession.requestSearch(text, requestGeneration); }
-    onResultsAvailable: function(text, requestGeneration, rows, output) {
-        if (!output || requestGeneration !== root.generation || text !== root.query)
+    onResultsAvailable: function(text, requestGeneration, revision, rows, output) {
+        if (!output || requestGeneration !== root.generation || revision !== root.queryRevision || text !== root.query)
             return;
 
         lastQuery = output.query;
         lastDirective = output.directive;
         lastEvaluatedRoot = output.evaluatedRoot;
+        if (output.evaluation) {
+            output.evaluation.queryRevision = revision;
+            lastEvaluation = output.evaluation;
+        }
         setResults(rows, text);
     }
 
@@ -200,6 +205,16 @@ Item {
     function queryRunCases() { return debugController.queryRunCases(); }
     function regressionCaseQueries() { return debugController.regressionCaseQueries(); }
     function summarizeCaseResults(results) { return debugController.summarizeCaseResults(results); }
+
+    // Debug V2 IPC facade
+    property var lastEvaluation: null
+    function debugOverview(args) { return debugController.debugOverview(args || ""); }
+    function debugInspect(args) { return debugController.debugInspect(args || ""); }
+    function debugPolicies(args) { return debugController.debugPolicies(args || ""); }
+    function debugFind(args) { return debugController.debugFind(args || ""); }
+    function debugAction(args) { return debugController.debugAction(args || ""); }
+    function debugStats(args) { return debugController.debugStats(args || ""); }
+    function debugRaw(args) { return debugController.debugRaw(args || ""); }
 
     // Search/session façade
     function stateForSearch() {

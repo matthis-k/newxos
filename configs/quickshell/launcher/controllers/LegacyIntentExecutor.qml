@@ -26,6 +26,10 @@ QtObject {
             if (root.controller)
                 root.controller.queryReplacementRequested(intent.text || "");
             return false;
+        case "edit-query":
+            if (root.controller)
+                root.controller.queryReplacementRequested(intent.value || intent.text || "");
+            return false;
         case "noop":
             return false;
         case "activate":

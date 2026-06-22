@@ -40,6 +40,11 @@ QtObject {
             }
             return activated;
         }
+        if (root.controller.actions && typeof root.controller.actions.activateWithConfirmation === "function") {
+            return root.controller.actions.activateWithConfirmation(target, function() {
+                return root.controller.applyIntent(target, target.enter);
+            });
+        }
         return root.controller.applyIntent(target, target.enter);
     }
 
