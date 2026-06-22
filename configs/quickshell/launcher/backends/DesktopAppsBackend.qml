@@ -25,6 +25,9 @@ ModelTreeBackendBase {
 
     readonly property var appTree: buildAppTree()
 
+    function appProfile() { return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default", profile: { evidence: ["field-match:^label$", "semantic", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["consume-own-pass-rest"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } }; }
+    function visualRootProfile() { return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"], scorePolicy: "default", profile: { evidence: ["field-match:^label$", "semantic"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["pass-all"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-own-match-or-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }], defaultAction: ["default-action-expand"], riskGate: ["risk-gate"] } }; }
+
     function debugLog(category, message, data) {
         if (root.controller && root.controller.debugEnabled)
             DebugLogger.log(category, message, data);
@@ -54,19 +57,28 @@ ModelTreeBackendBase {
             icon: "application-x-executable",
             result: false,
             behavior: { visualRoot: true },
+            evaluationProfile: visualRootProfile(),
             children: children
         }];
     }
 
     function entryNode(entry) {
-        const actions = (entry.actions || []).filter(a => a && a.id);
+        const rawActions = entry.actions;
+        const actions = [];
+        if (rawActions) {
+            for (var ai = 0; ai < rawActions.length; ai += 1) {
+                if (rawActions[ai] && rawActions[ai].id)
+                    actions.push(rawActions[ai]);
+            }
+        }
         const base = {
             id: entry.id.replace(/\.desktop$/, "").toLowerCase().replace(/[\s-]/g, "_"),
             title: entry.name,
             subtitle: entry.genericName || entry.comment || null,
             icon: entry.icon || "application-x-executable",
             action: { actionId: "open", entryId: entry.id },
-            behavior: { filterable: true, depthPenalty: 0.35 }
+            evaluationProfile: appProfile(),
+            behavior: { filterChildren: true, depthPenalty: 0.35 }
         };
         if (actions.length > 0) {
             base.children = actions.map(a => ({
@@ -109,7 +121,18 @@ ModelTreeBackendBase {
             return;
         }
 
-        const desktopAction = (entry.actions || []).find(item => item.id === actionId);
+        var desktopAction = null;
+        var availableActionIds = [];
+        if (entry.actions) {
+            for (var ai = 0; ai < entry.actions.length; ai += 1) {
+                var act = entry.actions[ai];
+                if (act) {
+                    availableActionIds.push(act.id || "");
+                    if (act.id === actionId)
+                        desktopAction = act;
+                }
+            }
+        }
         if (desktopAction) {
             root.debugLog("desktop-launch", "Activating desktop action", {
                 entryId: entry.id,
@@ -121,7 +144,7 @@ ModelTreeBackendBase {
             root.debugLog("desktop-launch", "Desktop action not found", {
                 entryId: entry.id,
                 actionId: actionId,
-                availableActions: (entry.actions || []).map(item => item.id || "")
+                availableActions: availableActionIds
             });
         }
     }

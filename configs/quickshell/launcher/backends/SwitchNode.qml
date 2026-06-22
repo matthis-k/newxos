@@ -68,7 +68,6 @@ Node {
             dangerous: root.dangerous,
             risk: root.risk,
             behavior: root.behavior,
-            groupOptions: root.groupOptions || {},
             tokenPolicy: root.tokenPolicy,
             children: root.ownChildNodes(),
             replaceQuery: root.replaceQuery,
@@ -82,17 +81,18 @@ Node {
                     inherit: [],
                     boost: ["descendant-boost", "switch-aliases"],
                     childVisible: root.childVisible || ["own-score-min:0.25"],
-                    childBypass: ["score-dominates:0.03"],
-                    tokenFlow: ["pass-all"],
-                    takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"],
-                    takeoverAccept: ["accept-dominated-claims"],
-                    expand: ["expand-when"],
-                    retainParent: ["retain-always"],
+                    tokenFlow: ["consume-switch-pass-rest"],
+                    takeoverRequest: [],
+                    takeoverAccept: [],
+                    expand: [],
+                    retainParent: [],
                     defaultAction: ["default-action-owner"],
                     riskGate: ["risk-gate"]
                 }
             }
         };
+        if (root.groupOptions && Object.keys(root.groupOptions).length > 0)
+            out.groupOptions = root.groupOptions;
         if (root.switchState !== undefined)
             out.switchState = root.switchState;
         return out;

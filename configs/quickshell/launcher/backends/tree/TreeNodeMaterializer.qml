@@ -83,6 +83,7 @@ QtObject {
         out.profile = Object.assign({}, sourceProfile);
         if (node.childVisible)
             out.profile.childVisible = node.childVisible;
+        // Legacy compatibility hook for unmigrated PresentationPolicy groups.
         if (node.childBypass)
             out.profile.childBypass = node.childBypass;
         return out;

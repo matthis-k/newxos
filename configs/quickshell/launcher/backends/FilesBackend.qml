@@ -22,9 +22,8 @@ ProcessBackendBase {
     priority: 60
     maxResults: 5
     routes: [
-        { pattern: "^@?files?\\s+(.*)", priority: 60, combine: "exclusive", afterEmpty: "stop" },
-        { pattern: "^(file://|~/|/)(.*)", priority: 60, combine: "exclusive", afterEmpty: "stop" },
-        { pattern: "^~\\s+", priority: 55, combine: "exclusive", afterEmpty: "stop" }
+        { pattern: "^@files?\\s+(.*)", priority: 60, combine: "exclusive", afterEmpty: "stop" },
+        { pattern: "^~?/(.*)", priority: 60, combine: "exclusive", afterEmpty: "stop" }
     ]
 
     property Process lazyScanner: Process {
@@ -77,7 +76,7 @@ ProcessBackendBase {
         if (directive && directive.active && directive.raw)
             return true;
         const raw = String(rawQuery || "").trim();
-        if (raw[0] === "/" || raw[0] === "~" || raw.indexOf("file://") === 0 || /^@?files?(\s|$)/.test(raw))
+        if (raw[0] === "/" || raw[0] === "~" || raw.indexOf("file://") === 0 || /^@files?(\s|$)/.test(raw))
             return true;
         if (raw.indexOf("~ ") === 0 && raw.length > 2)
             return true;
@@ -140,7 +139,7 @@ ProcessBackendBase {
 
         return root.backendRootDto(children, {
             subtitle: "Path Explorer",
-            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], childBypass: ["own-score-beats-parent", "score-dominates:0.03"], tokenFlow: ["pass-all"], takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-when"], retainParent: ["retain-always"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } }
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], tokenFlow: ["consume-path-segment"], takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-when"], retainParent: ["retain-always"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } }
         });
     }
 
@@ -174,7 +173,7 @@ ProcessBackendBase {
 
         return root.backendRootDto(children, {
             subtitle: root.compositeQuery ? qsTr("Results for %1").arg(root.compositeQuery) : root.helpDescription,
-            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], childBypass: ["own-score-beats-parent", "score-dominates:0.03"], tokenFlow: ["pass-all"], takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-when"], retainParent: ["retain-always"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } }
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], tokenFlow: ["consume-path-segment"], takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-when"], retainParent: ["retain-always"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } }
         });
     }
 
@@ -222,7 +221,7 @@ ProcessBackendBase {
         const text = String(queryText || "").trim();
         if (text.indexOf("file://") === 0)
             return text.slice(7);
-        return text.replace(/^@?files?(\s+|$)/, "").trim();
+        return text.replace(/^@files?(\s+|$)/, "").trim();
     }
 
     function parseOutput(text, queryText) {

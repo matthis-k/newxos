@@ -97,7 +97,7 @@ QtObject {
             behavior: Object.assign({
                 exclusiveWhen: (root.routes || []).filter(function(route) { return route && (route.mode === "exclusive" || route.combine === "exclusive"); })
             }, opts.behavior || {}),
-            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "switch-action", "semantic", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], childBypass: ["own-score-beats-parent", "score-dominates:0.03"], tokenFlow: ["pass-all"], takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-when"], retainParent: ["retain-always"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } }
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: ["field-match:all"], inherit: [], boost: [], childVisible: ["visible-flag"], tokenFlow: ["pass-all"], takeoverRequest: [], takeoverAccept: [], expand: [], retainParent: [], defaultAction: [], riskGate: [] } }
         }, opts));
     }
 

@@ -71,13 +71,14 @@ QtObject {
             dangerous: root.dangerous,
             risk: root.risk,
             behavior: root.behavior,
-            groupOptions: root.groupOptions || {},
             tokenPolicy: root.tokenPolicy,
             children: childNodes(),
             replaceQuery: root.replaceQuery
         };
         if (root.switchState !== undefined)
             out.switchState = root.switchState;
+        if (root.groupOptions && Object.keys(root.groupOptions).length > 0)
+            out.groupOptions = root.groupOptions;
         var payload = ownAction();
         if (payload)
             out.action = payload;

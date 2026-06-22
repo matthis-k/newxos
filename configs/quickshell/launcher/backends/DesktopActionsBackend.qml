@@ -7,8 +7,6 @@ TreeBackendBase {
     id: root
 
     property var shellScreenState: null
-    readonly property var defaultFlatGroupOptions: ({ breadcrumbMode: "always", flattenAllChildrenOnParentMatch: true, maxNestedChildren: 5 })
-
     category: qsTr("Desktop Actions")
     backendId: "desktop-actions"
     name: qsTr("Desktop Actions")
@@ -23,7 +21,7 @@ TreeBackendBase {
         { priority: 0, combine: "shared", afterEmpty: "stop" }
     ]
 
-    property QtObject newxosActions: Actions.NewxosActions { groupOptions: root.defaultFlatGroupOptions }
+    property QtObject newxosActions: Actions.NewxosActions {}
     property QtObject sessionActions: Actions.SessionActions {}
     property QtObject screenshotActions: Actions.ScreenshotActions {}
     property QtObject dashboardActions: Actions.DashboardActions { shellScreenState: root.shellScreenState }

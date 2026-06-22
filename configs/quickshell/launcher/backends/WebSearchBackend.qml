@@ -22,7 +22,7 @@ LauncherBackendBase {
         const searchText = query ? query.raw.trim() : "";
         const directivePrefix = context && context.directive ? context.directive.prefix : "";
         const queryTokens = (query && query.tokens || []).map(function(token) { return token.raw; });
-        if (!directivePrefix && (searchText[0] === "/" || searchText[0] === "~" || searchText.indexOf("file://") === 0 || /^@?files?(\s|$)/.test(searchText)))
+        if (!directivePrefix && (searchText[0] === "/" || searchText[0] === "~" || searchText.indexOf("file://") === 0 || /^@files?(\s|$)/.test(searchText)))
             return [];
 
         if (!searchText)

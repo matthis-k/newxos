@@ -12,12 +12,11 @@ QtObject {
             inherit: ["path-evidence"],
             boost: ["descendant-boost"],
             childVisible: ["visible-flag"],
-            childBypass: ["own-score-beats-parent", "score-dominates:0.03"],
             tokenFlow: ["pass-all"],
-            takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"],
-            takeoverAccept: ["accept-dominated-claims"],
-            expand: ["expand-when"],
-            retainParent: ["retain-always"],
+            takeoverRequest: [],
+            takeoverAccept: [],
+            expand: [],
+            retainParent: [],
             defaultAction: ["default-action-owner"],
             riskGate: ["risk-gate"]
         }
@@ -32,12 +31,11 @@ QtObject {
             inherit: ["path-evidence"],
             boost: ["descendant-boost"],
             childVisible: ["visible-flag", "above-min-score:0.25"],
-            childBypass: ["own-score-beats-parent", "score-dominates:0.03"],
             tokenFlow: ["pass-all"],
-            takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"],
-            takeoverAccept: ["accept-dominated-claims"],
-            expand: ["expand-when"],
-            retainParent: ["retain-always"],
+            takeoverRequest: [],
+            takeoverAccept: [],
+            expand: [],
+            retainParent: [],
             defaultAction: ["default-action-owner"],
             riskGate: ["risk-gate"]
         }
@@ -52,18 +50,19 @@ QtObject {
             inherit: [],
             boost: ["descendant-boost", "switch-aliases"],
             childVisible: ["has-own-score"],
-            childBypass: ["score-dominates:0.03"],
-            tokenFlow: ["pass-all"],
-            takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"],
-            takeoverAccept: ["accept-dominated-claims"],
-            expand: ["expand-when"],
-            retainParent: ["retain-always"],
+            tokenFlow: ["consume-switch-pass-rest"],
+            takeoverRequest: [],
+            takeoverAccept: [],
+            expand: [],
+            retainParent: [],
             defaultAction: ["default-action-owner"],
             riskGate: ["risk-gate"]
         }
     })
 
     function defaultFlattenPolicy(priority) {
+        // Legacy PresentationPolicy fallback for nodes without primitive
+        // expand/retain/takeover profiles. Do not use for migrated groups.
         return {
             modeHint: "group-dominance",
             priority: priority || 0,
@@ -85,6 +84,8 @@ QtObject {
     function categoryGroupBehavior(options) {
         var opts = options || {};
         return {
+            // Legacy PresentationPolicy fallback for compatibility with simple
+            // action-group templates. Primitive profiles control row retention.
             flattenPolicy: {
                 modeHint: "group-dominance",
                 priority: opts.priority === undefined ? root.defaultPriority : opts.priority,
@@ -105,9 +106,32 @@ QtObject {
         };
     }
 
+    // Placement/representation primitives only.
+    //
+    // defaultAction intentionally does not count here: it controls activation,
+    // not whether legacy PresentationPolicy/groupOptions should attach.
+    function hasPrimitivePresentationProfile(node) {
+        var profile = node && node.evaluationProfile && node.evaluationProfile.profile || {};
+        return (profile.expand && profile.expand.length > 0)
+            || (profile.retainParent && profile.retainParent.length > 0)
+            || (profile.takeoverRequest && profile.takeoverRequest.length > 0)
+            || (profile.takeoverAccept && profile.takeoverAccept.length > 0);
+    }
+
+    function hasExplicitLegacyGroupOptions(node) {
+        var opts = node && node.groupOptions;
+        if (!opts || typeof opts !== "object")
+            return false;
+        return Object.keys(opts).length > 0;
+    }
+
+    function isGroupTemplate(node) {
+        return node && (node.template === "action-group" || node.template === "flat-action-group" || node.template === "switch");
+    }
+
     function behaviorForNode(node, children, extra) {
-        if (node.template === "action-group" || node.template === "flat-action-group" || node.template === "switch")
-            extra = root.categoryGroupBehavior(node.groupOptions || {});
+        if (root.isGroupTemplate(node) && root.hasExplicitLegacyGroupOptions(node) && !root.hasPrimitivePresentationProfile(node))
+            extra = root.categoryGroupBehavior(node.groupOptions);
         if (node.behavior)
             return Object.assign({}, extra, node.behavior);
         return extra;
