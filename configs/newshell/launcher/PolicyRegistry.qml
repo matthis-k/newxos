@@ -109,26 +109,4 @@ Singleton {
         });
     }
 
-    function registerBaseNameAliases() {
-        var registries = [JsRegistry.evidence, JsRegistry.inherit, JsRegistry.boost, JsRegistry.childVisible, JsRegistry.childBypass, JsRegistry.presentation, JsRegistry.tokenFlow, JsRegistry.takeoverRequest, JsRegistry.takeoverAccept, JsRegistry.expand, JsRegistry.retainParent, JsRegistry.defaultAction, JsRegistry.riskGate];
-        var aliasMap = {};
-        for (var ri = 0; ri < registries.length; ri += 1) {
-            var reg = registries[ri];
-            var names = reg.list();
-            for (var ni = 0; ni < names.length; ni += 1) {
-                var name = names[ni];
-                var colonIdx = name.indexOf(":");
-                if (colonIdx > 0) {
-                    var baseName = name.slice(0, colonIdx);
-                    if (reg.get(baseName))
-                        continue;
-                    reg.register(baseName, reg.get(name));
-                    aliasMap[baseName] = name;
-                }
-            }
-        }
-        if (Object.keys(aliasMap).length > 0)
-            console.log("PolicyRegistry: registered base-name aliases", JSON.stringify(aliasMap));
-        return aliasMap;
-    }
 }

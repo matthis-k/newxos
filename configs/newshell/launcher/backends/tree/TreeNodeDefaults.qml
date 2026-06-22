@@ -8,7 +8,7 @@ QtObject {
         strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
         scorePolicy: "default",
         profile: {
-            evidence: ["field-match:all", "switch-action", "semantic", "token-claim", "usage", "recency"],
+            evidence: [["field-match", { filterType: "all" }], "switch-action", "semantic", "token-claim", "usage", "recency"],
             inherit: ["path-evidence"],
             boost: ["descendant-boost"],
             childVisible: ["visible-flag"],
@@ -27,10 +27,10 @@ QtObject {
         strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"],
         scorePolicy: "backend",
         profile: {
-            evidence: ["field-match:all", "switch-action", "semantic", "usage", "recency"],
+            evidence: [["field-match", { filterType: "all" }], "switch-action", "semantic", "usage", "recency"],
             inherit: ["path-evidence"],
             boost: ["descendant-boost"],
-            childVisible: ["visible-flag", "above-min-score:0.25"],
+            childVisible: ["visible-flag", ["above-min-score", { threshold: 0.25 }]],
             tokenFlow: ["pass-all"],
             takeoverRequest: [],
             takeoverAccept: [],
@@ -46,7 +46,7 @@ QtObject {
         strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"],
         scorePolicy: "default",
         profile: {
-            evidence: ["field-match:primary", "field-match:breadcrumb", "switch-action"],
+            evidence: [["field-match", { filterType: "primary" }], ["field-match", { filterType: "breadcrumb" }], "switch-action"],
             inherit: [],
             boost: ["descendant-boost", "switch-aliases"],
             childVisible: ["has-own-score"],

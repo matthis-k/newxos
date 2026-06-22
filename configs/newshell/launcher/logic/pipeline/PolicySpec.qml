@@ -20,6 +20,9 @@ Singleton {
     }
 
     function normalizeShorthand(name) {
+        if (name && name.indexOf(":") >= 0) {
+            console.warn("PolicySpec: legacy colon-encoded policy spec is deprecated: '" + name + "'. Use array spec like ['" + name.split(":")[0] + "', { ... }] instead.");
+        }
         return {
             name: name,
             kind: guessKind(name),
@@ -104,12 +107,5 @@ Singleton {
         return out;
     }
 
-    function compactLegacyName(name) {
-        if (!name) return "";
-        var s = String(name);
-        var colonIdx = s.indexOf(":");
-        if (colonIdx > 0)
-            return s.slice(0, colonIdx);
-        return s;
-    }
+
 }

@@ -106,21 +106,18 @@ Item {
     P.TokenClaimPolicy {}
     P.SwitchActionPolicy {}
     P.SwitchAliasesBoostPolicy {}
-    P.FieldMatchPolicy { policyId: "field-match:all"; filterType: "all" }
-    P.FieldMatchPolicy { policyId: "field-match:primary"; filterType: "primary" }
-    P.FieldMatchPolicy { policyId: "field-match:breadcrumb"; filterType: "breadcrumb" }
+    P.FieldMatchPolicy { policyId: "field-match" }
     P.PathEvidencePolicy {}
     P.DescendantBoostPolicy { policyId: "descendant-boost" }
     P.VisibleFlagPolicy {}
     P.HasOwnScorePolicy {}
-    P.AboveMinScorePolicy { policyId: "above-min-score:0.25"; threshold: 0.25 }
-    P.OwnScoreMinPolicy { policyId: "own-score-min:0.25"; threshold: 0.25 }
+    P.AboveMinScorePolicy { policyId: "above-min-score" }
+    P.OwnScoreMinPolicy { policyId: "own-score-min" }
     P.CandidateOrVisiblePolicy {}
     P.HasEvidencePolicy {}
     P.OwnScoreBeatsParentPolicy {}
-    P.ScoreDominatesPolicy { policyId: "score-dominates:0.03"; margin: 0.03 }
-    P.ScoreDominatesPolicy { policyId: "score-dominates:0.08"; margin: 0.08 }
-    P.OwnScoreDominatesPolicy { policyId: "own-score-dominates:0.08"; margin: 0.08 }
+    P.ScoreDominatesPolicy { policyId: "score-dominates" }
+    P.OwnScoreDominatesPolicy { policyId: "own-score-dominates" }
     P.ScoreBeatsParentPolicy {}
     P.PresentationChainPolicy {}
     P.ExpandOnTrailingSpace {}
@@ -128,10 +125,6 @@ Item {
     P.TakeoverPolicies {}
     P.ExpandRetainPolicies {}
     P.RiskGatePolicy {}
-
-    QtObject {
-        Component.onCompleted: PolicyRegistry.registerBaseNameAliases()
-    }
 
     onQueryUpdateRequested: function(text) { searchSession.updateQuery(text); }
     onResetRequested: function() { searchSession.reset(); lastAsyncVisualJson = ""; }

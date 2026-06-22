@@ -77,10 +77,10 @@ Node {
                 strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"],
                 scorePolicy: "default",
                 profile: {
-                    evidence: ["field-match:primary", "field-match:breadcrumb", "switch-action"],
+                    evidence: [["field-match", { filterType: "primary" }], ["field-match", { filterType: "breadcrumb" }], "switch-action"],
                     inherit: [],
                     boost: ["descendant-boost", "switch-aliases"],
-                    childVisible: root.childVisible || ["own-score-min:0.25"],
+                    childVisible: root.childVisible || [["own-score-min", { threshold: 0.25 }]],
                     tokenFlow: ["consume-switch-pass-rest"],
                     takeoverRequest: [],
                     takeoverAccept: [],

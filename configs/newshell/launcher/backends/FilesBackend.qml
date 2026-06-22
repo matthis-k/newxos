@@ -161,7 +161,7 @@ ProcessBackendBase {
 
         return root.backendRootDto(children, {
             subtitle: "Path Explorer",
-            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], tokenFlow: ["consume-path-segment"], takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-when"], retainParent: ["retain-always"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } }
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: [["field-match", { filterType: "all" }], "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", ["above-min-score", { threshold: 0.25 }]], tokenFlow: ["consume-path-segment"], takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-when"], retainParent: ["retain-always"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } }
         });
     }
 
@@ -195,7 +195,7 @@ ProcessBackendBase {
 
         return root.backendRootDto(children, {
             subtitle: root.compositeQuery ? qsTr("Results for %1").arg(root.compositeQuery) : root.helpDescription,
-            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: ["field-match:all", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", "above-min-score:0.25"], tokenFlow: ["consume-path-segment"], takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-when"], retainParent: ["retain-always"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } }
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: [["field-match", { filterType: "all" }], "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag", ["above-min-score", { threshold: 0.25 }]], tokenFlow: ["consume-path-segment"], takeoverRequest: ["explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-when"], retainParent: ["retain-always"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } }
         });
     }
 

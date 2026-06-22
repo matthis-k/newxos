@@ -50,7 +50,7 @@ LauncherBackendBase {
         root.compositeRootCacheKey = cacheKey;
         const compositeRoot = root.backendRootDto(roots.map(function(node) { return root.nodeMaterializer.compositeNode(node, []); }), {
             tags: [root.backendId],
-            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"], scorePolicy: "backend", profile: { evidence: ["field-match:all"], inherit: [], boost: [], childVisible: ["visible-flag"], tokenFlow: ["pass-all"], takeoverRequest: [], takeoverAccept: [], expand: [], retainParent: [], defaultAction: [], riskGate: [] } }
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"], scorePolicy: "backend", profile: { evidence: [["field-match", { filterType: "all" }]], inherit: [], boost: [], childVisible: ["visible-flag"], tokenFlow: ["pass-all"], takeoverRequest: [], takeoverAccept: [], expand: [], retainParent: [], defaultAction: [], riskGate: [] } }
         });
         IndexBuilder.buildSearchIndex(compositeRoot);
         if (!root.dynamicCompositeRoot)

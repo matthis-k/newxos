@@ -15,25 +15,18 @@ Singleton {
         var baseName = colonIdx >= 0 ? str.slice(0, colonIdx) : str;
         var argStr = colonIdx >= 0 ? str.slice(colonIdx + 1) : "";
 
-        var args = {};
-        var kind = classifyBase(baseName);
-
         if (argStr) {
-            args.value = tryParseNumber(argStr);
-            args[baseName.replace(/-/g, "_")] = args.value;
-            if (baseName === "field-match") args.filterType = argStr;
-            if (baseName === "above-min-score") args.threshold = args.value;
-            if (baseName === "own-score-min") args.threshold = args.value;
-            if (baseName === "score-dominates") args.margin = args.value;
-            if (baseName === "own-score-dominates") args.margin = args.value;
+            console.warn("PolicySpec: legacy colon-encoded policy spec is deprecated: '" + str + "'. Use array spec like ['" + baseName + "', { ... }] instead.");
         }
+
+        var kind = classifyBase(baseName);
 
         return {
             name: str,
             legacyName: str,
             baseName: baseName,
             kind: kind,
-            args: args,
+            args: {},
             priority: 0,
             source: "legacy"
         };

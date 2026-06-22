@@ -13,7 +13,7 @@ Singleton {
     readonly property var defaultProfile: ({
         // Leaf-conservative default: no expand/takeover/retain unless explicitly set.
         // Backends with group/switch behavior override this in their own evaluationProfile.
-        evidence: ["field-match:all", "switch-action", "semantic", "token-claim", "usage", "recency"],
+        evidence: [["field-match", { filterType: "all" }], "switch-action", "semantic", "token-claim", "usage", "recency"],
         inherit: ["path-evidence"],
         boost: ["descendant-boost"],
         childVisible: ["visible-flag"],

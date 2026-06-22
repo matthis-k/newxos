@@ -23,7 +23,7 @@ import "PresentationPresets.qml"
 Singleton {
     id: root
     readonly property var defaultChildVisible: ["visible-flag"]
-    readonly property var defaultChildBypass: ["own-score-beats-parent", "score-dominates:0.03"]
+    readonly property var defaultChildBypass: ["own-score-beats-parent", ["score-dominates", { margin: 0.03 }]]
 
     function childProfile(ev) {
         return (ev.node.evaluationProfile || {}).profile || {};
