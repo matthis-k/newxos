@@ -23,7 +23,9 @@
 ## When touching launcher search
 - `docs/architecture.md` — launcher architecture (pipeline, DTO boundary, prefix gating)
 - `docs/contracts/quickshell-design.md` — anti-patterns for row data and backends
-- `docs/playbooks/launcher-sanity-check.md` — ranking intent and IPC debugging guidance
+- `docs/test-cases/launcher-ranking.md` — ranking rationale and intent
+- `docs/newshell/launcher-testing.md` — test workflow, how to run/probe
+- `configs/opencode/skills/newshell-debugging/SKILL.md` — debugging
 - `docs/pitfalls.md` — historical launcher bugs
 
 ## When touching secrets or auth

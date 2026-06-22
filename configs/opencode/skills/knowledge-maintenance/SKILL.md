@@ -9,6 +9,8 @@ description: Use when editing docs, ADRs, pitfalls, contracts, playbooks, test c
 
 Docs index to owners, decisions, and procedures. Source files are truth for exact option values, package lists, and generated settings. Never duplicate upstream docs or store secrets.
 
+Docs are technical debt: actively delete stale/duplicated prose; prefer source pointers over mirroring exact values; do not preserve historical notes unless they prevent future mistakes.
+
 ## Inspect First
 
 - `docs/playbooks/maintain-docs.md` — classification, filtering, relevance standard

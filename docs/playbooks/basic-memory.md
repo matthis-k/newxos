@@ -19,7 +19,7 @@ newxos memory reset    # Reset and rebuild after structural changes
 ## Packaging ownership
 
 - Python workspace: `packages/basic-memory-uv2nix/`.
-- Nix packaging and wrapper integration: `modules/dev/opencode.nix`.
+- Nix packaging and wrapper integration: `modules/dev/opencode.nix` and `packages/newxos-cli/src/commands/memory.rs` own exact integration.
 
 ## Rules
 

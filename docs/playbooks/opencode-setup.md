@@ -19,9 +19,9 @@ This repo exposes OpenCode through Nix so agent tooling is reproducible.
 
 ## MCP servers
 
-- Server definitions are in `modules/dev/opencode.nix`.
-- Current servers: GitHub MCP, nixos MCP, Basic Memory MCP, Qt Documentation MCP, Context7 MCP.
-- Use Context7 for current external library/API docs only; prefer NixOS MCP for Nix options, Qt Documentation MCP for Qt/QML APIs, and Basic Memory for repo facts.
+- Server definitions live in `modules/dev/opencode.nix`.
+- Common expected categories: GitHub, NixOS, Basic Memory, Qt, Context7.
+- Use Context7 for external library/API docs only; prefer NixOS MCP for Nix options, Qt Documentation MCP for Qt/QML APIs, and Basic Memory for repo facts.
 
 ## Rules
 

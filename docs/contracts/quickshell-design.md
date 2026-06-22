@@ -20,7 +20,7 @@ Keep spacing consistent within a component. Read `Config.spacing` for exact valu
 
 ## Color palette
 
-- All colors come from the Catppuccin/Stlix pipeline (`modules/theming/`).
+- All colors come from the Catppuccin/Stylix pipeline (`modules/theming/`).
 - Follow Catppuccin semantic roles: `blue` for primary, `green` for active, `red` for errors, `yellow` for warnings.
 - Background layers: `base`, `mantle`, `crust` progression for depth without gradients.
 - Text: `text` primary, `subtext0`/`subtext1` for secondary.
@@ -44,7 +44,8 @@ Keep spacing consistent within a component. Read `Config.spacing` for exact valu
 
 ## QML conventions
 
-- Required pragmas: `pragma Singleton`, `pragma ComponentBehavior: Bound`.
+- Required pragmas: `pragma ComponentBehavior: Bound`.
+- Services/singletons additionally use `pragma Singleton` with `Singleton {}` root.
 - Files: PascalCase matching component name.
 - Singletons: PascalCase accessed directly by name.
 - Root id: always `id: root`.

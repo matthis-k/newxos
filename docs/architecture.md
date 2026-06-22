@@ -106,7 +106,6 @@ Validation follows a deterministic workflow: JSON cases → harness → targeted
 JSON launcher cases (tests/launcher/cases/*.json)
   ↓ newshell-launcher-test binary
   ↓ targeted repo-gate checks
-  ↓ targeted repo-gate checks
   ↓ git hooks (repo-gate --hook <check>)
   └── no nested flake re-evaluation inside scripts
 ```
@@ -115,22 +114,7 @@ JSON launcher cases (tests/launcher/cases/*.json)
 
 `repo-gate` is a selector/orchestrator over individual deterministic checks. It never calls `nix run "path:$PWD#..."` internally — all check executables are injected as store paths at build time.
 
-| Command | Effect |
-|---------|--------|
-| `repo-gate --list` | Show all checks and aliases |
-| `repo-gate write-flake` | Regenerate flake.nix, fail on drift |
-| `repo-gate fmt` | treefmt |
-| `repo-gate statix` | statix fix |
-| `repo-gate flake-check` | `nix flake check` |
-| `repo-gate repo-doctor` | Repo invariant checks |
-| `repo-gate rust` | newxos-cli Rust tests |
-| `repo-gate newshell-static` | qmllint shell.qml |
-| `repo-gate newshell-cases` | JSON launcher behavior cases |
-| `repo-gate newshell-runtime` | Headless Hyprland IPC tests (opt-in) |
-| `repo-gate hyprland` | Verify Hyprland config |
-| `repo-gate neovim` | Verify Neovim headless start |
-| `repo-gate docs-index` | Reindex Basic Memory |
-| `repo-gate all` | Full gate (all except runtime) |
+Run `repo-gate --list` for the full check and alias list. Source: `modules/dev/workflow.nix`.
 
 Inside `nix develop`, `repo-gate <checks>` avoids flake re-evaluation. Runtime tests require `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1`.
 
@@ -166,32 +150,15 @@ Contract and backend limits: `docs/contracts/hyprland-keymap.md`.
 The Quickshell launcher uses a composite search pipeline:
 
 - **Backends** produce normalized tree DTOs (plain JS objects, no live QML refs). Backend types: static trees, model-derived trees, computed results, streaming results, process-backed results.
-- **LauncherController** (`configs/newshell/launcher/LauncherController.qml`) is a compatibility façade: existing QML users keep the same public properties, signals, and methods, while focused controllers own the behavior behind them.
-- **Launcher controllers** (`configs/newshell/launcher/controllers/`) split controller responsibilities by lifecycle: `LauncherSearchSession.qml` owns query debounce, generation counters, async backend orchestration, stale-result suppression, and loading state; `LauncherNavigationState.qml` owns result snapshots, selection, tree navigation, expansion/collapse state, and lazy child loading; `LauncherActionController.qml` owns activation, confirmation, recipes, interactions, and switch/control action refresh; `LauncherDebugController.qml` owns debug serialization, benchmark, policies, cases, and visual debug endpoints.
-- **Composite search** (`configs/newshell/launcher/logic/`) handles indexing, candidate collection, evidence scoring, tree evaluation, path evidence, flattening, and row generation.
-- **Pipeline modules** (`configs/newshell/launcher/logic/`) provide explicit model/utility modules for policy spec normalization, score bundles, result shaping, presentation context, and rendered row construction.
-- **ScoreBundle** (`logic/ScoreBundle.qml`) wraps own/inherited/children/aggregate score parts with coverage info, alongside legacy score fields.
-- **ResultShaping** (`logic/ResultShaping.qml`) centralizes decidePlacement() logic that was previously in Flatten.qml, supporting placements: hidden, standalone, group, filtered-group, group-child, flattened, promoted-child, nested-group. Owns placement decisions and shaped item metadata. Shaped items retain `placement`, `decision`, and `presentationHints`.
-- **PresentationContext** (`logic/PresentationContext.qml`) owns placement-sensitive display decisions: breadcrumb visibility, backend badge visibility, action hint visibility, and density. Provides `forShapedItem()` to build a serializable context from a shaped item.
-- **RenderedRows** (`logic/RenderedRows.qml`) provides toResultRow() DTO construction for the shaped pipeline output. Consumes shaped item data, PresentationContext, and selected ActionPolicy metadata instead of re-inferring placement or action intent locally.
-- **Visual result coordination** (`configs/newshell/launcher/visual/`) sits between ordered row snapshots and QML rendering. `VisualResultCoordinator` diffs stable row keys into a `ListModel`; animated list/delegate components own enter, remove, move, and z-order transitions without feeding animation state back into ranking, policies, evidence, or backend gating.
-- **PolicySpec** (`logic/PolicySpec.qml`) normalizes legacy strings, tuple specs, and object specs into a canonical shape. Full parameterized policy semantics are still incremental — threshold/dominance policies can consume spec args but most policies still rely on legacy string names.
-- **PolicyChain** (`logic/PolicyChain.qml`) chains and aggregates policy results. Provides `lookupPolicy(registry, spec)` for normalized spec-aware lookups, and `run(names, callback, mode)` which passes `(legacyName, spec)` to each callback.
-- **TokenFlowDecision** is not implemented yet.
-- **ActionPolicy** (`logic/ActionPolicy.qml`) selects the default action for a normalized node/row from plain action candidates. It does not execute actions or hold service/backend references. Its pipeline is: node/row + query + evidence/context -> action candidates -> policy scoring -> selected default action -> rendered-row action metadata.
-- **ActionRegistry** (`logic/ActionRegistry.qml`) executes recipe steps and dispatches service payloads. **RecipeResolver** (`logic/RecipeResolver.qml`) resolves effective recipes and interactions. **LauncherActionController** (`controllers/LauncherActionController.qml`) owns activation flow, confirmation, selected target handling, and recipe/action invocation. `RenderedRows.qml` consumes selected action metadata; it should not grow action-selection heuristics.
-- **Normalized result rows** carry only primitive fields, actions, and evidence metadata — no raw tree objects or evaluated nodes.
+- **LauncherController** (`configs/newshell/launcher/LauncherController.qml`) is the public compatibility façade. Controllers in `configs/newshell/launcher/controllers/` split responsibilities: session/search lifecycle, navigation/selection, activation/recipes, and debug endpoints.
+- **Pipeline** (`configs/newshell/launcher/logic/`) handles indexing, evidence, scoring, shaping, row DTO construction, policy, and routing tree for prefix gating.
+- **Visual layer** (`configs/newshell/launcher/visual/`) diffs row snapshots and drives animated list/delegate transitions without feeding back into scoring.
 - **UI delegates** render normalized row data; they do not recompute scoring or hold backend references.
-- **Update coalescing** (`controllers/LauncherSearchSession.qml`) prevents per-keystroke re-entrance. Async backends check query and generation counters before applying results.
-- **Routing tree** (`configs/newshell/launcher/logic/RoutingTree.js`): A shared recursive tree exposed by the `LauncherController` façade and consumed by `LauncherSearchSession`/`Engine`. Backends register their route declarations (`prefix`/`pattern`, `priority`, `combine`, `afterEmpty`) during `Component.onCompleted`. The routing tree replaces the old `Router.js` and `helpPrefixes`-based gating with a single shared structure.
-  - **Route tiers**: Endpoints are grouped by `priority` (higher = earlier). The first tier with matches wins.
-  - **Exclusive routing**: When a matched endpoint declares `combine: "exclusive"`, only that endpoint's subtree runs. Other backends are excluded.
-  - **Shared routing**: When multiple endpoints at the same priority match and none are exclusive, all matching backends participate.
-  - **Prefix stripping**: `extractStripped()` uses the last capture group for patterns (`^@calc(ulator)?\\s+(.*)` → stripped query) or straightforward slice for prefixes.
-  - **Boundary checks**: Multi-char prefixes require next char to be whitespace or end (prevents `@app` matching `@appfirefox`). Compact single-char prefixes (`:`, `=`, `?`) skip boundary checks.
-  - **Ambient routes**: Priority 0 routes without prefix/pattern always match, providing fallback search behavior.
-  - **Fallthrough**: When a tier has zero matching endpoints, it cascades to the next lower priority tier.
-- **Web fallback**: web rows appear only for explicit web prefixes or when no non-web backend produces visible rows.
+- Normalized result rows carry only primitive fields, actions, and evidence — no raw tree objects.
+- Token flow exists through `TokenFlow.qml` + `tokenFlow` registry; a separate `TokenFlowDecision` abstraction is deferred.
+- Web fallback: web rows appear only for explicit web prefixes or when no non-web backend produces visible rows.
+
+Source files in `configs/newshell/launcher/` own exact behavior. See the launcher-search-change skill for detailed ownership.
 
 ## Newshell runtime tests
 
@@ -205,34 +172,19 @@ Isolated runtime tests launch a fresh namespaced newshell instance:
 
 ## IpcTargets singleton
 
-`configs/newshell/utils/IpcTargets.qml` provides namespaced IPC target names:
+`configs/newshell/utils/IpcTargets.qml` provides namespaced IPC target names. It reads `NEWSHELL_IPC_NAMESPACE` env var; test instances set a unique namespace. IPC targets are namespaced through `IpcTargets.qml`; source owns endpoint shapes.
 
-- Reads `NEWSHELL_IPC_NAMESPACE` env var.
-- `IpcTargets.name("launcher")` returns `"$NS.launcher"` when namespace is set, else `"launcher"`.
-- Used by all `IpcHandler` targets in `ShellState.qml` for bar, launcher, query endpoints.
-- Test instances set `NEWSHELL_IPC_NAMESPACE` to a unique value; normal sessions leave it unset.
-
-Available IPC endpoints through `ShellState.qml`:
-
-- `pipeline <query-or-json>` — universal query debug endpoint. Plain queries return an overview: compact visible row summaries, compact phase timings/counts (`.phases[]`), compact backend metadata (`.backends`), timings (`.timings`), and launcher state (`.state`). JSON requests can opt into larger detail sections with `details`, for example `{"query":"ze","focusNodeId":"desktop:apps:zen_beta","details":["rows","phases"]}`; focused requests enable hidden evaluation and filter rows/phases to that node family.
-- `visual <query>` / `visualState` / `visualApply <query>` / `visualDebug <on|off>` — visual-result debug endpoints. Use `visual` to compare a pure ordered row preview with current visual model state, `visualApply` to drive the live visual coordinator through the same snapshot path as typing, and `visualState` to inspect row phases, z-values, operations, and frame/list heights.
-- `policies <query>` — resolved policy specs for active backends/nodes (version 2).
-- `benchmark <json-or-query>` — run benchmark queries via `debugBenchmark()`.
-- `cases` — active regression query list.
-- `runCases` — run all regression cases and return compact results.
+Available IPC endpoints: `pipeline`, `visual`, `visualState`, `visualApply`, `visualDebug`, `policies`, `benchmark`, `cases`, `runCases`. Source: `ShellState.qml` and `controllers/LauncherDebugController.qml`.
 
 Launcher visual intent:
 - A row that directly matches the query should explain itself first. If it is a meaningful group, keep the group row visible instead of replacing it with unrelated-looking descendants.
-- Groups can opt into showing direct children on a parent match. Use this for command categories such as `newxos`, `session`, dashboard tabs, and desktop action groups where the children are the useful next choices.
-- Child rows should take over only when the query names the child intent more specifically than the parent, such as `wifi on`, `zen priv`, or `vpn off`.
-- Switch rows represent stateful choices visually as switches. Slider rows represent adjustable values visually as sliders; their rows still remain plain normalized launcher rows.
-- Slider rows render through a shared `AudioLevelSlider` component keyed on the `control` field; mute state is reflected via accent color and Alt-M interaction, not via a visible switch.
-- Result rows must communicate intent through title, subtitle, icon, action hint, switch, slider, and direct children. Delegates render those fields; scoring and tree-flattening decide which fields appear.
+- Groups can opt into showing direct children on a parent match.
+- Child rows should take over only when the query names the child intent more specifically than the parent.
+- Switch rows represent stateful choices as switches. Slider rows represent adjustable values as sliders.
+- Result rows communicate intent through title, subtitle, icon, action hint, switch, slider, and direct children. Delegates render those fields; scoring and tree-flattening decide which fields appear.
 
 ## QuickShell service state
 
-Stateful services that run commands or mutate system state expose a normalized operation shape: `currentOperationKind`, `currentOperationTarget`, `currentOperationRunning`, `currentOperationLastError`, and `operation`. UI code should read service busy/error state from these properties instead of local logs or synthetic placeholders.
+Stateful services expose a normalized operation shape: `currentOperationKind`, `currentOperationTarget`, `currentOperationRunning`, `currentOperationLastError`, and `operation`. Source: `configs/newshell/services/`.
 
-Primary owners: `configs/newshell/services/NetworkService.qml`, `BluetoothService.qml`, `AudioService.qml`, `PowerService.qml`, `Brightness.qml`, `NordVPN.qml`, and the `VpnService.qml` façade.
-
-Current complexity audit: `docs/audits/newshell-state-singletons.md`.
+Durable principles: prefer normalized operation state for command-backed services; avoid local `Process` in views when the action is reusable; keep DTOs small.

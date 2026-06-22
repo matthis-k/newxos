@@ -14,7 +14,8 @@ All UI must follow the flat-design contract: no gradients, shadows, or 3D. Use p
 - `docs/contracts/quickshell-design.md` — visual style, spacing scale, animation rules, QML conventions
 - `docs/pitfalls.md` — Quickshell section
 - `docs/playbooks/dashboard-change.md` — dashboard/quickmenu tab state, ShellState ownership, tab order, and validation
-- `docs/playbooks/quickshell-motion.md` — motion tokens, easing rules, expanding button pattern, reduced-animation rule
+- `docs/contracts/quickshell-design.md` — design contracts (spacing, color, animation rules)
+- `docs/playbooks/quickshell-motion.md` — motion policy (animation modules, easing, reduced-animation)
 - `modules/desktop/wrappers/quickshell.nix` — wrapper, newshell binary, dev mode routing
 - Nearby QML components for import conventions and pattern matching
 
@@ -22,11 +23,11 @@ All UI must follow the flat-design contract: no gradients, shadows, or 3D. Use p
 
 | Path | Owns |
 |------|------|
-    | `configs/newshell/shell.qml` | Root window, panel layout, per-screen instantiation |
-    | `configs/newshell/services/` | Singleton services (network, brightness, config, notifications) |
-    | `configs/newshell/components/` | Shared UI components (buttons, sliders, icons, dashboard pieces) |
-    | `configs/newshell/modules/*/` | Panel modules (quickmenu, background, hyprland preview) |
-    | `configs/newshell/launcher/` | Launcher search pipeline (see launcher-search-change skill) |
+| `configs/newshell/shell.qml` | Root window, panel layout, per-screen instantiation |
+| `configs/newshell/services/` | Singleton services (network, brightness, config, notifications) |
+| `configs/newshell/components/` | Shared UI components (buttons, sliders, icons, dashboard pieces) |
+| `configs/newshell/modules/*/` | Panel modules (quickmenu, background, hyprland preview) |
+| `configs/newshell/launcher/` | Launcher search pipeline (see launcher-search-change skill) |
 | `modules/desktop/wrappers/quickshell.nix` | Wrapper, newshell binary, dev mode config routing |
 | `modules/theming/` | Palette, generated QuickShell theme JSON |
 

@@ -87,7 +87,7 @@
         fi
 
         # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
-        if ls "${self}/configs/newshell/launcher/tests/cases/"*.json 2>/dev/null | head -n1 | grep -q .; then
+        if [ -n "$(find "${self}/configs/newshell/launcher/tests/cases" -maxdepth 1 -name '*.json' -print -quit 2>/dev/null)" ]; then
           echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
           errors=$((errors + 1))
         fi
@@ -448,7 +448,7 @@
             runtime           newshell-runtime
             nix               write-flake + statix + fmt + flake-check
             quick             write-flake + fmt + statix + newshell-static
-            all               write-flake + fmt + statix + flake-check + repo-doctor + rust + newshell + hyprland + neovim
+            all               write-flake + fmt + statix + flake-check + repo-doctor + rust + newshell + hyprland + neovim (includes newshell-session)
             probe             newshell-probe
           LISTEOF
                   exit 0
@@ -493,7 +493,7 @@
                 runtime)   echo "newshell-runtime" ;;
                 nix)       echo "write-flake statix fmt flake-check" ;;
                 quick)     echo "write-flake fmt statix newshell-static" ;;
-                all)       echo "write-flake fmt statix flake-check repo-doctor rust newshell-static newshell-cases hyprland neovim" ;;
+                all)       echo "write-flake fmt statix flake-check repo-doctor rust newshell hyprland neovim" ;;
                 probe)     echo "newshell-probe" ;;
                 session)   echo "newshell-session" ;;
                 *)         echo "$name" ;;
@@ -780,7 +780,7 @@
                 fi
 
             # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
-            if ls configs/newshell/launcher/tests/cases/*.json 2>/dev/null | head -n1 | grep -q .; then
+            if [ -n "$(find configs/newshell/launcher/tests/cases -maxdepth 1 -name '*.json' -print -quit 2>/dev/null)" ]; then
               echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
               errors=$((errors + 1))
             fi

@@ -6,354 +6,50 @@ Use this when adding hover, press, expand/collapse, tab, panel, or row animation
 
 Motion must preserve the flat design contract. Animate state, not decoration.
 
-## Motion Tokens
+## Motion policy
 
-All animation durations must use central tokens from `Config.behaviour.animation`:
+- Use the shared animation module (`import qs.animations as Animations`). Prefer named recipes over local `Behavior { NumberAnimation {} }` blocks.
+- All durations come from `Config.behaviour.animation.*` or `Config.motion.*` — never hardcode duration literals.
+- Respect `Config.behaviour.animation.enabled`. Motion tokens return 0 when disabled.
+- Preferred easing: `Easing.OutCubic` for enter/expand, `Easing.InCubic` for exit/collapse, `Easing.InOutCubic` for layout, `Easing.InOutQuad` for neutral.
+- Settled recipes for components whose initial state comes from live data (e.g. Wi-Fi switch already on).
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `micro` | 100ms | hover, press, background color state layer |
-| `short` | 160ms | button expansion, label reveal, row selection |
-| `medium` | 220ms | panel/tab transitions, reveal/collapse |
-| `long` | 320ms | large layout changes |
+## Allowed motion
 
-Access via `Config.behaviour.animation.micro` / `.short` / `.medium` / `.long` or the convenience alias `Config.motion.micro` / `.short` / `.medium` / `.long`.
+- opacity changes, color interpolation between flat palette tokens, width/height interpolation
+- background expansion/reveal, small content slide/fade
+- restrained scale (0.92-1.0 or 0.96-1.0 range only)
 
-## Animation Module
+## Forbidden motion
 
-Use the dedicated animation module for shell animation work:
-
-```qml
-import qs.animations as Animations
-```
-
-Prefer animation recipes over local `Behavior { NumberAnimation {} }` blocks:
-
-```qml
-Animations.RevealBehavior on opacity {
-}
-
-Animations.StateColorBehavior on color {
-}
-```
-
-Use `Animations.FadeInAnimation` and `Animations.FadeOutAnimation` inside explicit sequences:
-
-```qml
-SequentialAnimation {
-    Animations.FadeOutAnimation {
-        target: label
-        property: "opacity"
-        to: 0
-    }
-}
-```
-
-## Foundations
-
-Foundations are narrow, configurable animation building blocks. Use them when no named recipe fits.
-
-| Component | Use |
-|-----------|-----|
-| `Animations.NumberBehavior` | attach to numeric properties with configurable `kind`, `duration`, `easingType` |
-| `Animations.ColorBehavior` | attach to color properties with configurable `kind`, `duration`, `easingType` |
-| `Animations.PropertyAnimation` | explicit numeric animation for `SequentialAnimation` / `ParallelAnimation` |
-
-Available number kinds:
-
-| Kind | Duration | Easing | Use |
-|--------|----------|--------|-----|
-| `Micro` | `Config.motion.micro` | `Easing.OutCubic` | tiny state changes |
-| `Short` | `Config.motion.short` | `Easing.OutCubic` | button expansion, label movement |
-| `Medium` | `Config.motion.medium` | `Easing.OutCubic` | panel/tab transitions |
-| `Long` | `Config.motion.long` | `Easing.OutCubic` | large layout changes |
-| `Enter` | `Config.motion.short` | `Easing.OutCubic` | reveal/hover-in |
-| `Exit` | `Config.motion.short` | `Easing.InCubic` | hide/collapse |
-| `Layout` | `Config.motion.medium` | `Easing.InOutCubic` | size/layout interpolation |
-| `Neutral` | `Config.motion.short` | `Easing.InOutQuad` | neutral state changes |
-
-Available color kinds:
-
-| Kind | Duration | Easing | Use |
-|--------|----------|--------|-----|
-| `State` | `Config.motion.micro` | `Easing.OutCubic` | hover/active color changes |
-| `Neutral` | `Config.motion.short` | `Easing.InOutQuad` | slower neutral color changes |
-| `Accent` | `Config.motion.micro` | `Easing.OutCubic` | accent swaps |
-
-## Recipes
-
-Recipes are finished animation choices composed from foundations. Prefer these for consistency.
-
-| Component | Based on | Use |
-|-----------|----------|-----|
-| `Animations.StateColorBehavior` | `ColorBehavior(State)` | hover, active, accent color transitions |
-| `Animations.RevealBehavior` | `NumberBehavior(Enter)` | opacity reveal or content fade-in |
-| `Animations.ShiftBehavior` | `NumberBehavior(Short)` | small x/y/position transitions |
-| `Animations.ExpandBehavior` | `NumberBehavior(Short)` | button width/height expansion |
-| `Animations.PanelBehavior` | `NumberBehavior(Medium)` | dashboard/panel open, width, opacity |
-| `Animations.LayoutBehavior` | `NumberBehavior(Layout)` | size/layout interpolation |
-| `Animations.ScaleBehavior` | `NumberBehavior(Micro)` | restrained hover/press scale feedback |
-| `Animations.FadeInAnimation` | `PropertyAnimation(Enter)` | explicit fade-in in sequences |
-| `Animations.FadeOutAnimation` | `PropertyAnimation(Exit)` | explicit fade-out in sequences |
-| `Animations.AppearAnimation` | `FadeInAnimation` + `MotionAnimation(Layout)` | top-anchored list/delegate insertion by expanding wrapper height and fading in |
-| `Animations.DisappearAnimation` | `MotionAnimation(Layout)` | top-anchored list/delegate removal by shrinking wrapper height to zero |
-| `Animations.RetainedDisappearAnimation` | `ListView.delayRemove` + height shrink | keep a removed `ListView` delegate alive until its height reaches zero |
-| `Animations.SpinAnimation` | `RotationAnimation` | sustained loading/connecting spinner |
-| `Animations.SettledShiftBehavior` | `ShiftBehavior` with delayed enable | state that must snap on creation, then animate later |
-| `Animations.SettledStateColorBehavior` | `StateColorBehavior` with delayed enable | color state that must snap on creation, then animate later |
-
-Each foundation and recipe exposes override properties (`duration` / `easingType` for behaviors, `motionDuration` / `motionEasingType` for explicit animations) for component-specific cases.
-
-Use settled recipes for controls whose initial state comes from live data. Example: a Wi-Fi switch created while Wi-Fi is already enabled must appear on immediately; only later state changes should animate.
-
-Use `Animations.ScaleBehavior` only for restrained feedback. Preferred ranges are `0.92 -> 1.0`, `0.96 -> 1.0`, or at most `1.0 -> 1.02`.
-
-## Preferred Easing
-
-| Context | Easing |
-|---------|--------|
-| enter / expand / hover-in | `Easing.OutCubic` |
-| exit / collapse | `Easing.InCubic` |
-| size / layout transitions | `Easing.InOutCubic` |
-| neutral state changes | `Easing.InOutQuad` |
-
-## Allowed Motion
-
-- opacity changes
-- color interpolation between flat palette tokens
-- width/height interpolation
-- background expansion/reveal
-- small content slide/fade
-- restrained scale (already established patterns only)
-
-## Forbidden Motion
-
-- drop shadows, glow effects, gradients
-- fake depth/elevation
-- springy/bouncy motion (spring animations)
-- large scale jumps (>1.05)
-- blur-heavy transitions
+- drop shadows, glow, gradients, fake depth/elevation
+- springy/bouncy motion, large scale jumps (>1.05), blur-heavy transitions
 - animations that cause search-result jitter
 
-## Reduced/Disabled Animation
+## Key component patterns
 
-All animations must respect `Config.behaviour.animation.enabled`. The motion tokens already handle this — `micro`, `short`, `medium`, `long` return 0 when animations are disabled.
+- **Expander** (`components/Expander.qml`): clipped reveal/collapse for sections and expanders
+- **AnimatedListDelegate** (`components/AnimatedListDelegate.qml`): list row add/remove height animation
+- **TransitionListCoordinator** + **AnimatedTransitionList** (`animations/`): snapshot-driven lists with stable keys, reorder, fast-input adaptation
 
-Do not hardcode nonzero durations without checking the enabled flag:
+## Launcher motion
 
-```qml
-duration: Config.behaviour.animation.enabled ? someDuration : 0
-```
+Launcher motion is visual-only. Do not change matching, evidence, scoring, ranking, row shaping, backend participation, or policy logic.
 
-Prefer using animation recipes or motion tokens which are pre-guarded.
+Safe targets: top-level list add/remove/displaced, selected row color, breadcrumb/action hint opacity, tree reveal height via Expander, tree row panel height/color/border.
 
-## Expanding Buttons
+## Expanding buttons
 
-Expanding buttons reveal a label alongside an icon on hover or active state. Key rules:
-
-- Icon position must remain stable during expansion.
-- Label fades in (opacity) while button expands (width).
-- Background color transitions between flat tokens.
-- Active state uses `primaryAccent` for icon/label color.
-- Expansion direction respects layout context (right-side clusters expand inward).
-
-Reference implementation: `configs/newshell/components/ExpandableButton.qml`.
-
-## Dashboard-Bar Integration
-
-Bar status icons remain icon-only. The right-side cluster expansion is owned by `ShellState.barExpandedForDashboard` and `Bar.qml`; `StatusIcon.qml` keeps icon, badge, overlay, hover, and active feedback only.
-
-Do not duplicate dashboard open/close/tab state in animated button components. Buttons delegate to `screenState.toggleDashboard(tab)`.
-
-## Dashboard Expanders
-
-Use `configs/newshell/components/Expander.qml` for clipped expand/collapse reveals. It owns the standard settled initial state, height progress, content-height changes, and slide-down/up motion so content appears to come from the parent.
-
-Use `DashboardSection { collapsible: true }` for dashboard sections such as NordVPN/VPN. It delegates body reveal to `Expander`.
-
-For row-level expanders such as Wi-Fi and Bluetooth device details, keep the expansion state local to the page and wrap details in `Expander`. Do not reorder live rows while a row is expanded; freeze row order if needed.
-
-## Launcher Frontend Motion
-
-Launcher motion is UI-only. Do not change matching, evidence, scoring, ranking, row shaping, backend participation, or policy logic.
-
-Safe launcher targets:
-
-- top-level result `ListView` add/remove/displaced transitions
-- selected row background and border color
-- breadcrumb opacity
-- action hint opacity
-- top-level tree reveal height/slide through `Expander`
-- tree row panel height/color/border
-- tree row entry opacity for visible child rows
-- switch controls through `DashboardToggleSwitch`
-
-The launcher uses the shared transition layer:
-
-- `TransitionListCoordinator` manages the visual model lifecycle (insert, move, remove, phase transitions).
-- `LauncherCoordinatorAdapter` adapts `controller.results` into generic coordinator items.
-- `TransitionPolicy.modeForSnapshot()` handles fast-input adaptation (typing, deleting, backend switches).
-- `LauncherResultList` and `LauncherResultDelegate` wire launcher-specific properties to the generic animated list/delegate.
-
-`TreeView` inherits `TableView`, not `ListView`; do not add unsupported `add`/`remove`/`displaced` transitions to it. Animate tree expand/collapse through the containing clipped wrapper and row delegates instead.
-
-When launcher results spawn already expanded, the initial tree state must snap into place. Enable tree reveal, row-height, and child-entry animations only after the initial model/default expansion layout settles, so motion only communicates later state changes.
-
-Tree parents stay visually stationary. Do not stretch a parent row background over its descendants; collapse and reveal only the child area below it.
-
-For tree expand/collapse, animate all affected heights. Use `Expander` for the outer launcher tree reveal and `AnimatedListDelegate` for the parent `ListView` row height. For nested `TreeView` branches, use `TreeView.rowHeightProvider` for child row growth/shrink and delay the real `TreeView.collapse()` until the shrink finishes; otherwise Qt removes child rows immediately while the parent area is still animating. Pair the height animation with a small upward-to-settled `y` offset so children slide down/up as if produced by the parent.
-
-For `ListView` delegate add/remove, wrap composed rows in `components/AnimatedListDelegate.qml`. Fade-only removal leaves invisible rows occupying space while the outer frame shrinks.
-
-If a `ListView` is backed by snapshot arrays that reset on every query, pass a stable `animationKey` and shared `seenKeys` object to `AnimatedListDelegate`; otherwise unchanged rows replay their add animation on every snapshot.
-
-When `ListView` removals need exit animation, use `ListView.delayRemove` through `Animations.RetainedDisappearAnimation` so Qt keeps the delegate alive until its clipped wrapper height animates to zero. Do not fade removed list rows unless the design specifically calls for it; height-only removal matches the containing background resize.
-
-Avoid adding a second behavior to nested `TreeView` row heights when child row heights already drive the reveal. Double-animating parent and child heights makes collapse look sequential instead of simultaneous.
-
-## Shared Transition Policy
-
-`configs/newshell/animations/TransitionPolicy.qml` centralizes transition mode selection, duration/easing derivation, and fast-input adaptation.
-
-Modes:
-
-| Mode | Use |
-|------|-----|
-| `None` | snap; no animation |
-| `Light` | short/subtle animation |
-| `Full` | normal animation |
-| `FastInput` | typing/search churn; minimal animation |
-
-Kinds: `Micro`, `Short`, `Medium`, `Long`, `Enter`, `Exit`, `Layout`, `Move`, `Color`, `Scale`, `Panel`, `ListInsert`, `ListRemove`, `ListMove`.
-
-API:
-
-```qml
-TransitionPolicy {
-    id: policy
-}
-
-policy.duration(kind, mode)
-policy.easing(kind, direction, mode)
-policy.settleDelay(mode)
-policy.removalDelay(mode)
-policy.shouldAnimate(kind, mode)
-policy.modeForSnapshot(context)
-```
-
-The policy respects `Config.behaviour.animation.enabled`. When disabled, all modes produce zero-duration transitions.
-
-## Fast-Input Adaptation
-
-`modeForSnapshot(context)` derives transition mode from context:
-
-```js
-{
-    inputText, previousInputText,
-    contextKey, previousContextKey,
-    reason,              // query, contextSwitch, reset, open, close
-    timeSinceLastSnapshot,
-    activeItemCount, previousItemCount
-}
-```
-
-Behavior:
-
-- Initial open: `Full` (or `Light` if items already present).
-- Empty query reset: `Light` or `None`.
-- Backend/context switch: `Full`.
-- Single-character edit in quick succession: `FastInput` or `Light`.
-- Repeated snapshot churn: retargets existing animations, does not queue.
-- Recently removed keys that reappear: snap to `live` phase instead of replaying enter.
-
-## Generic Visual List Coordinator
-
-`configs/newshell/animations/TransitionListCoordinator.qml` manages stable-keyed visual list lifecycle:
-
-- Normalize incoming items with stable keys.
-- Update survivors, insert new rows, move to target order.
-- Mark missing rows as `leaving`, remove after configured delay.
-- Track recently removed keys to avoid replaying enter animation.
-- Assign z-values by rank (higher rank = higher z).
-- Expose debug state and last operations.
-
-Generic item shape:
-
-```js
-{ key: string, payload: var, rank: int, animationRole: string }
-```
-
-Usage:
-
-```qml
-Animations.TransitionListCoordinator {
-    id: coordinator
-}
-
-coordinator.applySnapshot(items, {
-    inputText: query,
-    contextKey: contextKey,
-    reason: "query"
-});
-```
-
-## Generic Animated List and Delegate
-
-`configs/newshell/animations/AnimatedTransitionList.qml` and `TransitionListDelegate.qml` consume the coordinator model and animate insert/remove/move through the shared transition policy.
-
-The list accepts a `payloadDelegate` component. The delegate handles phase lifecycle (`entering`, `live`, `leaving`) using `TransitionItemAnimator`.
-
-Launcher-specific wiring stays in `launcher/visual/LauncherResultList.qml` and `LauncherResultDelegate.qml`, which adapt the generic components with launcher properties (controller, result, selected, iconSize, etc.).
-
-## Generic Item Animator
-
-`configs/newshell/animations/TransitionItemAnimator.qml` animates reveal, opacity, and scale for enter/exit transitions. It derives durations and easing from `TransitionPolicy` based on the current animation mode.
-
-## When to Use Each Component
-
-| Component | Use |
-|-----------|-----|
-| `Expander` | clipped reveal/collapse for sections, expanders |
-| `ListReveal` | top-anchored list/frame reveal |
-| `AnimatedListDelegate` | simple list row lifecycle (add/remove height animation) |
-| `TransitionListCoordinator` + `AnimatedTransitionList` | snapshot-driven lists with stable keys, reorder, fast-input adaptation |
-| `TransitionItemAnimator` | enter/exit reveal/fade/scale for individual items |
-
-## Launcher Migration Notes
-
-Launcher uses:
-
-- `TransitionListCoordinator` for visual model lifecycle.
-- `LauncherCoordinatorAdapter` to adapt `controller.results` into generic items.
-- `LauncherResultList` (extends `ListView` with launcher-specific delegate wiring).
-- `LauncherResultDelegate` (extends generic delegate with launcher properties).
-
-Search/ranking/scoring/evidence/backends remain untouched. Only the visual layer consumes the shared transition policy.
-
-## Avoiding Local Animations
-
-Prefer shared recipes over local `NumberAnimation`, `Behavior`, or `Transition` blocks. If a local animation is needed, check whether it belongs in `configs/newshell/animations/` as a new recipe.
-
-Do not scatter duration literals. Derive from `Config.motion.*` or `TransitionPolicy`.
+Icon position stable during expansion; label fades in while button expands; background transitions between flat tokens. Source: `components/ExpandableButton.qml`.
 
 ## Validation
 
-Check these states for any animated component:
-
-1. Compact/default state.
-2. Hovered.
-3. Pressed.
-4. Active/selected.
-5. Expanded (if applicable).
-6. With animations disabled (`duration_multiplier = 0`).
-7. Fast input (for snapshot-driven lists).
+Check each animated component at: compact state, hovered, pressed, active/selected, expanded, animations disabled, fast input (for snapshot-driven lists).
 
 ## Do Not
 
 - Hardcode animation durations outside motion tokens or animation recipes.
-- Add shadows, gradients, glows, or elevation in animation targets.
-- Hardcode colors outside theme/config tokens.
+- Add shadows, gradients, glows, or elevation.
 - Animate every component in one pass — migrate incrementally.
-- Introduce a generic animation framework larger than current needs.
 - Break hot reload with persistent animation state.
 - Add external dependencies for motion.

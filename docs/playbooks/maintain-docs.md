@@ -56,6 +56,7 @@ Remove content that is:
 - Obvious from code and not easy to misinterpret
 - Instructions for tasks no longer relevant
 - Speculative ideas mixed into accepted architecture
+- Historical one-off postmortems that do not prevent future mistakes
 
 Preserve content that is:
 - Project-specific, durable, actionable
@@ -64,6 +65,17 @@ Preserve content that is:
 - Connected to accepted architecture
 - Tied to tests, contracts, or invariants
 - Likely to cause subtle architectural damage if forgotten
+
+## Goal/Current/Workaround rule
+
+If a documented command, workflow, or behavior is not at its goal state, structure the entry as:
+
+- **Goal**: what the implementation should eventually do
+- **Current behavior**: what actually happens now
+- **Current workaround**: how to work with current behavior
+- **Remove when**: condition that signals the gap is closed
+
+This prevents stale "broken" notes from accumulating and makes it easy to audit what needs cleanup when the condition is met.
 
 ## Relevance standard
 

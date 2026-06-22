@@ -26,41 +26,11 @@ Fix: keep `imports` at the module top level, put conditional options under `conf
 
 ## Quickshell
 
-### Networking crash (resolved)
-
-Quickshell 0.3.0 segfaults during Wi-Fi scan due to `NMAccessPoint` use-after-free.
-
-Fix: use `nmcli` via `Process` instead of `Quickshell.Networking`. Source: `configs/newshell/services/NetworkService.qml`.
-
 ### Module version mismatch
 
 Importing a newer QuickShell module (e.g. `Quickshell.Networking`) while the pinned nixpkgs still has an older `quickshell` binary causes `module "..." is not installed`.
 
 Fix: update nixpkgs lock to a revision that ships the required QuickShell version.
-
-### Launcher retained whole tree per keystroke
-
-Composite search treated every allowed node as a candidate even without evidence, causing high CPU.
-
-Fix: candidate retention must require indexed candidate family, direct evidence, or retained children. Permission alone is not proof of relevance.
-
-### Launcher result rows carried circular evaluated trees
-
-`toResultRow` returned `raw: ev` where evaluated nodes contain parent/tree references.
-
-Fix: keep only primitive row fields, actions, and evidence metadata in normalized rows.
-
-### Launcher prewarm cached empty desktop apps
-
-Prewarming `DesktopAppsBackend` before `DesktopEntries` populated cached an empty tree.
-
-Fix: do not prewarm backends whose source model is populated asynchronously.
-
-### Launcher action groups looked blank with nested children
-
-Category groups defaulted to nested display, showing non-executable parent rows.
-
-Fix: make `ActionGroupNode` default to flattening category matches into actionable descendant rows.
 
 ### Environment variables in QML
 
@@ -68,49 +38,29 @@ Fix: make `ActionGroupNode` default to flattening category matches into actionab
 
 Fix: use `Quickshell.env("VAR")` for live Quickshell environment checks.
 
-### Launcher results frame collapsed with valid results
+### Launcher retained whole tree per keystroke
 
-Frame height depended only on `resultsColumn.implicitHeight`, which can be 0 briefly during Loader initialization.
+Candidate retention must require indexed candidate family, direct evidence, or retained children. Permission alone is not proof of relevance.
 
-Fix: reserve a minimum height from model count whenever results exist.
+### Launcher result rows carried circular evaluated trees
+
+Keep only primitive row fields, actions, and evidence metadata in normalized rows.
+
+### Launcher prewarm cached empty desktop apps
+
+Do not prewarm backends whose source model is populated asynchronously.
 
 ### Animated list reveals looked vertically centered
 
-Resizing the list/content item itself during shrink/grow makes QML preserve internal position, so a short result set can appear vertically centered after filtering. Letting a layout fill an animated parent height has the same effect: the layout can redistribute children during the intermediate shrink frames.
+Animate only the clipped wrapper height and keep the content item/layout at its real target height, top-anchored. Source: `configs/newshell/components/Expander.qml`.
 
-Fix: animate only the clipped wrapper height and keep the content item/layout at its real target height, top-anchored. Source: `configs/newshell/components/Expander.qml`, `configs/newshell/components/ListReveal.qml`.
-
-For `ListView` removals, set `ListView.delayRemove` on the delegate wrapper and clear it after the clipped wrapper height animates to zero. Prefer `configs/newshell/components/AnimatedListDelegate.qml` for list rows so normal height changes and removals share the same top-clipped behavior.
-
-When inserting replacement launcher rows and removing old rows in the same snapshot, do not remove variable-height `ListView` rows immediately. Mark them as leaving, collapse their clipped delegate height, then remove them from the model after the collapse settles; immediate removal can leave new delegates with stale `y` geometry and an oversized results frame. Source: `configs/newshell/launcher/visual/`.
-
-If a launcher row replays its add/expand animation on every keystroke, the view is probably receiving snapshot-array resets for the same logical row. Fix: pass stable row ids into `AnimatedListDelegate.animationKey` with a shared `seenKeys` object so only genuinely new ids run add animation.
+For `ListView` removals, use `ListView.delayRemove` and collapse delegate height before removal. Prefer `AnimatedListDelegate.qml` for list rows.
 
 ### QML subdirectory singleton imports not resolved in JS
 
-`import "subdir/Singleton.qml"` from a parent-file does not make `Singleton` available as a JS identifier. Only same-directory imports (`import "Singleton.qml"`) or directory imports (`import "subdir/"`) register the type name.
-
-Fix: keep `pragma Singleton` QML files in the same directory as their consumers, or use directory imports (`import "subdir/"`) instead of file imports. A directory import loads all `.qml` files in that directory.
+Only same-directory imports or directory imports register the type name. Keep `pragma Singleton` files in the same directory as their consumers, or use `import "subdir/"` instead of file imports.
 
 ## Build and shell
-
-### `buildEnv` tool bundles cannot mix wrapped compiler toolchains
-
-Mixing `gcc` and `clang` wrappers in one `pkgs.buildEnv` bundle causes `conflicting subpath` for `bin/ld`.
-
-Fix: keep one compiler toolchain per `buildEnv`, add only tools that do not collide.
-
-### Multiline shell snippets in pipelines
-
-Interpolating multiline shell fragments before a `|` in generated scripts produces `syntax error near unexpected token '|'`.
-
-Fix: keep full pipeline in one script body, or use `case` dispatch.
-
-### Shell arity guards blocking env fallback
-
-Requiring too many positional args before reaching env-backed defaults makes the default branch unreachable.
-
-Fix: align argument-count guards with truly required args only.
 
 ### Pre-commit hook breaks after Nix GC
 
@@ -118,23 +68,11 @@ Hook references an absolute store path that GC removes.
 
 Fix: run `nix run "path:$PWD#install-git-hooks"` after GC.
 
-### Pre-commit hook can rewrite files
-
-Hook may reformat or modify files, changing staged content.
-
-Fix: re-stage task-related files after hooks run. Do not assume the hook only validates.
-
 ### Stale generated `flake.nix` misleads `nix flake show` / `nix flake check`
 
 After changing `flake-file` declarations, `show` and `check` may reflect old output.
 
 Fix: run `nix run "path:$PWD#write-flake"` before running flake introspection commands.
-
-### `repo-gate` is now a selector, not a monolithic runner
-
-`repo-gate` no longer runs all hooks via `pre-commit run`. Instead it dispatches individual checks by name.
-
-Fix: use targeted commands like `repo-gate newshell statix` for narrow checks, or `repo-gate all` for the full gate. Use `--staged` to emulate old temp-index behavior. Use `--hook <check>` from pre-commit entries.
 
 ### Lua multi-return collapses in table constructors
 
@@ -153,12 +91,6 @@ Fix: ignore the `qmlls` unresolved-type warning for `PanelWindow`. Leave `.qmlls
 Config changes managed by a nix-wrapper-modules wrapper take effect only after a NixOS or Home Manager rebuild.
 
 Fix: use the source-tree wrapper (dev specialization) when iterating on `configs/newshell/` without rebuilding.
-
-### Breaking changes expected before Quickshell 1.0
-
-Quickshell pre-1.0 may change APIs between versions.
-
-Fix: use upstream migration guides, not stale notes. Update nixpkgs lock when a newer module is needed.
 
 ## Theming
 
@@ -264,23 +196,13 @@ Fix: after changing Nix Neovim plugin lists, regenerate the lock file. Source: `
 
 ## Secrets and containers
 
-### Open WebUI TTS split setting persisted over Nix env
-
-Persistent SQLite config overrode declarative `AUDIO_TTS_SPLIT_ON`.
-
-Fix: disable persistent config or use valid splitter values (`punctuation`, `paragraphs`, `none`).
-
 ### Kokoro GPU container image and CDI selector
 
-Docker `--gpus all` can select a missing AMD CDI spec on mixed-GPU hosts.
-
-Fix: use explicit `--device nvidia.com/gpu=all` and verify image tags with a container probe.
+Docker `--gpus all` can select a missing AMD CDI spec on mixed-GPU hosts. Fix: use explicit `--device nvidia.com/gpu=all`.
 
 ### Zen cannot import Caddy CA from private state path
 
-`/var/lib/caddy/.../root.crt` is not user-readable.
-
-Fix: publish to a world-readable path like `/run/caddy-local-root.crt`.
+`/var/lib/caddy/.../root.crt` is not user-readable. Fix: publish to `/run/caddy-local-root.crt`.
 
 ## ATA DRM logs are not graphics DRM
 
@@ -288,16 +210,6 @@ Kernel `ata*.00 supports DRM functions` refers to drive feature support, not Dir
 
 Fix: for Plymouth/NVIDIA issues, focus on `simpledrm`, `nvidia_drm`, and framebuffer handoff.
 
-## Token dedup: best-per-token by default
-
-Evidence dedup changed from `(tokenIndex, fieldGroup)` to `(tokenIndex)` — only the highest-scoring evidence per token is kept by default.
-
-If a node needs the old per-field-group dedup, set `profile.tokenDedup = "field-group"` in its `evaluationProfile.profile`.
-
-Default behavior is `"best-per-token"` (set in `Evaluate.qml:85`). The dedup function lives in `Evidence.qml:bestPerToken()`.
-
 ### `buildChildTree` fallback bypassed shaping decision
 
-The shaping step (`ResultShaping.qml`) explicitly sets `childEvs: []` when it decides children should not be visible (e.g., when `childPassesVisible` returns false for `expand-on-trailing-space` policy). However, `buildRowsFromShaped` in `Engine.qml:88-92` treated empty `childEvs` the same as null, falling through to `buildChildTree` which re-added children based on a simpler filter (`visible || score >= 0.25`), bypassing the shaping decision entirely.
-
-Fix: check `item.childEvs != null` instead of `item.childEvs != null && item.childEvs.length > 0`. When `childEvs` is explicitly empty, respect the shaping decision and produce no child rows. Source: `Engine.qml:88-92`.
+`buildRowsFromShaped` in `Engine.qml` treated empty `childEvs` the same as null, bypassing the shaping decision. Check `item.childEvs != null` instead of `null && length > 0`.

@@ -4,11 +4,9 @@ A NixOS specialization that switches programs to use live configs from the repo 
 
 ## How it works
 
-The specialization sets `newxos.devMode = true`. Programs that support live configs check this flag:
+The specialization sets `newxos.devMode = true`. Programs that support live configs check this flag.
 
-- **QuickShell**: wrapper switches from Nix-built config to `${NEWXOS_FLAKE:-$HOME/newxos}/configs/newshell` when `NEWXOS_DEV=1`.
-- **Neovim**: wrapper dispatches to live repo config wrapper when `NEWXOS_DEV=1`.
-- **Hyprland**: wrapper creates merged config directory that symlinks live configs and copies Nix-generated `nix-import.lua`.
+Source: `modules/dev/dev-specialization.nix` owns exact program support; `modules/desktop/wrappers/` owns wrapper behavior.
 
 ## Adding to a host
 

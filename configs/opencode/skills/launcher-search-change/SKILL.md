@@ -14,7 +14,9 @@ Launcher behavior changes should be policy-driven. Backend data must cross the D
 - `docs/architecture.md` — launcher architecture section (pipeline, DTO boundary, prefix gating)
 - `docs/contracts/quickshell-design.md` — anti-patterns section
 - `docs/pitfalls.md` — launcher pitfalls (retained trees, circular references, children bypass)
-- `docs/playbooks/launcher-sanity-check.md` — ranking intent, IPC debugging, pipeline schema, capability cases
+- `docs/test-cases/launcher-ranking.md` — ranking rationale and intent
+- `docs/newshell/launcher-testing.md` — test workflow, how to run/probe
+- `configs/opencode/skills/newshell-debugging/SKILL.md` — debugging flow
 - Owning backend or logic file in `configs/newshell/launcher/`
 
 ## Architecture Boundary
@@ -30,19 +32,8 @@ Launcher behavior changes should be policy-driven. Backend data must cross the D
 
 | Path | Owns |
 |------|------|
-| `launcher/LauncherController.qml` | Composite search orchestration, `queryPipeline()` |
-| `launcher/Logic/Evaluate.qml` | Evidence collection, scoring, default dedup mode |
-| `launcher/Logic/ResultShaping.qml` | Placement decisions (hidden, standalone, group, flattened, etc) |
-| `launcher/Logic/RenderedRows.qml` | Row DTO construction from shaped items |
-| `launcher/Logic/ActionPolicy.qml` | Default action candidate selection and scoring |
-| `launcher/Logic/ActionRegistry.qml` | Recipe step execution and service payload dispatch |
-| `launcher/Logic/RecipeResolver.qml` | Effective recipe and interaction resolution |
-| `launcher/Logic/PresentationContext.qml` | Placement-sensitive display choices |
-| `launcher/Logic/PolicyChain.qml` | Policy aggregation, `lookupPolicy()` |
-| `launcher/Logic/PolicySpec.qml` | Policy spec normalization (legacy strings → canonical) |
-| `launcher/Logic/ScoreBundle.qml` | Score parts with coverage |
-| `launcher/Logic/Evidence.qml` | Evidence dedup (`bestPerToken` default) |
-| `launcher/Logic/RoutingTree.js` | Prefix routing, backend gating |
+| `launcher/logic/` | Pipeline modules (evidence, scoring, shaping, row DTOs, policy, routing) |
+| `launcher/controllers/` | Session lifecycle, navigation, activation, debug endpoints |
 | `launcher/backends/` | Backend DTOs and search |
 | `launcher/policies/` | Individual policy implementations |
 | `launcher/delegates/` | UI delegates rendering rows |
@@ -77,7 +68,7 @@ newshell ipc call query cases                 # Active regression query list
 newshell ipc call query runCases              # Run all regression cases
 ```
 
-For the full pipeline JSON schema, detailed `jq` filter recipes, capability use cases, and debug flow guidance, see `docs/playbooks/launcher-sanity-check.md`.
+For debug flow guidance, see `configs/opencode/skills/newshell-debugging/SKILL.md`.
 
 ## Do Not
 
@@ -93,7 +84,7 @@ For the full pipeline JSON schema, detailed `jq` filter recipes, capability use 
 
 Do not implement unless repeated concrete need:
 
-- TokenFlowDecision
+- `TokenFlowDecision` (token flow exists through `TokenFlow.qml` + `tokenFlow` registry; a separate decision abstraction is deferred)
 - Generic rule engine
 
 ## Done Criteria

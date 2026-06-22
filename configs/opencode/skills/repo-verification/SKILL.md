@@ -9,6 +9,8 @@ description: Use before finishing code or docs changes in newxos to choose and r
 
 Run the narrowest check that covers the change first, then broader gates when practical. Always use `"path:$PWD"` for local flake refs, never `.`.
 
+`repo-gate --list` / `modules/dev/workflow.nix` own exact check definitions.
+
 ## Check Selection by Path
 
 | Changed Path | First Check | Then |
@@ -19,7 +21,7 @@ Run the narrowest check that covers the change first, then broader gates when pr
 | `configs/newshell/**` | `repo-gate newshell` | — |
 | `configs/hypr/**` or Hyprland modules | `repo-gate hyprland` | — |
 | `configs/nvim/**` or Neovim modules | `repo-gate neovim` | — |
-| `docs/**` | `repo-gate docs-index` | — |
+| `docs/**` | `repo-gate docs-index` | `repo-gate repo-doctor` when invariants or paths changed |
 | `packages/` or Rust code | `repo-gate rust` | — |
 
 ## Standard Commands
@@ -33,7 +35,7 @@ Run the narrowest check that covers the change first, then broader gates when pr
 | `repo-gate flake-check` | Run `nix flake check` |
 | `repo-gate repo-doctor` | Run repo invariant checks |
 | `repo-gate rust` | Run newxos-cli Rust unit tests |
-| `repo-gate newshell` | newshell-static + newshell-cases |
+| `repo-gate newshell` | newshell-static + newshell-cases + newshell-session |
 | `repo-gate newshell-runtime` | Headless Hyprland IPC tests (opt-in) |
 | `repo-gate hyprland` | Verify Hyprland Lua config |
 | `repo-gate neovim` | Verify Neovim starts headless |
