@@ -3,6 +3,7 @@
   "title": "LauncherTestSuite",
   "type": "object",
   "required": ["cases"],
+  "additionalProperties": false,
   "properties": {
     "cases": {
       "type": "array",
@@ -23,6 +24,7 @@
           "expect": { "$ref": "#/definitions/Expectation" },
           "setup": {
             "type": "object",
+            "additionalProperties": false,
             "properties": {
               "reset": { "type": "boolean" },
               "visible": { "type": "boolean" }
@@ -95,6 +97,7 @@
     },
     "NodeSelector": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "key": { "type": "string" },
         "title": { "type": "string" }
@@ -102,6 +105,7 @@
     },
     "Expectation": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "query": { "type": "string" },
         "exactlyOneSelected": { "type": "boolean" },
@@ -112,6 +116,7 @@
         },
         "rows": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "count": { "type": "integer" },
             "contains": {
@@ -143,6 +148,7 @@
     },
     "RowMatcher": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "key": { "type": "string" },
         "title": { "type": "string" },

@@ -231,9 +231,30 @@ fn run_single_case(case: &TestCase, ipc: &LauncherIpc, mode: &crate::cli::RunMod
                     StepAction::TypeText { text } => ipc.type_text(text)?,
                     StepAction::Backspace { count } => ipc.backspace(count.unwrap_or(1))?,
                     StepAction::MoveSelection { direction } => ipc.move_selection(direction)?,
-                    StepAction::Expand { .. } => ipc.expand_selected()?,
-                    StepAction::Collapse { .. } => ipc.collapse_selected()?,
-                    StepAction::Execute { .. } => ipc.activate_selected()?,
+                    StepAction::Expand { selector } => {
+                        if let Some(ref sel) = selector {
+                            if let Some(ref title) = sel.title {
+                                ipc.select_by_title(title)?;
+                            }
+                        }
+                        ipc.expand_selected()?
+                    }
+                    StepAction::Collapse { selector } => {
+                        if let Some(ref sel) = selector {
+                            if let Some(ref title) = sel.title {
+                                ipc.select_by_title(title)?;
+                            }
+                        }
+                        ipc.collapse_selected()?
+                    }
+                    StepAction::Execute { selector } => {
+                        if let Some(ref sel) = selector {
+                            if let Some(ref title) = sel.title {
+                                ipc.select_by_title(title)?;
+                            }
+                        }
+                        ipc.activate_selected()?
+                    },
                 };
                 let _ = ipc.wait_for_settled(2000)
                     .context("State did not settle after action")?;

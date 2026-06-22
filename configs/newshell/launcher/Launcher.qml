@@ -429,54 +429,68 @@ PanelWindow {
         const selectedKey = controller.activeNodeKey || "";
         const collIndices = navigation ? (navigation.collapsedResultIndices || {}) : {};
         const inTree = navigation ? navigation.isInTree() : false;
+        var seenKeys = {};
 
-        var navTargets;
-        var navTargetMap = {};
-        if (navigation) {
-            navTargets = navigation.navigationTargets() || [];
-            for (var ti = 0; ti < navTargets.length; ti += 1) {
-                var t = navTargets[ti];
-                navTargetMap[t.key] = t;
-            }
-        }
-
-        return results.map(function(result, idx) {
-            var key = result.key || result.id || result.nodeId || "";
-            var target = navTargetMap ? navTargetMap[key] : null;
-            var targetDepth = target ? (target.depth || target.treeDepth || 0) : (result.depth !== undefined ? result.depth : 0);
-            var hasChildren = !!(result.children && result.children.length > 0);
+        // Build from navigation targets (flattened selectable rows, including tree children)
+        var rows = [];
+        var navTargets = navigation ? (navigation.navigationTargets() || []) : [];
+        for (var ti = 0; ti < navTargets.length; ti += 1) {
+            var t = navTargets[ti];
+            var row = t.row || {};
+            var key = t.key || row.key || row.id || row.nodeId || "";
+            if (!key) continue;
+            seenKeys[key] = true;
+            var depth = t.depth || t.treeDepth || 0;
+            var isSelected = key === selectedKey;
+            var hasChildren = !!(row.children && row.children.length > 0);
             var isExpanded = inTree
-                ? (result.key ? (navigation.expandedNodeIds && navigation.expandedNodeIds[result.key] === true) : false)
-                : (hasChildren && !(collIndices[idx]));
-            var isSelected = (selectedKey && key === selectedKey) || (!selectedKey && idx === controller.selectedIndex);
-            var isSelectable = target ? true : (
-                result.selectable !== false
-                && !(result.behavior && result.behavior.selectable === false)
-                && navigation && navigation.hasActivation(result)
-            );
-            var isExecutable = navigation ? navigation.hasActivation(result) : (
-                !!result.executable || !!result.hasAction || !!result.canExecuteNow
-                || !!(result.switchActions) || !!(result.control)
-                || !!(result.children && result.children.length > 0)
-            );
-            return {
+                ? (navigation.expandedNodeIds && navigation.expandedNodeIds[key] === true)
+                : (hasChildren && row.alwaysExpanded !== false);
+            rows.push({
                 key: key,
-                title: result.title || result.label || "",
-                subtitle: result.subtitle || result.genericName || null,
-                backend: result.source || result.backendId || null,
-                depth: targetDepth,
-                path: result.breadcrumbs || [],
-                placement: result.placement || null,
-                executable: isExecutable,
-                selectable: isSelectable,
+                title: row.title || row.label || "",
+                subtitle: row.subtitle || row.genericName || null,
+                backend: row.source || row.backendId || null,
+                depth: depth,
+                path: row.breadcrumbs || [],
+                placement: row.placement || null,
+                executable: navigation ? navigation.hasActivation(row) : !!row.executable,
+                selectable: true,
                 selected: isSelected,
                 highlighted: isSelected,
                 expanded: isExpanded,
-                visible: result.ownVisible !== false,
-                breadcrumbText: result.breadcrumbText || null,
-                defaultAction: result.defaultAction ? (typeof result.defaultAction === "string" ? result.defaultAction : (result.defaultAction.id || null)) : null
-            };
-        });
+                visible: row.ownVisible !== false,
+                breadcrumbText: row.breadcrumbText || null,
+                defaultAction: row.defaultAction ? (typeof row.defaultAction === "string" ? row.defaultAction : (row.defaultAction.id || null)) : null
+            });
+        }
+
+        // Also include non-selectable results (e.g. Audio group) not in navigation targets
+        for (var ri = 0; ri < results.length; ri += 1) {
+            var r = results[ri];
+            var rk = r.key || r.id || r.nodeId || "";
+            if (!rk || seenKeys[rk]) continue;
+            var isSelected = rk === selectedKey || (!selectedKey && ri === controller.selectedIndex);
+            rows.push({
+                key: rk,
+                title: r.title || r.label || "",
+                subtitle: r.subtitle || r.genericName || null,
+                backend: r.source || r.backendId || null,
+                depth: r.depth !== undefined ? r.depth : 0,
+                path: r.breadcrumbs || [],
+                placement: r.placement || null,
+                executable: navigation ? navigation.hasActivation(r) : false,
+                selectable: false,
+                selected: isSelected || false,
+                highlighted: isSelected || false,
+                expanded: false,
+                visible: r.ownVisible !== false,
+                breadcrumbText: r.breadcrumbText || null,
+                defaultAction: r.defaultAction ? (typeof r.defaultAction === "string" ? r.defaultAction : (r.defaultAction.id || null)) : null
+            });
+        }
+
+        return rows;
     }
 
     function interactionStateJson(includeVisual) {
