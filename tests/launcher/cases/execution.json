@@ -86,6 +86,26 @@
           }
         }
       ]
+    },
+    {
+      "name": "Execute supports selector.key",
+      "tags": ["execution", "selector", "key"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "wifi on" } },
+        {
+          "do": {
+            "type": "execute",
+            "selector": { "key": "row:networking.wi_fi" }
+          }
+        },
+        {
+          "expect": {
+            "lastExecutedAction": { "title": "On" }
+          }
+        }
+      ]
     }
   ]
 }

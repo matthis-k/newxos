@@ -1,0 +1,10 @@
+{
+  "cases": [
+    {
+      "name": "typo in step field",
+      "steps": [
+        { "do": { "type": "setQuery", "query": "wifi" }, "selectors": { "title": "typo here" } }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "cases": [
+    {
+      "name": "typo in case field",
+      "titel": "this should be 'title' not 'titel'",
+      "query": "wifi",
+      "expect": {
+        "selected": { "title": "Wi-Fi" }
+      }
+    }
+  ]
+}

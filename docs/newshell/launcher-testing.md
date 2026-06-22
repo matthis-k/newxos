@@ -233,6 +233,47 @@ Tests can assert on `lastExecutedAction` to verify execution behavior safely.
 | `notContainsTitle` | string[] | No row has this title |
 | `containsInOrder` | string[] | Titles appear in this relative order |
 
+## visualState.rows ordering contract
+
+`visualState.rows` is built in a specific semantic order:
+
+* Selectable rows come from the canonical navigation target list, preserving their display order in the navigation tree.
+* This includes flattened selectable children emitted immediately after their parent.
+* Non-selectable top-level rows are appended at their result-index position, after any selectable nav target for that result.
+* Therefore `visualState.rows` is in **semantic-test order**, not necessarily pixel-exact delegate order.
+* Tests that need exact visible order should not rely on `containsInOrder` until a dedicated pixel/display-order state is exposed.
+
+This is a deliberate test-model contract — not an accidental implementation detail.
+
+## highlighted semantics
+
+`highlighted` is currently a logical state field on each `VisualRow`:
+
+* `highlighted === selected` by contract — they are derived from the same `activeNodeKey`.
+* This catches logical multi-highlight regressions in the exported launcher state.
+* It does **not** prove that a QML delegate is not visually painting an ancestor/parent as highlighted via separate styling.
+* If pixel/delegate highlight regressions become important, add a separate UI/delegate inspection field or visual regression test later.
+
+## Schema-negative fixtures
+
+Four invalid fixture files live in `tests/launcher/invalid/` to verify that unknown fields are rejected:
+
+| Fixture | What it tests | Caught by |
+|---|---|---|
+| `unknown-case-field.json` | Typo `titel` at case level | serde + schema |
+| `unknown-step-field.json` | Typo `selectors` at step level | serde + schema |
+| `unknown-action-field.json` | Typo `queri` inside a StepAction variant | schema only (serde ignores extra fields in internally-tagged enums) |
+| `unknown-row-matcher-field.json` | Typo `visble` inside a RowMatcher | serde + schema |
+
+To verify that the schema catches what serde misses:
+
+```bash
+newshell-launcher-test validate tests/launcher/invalid/unknown-action-field.json \
+  --schema tests/launcher/schemas/launcher-test.schema.json
+```
+
+This should exit non-zero with a `oneOf` validation error.
+
 ## Migrated regression cases
 
 The test suite covers:

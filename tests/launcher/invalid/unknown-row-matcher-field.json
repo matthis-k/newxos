@@ -1,0 +1,11 @@
+{
+  "cases": [
+    {
+      "name": "typo in row matcher field",
+      "query": "wifi",
+      "expect": {
+        "selected": { "title": "Wi-Fi", "visble": true }
+      }
+    }
+  ]
+}

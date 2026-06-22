@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TestSuite {
     pub cases: Vec<TestCase>,
 }
@@ -28,6 +29,9 @@ pub struct Setup {
 
 fn default_true() -> bool { true }
 
+// Internally-tagged serde enum — serde does not reject unknown fields inside
+// variant payloads. The JSON schema (additionalProperties: false per oneOf variant)
+// is the stricter validation layer for variant payloads.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum StepAction {
