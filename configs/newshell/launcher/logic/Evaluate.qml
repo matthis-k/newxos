@@ -80,7 +80,10 @@ Singleton {
                 var items = policy.match(node, query, ctx, spec && spec.args);
                 if (!items || !items.length) return null;
                 var group = policy.group || "own";
-                items.forEach(function(item) { item.originGroup = group; });
+                items.forEach(function(item) {
+                    if (!item.originGroup)
+                        item.originGroup = group;
+                });
                 return items;
             }, "evidence", function(tr) {
                 if (!node || !node.id || !ctx._policyTrace) return;

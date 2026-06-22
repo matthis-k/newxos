@@ -26,6 +26,8 @@ Singleton {
         var results = [];
         for (var i = 0; i < names.length; i += 1) {
             var spec = PolicySpec.normalize(names[i]);
+            if (!spec)
+                continue;
             var raw = call(spec.name, spec);
             if (raw === null || raw === undefined)
                 continue;
@@ -67,6 +69,8 @@ Singleton {
                 if (typeof tracePerPolicy === "function") {
                     for (var j = i + 1; j < names.length; j += 1) {
                         var remainingSpec = PolicySpec.normalize(names[j]);
+                        if (!remainingSpec)
+                            continue;
                         tracePerPolicy({
                             name: remainingSpec.name,
                             priority: remainingSpec.priority || 0,
