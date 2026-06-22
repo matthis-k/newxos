@@ -4,9 +4,23 @@
 >
 > See:
 > - **Debugging**: `configs/opencode/skills/newshell-debugging/SKILL.md`
-> - **Lightweight cases**: `configs/newshell/launcher/tests/cases/*.json` (via `repo-gate newshell-cases`)
-> - **Full cases**: `tests/launcher/cases/*.json` (via `newshell-launcher-test` binary)
+> - **Canonical behavior cases**: `tests/launcher/cases/*.json` (via `newshell-launcher-test` binary)
 > - **Orchestrator**: `repo-gate newshell` / `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate newshell-runtime`
+
+## Single canonical source
+
+There is exactly one canonical launcher behavior case collection:
+
+```text
+tests/launcher/cases/
+```
+
+**No behavior cases live under `configs/newshell/launcher/tests/cases/`.** That directory
+may contain harness scripts and support files only. All jq-style probes and debug
+assertions are derived from the canonical cases — never maintained as a separate collection.
+
+The repo-doctor guard enforces this: `.json` files in `configs/newshell/launcher/tests/cases/`
+will fail the gate with a clear error message.
 
 ## Why external tests
 
@@ -15,7 +29,7 @@ The launcher exposes semantic control and inspection over IPC, while the standal
 `newshell-launcher-test` binary reads JSON test cases and verifies the launcher state.
 
 ```
-tests/launcher/*.json
+tests/launcher/cases/*.json
         ↓
 newshell-launcher-test
         ↓ semantic IPC
@@ -55,7 +69,7 @@ These run the deterministic harness and static checks:
 
 ```bash
 repo-gate newshell-static              # qmllint shell.qml
-repo-gate newshell-cases               # lightweight JSON cases (requires running newshell)
+repo-gate newshell-cases               # validate + run canonical JSON cases (requires running newshell)
 NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate newshell-runtime  # headless IPC + cases
 repo-gate newshell                     # static + cases
 ```
@@ -86,7 +100,56 @@ nix run "path:$PWD#newshell-launcher-test" -- list tests/launcher/cases
 nix run "path:$PWD#newshell-launcher-test" -- list tests/launcher/cases --filter wifi
 ```
 
-## Adding a new JSON case
+## Deriving jq/debug probes from canonical cases
+
+Probes are debugging conveniences derived from canonical cases — not a second
+behavior source. Use `newshell-launcher-test probe`:
+
+```bash
+# List canonical cases
+newshell-launcher-test list tests/launcher/cases
+
+# Show the derived IPC/debug probe for one case
+newshell-launcher-test probe tests/launcher/cases --filter "wifi on" --print
+
+# Run one derived probe (shows compact row listing)
+newshell-launcher-test probe tests/launcher/cases --filter "wifi on" --run
+
+# Verbose output with full JSON
+newshell-launcher-test probe tests/launcher/cases --filter "wifi on" --run --verbose
+
+# Print only the derived jq filter expression
+newshell-launcher-test probe tests/launcher/cases --filter "wifi" --print-jq
+```
+
+For query-based cases, the probe generates a pipeline command:
+
+```bash
+newshell ipc call query pipeline "wifi on" | jq '<derived filter>'
+```
+
+For step-based cases, the probe describes the interactJson sequence and final
+visual state inspection.
+
+**IPC target rules:**
+
+- For runtime/headless namespaced tests, use `$NEWSHELL_IPC_NAMESPACE`:
+  ```bash
+  newshell ipc call "$NEWSHELL_IPC_NAMESPACE.launcher" state
+  newshell ipc call "$NEWSHELL_IPC_NAMESPACE.query" pipeline "wifi on"
+  ```
+- For service/session tests, use global targets:
+  ```bash
+  newshell ipc call launcher state
+  newshell ipc call query pipeline "wifi on"
+  ```
+
+**Important:**
+- Generated jq probes are not persisted as test expectations.
+- If a derived jq probe is wrong, fix the canonical case or the derivation logic.
+- Do not manually maintain separate jq JSON cases.
+
+## Adding a new canonical case
 
 Add a file to `tests/launcher/cases/` or append to an existing file.
 
@@ -127,14 +190,6 @@ Step-based format (multiple actions + assertions):
   ]
 }
 ```
-
-Lightweight JSON cases (query + jq assertion only) can also be added to:
-
-```text
-configs/newshell/launcher/tests/cases/
-```
-
-These are run by `repo-gate newshell-cases` via `run-json-cases.sh`.
 
 ## Fixture mode
 
@@ -303,11 +358,10 @@ This should exit non-zero with a `oneOf` validation error.
 
 Regression expectations are not listed in this document. They live in the deterministic case files and are executed by the harness through `repo-gate` or the `newshell-launcher-test` binary.
 
-Canonical locations:
+Canonical location:
 
 ```text
-tests/launcher/cases/                         # full step-based cases (newshell-launcher-test binary)
-configs/newshell/launcher/tests/cases/         # lightweight query→jq cases (run-json-cases.sh / repo-gate)
+tests/launcher/cases/                         # full step-based cases (single source of truth)
 ```
 
 Use:

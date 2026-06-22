@@ -19,6 +19,42 @@
       ]
     },
     {
+      "name": "Query 'net' also matches Networking group",
+      "tags": ["groups", "networking"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "net" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Networking", "backend": "desktop-actions", "selectable": true },
+            "rows": {
+              "containsTitle": ["Networking"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'networking' shows Networking group",
+      "tags": ["groups", "networking"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "networking" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Networking", "backend": "desktop-actions", "selectable": true },
+            "rows": {
+              "containsTitle": ["Networking"]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Bluetooth appears in actions",
       "tags": ["groups", "bluetooth"],
       "steps": [

@@ -1,27 +1,17 @@
 ---
 name: newshell-debugging
-description: Debug Newshell/Quickshell failures after deterministic checks fail. Not a validity checker.
+description: Debug Newshell/Quickshell failures. Not a validity checker.
 ---
 
 # newshell-debugging
 
-Use this when deterministic Newshell/Quickshell checks fail.
-
 ## Core rule
 
-Do not decide launcher validity from memory or from this skill.
+One source of truth for launcher behavior: `tests/launcher/cases/`. This skill is procedural only — contains zero behavior cases.
 
-Validity is determined by:
-- git hooks;
-- targeted `repo-gate` checks;
-- launcher JSON cases;
-- the deterministic IPC/runtime harness.
+## Debug flow
 
-This skill is only for debugging failures and proposing fixes.
-
-## First step: identify the failing check
-
-Run or inspect the exact failing command:
+### 1. Run the gate
 
 ```bash
 repo-gate --list
@@ -31,135 +21,72 @@ repo-gate newshell-cases
 NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate newshell-runtime
 ```
 
-Do not broaden the scope immediately. Reproduce the smallest failing check first.
+### 2. Inspect the failing case
 
-## Debugging layers
+Find the failing case name, then run a probe against the right instance:
 
-Work from outermost to innermost:
+```bash
+# inspect what cases exist
+newshell-launcher-test list tests/launcher/cases --filter <failing>
 
-1. **Selector / hook layer**
+# derive probe — shows IPC commands + jq filter
+newshell-launcher-test probe tests/launcher/cases --filter "<failing case>" --print
 
-   * Did the right `repo-gate` target run?
-   * Is the hook calling the intended subcommand?
-   * Is the check skipped, gated, or actually failing?
+# run probe against the instance
+newshell-launcher-test probe tests/launcher/cases --filter "<failing case>" --run --verbose
+```
 
-2. **Launch/runtime layer**
+### 3. Choose target instance
 
-   * Did Hyprland start?
-   * Did a Wayland socket appear?
-   * Did Newshell start?
-   * Did the tested instance expose the expected `NEWSHELL_TEST_INSTANCE_ID` and `NEWSHELL_IPC_NAMESPACE`?
-   * Did the command time out?
+| Context | Use |
+|---|---|
+| Dev mode / working tree | Dedicated dev instance with unique `NEWSHELL_IPC_NAMESPACE` |
+| Installed service | Only if restarted after config change |
+| Headless runtime check | The namespaced instance from the harness — never fall back to user service |
 
-3. **IPC layer**
+```bash
+# global/session
+newshell ipc call launcher state
+newshell ipc call query pipeline "wifi on"
 
-   * Does `launcher state` return valid JSON?
-   * Does `interactJson {"action":"state"}` return an ok envelope?
-   * Are calls hitting the namespaced test instance, not the user session?
+# namespaced (runtime/dev)
+newshell ipc call "$NEWSHELL_IPC_NAMESPACE.launcher" state
+newshell ipc call "$NEWSHELL_IPC_NAMESPACE.query" pipeline "wifi on"
+```
 
-4. **Model/query layer**
+### 4. Check if other cases were affected
 
-   * Does the query endpoint return stable rows?
-   * Does the launcher state settle before assertions run?
-   * Is the failure caused by backend data, scoring, grouping, selection, or presentation?
+```bash
+newshell-launcher-test run tests/launcher/cases --mode headless
+newshell-launcher-test run tests/launcher/cases --mode headless --filter <related tag>
+```
 
-5. **Action/safety layer**
+### 5. Fix
 
-   * In test mode, destructive actions must dry-run.
-   * Session mode must not call `activateSelected` unless explicitly opted in.
-   * Backend actions that affect the host must be disabled or mocked in test mode.
+- Fix implementation if the case expectation is correct.
+- Fix the canonical JSON case if intended behavior changed.
+- Fix derivation logic if the canonical case is right but the generated probe is wrong.
 
-6. **QML/UI layer**
+## Debug order when inspecting a case
 
-   * Does `shell.qml` pass strict lint?
-   * Are broader QML lint failures import-resolution noise or real syntax/type issues?
-   * Is the exported state correct while the delegate visual rendering is wrong?
+1. Check logs — QML errors, import failures, backend errors, IPC registration
+2. Check IPC — does `launcher state` return valid JSON? Is target namespaced correctly?
+3. Check model — probe the case, inspect `visualState`, determine which layer failed
+4. Enable detailed logs only after narrowing the failing layer
 
-## Required evidence before proposing a fix
+## Required evidence
 
-Before proposing code changes, collect:
-
-* exact command;
-* exact failing check name;
+* exact command and failing check name;
 * stdout/stderr;
-* Hyprland log if runtime;
-* Newshell test log if runtime;
-* generated Hyprland config if runtime;
-* failing JSON case name if applicable;
-* actual IPC output or visual state;
-* expected assertion from the JSON case or harness.
+* Hyprland/Newshell logs if runtime;
+* failing JSON case name;
+* actual IPC output/visual state;
+* expected assertion from the JSON case.
 
-Do not propose architecture changes without this evidence.
+## Do not
 
-## Common commands
-
-```bash
-repo-gate --list
-repo-gate newshell-static
-repo-gate newshell-cases
-repo-gate newshell
-NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate newshell-runtime
-NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate all
-```
-
-Through Nix without entering `nix develop`:
-
-```bash
-nix run "path:$PWD#repo-gate" -- newshell
-nix run "path:$PWD#repo-gate" -- newshell-static
-NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 nix run "path:$PWD#repo-gate" -- newshell-runtime
-```
-
-## Debugging posture
-
-Prefer the smallest fix that makes the deterministic check pass.
-
-Do not:
-
-* add expected behavior to this skill;
+* add behavior expectations to this skill;
 * duplicate JSON cases in prose;
 * manually declare behavior valid;
 * skip failing checks to get a green gate;
-* fall back to the user session when a headless runtime check was requested.
-
-Do:
-
-* add or update JSON cases when behavior expectations change;
-* improve logs when failures are opaque;
-* isolate the failing layer;
-* keep runtime tests namespaced;
-* preserve deterministic checks as the source of truth.
-
-## Output format for agents
-
-When reporting back, use:
-
-```md
-## Failed check
-
-Command:
-`...`
-
-Failing layer:
-`selector | launch | runtime | IPC | model | action | QML`
-
-## Evidence
-
-- ...
-- ...
-
-## Diagnosis
-
-...
-
-## Proposed fix
-
-- File:
-- Change:
-- Why:
-
-## Validation
-
-Commands rerun:
-- ...
-```
+* fall back to user session when runtime check was requested.

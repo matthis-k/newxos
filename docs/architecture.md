@@ -104,7 +104,7 @@ Validation follows a deterministic workflow: JSON cases → harness → targeted
 
 ```
 JSON launcher cases (configs/newshell/launcher/tests/cases/*.json)
-  ↓ harness (configs/newshell/launcher/tests/run-json-cases.sh)
+  ↓ harness (configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh)
   ↓ targeted repo-gate checks
   ↓ git hooks (repo-gate --hook <check>)
   └── no nested flake re-evaluation inside scripts

@@ -1,8 +1,10 @@
 # Launcher ranking expectations
 
-> **Canonical behavior cases**: JSON case files under `configs/newshell/launcher/tests/cases/`. These are the executable source of truth for query expectations. Run with `repo-gate newshell-cases` or during `repo-gate newshell`.
+> **Canonical behavior cases**: JSON case files under `tests/launcher/cases/`. These are the executable source of truth for query expectations. Run with `repo-gate newshell-cases` or during `repo-gate newshell`.
 
-Use `newshell ipc call query pipeline '<query>'` or `newshell ipc call query visual '<query>'` after `systemctl --user restart newshell` to verify results. Plain `pipeline` calls are compact/visible-only overviews; use `newshell ipc call query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta","details":["rows","phases"]}'` for focused hidden evaluation of one node family with selected detail sections. Source: `configs/newshell/launcher/logic/` (QML pipeline modules).
+Use `newshell ipc call query pipeline '<query>'` or `newshell-launcher-test probe tests/launcher/cases --filter '<query>' --run` to verify results. Plain `pipeline` calls are compact/visible-only overviews; use `newshell ipc call query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta","details":["rows","phases"]}'` for focused hidden evaluation of one node family with selected detail sections. Source: `configs/newshell/launcher/logic/` (QML pipeline modules).
+
+Probes are derived from canonical cases — do not maintain separate jq case files. See `docs/newshell/launcher-testing.md` for probe derivation.
 
 ## What each case guards against
 

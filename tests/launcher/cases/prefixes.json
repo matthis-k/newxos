@@ -68,12 +68,43 @@
       ]
     },
     {
+      "name": "Prefix ':shutdown' shows risk-gated action",
+      "tags": ["prefix", "risk"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": ":shutdown" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Shut Down", "backend": "desktop-actions", "selectable": true, "executable": true },
+            "rows": {
+              "notContains": [
+                { "backend": "desktop" },
+                { "backend": "files" },
+                { "backend": "web" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Prefix '@app' shows desktop app backend only",
       "tags": ["prefix", "apps"],
       "steps": [
         { "do": { "type": "reset" } },
         { "do": { "type": "open", "visible": false } },
         { "do": { "type": "setQuery", "query": "@app" } }
+      ]
+    },
+    {
+      "name": "Prefix '@apps' shows desktop results",
+      "tags": ["prefix", "apps"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "@apps" } }
       ]
     },
     {

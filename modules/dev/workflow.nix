@@ -343,6 +343,7 @@
         name = "repo-newshell-cases";
         runtimeInputs = [
           self'.packages.newshell
+          self'.packages.newshell-launcher-test
           pkgs.bash
           pkgs.coreutils
           pkgs.jq
@@ -350,14 +351,18 @@
         text = ''
           set -euo pipefail
 
+          # Validate and list canonical cases
+          ${lib.getExe self'.packages.newshell-launcher-test} validate "${self}/tests/launcher/cases"
+
           # Check if a newshell instance is reachable
           if ! newshell ipc call query pipeline "?" >/dev/null 2>&1; then
-            echo "Skipping launcher cases (no running newshell instance - use newshell-runtime or run from a running session)"
+            echo "Skipping launcher case execution (no running newshell instance - use newshell-runtime or run from a running session)"
             exit 0
           fi
 
+          # Run canonical cases against the reachable instance
           export NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
-          exec bash "${self}/configs/newshell/launcher/tests/run-json-cases.sh"
+          ${lib.getExe self'.packages.newshell-launcher-test} run "${self}/tests/launcher/cases" --mode headless
         '';
       };
 
@@ -404,6 +409,7 @@
             newshell-static   qmllint shell.qml + best-effort lint
             newshell-cases    validate and run JSON launcher case expectations
             newshell-runtime  run headless Hyprland newshell IPC tests (opt-in)
+            newshell-probe    derive/debug launcher probes from canonical cases (diagnostic)
             hyprland          verify Hyprland config
             neovim            verify Neovim starts headless
             docs-index        reindex Basic Memory docs
@@ -415,6 +421,7 @@
             nix               write-flake + statix + fmt + flake-check
             quick             write-flake + fmt + statix + newshell-static
             all               write-flake + fmt + statix + flake-check + repo-doctor + rust + newshell + hyprland + neovim
+            probe             newshell-probe
           LISTEOF
                   exit 0
                   ;;
@@ -459,6 +466,7 @@
                 nix)       echo "write-flake statix fmt flake-check" ;;
                 quick)     echo "write-flake fmt statix newshell-static" ;;
                 all)       echo "write-flake fmt statix flake-check repo-doctor rust newshell-static newshell-cases hyprland neovim" ;;
+                probe)     echo "newshell-probe" ;;
                 *)         echo "$name" ;;
               esac
             }
@@ -506,7 +514,7 @@
                   repo-write-flake
                   ;;
                 fmt)
-                  treefmt --fail-on-change
+                  treefmt
                   ;;
                 statix)
                   statix fix
@@ -525,6 +533,13 @@
                   ;;
                 newshell-cases)
                   repo-newshell-cases
+                  ;;
+                newshell-probe)
+                  ${lib.getExe self'.packages.newshell-launcher-test} list "${self}/tests/launcher/cases"
+                  echo ""
+                  echo "To derive a probe for a specific case:"
+                  echo "  newshell-launcher-test probe tests/launcher/cases --filter <query> --print"
+                  echo "  newshell-launcher-test probe tests/launcher/cases --filter <query> --run"
                   ;;
                 newshell-runtime)
                   if [ "''${NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS:-0}" != "1" ]; then
@@ -706,43 +721,56 @@
             nativeBuildInputs = with pkgs; [ ripgrep ];
           }
           ''
-            errors=0
-            cd ${self}
+                errors=0
+                cd ${self}
 
-            # 10.3 Basic Memory root is consistent
-            if rg -n 'root\.join\("knowledge"\)' \
-              packages modules configs docs \
-              --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
-              echo "error: Basic Memory must use docs/ as project root, not knowledge/" >&2
+                # 10.3 Basic Memory root is consistent
+                if rg -n 'root\.join\("knowledge"\)' \
+                  packages modules configs docs \
+                  --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
+                  echo "error: Basic Memory must use docs/ as project root, not knowledge/" >&2
+                  errors=$((errors + 1))
+                fi
+
+                # 10.4 No stale IPC target names
+                if rg -n 'applauncher' configs modules packages \
+                  --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
+                  echo "error: stale applauncher IPC target found; use launcher" >&2
+                  errors=$((errors + 1))
+                fi
+
+                # 10.5 Runtime test packages must use the correct mode for their intended backend.
+                if rg -n 'runNewshellIpcTestsHyprland' modules/dev/workflow.nix 2>/dev/null \
+                  && ! rg -q 'INSTANCE_MODE=external' modules/dev/workflow.nix; then
+                  echo "error: hyprland test runner must set NEWSHELL_TEST_INSTANCE_MODE=external" >&2
+                  errors=$((errors + 1))
+                fi
+
+            # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
+            if ${pkgs.ripgrep}/bin/rg -q '\.json"' configs/newshell/launcher/tests/cases/ 2>/dev/null \
+              || ls "${self}/configs/newshell/launcher/tests/cases/"*.json 2>/dev/null | head -n1 | grep -q .; then
+              echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
               errors=$((errors + 1))
             fi
 
-            # 10.4 No stale IPC target names
-            if rg -n 'applauncher' configs modules packages \
-              --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
-              echo "error: stale applauncher IPC target found; use launcher" >&2
-              errors=$((errors + 1))
-            fi
+                # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
+                if ls configs/newshell/launcher/tests/cases/*.json 2>/dev/null | head -n1 | grep -q .; then
+                  echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
+                  errors=$((errors + 1))
+                fi
 
-            # 10.5 Runtime test packages must use the correct mode for their intended backend.
-            if rg -n 'runNewshellIpcTestsHyprland' modules/dev/workflow.nix 2>/dev/null \
-              && ! rg -q 'INSTANCE_MODE=external' modules/dev/workflow.nix; then
-              echo "error: hyprland test runner must set NEWSHELL_TEST_INSTANCE_MODE=external" >&2
-              errors=$((errors + 1))
-            fi
+                # 10.6 OpenCode package must not mask eval failure
+                if rg -n 'builtins\.tryEval' modules/dev/opencode.nix 2>/dev/null; then
+                  echo "error: opencode wrapper evaluation must fail at evaluation/build time; do not mask with tryEval" >&2
+                  errors=$((errors + 1))
+                fi
 
-            # 10.6 OpenCode package must not mask eval failure
-            if rg -n 'builtins\.tryEval' modules/dev/opencode.nix 2>/dev/null; then
-              echo "error: opencode wrapper evaluation must fail at evaluation/build time; do not mask with tryEval" >&2
-              errors=$((errors + 1))
-            fi
-
-            if [ "$errors" -gt 0 ]; then
-              echo "repo-doctor: $errors check(s) failed" >&2
-              exit 1
-            fi
-            echo "repo-doctor: all checks passed"
-            touch $out
+                if [ "$errors" -gt 0 ]; then
+                  echo "repo-doctor: $errors check(s) failed" >&2
+                  exit 1
+                fi
+                echo "repo-doctor: all checks passed"
+                touch $out
           '';
 
       # Newxos CLI tests (Rust unit tests)

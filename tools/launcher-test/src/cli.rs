@@ -40,6 +40,26 @@ pub enum Command {
         #[arg(long)]
         socket: Option<PathBuf>,
     },
+    /// Derive debugging probes from canonical test cases
+    Probe {
+        /// Path to canonical test case file or directory
+        path: PathBuf,
+        /// Optional filter string for case names/tags
+        #[arg(long)]
+        filter: Option<String>,
+        /// Print the derived probe without executing
+        #[arg(long)]
+        print: bool,
+        /// Print only the derived jq filter
+        #[arg(long)]
+        print_jq: bool,
+        /// Execute the probe against a running instance
+        #[arg(long)]
+        run: bool,
+        /// Verbose output (with --run)
+        #[arg(long)]
+        verbose: bool,
+    },
 }
 
 #[derive(Debug, Clone, clap::ValueEnum)]

@@ -2,6 +2,7 @@ mod assertions;
 mod cli;
 mod ipc;
 mod pretty;
+mod probe;
 mod runner;
 mod schema;
 
@@ -45,6 +46,35 @@ async fn main() {
                 }
                 Err(e) => Err(e),
             }
+        }
+        cli::Command::Probe { path, filter, print: _, print_jq, run, verbose } => {
+            let probes = probe::generate_probes(path, filter.as_deref());
+            if probes.is_empty() {
+                eprintln!("No cases matched the filter");
+                process::exit(1);
+            }
+            for p in &probes {
+                if *run {
+                    let show_jq = *print_jq;
+                    if !show_jq {
+                        println!("Running probe: {}", p.case_name);
+                    }
+                    match probe::run_probe(p, *verbose) {
+                        Ok(()) => {
+                            if show_jq {
+                                probe::print_probe(p, true);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Probe failed for '{}': {}", p.case_name, e);
+                            process::exit(1);
+                        }
+                    }
+                } else {
+                    probe::print_probe(p, *print_jq);
+                }
+            }
+            Ok(())
         }
     };
 

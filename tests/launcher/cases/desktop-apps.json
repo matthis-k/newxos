@@ -54,6 +54,21 @@
       ]
     },
     {
+      "name": "Query 'zen browser' stays promoted",
+      "tags": ["desktop", "zen", "stability"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "zen browser" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Zen Browser", "backend": "desktop", "selectable": true, "executable": true }
+          }
+        }
+      ]
+    },
+    {
       "name": "Query 'a' does not show desktop action child titles",
       "tags": ["desktop", "matching"],
       "steps": [

@@ -6,7 +6,8 @@ _: {
         pname = "newshell-launcher-test";
         version = "0.1.0";
         src = ../../tools/launcher-test;
-        cargoHash = "sha256-UzuELgcBOVQhH7cSvax1s1BgZ1xyo0+2Fm3Oh5Vv2r0=";
+        cargoHash = "sha256-fx/9r/weuPwMuXM8g5QWyGewwcXx2gNYsdvyK3hyb/Q=";
+        meta.mainProgram = "newshell-launcher-test";
       };
     in
     {

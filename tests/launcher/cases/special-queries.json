@@ -1,0 +1,34 @@
+{
+  "cases": [
+    {
+      "name": "Query '?' returns default results without error",
+      "tags": ["special", "help"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "?" } },
+        {
+          "expect": {
+            "rows": {
+              "notContainsTitle": ["Files", "Nautilus"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query '=1+2' returns calculator result",
+      "tags": ["special", "calculator"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "= 1+2" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true
+          }
+        }
+      ]
+    }
+  ]
+}
