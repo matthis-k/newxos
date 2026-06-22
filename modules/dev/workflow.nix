@@ -45,6 +45,52 @@
         ${lib.getExe' self'.packages.newxos "newxos"} memory reindex
       '';
 
+      repoDoctorBody = rgBin: ''
+        # 10.3 Basic Memory root is consistent
+        if ${rgBin} -n 'root\.join\("knowledge"\)' \
+          packages modules configs docs \
+          --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
+          echo "error: Basic Memory must use docs/ as project root, not knowledge/" >&2
+          errors=$((errors + 1))
+        fi
+
+        # 10.4 No stale IPC target names
+        if ${rgBin} -n 'applauncher' configs modules packages \
+          --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
+          echo "error: stale applauncher IPC target found; use launcher" >&2
+          errors=$((errors + 1))
+        fi
+
+        # 10.5 Runtime test packages must use the correct mode for their intended backend.
+        if ${rgBin} -n 'runNewshellIpcTestsHyprland' \
+          modules/dev/workflow.nix 2>/dev/null \
+          && ! ${rgBin} -q 'INSTANCE_MODE=external' \
+            modules/dev/workflow.nix; then
+          echo "error: hyprland test runner must set NEWSHELL_TEST_INSTANCE_MODE=external" >&2
+          errors=$((errors + 1))
+        fi
+
+        # 10.6 OpenCode package must not mask eval failure
+        if ${rgBin} -n 'builtins\.tryEval' modules/dev/opencode.nix 2>/dev/null; then
+          echo "error: opencode wrapper evaluation must fail at evaluation/build time; do not mask with tryEval" >&2
+          errors=$((errors + 1))
+        fi
+
+        # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
+        if [ -n "$(find configs/newshell/launcher/tests/cases -maxdepth 1 -name '*.json' -print -quit 2>/dev/null)" ]; then
+          echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
+          errors=$((errors + 1))
+        fi
+
+        # 10.8 No old launcher compatibility API
+        if ${rgBin} -n 'PresentationPolicy|PresentationPresets|PresentationChainPolicy|flattenPolicy|groupOptions|groupDisplay|childBypass|flattenAllChildrenOnParentMatch|showAllChildrenOnParentMatch|committedTokenPrefersGroup|childWinsMargin|parentWinsMargin|childDominatesMargin|maxFlattenedChildren|group-dominance|group-mode-inhibit|legacy PresentationPolicy|compatibility layer|unmigrated' \
+          configs/newshell/launcher configs/opencode/skills docs \
+          --glob '!docs/history/**' 2>/dev/null; then
+          echo "error: old launcher compatibility API found. Use primitive pipeline policies only." >&2
+          errors=$((errors + 1))
+        fi
+      '';
+
       repoDoctor = pkgs.writeShellScriptBin "repo-doctor" ''
         set -euo pipefail
 
@@ -56,49 +102,7 @@
           errors=$((errors + 1))
         fi
 
-        # 10.3 Basic Memory root is consistent
-        if ${pkgs.ripgrep}/bin/rg -n 'root\.join\("knowledge"\)' \
-          packages modules configs docs \
-          --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
-          echo "error: Basic Memory must use docs/ as project root, not knowledge/" >&2
-          errors=$((errors + 1))
-        fi
-
-        # 10.4 No stale IPC target names
-        if ${pkgs.ripgrep}/bin/rg -n 'applauncher' configs modules packages \
-          --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
-          echo "error: stale applauncher IPC target found; use launcher" >&2
-          errors=$((errors + 1))
-        fi
-
-        # 10.5 Runtime test packages must use the correct mode for their intended backend.
-        if ${pkgs.ripgrep}/bin/rg -n 'runNewshellIpcTestsHyprland' \
-          modules/dev/workflow.nix 2>/dev/null \
-          && ! ${pkgs.ripgrep}/bin/rg -q 'INSTANCE_MODE=external' \
-            modules/dev/workflow.nix; then
-          echo "error: hyprland test runner must set NEWSHELL_TEST_INSTANCE_MODE=external" >&2
-          errors=$((errors + 1))
-        fi
-
-        # 10.6 OpenCode package must not mask eval failure
-        if ${pkgs.ripgrep}/bin/rg -n 'builtins\.tryEval' modules/dev/opencode.nix 2>/dev/null; then
-          echo "error: opencode wrapper evaluation must fail at evaluation/build time; do not mask with tryEval" >&2
-          errors=$((errors + 1))
-        fi
-
-        # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
-        if [ -n "$(find "${self}/configs/newshell/launcher/tests/cases" -maxdepth 1 -name '*.json' -print -quit 2>/dev/null)" ]; then
-          echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
-          errors=$((errors + 1))
-        fi
-
-        # 10.8 No old launcher compatibility API
-        if ${pkgs.ripgrep}/bin/rg -n 'PresentationPolicy|PresentationPresets|PresentationChainPolicy|flattenPolicy|groupOptions|groupDisplay|childBypass|flattenAllChildrenOnParentMatch|showAllChildrenOnParentMatch|committedTokenPrefersGroup|childWinsMargin|parentWinsMargin|childDominatesMargin|maxFlattenedChildren|group-dominance|group-mode-inhibit|legacy PresentationPolicy|compatibility layer|unmigrated' \
-          configs/newshell/launcher configs/opencode/skills docs \
-          --glob '!docs/history/**' 2>/dev/null; then
-          echo "error: old launcher compatibility API found. Use primitive pipeline policies only." >&2
-          errors=$((errors + 1))
-        fi
+        ${repoDoctorBody "${pkgs.ripgrep}/bin/rg"}
 
         if [ "$errors" -gt 0 ]; then
           echo "repo-doctor: $errors check(s) failed" >&2
@@ -451,12 +455,12 @@
             hooks             reinstall managed git hooks
 
           Aliases:
-            newshell          newshell-static + newshell-cases + newshell-session
+            newshell          newshell-static + newshell-cases
             session           newshell-session
             runtime           newshell-runtime
             nix               write-flake + statix + fmt + flake-check
             quick             write-flake + fmt + statix + newshell-static
-            all               write-flake + fmt + statix + flake-check + repo-doctor + rust + newshell + hyprland + neovim (includes newshell-session)
+            all               write-flake + fmt + statix + flake-check + repo-doctor + rust + newshell + hyprland + neovim
             probe             newshell-probe
           LISTEOF
                   exit 0
@@ -497,7 +501,7 @@
             resolve_alias() {
               local name="$1"
               case "$name" in
-                newshell)  echo "newshell-static newshell-cases newshell-session" ;;
+                newshell)  echo "newshell-static newshell-cases" ;;
                 runtime)   echo "newshell-runtime" ;;
                 nix)       echo "write-flake statix fmt flake-check" ;;
                 quick)     echo "write-flake fmt statix newshell-static" ;;
@@ -762,63 +766,23 @@
             nativeBuildInputs = with pkgs; [ ripgrep ];
           }
           ''
-                errors=0
-                cd ${self}
+            errors=0
+            cd ${self}
 
-                # 10.3 Basic Memory root is consistent
-                if rg -n 'root\.join\("knowledge"\)' \
-                  packages modules configs docs \
-                  --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
-                  echo "error: Basic Memory must use docs/ as project root, not knowledge/" >&2
-                  errors=$((errors + 1))
-                fi
+            ${repoDoctorBody "rg"}
 
-                # 10.4 No stale IPC target names
-                if rg -n 'applauncher' configs modules packages \
-                  --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
-                  echo "error: stale applauncher IPC target found; use launcher" >&2
-                  errors=$((errors + 1))
-                fi
-
-                # 10.5 Runtime test packages must use the correct mode for their intended backend.
-                if rg -n 'runNewshellIpcTestsHyprland' modules/dev/workflow.nix 2>/dev/null \
-                  && ! rg -q 'INSTANCE_MODE=external' modules/dev/workflow.nix; then
-                  echo "error: hyprland test runner must set NEWSHELL_TEST_INSTANCE_MODE=external" >&2
-                  errors=$((errors + 1))
-                fi
-
-            # 10.6 profile.inherit is not supported; use originGroup: "inherited" on evidence
+            # profile.inherit is not supported; use originGroup: "inherited" on evidence
             if rg 'inherit\s*:' configs/newshell/launcher 2>/dev/null; then
               echo "ERROR: profile.inherit is not supported. Use evidence originGroup instead." >&2
               errors=$((errors + 1))
             fi
 
-            # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
-            if [ -n "$(find configs/newshell/launcher/tests/cases -maxdepth 1 -name '*.json' -print -quit 2>/dev/null)" ]; then
-              echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
-              errors=$((errors + 1))
-            fi
-
-            # 10.8 No old launcher compatibility API
-            if rg -n 'PresentationPolicy|PresentationPresets|PresentationChainPolicy|flattenPolicy|groupOptions|groupDisplay|childBypass|flattenAllChildrenOnParentMatch|showAllChildrenOnParentMatch|committedTokenPrefersGroup|childWinsMargin|parentWinsMargin|childDominatesMargin|maxFlattenedChildren|group-dominance|group-mode-inhibit|legacy PresentationPolicy|compatibility layer|unmigrated' \
-              configs/newshell/launcher configs/opencode/skills docs \
-              --glob '!docs/history/**' 2>/dev/null; then
-              echo "error: old launcher compatibility API found. Use primitive pipeline policies only." >&2
-              errors=$((errors + 1))
-            fi
-
-            # 10.6 OpenCode package must not mask eval failure
-            if rg -n 'builtins\.tryEval' modules/dev/opencode.nix 2>/dev/null; then
-              echo "error: opencode wrapper evaluation must fail at evaluation/build time; do not mask with tryEval" >&2
-              errors=$((errors + 1))
-            fi
-
             if [ "$errors" -gt 0 ]; then
-                  echo "repo-doctor: $errors check(s) failed" >&2
-                  exit 1
-                fi
-                echo "repo-doctor: all checks passed"
-                touch $out
+              echo "repo-doctor: $errors check(s) failed" >&2
+              exit 1
+            fi
+            echo "repo-doctor: all checks passed"
+            touch $out
           '';
 
       # Newxos CLI tests (Rust unit tests)

@@ -7,51 +7,11 @@ import "Evaluate.qml"
 import "PolicyChain.qml"
 import "ResultSemantics.qml"
 import "TakeoverEngine.qml"
+import "DecisionTrace.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
     id: root
-
-    function initPolicyTrace(ev, ctx) {
-        if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
-        var nid = ev.node.id;
-        if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
-    }
-
-    function tracePolicyDecision(ev, ctx, kind, name, returned, effect, reasons) {
-        if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
-        var nid = ev.node.id;
-        if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
-        if (!ctx._policyTrace[nid][kind]) {
-            ctx._policyTrace[nid][kind] = {
-                kind: kind,
-                evaluated: [],
-                aggregate: null,
-                final: null
-            };
-        }
-        ctx._policyTrace[nid][kind].evaluated.push({
-            name: String(name || kind),
-            priority: 0,
-            enabled: true,
-            returned: returned !== undefined ? returned : null,
-            effect: String(effect || "no-op"),
-            reasons: (reasons || []).slice()
-        });
-    }
-
-    function traceFinalDecision(ev, ctx, kind, value, reasons) {
-        if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
-        var nid = ev.node.id;
-        if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
-        if (!ctx._policyTrace[nid][kind]) {
-            ctx._policyTrace[nid][kind] = { kind: kind, evaluated: [], aggregate: null, final: null };
-        }
-        ctx._policyTrace[nid][kind].final = {
-            value: value,
-            reasons: (reasons || []).slice()
-        };
-    }
 
     function shape(evaluatedRoot, state, ctx) {
         var collected = [];
@@ -126,7 +86,7 @@ Singleton {
                     _retain: retainFinal || null,
                     _takeover: takeoverFinal || null
                 };
-                traceFinalDecision(ev, ctx, "placement", { placement: decision.placement || decision.mode || "unknown", mode: decision.mode || "normal", showParent: decision.showParent !== false }, [{ code: "placement_decided", text: "final placement=" + (decision.placement || decision.mode || "unknown") + " mode=" + (decision.mode || "normal") }]);
+                DecisionTrace.final(ev, ctx, "placement", { placement: decision.placement || decision.mode || "unknown", mode: decision.mode || "normal", showParent: decision.showParent !== false }, [{ code: "placement_decided", text: "final placement=" + (decision.placement || decision.mode || "unknown") + " mode=" + (decision.mode || "normal") }]);
             }
             if (decision.mode === "flatten-all-children") {
                 for (var ai = 0; ai < decision.children.length; ai += 1) {
@@ -192,7 +152,7 @@ Singleton {
 
     function evaluatePolicies(ev, ctx, names, registry) {
         if (!names || names.length === 0) return null;
-        initPolicyTrace(ev, ctx);
+        DecisionTrace.initPolicyTrace(ev, ctx);
         return PolicyChain.run(names, function(name, spec) {
             var policy = PolicyChain.lookupPolicy(registry, spec);
             if (!policy) return null;
@@ -212,14 +172,14 @@ Singleton {
             ? TakeoverEngine.decideTakeover(ev, takeoverClaims, ctx)
             : null;
 
-        initPolicyTrace(ev, ctx);
+        DecisionTrace.initPolicyTrace(ev, ctx);
         if (takeoverClaims.length > 0) {
-            tracePolicyDecision(ev, ctx, "takeover", "takeover-claims", takeoverClaims.map(function(c) { return { claimantId: c.claimantId, kind: c.kind, strength: c.strength }; }), takeoverDecision && takeoverDecision.accepted ? "accepted" : "rejected", [{ code: "takeover_result", text: "accepted=" + (takeoverDecision && takeoverDecision.accepted) + " representation=" + (takeoverDecision && takeoverDecision.representation || "") }]);
+            DecisionTrace.policy(ev, ctx, "takeover", "takeover-claims", takeoverClaims.map(function(c) { return { claimantId: c.claimantId, kind: c.kind, strength: c.strength }; }), takeoverDecision && takeoverDecision.accepted ? "accepted" : "rejected", [{ code: "takeover_result", text: "accepted=" + (takeoverDecision && takeoverDecision.accepted) + " representation=" + (takeoverDecision && takeoverDecision.representation || "") }]);
         }
         if (takeoverDecision && takeoverDecision.accepted) {
-            traceFinalDecision(ev, ctx, "takeover", { accepted: true, representation: takeoverDecision.representation, retainParent: takeoverDecision.retainParent !== false, selectedOwnerId: takeoverDecision.selectedOwnerId }, [{ code: "takeover_accepted", text: "Takeover accepted: " + takeoverDecision.representation + " by " + (takeoverDecision.selectedOwnerId || "") }]);
+            DecisionTrace.final(ev, ctx, "takeover", { accepted: true, representation: takeoverDecision.representation, retainParent: takeoverDecision.retainParent !== false, selectedOwnerId: takeoverDecision.selectedOwnerId }, [{ code: "takeover_accepted", text: "Takeover accepted: " + takeoverDecision.representation + " by " + (takeoverDecision.selectedOwnerId || "") }]);
         } else if (takeoverClaims.length > 0) {
-            traceFinalDecision(ev, ctx, "takeover", { accepted: false, reason: takeoverDecision ? takeoverDecision.reason : "no decision" }, [{ code: "takeover_rejected", text: "Takeover rejected: " + (takeoverDecision ? takeoverDecision.reason : "no decision") }]);
+            DecisionTrace.final(ev, ctx, "takeover", { accepted: false, reason: takeoverDecision ? takeoverDecision.reason : "no decision" }, [{ code: "takeover_rejected", text: "Takeover rejected: " + (takeoverDecision ? takeoverDecision.reason : "no decision") }]);
         }
 
         function _d(obj) {
@@ -244,7 +204,7 @@ Singleton {
             if (takeoverChildren.length > 0) {
                 var takeoverShowParent = takeoverDecision.retainParent !== false;
                 if (takeoverDecision.representation === "flatten" || takeoverDecision.representation === "promote-child") {
-                    traceFinalDecision(ev, ctx, "takeover", { accepted: true, representation: "flatten", children: takeoverChildren.length }, [{ code: "takeover_flatten", text: "Takeover flattens to " + takeoverChildren.length + " children" }]);
+                    DecisionTrace.final(ev, ctx, "takeover", { accepted: true, representation: "flatten", children: takeoverChildren.length }, [{ code: "takeover_flatten", text: "Takeover flattens to " + takeoverChildren.length + " children" }]);
                     return _d({
                         placement: takeoverChildren.length === 1 ? "promoted-child" : "flattened",
                         mode: takeoverChildren.length === 1 ? "flatten-children" : "flatten-all-children",
@@ -254,7 +214,7 @@ Singleton {
                     });
                 }
                 if (takeoverDecision.representation === "nested-group") {
-                    traceFinalDecision(ev, ctx, "takeover", { accepted: true, representation: "nested-group", children: takeoverChildren.length }, [{ code: "takeover_nested_group", text: "Takeover nested-group with " + takeoverChildren.length + " children" }]);
+                    DecisionTrace.final(ev, ctx, "takeover", { accepted: true, representation: "nested-group", children: takeoverChildren.length }, [{ code: "takeover_nested_group", text: "Takeover nested-group with " + takeoverChildren.length + " children" }]);
                     return _d({
                         placement: "nested-group",
                         mode: "nested-group",
@@ -285,9 +245,9 @@ Singleton {
                         var retainResult = retainRaw && retainRaw.value;
                         if (retainResult && retainResult.retain === false)
                             expandShowParent = false;
-                        traceFinalDecision(ev, ctx, "retain", { retain: expandShowParent }, [{ code: "retain_decision", text: "showParent=" + expandShowParent }]);
+                        DecisionTrace.final(ev, ctx, "retain", { retain: expandShowParent }, [{ code: "retain_decision", text: "showParent=" + expandShowParent }]);
                     }
-                    traceFinalDecision(ev, ctx, "expand", { expand: true, children: expandKids.length, includeAllChildren: !!expandResult.includeAllChildren }, [{ code: "expand_decision", text: "Expanded " + expandKids.length + " children" }]);
+                    DecisionTrace.final(ev, ctx, "expand", { expand: true, children: expandKids.length, includeAllChildren: !!expandResult.includeAllChildren }, [{ code: "expand_decision", text: "Expanded " + expandKids.length + " children" }]);
                     return _d({
                         placement: "nested-group",
                         mode: "nested-group",
@@ -306,7 +266,7 @@ Singleton {
             var retainResult = retainRaw && retainRaw.value;
             if (retainResult && retainResult.retain === false && ev.children && ev.children.length > 0) {
                 var retainKids = eligibleChildren(ev.children, { includeAllChildren: true });
-                traceFinalDecision(ev, ctx, "retain", { retain: false, children: retainKids.length }, [{ code: "retain_suppress", text: "Retain suppressed parent, flattening " + retainKids.length + " children" }]);
+                DecisionTrace.final(ev, ctx, "retain", { retain: false, children: retainKids.length }, [{ code: "retain_suppress", text: "Retain suppressed parent, flattening " + retainKids.length + " children" }]);
                 return _d({
                     placement: "flattened",
                     mode: "flatten-all-children",

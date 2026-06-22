@@ -27,9 +27,9 @@ NixOS flake (`newxos`) managing two personal machines (desktop, laptop) and a li
 | `nix run "path:$PWD#write-flake"` | Regenerate `flake.nix` |
 | `nix run "path:$PWD#fmt"` | Format repo (treefmt) |
 | `repo-gate --list` | List all available checks and aliases |
-| `repo-gate all` | Full local gate (write-flake + fmt + statix + flake-check + repo-doctor + rust + newshell + hyprland + neovim) |
+| `repo-gate all` | Full local gate (write-flake + fmt + statix + flake-check + repo-doctor + rust + newshell + hyprland + neovim; does NOT run newshell-session) |
 | `repo-gate nix` | Nix-only checks (write-flake + statix + fmt + flake-check) |
-| `repo-gate newshell` | newshell-static + newshell-cases + newshell-session |
+| `repo-gate newshell` | newshell-static + newshell-cases |
 | `repo-gate newshell-cases` | Validate canonical case files (no runtime needed) |
 | `repo-gate newshell-session` | Run canonical cases against running service/session |
 | `repo-gate newshell-runtime` | Headless Hyprland IPC + canonical cases (opt-in) |
