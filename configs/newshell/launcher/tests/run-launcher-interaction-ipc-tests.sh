@@ -221,20 +221,24 @@ else
     "state envelope should have matching IPC namespace"
 fi
 
-data=$(call_interact '{"action":"open"}')
-assert_jq_data "open" "$data" \
-  '.ok == true' \
-  "open should return ok"
+if [ "$INSTANCE_MODE" = "session" ]; then
+  echo "(session mode: skipping open/close/toggle — would change running service launcher visibility)"
+else
+  data=$(call_interact '{"action":"open"}')
+  assert_jq_data "open" "$data" \
+    '.ok == true' \
+    "open should return ok"
 
-data=$(call_interact '{"action":"close"}')
-assert_jq_data "close" "$data" \
-  '.ok == true' \
-  "close should return ok"
+  data=$(call_interact '{"action":"close"}')
+  assert_jq_data "close" "$data" \
+    '.ok == true' \
+    "close should return ok"
 
-data=$(call_interact '{"action":"toggle"}')
-assert_jq_data "toggle" "$data" \
-  '.ok == true' \
-  "toggle should return ok"
+  data=$(call_interact '{"action":"toggle"}')
+  assert_jq_data "toggle" "$data" \
+    '.ok == true' \
+    "toggle should return ok"
+fi
 
 echo ""
 echo "--- Query interactions ---"
@@ -285,15 +289,19 @@ assert_jq_data "move-selection-back" "$data" \
 echo ""
 echo "--- Expand/collapse ---"
 
-data=$(call_interact '{"action":"expandSelected"}')
-assert_jq_data "expand-selected" "$data" \
-  '.ok == true' \
-  "expandSelected should not crash"
+if [ "$INSTANCE_MODE" = "session" ]; then
+  echo "(session mode: skipping expand/collapse — may trigger backend actions)"
+else
+  data=$(call_interact '{"action":"expandSelected"}')
+  assert_jq_data "expand-selected" "$data" \
+    '.ok == true' \
+    "expandSelected should not crash"
 
-data=$(call_interact '{"action":"collapseSelected"}')
-assert_jq_data "collapse-selected" "$data" \
-  '.ok == true' \
-  "collapseSelected should not crash"
+  data=$(call_interact '{"action":"collapseSelected"}')
+  assert_jq_data "collapse-selected" "$data" \
+    '.ok == true' \
+    "collapseSelected should not crash"
+fi
 
 echo ""
 echo "--- Risk/confirmation safety ---"
@@ -369,10 +377,14 @@ assert_jq_data "query-visual-state" "$data" \
 echo ""
 echo "--- Activation structured result ---"
 
-data=$(call_interact '{"action":"activateSelected"}')
-assert_jq_data "activate-structured-result" "$data" \
-  '.ok == true and .result != null' \
-  "activateSelected should return structured semantic result"
+if [ "$INSTANCE_MODE" = "session" ]; then
+  echo "(skipped in session mode — activateSelected may execute real running-service actions)"
+else
+  data=$(call_interact '{"action":"activateSelected"}')
+  assert_jq_data "activate-structured-result" "$data" \
+    '.ok == true and .result != null' \
+    "activateSelected should return structured semantic result"
+fi
 
 echo ""
 echo "=== Summary ==="
