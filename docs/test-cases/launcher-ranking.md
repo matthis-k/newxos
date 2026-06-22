@@ -1,12 +1,8 @@
 # Launcher ranking expectations
 
+> **Canonical behavior cases**: JSON case files under `configs/newshell/launcher/tests/cases/`. These are the executable source of truth for query expectations. Run with `repo-gate newshell-cases` or during `repo-gate newshell`.
+
 Use `newshell ipc call query pipeline '<query>'` or `newshell ipc call query visual '<query>'` after `systemctl --user restart newshell` to verify results. Plain `pipeline` calls are compact/visible-only overviews; use `newshell ipc call query pipeline '{"query":"ze","focusNodeId":"desktop:apps:zen_beta","details":["rows","phases"]}'` for focused hidden evaluation of one node family with selected detail sections. Source: `configs/newshell/launcher/logic/` (QML pipeline modules).
-
-## Core checklist
-
-Run these queries after any launcher search change:
-
-`?`, `? `, `?au`, `v`, `new`, `zen`, `zen `, `zen priv`, `zen win`, `zen browser`, `zen new`, `wifi`, `wifi `, `wifi on`, `wifi off`, `wifi toggle`, `toggle wifi`, `wo`, `wt`, `:`, `:wifi`, `:wifi `, `:wifi on`, `:db wifi`, `@apps`, `@apps zen`, `@apps wifi`, `@web nix`, `web nix`, `web !gh nix`, `db wifi`, `dashboard wifi`, `au`, `aud`, `audi`, `audio`, `en`, `screen`, `session`, `newxos`, `vpn`, `vpn `, `vpn ger`, `vpn germany`, `vpn of`, `ger`, `alg`, `bel`, `swe`, `germany`, `algeria`, `belgium`, `sweden`, `net`, `networking`, `notes`, `/tmp`
 
 ## What each case guards against
 

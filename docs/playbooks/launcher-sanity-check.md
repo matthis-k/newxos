@@ -120,25 +120,18 @@ newshell ipc call query pipeline 'audio' | jq '.timings'
 | 4 | path-policies | Path-based policy timing |
 | 5 | shaping | Per-item placement decisions |
 
-## Capability Use Cases
+## Canonical behavior cases
 
-When adding, removing, or changing a backend, row kind, prefix, action family, or fallback, verify these query forms still work. Choose concrete examples from installed apps, available actions, and current devices — do not preserve stale hardcoded examples.
+Executable query expectations live in `configs/newshell/launcher/tests/cases/*.json`. These are the source of truth for launcher behavior.
 
-- **Partial app name**, acronym, or user shorthand.
-- **App plus sub-action**: app name with intent word (window, profile, private).
-- **Desktop/system action**: action name, category, or category + action text.
-- **Stateful control**: control name alone, and control + desired state.
-- **Continuous control**: control name with level/adjustment intent.
-- **Group/category**: group name alone, and group + child intent.
-- **Backend prefix alone**: browse mode (shows root nodes for that backend).
-- **Backend prefix + terms**: scoped search within a backend.
-- **Familiar shorthand**: dashboard, system, settings, or workflow area name.
-- **Path**: absolute path, home-relative path, or path fragment.
-- **Calculator**: expression or unit/value style input.
-- **Help/backend browser**: prefix or query form to discover backends.
-- **Web fallback**: ordinary phrase where no non-web result should be visible.
-- **Explicit web**: web prefix plus search terms.
-- **Misspelled/transposed**: query that should recover without outranking stronger exact/prefix matches.
+After changing a backend, row kind, prefix, action family, or fallback, run:
+
+```bash
+repo-gate newshell-cases   # against a running session
+NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate newshell-runtime  # headless + cases
+```
+
+Add or update JSON case files when adding new query patterns. Do not list expectations in prose here — the JSON files are canonical.
 
 Always record the visible query when debugging GUI-only missing-row reports. A row can be absent because the visible launcher query differs from the query sent through IPC, because prefix parsing changed the effective search query, or because the GUI is showing stale/filtered rows.
 
@@ -157,7 +150,7 @@ Pipeline modules live in `configs/newshell/launcher/logic/`: `Evaluate.qml` -> `
 
 ## When Logic Changes
 
-- Run the narrow QuickShell check or `nix run "path:$PWD#repo-gate"` when practical.
+- Run `repo-gate newshell` (static + cases) or `repo-gate newshell-runtime` (headless IPC) when practical.
 - Manually sample representative queries with IPC for major search changes.
 - Prefer a small set of intent-covering queries over large stored snapshots.
 - Compare filtered fields with `jq`; avoid pasting full row payloads unless debugging row shape.
