@@ -54,7 +54,7 @@ Directive/tokenize → Candidate collection → Evidence → Scoring → Path po
 | Display wrong | Edit row DTO (`RenderedRows.qml`), presentation context, or delegate |
 | Source data wrong | Edit backend DTO construction |
 | Backend not participating | Check prefix/routing registration in backend's `Component.onCompleted` |
-| Children missing after shaping | Check `Engine.qml:buildRowsFromShaped` — null vs empty `childEvs` |
+| Children missing or leaking after shaping | Check the shaped child contract in `Engine.qml` and `ResultShaping.qml`; explicit empty children must be respected |
 | Web fallback appearing with visible results | Check web fallback gating in composite search |
 | Row DTO field missing or wrong type | Update `RenderedRows.qml` and all consuming delegates |
 
