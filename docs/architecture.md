@@ -116,7 +116,7 @@ JSON launcher cases (tests/launcher/cases/*.json)
 
 Run `repo-gate --list` for the full check and alias list. Source: `modules/dev/workflow.nix`.
 
-Inside `nix develop`, `repo-gate <checks>` avoids flake re-evaluation. Runtime tests require `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1`.
+Inside `nix develop`, `repo-gate <checks>` avoids flake re-evaluation. The `newshell-runtime` check always boots a headless compositor to validate config loading; IPC tests run automatically when launcher or test-case files change, or can be forced via `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1`.
 
 ## Basic Memory
 
@@ -162,13 +162,15 @@ Source files in `configs/newshell/launcher/` own exact behavior. See the launche
 
 ## Newshell runtime tests
 
-Isolated runtime tests launch a fresh namespaced newshell instance:
+`repo-gate newshell-runtime` boots the config in an isolated headless weston compositor:
 
-- Tests create a unique `NEWSHELL_IPC_NAMESPACE` and `NEWSHELL_TEST_INSTANCE_ID`.
-- Tests assert response identity via `testInstanceId`, `testMode`, and `ipcNamespace` in interaction state.
-- Tests call `$namespace.launcher` and `$namespace.query` targets, never global `launcher`/`query`.
-- Spawned instance is killed on test exit; logs are printed on launch failure.
-- Set `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1` to run during `repo-gate`.
+- Always validates that the config loads (fails on `Failed to load configuration`, `Singleton is not a type`).
+- IPC tests run automatically when `configs/newshell/launcher/` or `tests/launcher/cases/` files have uncommitted or recent changes (git detection).
+- Set `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1` to force IPC tests regardless of git state.
+- IPC tests create a unique `NEWSHELL_IPC_NAMESPACE` and `NEWSHELL_TEST_INSTANCE_ID`.
+- IPC tests assert response identity via `testInstanceId`, `testMode`, and `ipcNamespace` in interaction state.
+- IPC tests call `$namespace.launcher` and `$namespace.query` targets, never global `launcher`/`query`.
+- Weston+newshell are killed on exit; logs printed on failure.
 
 ## IpcTargets singleton
 

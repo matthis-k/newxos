@@ -50,11 +50,12 @@ The test runner drives the launcher through semantic IPC commands (`reset`, `ope
 These run the deterministic harness and static checks:
 
 ```bash
-repo-gate newshell-static              # qmllint shell.qml
+repo-gate newshell-static              # lint/type-check QML source
 repo-gate newshell-cases               # validate canonical JSON case files (no runtime needed)
 repo-gate newshell-session             # run canonical cases against running service/session
-NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate newshell-runtime  # headless IPC + cases (isolated)
-repo-gate newshell                     # static + cases + session
+repo-gate newshell-runtime             # boot in headless compositor, fail on loader errors
+NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate newshell-runtime  # same boot + IPC tests + cases (isolated)
+repo-gate newshell                     # static + runtime + cases (no session)
 ```
 
 Through Nix without entering `nix develop`:

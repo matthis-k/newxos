@@ -194,6 +194,12 @@ The Neovim wrapper's portable mode uses a lock file that must reflect the Nix pl
 
 Fix: after changing Nix Neovim plugin lists, regenerate the lock file. Source: `modules/dev/neovim.nix`.
 
+## QML validation
+
+### `check-newshell-static` import-resolution false positives
+
+`qmllint` in the CI build context often can't resolve QtQuick or Quickshell imports because those libraries aren't in the qmllint search path. The check explicitly skips files that have import failures (`Failed to import` / `Warnings occurred while importing`) and only fails on hard parse errors (`Expected token`, `SyntaxError`). This means a file with `[import]` category warnings will pass the static check; actual type-loading errors (`Singleton is not a type`) are caught by the runtime boot check (`newshell-runtime`).
+
 ## Secrets and containers
 
 

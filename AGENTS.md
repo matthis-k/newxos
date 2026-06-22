@@ -23,7 +23,7 @@ NixOS flake (`newxos`) managing two personal machines (desktop, laptop) and a li
 |---|---|
 | `nix develop "path:$PWD"` | Enter default dev shell |
 | `nix flake show "path:$PWD"` | Show all flake outputs |
-| `nix flake check "path:$PWD"` | Run static flake checks and build-time checks (NOT full gate) |
+| `nix flake check "path:$PWD"` | Run static flake checks and build-time checks (NOT full gate; only needed when Nix modules changed — skip for docs/QML-only changes) |
 | `nix run "path:$PWD#write-flake"` | Regenerate `flake.nix` |
 | `nix run "path:$PWD#fmt"` | Format repo (treefmt) |
 | `repo-gate --list` | List all available checks and aliases |

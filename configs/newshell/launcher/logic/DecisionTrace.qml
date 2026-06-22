@@ -1,7 +1,7 @@
 pragma Singleton
-import QtQml
+import Quickshell
 
-QtObject {
+Singleton {
     function initPolicyTrace(ev, ctx) {
         if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
         var nid = ev.node.id;
