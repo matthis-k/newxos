@@ -30,7 +30,7 @@ QtObject {
         node.path = node.path || "";
         node.usageCount = node.usageCount || 0;
         node.lastUsedDaysAgo = node.lastUsedDaysAgo === undefined ? 9999 : node.lastUsedDaysAgo;
-        node.evaluationProfile = node.evaluationProfile || { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default", profile: { evidence: [["field-match", { filterType: "all" }], "switch-action", "semantic", "token-claim", "usage", "recency"], inherit: ["path-evidence"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["pass-all"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } };
+        node.evaluationProfile = node.evaluationProfile || { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default", profile: { evidence: [["field-match", { filterType: "all" }], "switch-action", "semantic", "token-claim", "usage", "recency"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["pass-all"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } };
         node.actionList = node.actionList || [];
         node.meta = node.meta || node.metadata || {};
         for (var i = 0; i < node.children.length; i += 1) {

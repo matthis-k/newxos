@@ -56,7 +56,6 @@ Singleton {
         case "token-claim": return "evidence";
         case "usage": return "evidence";
         case "recency": return "evidence";
-        case "path-evidence": return "inherit";
         case "descendant-boost": return "boost";
         case "visible-flag": return "childVisible";
         case "own-score-beats-parent": return "childBypass";

@@ -14,7 +14,6 @@ Singleton {
         // Leaf-conservative default: no expand/takeover/retain unless explicitly set.
         // Backends with group/switch behavior override this in their own evaluationProfile.
         evidence: [["field-match", { filterType: "all" }], "switch-action", "semantic", "token-claim", "usage", "recency"],
-        inherit: ["path-evidence"],
         boost: ["descendant-boost"],
         childVisible: ["visible-flag"],
         tokenFlow: ["pass-all"],
@@ -100,6 +99,8 @@ Singleton {
                 });
             });
             var allEvidence = evidenceResult.value || [];
+            // Inherited evidence is produced by evidence policies via originGroup: "inherited";
+            // profile.inherit is not supported.
             for (var ei = 0; ei < allEvidence.length; ei += 1) {
                 if (allEvidence[ei].originGroup === "inherited")
                     inheritedEvidence.push(allEvidence[ei]);
@@ -425,54 +426,6 @@ Singleton {
             return 0;
         var similarity = 1 - distance / Math.max(token.length, alias.length, 1);
         return 0.44 + similarity * 0.14;
-    }
-
-    function applyInheritPolicies(evaluated, query, ctx) {
-        if (evaluated.pruned) return;
-        var children = evaluated.children;
-        for (var i = 0; i < children.length; i += 1)
-            applyInheritPolicies(children[i], query, ctx);
-
-        var ep = evaluated.node.evaluationProfile || {};
-        var profile = ep.profile || defaultProfile;
-        var inheritNames = profile.inherit || [];
-        var evNodeId = evaluated && evaluated.node && evaluated.node.id;
-        if (evNodeId && ctx._policyTrace && !ctx._policyTrace[evNodeId]) ctx._policyTrace[evNodeId] = {};
-        PolicyChain.run(inheritNames, function(name, spec) {
-            var policy = PolicyChain.lookupPolicy(JsRegistry.inherit, spec);
-            if (!policy || policy.phase !== "inherit") return null;
-            policy.apply(evaluated, query, ctx, spec && spec.args);
-            return true;
-        }, "inherit", function(tr) {
-            if (!evNodeId || !ctx._policyTrace) return;
-            if (!ctx._policyTrace[evNodeId]) return;
-            if (!ctx._policyTrace[evNodeId].inherit) {
-                ctx._policyTrace[evNodeId].inherit = { kind: "inherit", evaluated: [], aggregate: null, final: null };
-            }
-            ctx._policyTrace[evNodeId].inherit.evaluated.push({
-                name: tr.name, priority: tr.priority || 0, enabled: true,
-                args: tr.args,
-                returned: tr.returned,
-                effect: tr.effect || "combined",
-                reasons: tr.returned && tr.returned.reasons ? tr.returned.reasons.slice() : []
-            });
-        });
-
-        evaluated.scoreBundle = ScoreBundle.fromEvaluated(evaluated, query);
-
-        // Leaf admission gate: inherited/path evidence must not admit a leaf.
-        // A leaf requires own-title evidence (label or aliases field) for non-empty queries,
-        // unless the leaf is an explicit browse child (parent with trailing-space expand).
-        if (!query.isEmpty && (!evaluated.node.children || evaluated.node.children.length === 0)) {
-            var ownTitleEvidence = (evaluated.ownEvidence || []).some(function(evItem) {
-                return (evItem.field === "label" || evItem.field === "aliases")
-                    && evItem.nodeId === evaluated.node.id;
-            });
-            if (!ownTitleEvidence) {
-                evaluated.visible = false;
-                evaluated.ownVisible = false;
-            }
-        }
     }
 
     function hasBaseEvidence(ev) {

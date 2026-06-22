@@ -6,7 +6,6 @@ import "PolicySpec.qml"
 Singleton {
     readonly property var defaultModes: ({
         evidence: "accumulate",
-        inherit: "accumulate",
         boost: "best-wins",
         childVisible: "all-and",
         childBypass: "all-or",

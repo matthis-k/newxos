@@ -9,7 +9,6 @@ QtObject {
         scorePolicy: "default",
         profile: {
             evidence: [["field-match", { filterType: "all" }], "switch-action", "semantic", "token-claim", "usage", "recency"],
-            inherit: ["path-evidence"],
             boost: ["descendant-boost"],
             childVisible: ["visible-flag"],
             tokenFlow: ["pass-all"],
@@ -28,7 +27,6 @@ QtObject {
         scorePolicy: "backend",
         profile: {
             evidence: [["field-match", { filterType: "all" }], "switch-action", "semantic", "usage", "recency"],
-            inherit: ["path-evidence"],
             boost: ["descendant-boost"],
             childVisible: ["visible-flag", ["above-min-score", { threshold: 0.25 }]],
             tokenFlow: ["pass-all"],
@@ -47,7 +45,6 @@ QtObject {
         scorePolicy: "default",
         profile: {
             evidence: [["field-match", { filterType: "primary" }], ["field-match", { filterType: "breadcrumb" }], "switch-action"],
-            inherit: [],
             boost: ["descendant-boost", "switch-aliases"],
             childVisible: ["has-own-score"],
             tokenFlow: ["consume-switch-pass-rest"],

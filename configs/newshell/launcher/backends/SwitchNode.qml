@@ -78,7 +78,6 @@ Node {
                 scorePolicy: "default",
                 profile: {
                     evidence: [["field-match", { filterType: "primary" }], ["field-match", { filterType: "breadcrumb" }], "switch-action"],
-                    inherit: [],
                     boost: ["descendant-boost", "switch-aliases"],
                     childVisible: root.childVisible || [["own-score-min", { threshold: 0.25 }]],
                     tokenFlow: ["consume-switch-pass-rest"],

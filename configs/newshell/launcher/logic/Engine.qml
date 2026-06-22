@@ -277,8 +277,6 @@ Singleton {
             if (!isCurrent()) { abort(); return; }
 
             var pathStart = Tokenize.nowMs();
-            if (ctx.includePath && !query.isEmpty)
-                Evaluate.applyInheritPolicies(ctx.evaluated, query, ctx);
             ctx.pathMs = Tokenize.nowMs() - pathStart;
 
             if (ctx.trace) {

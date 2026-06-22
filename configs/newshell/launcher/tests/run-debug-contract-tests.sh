@@ -172,7 +172,7 @@ if [[ -n "$INSPECT_NODE" ]]; then
 fi
 
 # Check some specific policy kinds exist in query-wide view
-for kind in evidence boost inherit childVisible; do
+for kind in evidence boost childVisible; do
   HAS_KIND=$(echo "$POLICY_DATA" | jq "[.result.policyKinds[] | select(.kind == \"$kind\")] | length > 0" 2>/dev/null || echo "false")
   if [[ "$HAS_KIND" == "true" ]]; then
     pass "policies-kind-exists: $kind"

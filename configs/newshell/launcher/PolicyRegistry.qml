@@ -13,14 +13,6 @@ Singleton {
         });
     }
 
-    function registerInherit(id, applyFn) {
-        JsRegistry.inherit.register(id, {
-            name: id,
-            phase: "inherit",
-            apply: applyFn
-        });
-    }
-
     function registerBoost(id, applyFn) {
         JsRegistry.boost.register(id, {
             name: id,

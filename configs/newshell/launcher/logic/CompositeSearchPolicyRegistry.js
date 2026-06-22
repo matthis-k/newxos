@@ -28,7 +28,6 @@ function makeRegistry() {
 }
 
 var evidence = makeRegistry();
-var inherit = makeRegistry();
 var boost = makeRegistry();
 var childVisible = makeRegistry();
 var childBypass = makeRegistry();

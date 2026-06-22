@@ -107,7 +107,6 @@ Item {
     P.SwitchActionPolicy {}
     P.SwitchAliasesBoostPolicy {}
     P.FieldMatchPolicy { policyId: "field-match" }
-    P.PathEvidencePolicy {}
     P.DescendantBoostPolicy { policyId: "descendant-boost" }
     P.VisibleFlagPolicy {}
     P.HasOwnScorePolicy {}

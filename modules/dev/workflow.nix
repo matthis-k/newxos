@@ -779,6 +779,12 @@
                   errors=$((errors + 1))
                 fi
 
+            # 10.6 profile.inherit is not supported; use originGroup: "inherited" on evidence
+            if rg 'inherit\s*:' configs/newshell/launcher 2>/dev/null; then
+              echo "ERROR: profile.inherit is not supported. Use evidence originGroup instead." >&2
+              errors=$((errors + 1))
+            fi
+
             # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
             if [ -n "$(find configs/newshell/launcher/tests/cases -maxdepth 1 -name '*.json' -print -quit 2>/dev/null)" ]; then
               echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
