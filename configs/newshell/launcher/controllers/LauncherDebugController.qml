@@ -620,7 +620,7 @@ Item {
                         var spec = PolicySpec.normalize(specs[si]);
                         var specKey = spec.name;
                         if (!kinds[key][specKey]) {
-                            kinds[key][specKey] = { name: spec.name, baseName: spec.baseName, kind: spec.kind, args: spec.args, priority: spec.priority, source: spec.source, count: 0 };
+                            kinds[key][specKey] = { name: spec.name, kind: spec.kind, args: spec.args, priority: spec.priority, count: 0 };
                         }
                         kinds[key][specKey].count += 1;
                         var rawSpec = specs[si];

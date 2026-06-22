@@ -4,71 +4,47 @@ import Quickshell
 
 Singleton {
     function normalize(spec) {
-        if (typeof spec === "string") return normalizeLegacy(spec);
-        if (Array.isArray(spec)) return normalizeTuple(spec);
+        if (typeof spec === "string") return normalizeString(spec);
+        if (Array.isArray(spec)) return normalizeArray(spec);
         if (typeof spec === "object" && spec !== null) return normalizeObject(spec);
-        return { name: String(spec), legacyName: String(spec), baseName: String(spec), kind: "unknown", args: {}, priority: 0, source: "unknown" };
+        return null;
     }
 
-    function normalizeLegacy(str) {
-        var colonIdx = str.indexOf(":");
-        var baseName = colonIdx >= 0 ? str.slice(0, colonIdx) : str;
-        var argStr = colonIdx >= 0 ? str.slice(colonIdx + 1) : "";
-
-        if (argStr) {
-            console.warn("PolicySpec: legacy colon-encoded policy spec is deprecated: '" + str + "'. Use array spec like ['" + baseName + "', { ... }] instead.");
+    function normalizeString(str) {
+        if (str.indexOf(":") >= 0) {
+            console.warn("PolicySpec: colon-encoded policy spec is no longer supported: '" + str + "'. Use array spec like ['" + str.split(":")[0] + "', { ... }] instead.");
+            return null;
         }
-
-        var kind = classifyBase(baseName);
-
         return {
             name: str,
-            legacyName: str,
-            baseName: baseName,
-            kind: kind,
+            kind: classifyBase(str),
             args: {},
-            priority: 0,
-            source: "legacy"
+            priority: 0
         };
     }
 
-    function normalizeTuple(arr) {
-        if (arr.length < 1) return { name: "", legacyName: "", baseName: "", kind: "unknown", args: {}, priority: 0, source: "tuple" };
-        var baseName = String(arr[0]);
+    function normalizeArray(arr) {
+        if (arr.length < 1) return null;
+        var name = String(arr[0]);
         var args = (arr.length >= 2 && typeof arr[1] === "object" && arr[1] !== null && !Array.isArray(arr[1]))
             ? shallowClone(arr[1]) : {};
         var priority = arr.length >= 3 ? Number(arr[2]) || 0 : 0;
-        var strArgs = JSON.stringify(args);
-        var name = strArgs !== "{}" ? baseName + ":" + strArgs : baseName;
-        var kind = classifyBase(baseName);
-
         return {
             name: name,
-            legacyName: baseName,
-            baseName: baseName,
-            kind: kind,
+            kind: classifyBase(name),
             args: args,
-            priority: priority,
-            source: "tuple"
+            priority: priority
         };
     }
 
     function normalizeObject(obj) {
-        var oName = String(obj.name || obj.baseName || "");
-        var baseName = oName;
-        var args = obj.args ? shallowClone(obj.args) : {};
-        var priority = obj.priority !== undefined ? Number(obj.priority) : 0;
-        var kind = obj.kind || classifyBase(baseName);
-        var source = obj.source || "object";
-
+        var name = String(obj.name || "");
+        if (!name) return null;
         return {
-            name: oName,
-            legacyName: obj.legacyName || oName,
-            baseName: baseName,
-            kind: kind,
-            args: args,
-            priority: priority,
-            source: source
+            name: name,
+            kind: obj.kind || classifyBase(name),
+            args: obj.args ? shallowClone(obj.args) : {},
+            priority: obj.priority || 0
         };
     }
 
@@ -133,33 +109,6 @@ Singleton {
             return "riskGate";
         default: return "custom";
         }
-    }
-
-    function resolvePreset(spec) {
-        if (typeof spec === "string") {
-            if (spec.indexOf(":") > 0) {
-                var colonIdx = spec.indexOf(":");
-                var base = spec.slice(0, colonIdx);
-                var argStr = spec.slice(colonIdx + 1);
-                return { name: base, args: tryParseNumber(argStr) !== argStr ? {} : { value: tryParseNumber(argStr) }, source: "legacy" };
-            }
-            return { name: spec, args: {}, source: "string" };
-        }
-        if (Array.isArray(spec)) {
-            var name = String(spec[0]);
-            var args = (spec.length >= 2 && typeof spec[1] === "object" && spec[1] !== null) ? shallowClone(spec[1]) : {};
-            return { name: name, args: args, source: "tuple" };
-        }
-        if (typeof spec === "object" && spec !== null) {
-            return { name: String(spec.name || ""), args: spec.args ? shallowClone(spec.args) : {}, source: "object" };
-        }
-        return { name: String(spec), args: {}, source: "unknown" };
-    }
-
-    function tryParseNumber(val) {
-        if (typeof val === "number") return val;
-        var n = Number(val);
-        return isNaN(n) ? val : n;
     }
 
     function shallowClone(obj) {

@@ -15,11 +15,7 @@ Singleton {
 
     function lookupPolicy(registry, spec) {
         if (!registry || !spec) return null;
-        var policy = null;
-        if (spec.name) policy = registry.get(spec.name);
-        if (!policy && spec.legacyName) policy = registry.get(spec.legacyName);
-        if (!policy && spec.baseName) policy = registry.get(spec.baseName);
-        return policy;
+        return spec.name ? registry.get(spec.name) : null;
     }
 
     function run(names, call, modeOrPhase, tracePerPolicy) {
@@ -30,7 +26,7 @@ Singleton {
         var results = [];
         for (var i = 0; i < names.length; i += 1) {
             var spec = PolicySpec.normalize(names[i]);
-            var raw = call(spec.legacyName || spec.name, spec);
+            var raw = call(spec.name, spec);
             if (raw === null || raw === undefined)
                 continue;
             var r = normalize(raw);
@@ -56,7 +52,7 @@ Singleton {
                         effect = "ignored";
                 }
                 tracePerPolicy({
-                    name: spec.legacyName || spec.name,
+                    name: spec.name,
                     priority: spec.priority || 0,
                     enabled: true,
                     args: spec.args || null,
@@ -72,7 +68,7 @@ Singleton {
                     for (var j = i + 1; j < names.length; j += 1) {
                         var remainingSpec = PolicySpec.normalize(names[j]);
                         tracePerPolicy({
-                            name: remainingSpec.legacyName || remainingSpec.name,
+                            name: remainingSpec.name,
                             priority: remainingSpec.priority || 0,
                             enabled: true,
                             args: remainingSpec.args || null,
