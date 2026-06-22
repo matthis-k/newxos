@@ -96,6 +96,20 @@ This repo prefers wrapper packages when it owns opinionated config:
 - QuickShell follows flat design (no gradients, no shadows, no 3D) with the Catppuccin palette.
 - Custom theme tweaks that should apply across multiple apps start in `modules/theming/`.
 
+## Check and gate
+
+`nix flake check "path:$PWD"` runs static flake checks and build-time checks only.
+`nix run "path:$PWD#repo-gate"` is the full local gate: write-flake, format, static checks, repo doctor, and optional runtime newshell IPC tests.
+Set `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1` to include isolated newshell runtime IPC tests.
+
+## Basic Memory
+
+- Durable knowledge source: `docs/`.
+- Repo-local state/cache: `.cache/basic-memory`.
+- No `knowledge/` project root — all semantic source is `docs/`.
+- Reindex with `newxos memory reindex` (uses `docs/` as project root).
+- Reset with `newxos memory reset` (pipes confirmation, then reindexes).
+
 ## Secret provisioning
 
 - sops-nix decrypts encrypted files at activation time.
@@ -146,6 +160,25 @@ The Quickshell launcher uses a composite search pipeline:
   - **Ambient routes**: Priority 0 routes without prefix/pattern always match, providing fallback search behavior.
   - **Fallthrough**: When a tier has zero matching endpoints, it cascades to the next lower priority tier.
 - **Web fallback**: web rows appear only for explicit web prefixes or when no non-web backend produces visible rows.
+
+## Newshell runtime tests
+
+Isolated runtime tests launch a fresh namespaced newshell instance:
+
+- Tests create a unique `NEWSHELL_IPC_NAMESPACE` and `NEWSHELL_TEST_INSTANCE_ID`.
+- Tests assert response identity via `testInstanceId`, `testMode`, and `ipcNamespace` in interaction state.
+- Tests call `$namespace.launcher` and `$namespace.query` targets, never global `launcher`/`query`.
+- Spawned instance is killed on test exit; logs are printed on launch failure.
+- Set `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1` to run during `repo-gate`.
+
+## IpcTargets singleton
+
+`configs/newshell/utils/IpcTargets.qml` provides namespaced IPC target names:
+
+- Reads `NEWSHELL_IPC_NAMESPACE` env var.
+- `IpcTargets.name("launcher")` returns `"$NS.launcher"` when namespace is set, else `"launcher"`.
+- Used by all `IpcHandler` targets in `ShellState.qml` for bar, launcher, query endpoints.
+- Test instances set `NEWSHELL_IPC_NAMESPACE` to a unique value; normal sessions leave it unset.
 
 Available IPC endpoints through `ShellState.qml`:
 

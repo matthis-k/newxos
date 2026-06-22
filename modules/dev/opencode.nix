@@ -73,103 +73,101 @@
 
       codebaseMemoryMcp = inputs'.codebase-memory-mcp.packages.default;
 
-      wrappedOpencode = builtins.tryEval (
-        inputs.nix-wrapper-modules.wrappers.opencode.wrap {
-          inherit pkgs;
+      wrappedOpencode = inputs.nix-wrapper-modules.wrappers.opencode.wrap {
+        inherit pkgs;
 
-          settings = {
-            "$schema" = "https://opencode.ai/config.json";
+        settings = {
+          "$schema" = "https://opencode.ai/config.json";
 
-            autoupdate = false;
+          autoupdate = false;
 
-            permission = {
-              external_directory = {
-                "/nix/store/**" = "allow";
-                "~/.config/**" = "allow";
-              };
-
-              skill = "allow";
+          permission = {
+            external_directory = {
+              "/nix/store/**" = "allow";
+              "~/.config/**" = "allow";
             };
 
-            skills = {
-              paths = [
-                ../../configs/opencode/skills
-                "${inputs.qt-agent-skills}/skills"
-              ];
-            };
+            skill = "allow";
+          };
 
-            lsp = {
-              qmlls = {
-                command = [ "qmlls" ];
-                extensions = [ ".qml" ];
-              };
-            };
+          skills = {
+            paths = [
+              ../../configs/opencode/skills
+              "${inputs.qt-agent-skills}/skills"
+            ];
+          };
 
-            provider = {
-              ollama = {
-                npm = "@ai-sdk/openai-compatible";
-                name = "Ollama (local)";
-                options.baseURL = "http://localhost:11434/v1";
-                models = {
-                  "qwen2.5-coder:7b" = {
-                    name = "Qwen2.5 Coder 7B (local)";
-                  };
+          lsp = {
+            qmlls = {
+              command = [ "qmlls" ];
+              extensions = [ ".qml" ];
+            };
+          };
+
+          provider = {
+            ollama = {
+              npm = "@ai-sdk/openai-compatible";
+              name = "Ollama (local)";
+              options.baseURL = "http://localhost:11434/v1";
+              models = {
+                "qwen2.5-coder:7b" = {
+                  name = "Qwen2.5 Coder 7B (local)";
                 };
-              };
-            };
-
-            mcp = {
-              github = {
-                type = "local";
-                command = [
-                  (lib.getExe pkgs.github-mcp-server)
-                  "stdio"
-                ];
-                environment.GITHUB_PERSONAL_ACCESS_TOKEN = "{env:GITHUB_PERSONAL_ACCESS_TOKEN}";
-                enabled = true;
-              };
-
-              nixos = {
-                type = "local";
-                command = [ (lib.getExe inputs'.mcp-nixos.packages.default) ];
-                enabled = true;
-              };
-
-              basic-memory = {
-                type = "local";
-                command = [ (lib.getExe basicMemoryMcpNewxos) ];
-                enabled = true;
-              };
-
-              codebase-memory = {
-                type = "local";
-                command = [ (lib.getExe codebaseMemoryMcp) ];
-                enabled = true;
-              };
-
-              qt-documentation = {
-                type = "remote";
-                url = "https://qt-docs-mcp.qt.io/mcp";
-                enabled = true;
-              };
-
-              context7 = {
-                type = "remote";
-                url = "https://mcp.context7.com/mcp";
-                enabled = true;
               };
             };
           };
 
-          envDefault.OPENCODE_DISABLE_AUTOUPDATE = "1";
-          envDefault.OPENCODE_TUI_CONFIG = pkgs.writeText "opencode-tui.json" (
-            builtins.toJSON {
-              "$schema" = "https://opencode.ai/tui.json";
-              theme = "catppuccin";
-            }
-          );
-        }
-      );
+          mcp = {
+            github = {
+              type = "local";
+              command = [
+                (lib.getExe pkgs.github-mcp-server)
+                "stdio"
+              ];
+              environment.GITHUB_PERSONAL_ACCESS_TOKEN = "{env:GITHUB_PERSONAL_ACCESS_TOKEN}";
+              enabled = true;
+            };
+
+            nixos = {
+              type = "local";
+              command = [ (lib.getExe inputs'.mcp-nixos.packages.default) ];
+              enabled = true;
+            };
+
+            basic-memory = {
+              type = "local";
+              command = [ (lib.getExe basicMemoryMcpNewxos) ];
+              enabled = true;
+            };
+
+            codebase-memory = {
+              type = "local";
+              command = [ (lib.getExe codebaseMemoryMcp) ];
+              enabled = true;
+            };
+
+            qt-documentation = {
+              type = "remote";
+              url = "https://qt-docs-mcp.qt.io/mcp";
+              enabled = true;
+            };
+
+            context7 = {
+              type = "remote";
+              url = "https://mcp.context7.com/mcp";
+              enabled = true;
+            };
+          };
+        };
+
+        envDefault.OPENCODE_DISABLE_AUTOUPDATE = "1";
+        envDefault.OPENCODE_TUI_CONFIG = pkgs.writeText "opencode-tui.json" (
+          builtins.toJSON {
+            "$schema" = "https://opencode.ai/tui.json";
+            theme = "catppuccin";
+          }
+        );
+      };
 
       opencodeWithEnv = pkgs.writeShellApplication {
         name = "opencode";
@@ -187,7 +185,7 @@
             fi
           fi
 
-          exec ${lib.getExe wrappedOpencode.value} "$@"
+          exec ${lib.getExe wrappedOpencode} "$@"
         '';
       };
     in
@@ -195,25 +193,8 @@
       packages = {
         basic-memory-mcp-newxos = basicMemoryMcpNewxos;
         codebase-memory-mcp = codebaseMemoryMcp;
-      }
-      // (
-        if wrappedOpencode.success then
-          {
-            opencode = opencodeWithEnv;
-          }
-        else
-          {
-            opencode = pkgs.writeShellApplication {
-              name = "opencode";
-              text = ''
-                echo "error: opencode package evaluation failed" >&2
-                echo "The nix-wrapper-modules wrapper could not be evaluated." >&2
-                echo "Run 'nix flake check' to find evaluation errors in modules/dev/opencode.nix" >&2
-                exit 1
-              '';
-            };
-          }
-      );
+        opencode = opencodeWithEnv;
+      };
     };
 
   flake.modules.homeManager.opencode =

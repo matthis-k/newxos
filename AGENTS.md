@@ -23,12 +23,14 @@ NixOS flake (`newxos`) managing two personal machines (desktop, laptop) and a li
 |---|---|
 | `nix develop "path:$PWD"` | Enter default dev shell |
 | `nix flake show "path:$PWD"` | Show all flake outputs |
-| `nix flake check "path:$PWD"` | Run flake checks (evaluation + pre-commit hooks) |
+| `nix flake check "path:$PWD"` | Run static flake checks and build-time checks (NOT full gate) |
 | `nix run "path:$PWD#write-flake"` | Regenerate `flake.nix` |
 | `nix run "path:$PWD#fmt"` | Format repo (treefmt) |
-| `nix run "path:$PWD#repo-gate"` | Pre-commit gate: write-flake → statix → fmt → flake check → hooks |
+| `nix run "path:$PWD#repo-gate"` | Full local gate: write-flake → statix → fmt → flake check → hooks → repo-doctor → optional runtime tests |
 | `nix run "path:$PWD#install-git-hooks"` | Install managed pre-commit hooks |
-| `newxos memory reindex` | Rebuild Basic Memory index |
+| `nix run "path:$PWD#repo-doctor"` | Run repo invariant checks (stale applauncher, knowledge/, tryEval masking, etc.) |
+| `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 nix run "path:$PWD#repo-gate"` | Full gate with isolated newshell runtime IPC tests |
+| `newxos memory reindex` | Rebuild Basic Memory index (uses `docs/` as project root) |
 | `newxos memory reset` | Reset and rebuild Basic Memory |
 
 Use `"path:$PWD"` (not `.`) for local flake references — `.` fails in untracked checkouts.

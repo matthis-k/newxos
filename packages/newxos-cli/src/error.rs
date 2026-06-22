@@ -37,3 +37,9 @@ impl From<std::io::Error> for CliError {
         CliError::Message(e.to_string())
     }
 }
+
+impl From<serde_json::Error> for CliError {
+    fn from(e: serde_json::Error) -> Self {
+        CliError::Message(e.to_string())
+    }
+}

@@ -333,8 +333,23 @@ PanelWindow {
     }
 
     function activateSelectedSemantic(shiftPressed) {
-        const result = root.activateSelectedCore(!!shiftPressed);
         const target = controller.actions.selectedActionTarget();
+        if (root.shouldDryRunAction(target)) {
+            root.lastExecutedAction = target ? {
+                key: target.nodeId || target.id || "",
+                title: target.title || "",
+                timestamp: Date.now(),
+                testMode: true,
+                dryRun: true
+            } : null;
+            return {
+                mode: "activate",
+                closeRequested: false,
+                close: false,
+                result: { ok: true, dryRun: true, close: false, closeRequested: false, actionId: target ? (target.id || target.nodeId || "") : "", reason: "NEWSHELL_TEST_MODE" }
+            };
+        }
+        const result = root.activateSelectedCore(!!shiftPressed);
         root.lastExecutedAction = target ? {
             key: target.nodeId || target.id || "",
             title: target.title || "",
@@ -389,6 +404,19 @@ PanelWindow {
 
     // ── interaction state ────────────────────────────────
 
+    function shouldDryRunAction(actionOrRecipe) {
+        if (Quickshell.env("NEWSHELL_TEST_MODE") !== "1")
+            return false;
+        return actionOrRecipe && (
+            actionOrRecipe.risk === "destructive" ||
+            actionOrRecipe.requiresConfirmation ||
+            actionOrRecipe.service === "session" ||
+            actionOrRecipe.op === "shutdown" ||
+            actionOrRecipe.op === "reboot" ||
+            actionOrRecipe.op === "logout"
+        );
+    }
+
     function interactionState(includeVisual) {
         const state = {
             version: 1,
@@ -414,7 +442,10 @@ PanelWindow {
             activeNodeKey: controller.activeNodeKey || "",
             inTree: controller.navigation.isInTree(),
             currentTreeKey: controller.currentTreeKey || "",
-            treeVisualRow: controller.treeVisualRow
+            treeVisualRow: controller.treeVisualRow,
+            testMode: Quickshell.env("NEWSHELL_TEST_MODE") === "1",
+            testInstanceId: Quickshell.env("NEWSHELL_TEST_INSTANCE_ID") || "",
+            ipcNamespace: Quickshell.env("NEWSHELL_IPC_NAMESPACE") || ""
         };
         if (!!includeVisual) {
             state.rows = root.logicalRows();

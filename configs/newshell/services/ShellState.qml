@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import qs.services
+import "../utils"
 import "../modules/bar" as Bar
 import "../modules/quickmenu" as Quickmenu
 import "../modules/hyprlandPreview" as HyprlandPreview
@@ -162,7 +163,7 @@ Singleton {
             screen: screenState.screen
             shellScreenState: screenState
             IpcHandler {
-                target: `bar-${screen.name}`
+                target: IpcTargets.name(`bar-${screen.name}`)
                 function open() {
                     bar.open();
                 }
@@ -202,7 +203,7 @@ Singleton {
     }
 
     IpcHandler {
-        target: "bar"
+        target: IpcTargets.name("bar")
         function open() {
             forActiveScreens(screen => getScreenByName(screen.name).bar.open());
         }
@@ -215,7 +216,7 @@ Singleton {
     }
 
     IpcHandler {
-        target: "launcher"
+        target: IpcTargets.name("launcher")
         function open() {
             forActiveScreens(screen => {
                 const ss = getScreenByName(screen.name);
@@ -336,7 +337,7 @@ Singleton {
     }
 
     IpcHandler {
-        target: "query"
+        target: IpcTargets.name("query")
         function pipeline(query: string): string {
             const state = root.instances[0];
             return state ? state.launcher.queryPipeline(query) : "{}";
