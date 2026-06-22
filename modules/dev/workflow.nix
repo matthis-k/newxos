@@ -69,11 +69,13 @@
           errors=$((errors + 1))
         fi
 
-        # 10.5 Primary interaction test must not use un-namespaced IPC targets.
-        # Only flag actual test source references, not the doctor check itself.
+        # 10.5 Runtime test packages must use namespaced targets.
+        # The test script supports session/external/self-managed modes;
+        # session mode intentionally uses global targets.
+        # Check the Nix package wrappers, not the test script itself.
         if ${pkgs.ripgrep}/bin/rg -n 'newshell ipc call (launcher|query)\b' \
-          configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh \
-          --glob '!*.md' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
+          packages \
+          --glob '!*.md' 2>/dev/null; then
           echo "error: newshell runtime tests must use NEWSHELL_IPC_NAMESPACE targets, never global launcher/query" >&2
           errors=$((errors + 1))
         fi
@@ -100,6 +102,115 @@
         fi
 
         export NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
+        exec ${pkgs.bash}/bin/bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh"
+      '';
+
+      # Hyprland-headless mode: starts a private compositor that launches newshell via exec-once
+      runNewshellIpcTestsHyprland = pkgs.writeShellScriptBin "run-newshell-launcher-ipc-tests-hyprland" ''
+        set -euo pipefail
+
+        if [ "''${NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS:-0}" != "1" ]; then
+          echo "Skipping newshell runtime IPC tests (hyprland). Set NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 to run."
+          exit 0
+        fi
+
+        NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
+
+        tmp_root="$(${pkgs.coreutils}/bin/mktemp -d)"
+        runtime_dir="$tmp_root/runtime"
+        hypr_config="$tmp_root/hyprland.conf"
+        hypr_log="$tmp_root/hyprland.log"
+        test_log="$tmp_root/newshell-ipc-test.log"
+
+        INSTANCE_ID="newshell-hypr-test-$$-''${RANDOM}"
+        IPC_NS="$INSTANCE_ID"
+
+        cleanup() {
+          local status=$?
+
+          if [ -n "''${HYPRLAND_PID:-}" ] && kill -0 "$HYPRLAND_PID" 2>/dev/null; then
+            kill "$HYPRLAND_PID" 2>/dev/null || true
+            wait "$HYPRLAND_PID" 2>/dev/null || true
+          fi
+
+          if [ "$status" -ne 0 ]; then
+            echo "=== Hyprland log ===" >&2
+            ${pkgs.coreutils}/bin/cat "$hypr_log" >&2 2>/dev/null || true
+            echo "=== newshell test log ===" >&2
+            ${pkgs.coreutils}/bin/cat "$test_log" >&2 2>/dev/null || true
+            echo "tmp_root=$tmp_root" >&2
+          else
+            ${pkgs.coreutils}/bin/rm -rf "$tmp_root"
+          fi
+
+          exit "$status"
+        }
+        trap cleanup EXIT INT TERM
+
+        ${pkgs.coreutils}/bin/mkdir -p "$runtime_dir"
+        ${pkgs.coreutils}/bin/chmod 700 "$runtime_dir"
+
+        export XDG_RUNTIME_DIR="$runtime_dir"
+        export XDG_SESSION_TYPE=wayland
+        export QT_QPA_PLATFORM=wayland
+        export WLR_BACKENDS=headless
+        export WLR_RENDERER=pixman
+        export WLR_LIBINPUT_NO_DEVICES=1
+
+        ${pkgs.coreutils}/bin/cat > "$hypr_config" <<EOF
+        monitor=,1280x720@60,0x0,1
+
+        misc {
+          disable_hyprland_logo = true
+          disable_splash_rendering = true
+        }
+
+        exec-once = env NEWSHELL_TEST_MODE=1 NEWSHELL_TEST_INSTANCE_ID=$INSTANCE_ID NEWSHELL_IPC_NAMESPACE=$IPC_NS NEWXOS_DEV=0 $NEWSHELL_BIN
+        EOF
+
+        Hyprland --config "$hypr_config" >"$hypr_log" 2>&1 &
+        HYPRLAND_PID=$!
+
+        wayland_socket=""
+        for i in $(seq 1 200); do
+          if ! kill -0 "$HYPRLAND_PID" 2>/dev/null; then
+            echo "error: Hyprland exited early" >&2
+            exit 1
+          fi
+
+          found="$(${pkgs.findutils}/bin/find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' | ${pkgs.coreutils}/bin/head -n1 || true)"
+          if [ -n "$found" ]; then
+            wayland_socket="$found"
+            break
+          fi
+
+          sleep 0.05
+        done
+
+        if [ -z "$wayland_socket" ]; then
+          echo "error: no Wayland socket appeared" >&2
+          exit 1
+        fi
+
+        export WAYLAND_DISPLAY="$wayland_socket"
+        export NEWSHELL_TEST_INSTANCE_MODE=external
+        export NEWSHELL_TEST_MODE=1
+        export NEWSHELL_TEST_INSTANCE_ID="$INSTANCE_ID"
+        export NEWSHELL_IPC_NAMESPACE="$IPC_NS"
+        export NEWSHELL_BIN="$NEWSHELL_BIN"
+
+        ${pkgs.bash}/bin/bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh" >"$test_log" 2>&1
+        ${pkgs.coreutils}/bin/cat "$test_log"
+      '';
+
+      # Session mode: test against the currently running user service (manual smoke only)
+      runNewshellIpcTestsSession = pkgs.writeShellScriptBin "run-newshell-launcher-ipc-tests-session" ''
+        set -euo pipefail
+
+        echo "WARNING: Session mode tests against running user service — not isolated, not CI-safe." >&2
+        echo "" >&2
+
+        export NEWSHELL_TEST_INSTANCE_MODE=session
         exec ${pkgs.bash}/bin/bash "${self}/configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh"
       '';
 
@@ -161,7 +272,21 @@
         echo ""
         echo "--- newshell runtime IPC tests ---"
         if [ "''${NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS:-0}" = "1" ]; then
-          ${pkgs.nix}/bin/nix run "path:$PWD#run-newshell-launcher-ipc-tests"
+          case "''${NEWXOS_NEWSHELL_TEST_BACKEND:-hyprland}" in
+            hyprland)
+              ${pkgs.nix}/bin/nix run "path:$PWD#run-newshell-launcher-ipc-tests-hyprland"
+              ;;
+            session)
+              ${pkgs.nix}/bin/nix run "path:$PWD#run-newshell-launcher-ipc-tests-session"
+              ;;
+            self-managed)
+              ${pkgs.nix}/bin/nix run "path:$PWD#run-newshell-launcher-ipc-tests"
+              ;;
+            *)
+              echo "error: unknown NEWSHELL_TEST_BACKEND" >&2
+              exit 1
+              ;;
+          esac
         else
           echo "Skipping newshell runtime IPC tests; set NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 to run."
         fi
@@ -356,6 +481,8 @@
       packages.repo-gate = repoGate;
       packages.repo-doctor = repoDoctor;
       packages.run-newshell-launcher-ipc-tests = runNewshellIpcTests;
+      packages.run-newshell-launcher-ipc-tests-hyprland = runNewshellIpcTestsHyprland;
+      packages.run-newshell-launcher-ipc-tests-session = runNewshellIpcTestsSession;
 
       # Static checks that can run in nix flake check
       # Runs only non-git-dependent invariants (generated-file drift is checked by repo-gate)
@@ -365,44 +492,47 @@
             nativeBuildInputs = with pkgs; [ ripgrep ];
           }
           ''
-            errors=0
-            cd ${self}
+                errors=0
+                cd ${self}
 
-            # 10.3 Basic Memory root is consistent
-            if rg -n 'root\.join\("knowledge"\)' \
-              packages modules configs docs \
-              --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
-              echo "error: Basic Memory must use docs/ as project root, not knowledge/" >&2
-              errors=$((errors + 1))
-            fi
+                # 10.3 Basic Memory root is consistent
+                if rg -n 'root\.join\("knowledge"\)' \
+                  packages modules configs docs \
+                  --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
+                  echo "error: Basic Memory must use docs/ as project root, not knowledge/" >&2
+                  errors=$((errors + 1))
+                fi
 
-            # 10.4 No stale IPC target names
-            if rg -n 'applauncher' configs modules packages \
-              --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
-              echo "error: stale applauncher IPC target found; use launcher" >&2
-              errors=$((errors + 1))
-            fi
+                # 10.4 No stale IPC target names
+                if rg -n 'applauncher' configs modules packages \
+                  --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
+                  echo "error: stale applauncher IPC target found; use launcher" >&2
+                  errors=$((errors + 1))
+                fi
 
-            # 10.5 Primary interaction test must not use un-namespaced IPC targets.
+            # 10.5 Runtime test packages must use namespaced targets.
+            # The test script supports session/external/self-managed modes;
+            # session mode intentionally uses global targets.
+            # Check the Nix package wrappers, not the test script itself.
             if rg -n 'newshell ipc call (launcher|query)\b' \
-              configs/newshell/launcher/tests/run-launcher-interaction-ipc-tests.sh \
-              --glob '!*.md' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
+              packages \
+              --glob '!*.md' 2>/dev/null; then
               echo "error: newshell runtime tests must use NEWSHELL_IPC_NAMESPACE targets, never global launcher/query" >&2
               errors=$((errors + 1))
             fi
 
-            # 10.6 OpenCode package must not mask eval failure
-            if rg -n 'builtins\.tryEval' modules/dev/opencode.nix 2>/dev/null; then
-              echo "error: opencode wrapper evaluation must fail at evaluation/build time; do not mask with tryEval" >&2
-              errors=$((errors + 1))
-            fi
+                # 10.6 OpenCode package must not mask eval failure
+                if rg -n 'builtins\.tryEval' modules/dev/opencode.nix 2>/dev/null; then
+                  echo "error: opencode wrapper evaluation must fail at evaluation/build time; do not mask with tryEval" >&2
+                  errors=$((errors + 1))
+                fi
 
-            if [ "$errors" -gt 0 ]; then
-              echo "repo-doctor: $errors check(s) failed" >&2
-              exit 1
-            fi
-            echo "repo-doctor: all checks passed"
-            touch $out
+                if [ "$errors" -gt 0 ]; then
+                  echo "repo-doctor: $errors check(s) failed" >&2
+                  exit 1
+                fi
+                echo "repo-doctor: all checks passed"
+                touch $out
           '';
 
       # Newxos CLI tests (Rust unit tests)

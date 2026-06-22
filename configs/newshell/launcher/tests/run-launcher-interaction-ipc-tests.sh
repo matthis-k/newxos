@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
 # Semantic launcher interaction IPC test suite.
-# Launches an isolated namespaced newshell instance and tests against it.
-# Never touches the global launcher or query IPC targets.
+# Supports three instance ownership modes:
+#   self-managed (default): script launches and kills newshell
+#   external:              newshell is started externally (e.g. by Hyprland)
+#                          requires NEWSHELL_TEST_INSTANCE_ID + NEWSHELL_IPC_NAMESPACE
+#   session:               test against the currently running user service
+#                          uses global IPC targets
+# Never touches global launcher/query targets in self-managed or external modes.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 cd "$REPO_ROOT"
 
-INSTANCE_ID="newshell-test-$$-${RANDOM}"
-IPC_NS="$INSTANCE_ID"
+INSTANCE_MODE="${NEWSHELL_TEST_INSTANCE_MODE:-self-managed}"
+INSTANCE_ID="${NEWSHELL_TEST_INSTANCE_ID:-newshell-test-$$-${RANDOM}}"
+IPC_NS="${NEWSHELL_IPC_NAMESPACE:-$INSTANCE_ID}"
 LOG_DIR="${TMPDIR:-/tmp}/newxos-newshell-tests"
 LOG_FILE="$LOG_DIR/$INSTANCE_ID.log"
 mkdir -p "$LOG_DIR"
@@ -28,41 +34,86 @@ while [[ $# -gt 0 ]]; do
 done
 
 cleanup() {
-  if [[ -n "${NEWSHELL_PID:-}" ]] && kill -0 "$NEWSHELL_PID" 2>/dev/null; then
+  if [[ "${INSTANCE_MODE}" = "self-managed" ]] && [[ -n "${NEWSHELL_PID:-}" ]] && kill -0 "$NEWSHELL_PID" 2>/dev/null; then
     kill "$NEWSHELL_PID" 2>/dev/null || true
     wait "$NEWSHELL_PID" 2>/dev/null || true
   fi
 }
 trap cleanup EXIT
 
-export NEWSHELL_TEST_MODE=1
-export NEWSHELL_TEST_INSTANCE_ID="$INSTANCE_ID"
-export NEWSHELL_IPC_NAMESPACE="$IPC_NS"
-export NEWXOS_DEV="${NEWXOS_DEV:-1}"
-export NEWXOS_FLAKE="$REPO_ROOT"
+case "$INSTANCE_MODE" in
+  self-managed)
+    export NEWSHELL_TEST_MODE=1
+    export NEWSHELL_TEST_INSTANCE_ID="$INSTANCE_ID"
+    export NEWSHELL_IPC_NAMESPACE="$IPC_NS"
+    export NEWXOS_DEV="${NEWXOS_DEV:-1}"
+    export NEWXOS_FLAKE="$REPO_ROOT"
 
-echo "=== Launcher Interaction IPC Test Suite ==="
-echo "Instance ID: $INSTANCE_ID"
-echo "IPC namespace: $IPC_NS"
-echo "Log: $LOG_FILE"
-echo ""
+    echo "=== Launcher Interaction IPC Test Suite ==="
+    echo "Mode: self-managed"
+    echo "Instance ID: $INSTANCE_ID"
+    echo "IPC namespace: $IPC_NS"
+    echo "Log: $LOG_FILE"
+    echo ""
 
-"$NEWSHELL_BIN" >"$LOG_FILE" 2>&1 &
-NEWSHELL_PID=$!
+    "$NEWSHELL_BIN" >"$LOG_FILE" 2>&1 &
+    NEWSHELL_PID=$!
+    ;;
+  external)
+    if [ -z "$NEWSHELL_TEST_INSTANCE_ID" ]; then
+      echo "error: external mode requires NEWSHELL_TEST_INSTANCE_ID" >&2
+      exit 2
+    fi
+    if [ -z "$NEWSHELL_IPC_NAMESPACE" ]; then
+      echo "error: external mode requires NEWSHELL_IPC_NAMESPACE" >&2
+      exit 2
+    fi
+    echo "=== Launcher Interaction IPC Test Suite ==="
+    echo "Mode: external (using externally managed newshell)"
+    echo "Instance ID: $INSTANCE_ID"
+    echo "IPC namespace: $IPC_NS"
+    echo ""
+    NEWSHELL_PID=""
+    ;;
+  session)
+    echo "=== Launcher Interaction IPC Test Suite ==="
+    echo "Mode: session (testing running service — not isolated, not CI-safe)"
+    echo ""
+    NEWSHELL_PID=""
+    ;;
+  *)
+    echo "error: unknown NEWSHELL_TEST_INSTANCE_MODE=$INSTANCE_MODE" >&2
+    exit 2
+    ;;
+esac
 
-# Namespaced IPC wrappers — never call global launcher/query
-ipc_launcher() {
-  "$NEWSHELL_BIN" ipc call "$IPC_NS.launcher" "$@"
-}
-
-ipc_query() {
-  "$NEWSHELL_BIN" ipc call "$IPC_NS.query" "$@"
-}
+# IPC wrappers — use namespaced targets in self-managed/external, global in session
+if [ "$INSTANCE_MODE" = "session" ]; then
+  ipc_launcher() { newshell ipc call launcher "$@"; }
+  ipc_query()    { newshell ipc call query "$@"; }
+  IPC_TARGET_DESC="global launcher/query"
+else
+  ipc_launcher() { "$NEWSHELL_BIN" ipc call "$IPC_NS.launcher" "$@"; }
+  ipc_query()    { "$NEWSHELL_BIN" ipc call "$IPC_NS.query" "$@"; }
+  IPC_TARGET_DESC="namespaced $IPC_NS.launcher/$IPC_NS.query"
+fi
 
 wait_for_instance() {
   local tries="${1:-100}"
+
+  if [ "$INSTANCE_MODE" = "session" ]; then
+    # In session mode, just check if the global launcher responds
+    local data
+    data="$(ipc_launcher state 2>/dev/null || true)"
+    if echo "$data" | jq -e '.version == 1' >/dev/null 2>&1; then
+      return 0
+    fi
+    echo "error: no running newshell service found" >&2
+    return 1
+  fi
+
   for _ in $(seq 1 "$tries"); do
-    if ! kill -0 "$NEWSHELL_PID" 2>/dev/null; then
+    if [[ -n "${NEWSHELL_PID:-}" ]] && ! kill -0 "$NEWSHELL_PID" 2>/dev/null; then
       echo "error: spawned newshell exited early" >&2
       cat "$LOG_FILE" >&2 || true
       return 1
@@ -81,8 +132,10 @@ wait_for_instance() {
     sleep 0.05
   done
 
-  echo "error: test newshell instance did not become reachable via namespaced IPC target $IPC_NS.launcher" >&2
-  cat "$LOG_FILE" >&2 || true
+  echo "error: test newshell instance did not become reachable via $IPC_TARGET_DESC" >&2
+  if [ "$INSTANCE_MODE" = "self-managed" ]; then
+    cat "$LOG_FILE" >&2 || true
+  fi
   return 1
 }
 
@@ -234,16 +287,20 @@ assert_jq_data "collapse-selected" "$data" \
 echo ""
 echo "--- Risk/confirmation safety ---"
 
-data=$(call_interact '{"action":"setQuery","query":"shutdown"}')
-assert_jq_data "risky-query" "$data" \
-  '.ok == true' \
-  "shutdown query should be accepted"
-wait_for_query "shutdown" || true
+if [ "$INSTANCE_MODE" = "session" ]; then
+  echo "(skipped in session mode — cannot safely execute destructive actions against running service)"
+else
+  data=$(call_interact '{"action":"setQuery","query":"shutdown"}')
+  assert_jq_data "risky-query" "$data" \
+    '.ok == true' \
+    "shutdown query should be accepted"
+  wait_for_query "shutdown" || true
 
-data=$(call_interact '{"action":"activateSelected"}')
-assert_jq_data "risky-activation-dry-run" "$data" \
-  '.ok == true and (.result.dryRun == true or .after.visible == true or .after.closing == false)' \
-  "risky activation must not execute shutdown in test mode; should dry-run or remain open"
+  data=$(call_interact '{"action":"activateSelected"}')
+  assert_jq_data "risky-activation-dry-run" "$data" \
+    '.ok == true and (.result.dryRun == true or .after.visible == true or .after.closing == false)' \
+    "risky activation must not execute shutdown in test mode; should dry-run or remain open"
+fi
 
 echo ""
 echo "--- Error handling ---"
