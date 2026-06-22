@@ -196,20 +196,4 @@ Fix: after changing Nix Neovim plugin lists, regenerate the lock file. Source: `
 
 ## Secrets and containers
 
-### Kokoro GPU container image and CDI selector
 
-Docker `--gpus all` can select a missing AMD CDI spec on mixed-GPU hosts. Fix: use explicit `--device nvidia.com/gpu=all`.
-
-### Zen cannot import Caddy CA from private state path
-
-`/var/lib/caddy/.../root.crt` is not user-readable. Fix: publish to `/run/caddy-local-root.crt`.
-
-## ATA DRM logs are not graphics DRM
-
-Kernel `ata*.00 supports DRM functions` refers to drive feature support, not Direct Rendering Manager.
-
-Fix: for Plymouth/NVIDIA issues, focus on `simpledrm`, `nvidia_drm`, and framebuffer handoff.
-
-### `buildChildTree` fallback bypassed shaping decision
-
-`buildRowsFromShaped` in `Engine.qml` treated empty `childEvs` the same as null, bypassing the shaping decision. Check `item.childEvs != null` instead of `null && length > 0`.

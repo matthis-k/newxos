@@ -174,7 +174,7 @@ Isolated runtime tests launch a fresh namespaced newshell instance:
 
 `configs/newshell/utils/IpcTargets.qml` provides namespaced IPC target names. It reads `NEWSHELL_IPC_NAMESPACE` env var; test instances set a unique namespace. IPC targets are namespaced through `IpcTargets.qml`; source owns endpoint shapes.
 
-Available IPC endpoints: `pipeline`, `visual`, `visualState`, `visualApply`, `visualDebug`, `policies`, `benchmark`, `cases`, `runCases`. Source: `ShellState.qml` and `controllers/LauncherDebugController.qml`.
+Launcher/debug IPC endpoints are registered through `ShellState.qml` and debug controllers. Use source or `newshell ipc` discovery for exact endpoint names.
 
 Launcher visual intent:
 - A row that directly matches the query should explain itself first. If it is a meaningful group, keep the group row visible instead of replacing it with unrelated-looking descendants.

@@ -26,7 +26,7 @@
 - `docs/test-cases/launcher-ranking.md` — ranking rationale and intent
 - `docs/newshell/launcher-testing.md` — test workflow, how to run/probe
 - `configs/opencode/skills/newshell-debugging/SKILL.md` — debugging
-- `docs/pitfalls.md` — historical launcher bugs
+- `docs/pitfalls.md` — recurring launcher pitfalls and gotchas
 
 ## When touching secrets or auth
 - `AGENTS.md` — safety rules, data care

@@ -185,23 +185,6 @@ In test mode, `launcher.execute` records `lastExecutedAction` instead of running
 
 `visualState.rows` is in semantic-test order (navigation tree position), not pixel-exact delegate order. `highlighted === selected` by contract.
 
-## Regression cases
-
-Regression expectations are not listed in this document. They live in the deterministic case files and are executed by the harness through `repo-gate` or the `newshell-launcher-test` binary.
-
-Canonical location:
-
-```text
-tests/launcher/cases/                         # full step-based cases (single source of truth)
-```
-
-Use:
-
-```bash
-repo-gate newshell-cases
-NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1 repo-gate newshell-runtime
-```
-
 ## Debugging failures
 
 Do not debug by manually deciding whether launcher behavior is valid. First reproduce the smallest deterministic failing check.

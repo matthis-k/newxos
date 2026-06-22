@@ -62,13 +62,9 @@ Directive/tokenize → Candidate collection → Evidence → Scoring → Path po
 
 ```bash
 newshell ipc call query pipeline '<query>'    # Universal debug — rows, phases, backends, timings
-newshell ipc call query policies '<query>'    # Active policy specs per kind
-newshell ipc call query benchmark '<json>'    # Benchmark queries via debugBenchmark()
-newshell ipc call query cases                 # Active regression query list
-newshell ipc call query runCases              # Run all regression cases
 ```
 
-For debug flow guidance, see `configs/opencode/skills/newshell-debugging/SKILL.md`.
+For full debug flow (policies, benchmark, cases, probes), see `configs/opencode/skills/newshell-debugging/SKILL.md`.
 
 ## Do Not
 
