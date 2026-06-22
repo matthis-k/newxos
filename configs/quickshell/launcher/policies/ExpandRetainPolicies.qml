@@ -5,7 +5,7 @@ import "../logic/"
 QtObject {
     Component.onCompleted: {
         Launcher.PolicyRegistry.registerExpand("expand-when", function(ev, ctx, args) {
-            var mode = (args && args.mode) || "visible-children";
+            var mode = (args && args.mode) || "own-match";
             var maxChildren = (args && args.maxChildren) || 8;
             var minScore = (args && args.minScore) || 0.1;
             if (!ev || !ev.children) return { expand: false, reason: "no children" };
@@ -14,10 +14,80 @@ QtObject {
                 return c.visible && c.score >= minScore;
             });
 
+            var ownMatched = !!(ev.ownVisible || (ev.ownScore || 0) >= minScore);
+            var expand = false;
+            if (mode === "all") expand = true;
+            else if (mode === "visible-children") expand = visibleChildren.length > 0;
+            else expand = ownMatched;
+
             return {
-                expand: mode === "all" || visibleChildren.length > 0,
+                expand: expand,
                 maxChildren: maxChildren,
-                reason: "expand-when: " + visibleChildren.length + " visible children (mode: " + mode + ")"
+                reason: "expand-when: mode " + mode + ", ownMatched " + ownMatched + ", " + visibleChildren.length + " visible children"
+            };
+        });
+
+        Launcher.PolicyRegistry.registerExpand("expand-on-own-match", function(ev, ctx, args) {
+            var maxChildren = (args && args.maxChildren) || 8;
+            var minScore = (args && args.minScore) || 0.1;
+            var ownMatched = !!(ev && (ev.ownVisible || (ev.ownScore || 0) >= minScore));
+            return {
+                expand: ownMatched,
+                maxChildren: maxChildren,
+                includeAllChildren: ownMatched,
+                reason: ownMatched ? "expand-on-own-match: parent has own match" : "expand-on-own-match: parent has no own match"
+            };
+        });
+
+        Launcher.PolicyRegistry.registerExpand("expand-on-trailing-space", function(ev, ctx, args) {
+            var maxChildren = (args && args.maxChildren) || 8;
+            var ownRequired = !(args && args.ownRequired === false);
+            var ownMatched = !!(ev && (ev.ownVisible || (ev.ownScore || 0) > 0));
+            var trailing = !!(ctx && ctx.query && ctx.query.lastTokenEmpty);
+            var expand = trailing && (!ownRequired || ownMatched);
+            return {
+                expand: expand,
+                maxChildren: maxChildren,
+                includeAllChildren: expand,
+                reason: expand ? "expand-on-trailing-space" : "expand-on-trailing-space: no trailing-space browse"
+            };
+        });
+
+        Launcher.PolicyRegistry.registerExpand("expand-on-own-match-or-trailing-space", function(ev, ctx, args) {
+            var maxChildren = (args && args.maxChildren) || 8;
+            var minScore = (args && args.minScore) || 0.1;
+            var ownMatched = !!(ev && (ev.ownVisible || (ev.ownScore || 0) >= minScore));
+            var trailing = !!(ctx && ctx.query && ctx.query.lastTokenEmpty);
+            var expand = ownMatched || (trailing && ownMatched);
+            return {
+                expand: expand,
+                maxChildren: maxChildren,
+                includeAllChildren: ownMatched,
+                reason: expand ? "expand-on-own-match-or-trailing-space" : "expand-on-own-match-or-trailing-space: parent not matched"
+            };
+        });
+
+        Launcher.PolicyRegistry.registerExpand("expand-on-explicit-parent-token", function(ev, ctx, args) {
+            var maxChildren = (args && args.maxChildren) || 8;
+            var minScore = (args && args.minScore) || 0.25;
+            var expand = !!(ev && (ev.ownVisible || (ev.ownScore || 0) >= minScore));
+            return {
+                expand: expand,
+                maxChildren: maxChildren,
+                reason: expand ? "expand-on-explicit-parent-token" : "expand-on-explicit-parent-token: parent token absent"
+            };
+        });
+
+        Launcher.PolicyRegistry.registerExpand("expand-on-child-match", function(ev, ctx, args) {
+            var maxChildren = (args && args.maxChildren) || 8;
+            var minScore = (args && args.minScore) || 0.1;
+            var visibleChildren = (ev && ev.children || []).filter(function(c) {
+                return c.visible && c.score >= minScore;
+            });
+            return {
+                expand: visibleChildren.length > 0,
+                maxChildren: maxChildren,
+                reason: "expand-on-child-match: " + visibleChildren.length + " visible children"
             };
         });
 
@@ -43,6 +113,7 @@ QtObject {
             var retainReason = "";
 
             switch (condition) {
+            case "own-match":
             case "has-own-score":
                 return {
                     retain: (ev.ownScore || 0) > 0,

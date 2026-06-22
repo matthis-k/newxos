@@ -12,6 +12,12 @@ import "PresentationPresets.qml"
 // This file is the fallback for nodes without primitive policies and should
 // not be the canonical source of truth for new behavior.
 //
+// New launcher behavior must be expressed through primitive policies:
+// tokenFlow, expand, retainParent, takeoverRequest, takeoverAccept,
+// defaultAction, and riskGate. Do not add new behavior here through
+// groupOptions, flattenPolicy, showAllChildrenOnParentMatch,
+// flattenAllChildrenOnParentMatch, committedTokenPrefersGroup, or childBypass.
+//
 // Migration target: move node-specific placement logic out of PresentationPolicy
 // into per-kind primitive policies or backend-specific profiles.
 Singleton {
@@ -28,11 +34,26 @@ Singleton {
     function childPassesVisible(childEval, parentEval, ctx) {
         var profile = childProfile(parentEval);
         var names = profile.childVisible || defaultChildVisible;
+        var pnid = parentEval && parentEval.node && parentEval.node.id;
+        if (pnid && ctx && ctx._policyTrace && !ctx._policyTrace[pnid]) ctx._policyTrace[pnid] = {};
         return PolicyChain.run(names, function(name, spec) {
             var policy = PolicyChain.lookupPolicy(JsRegistry.childVisible, spec);
             if (!policy) return false;
             return policy.apply(childEval, parentEval, ctx, spec && spec.args);
-        }, "childVisible").value;
+        }, "childVisible", function(tr) {
+            if (!pnid || !ctx || !ctx._policyTrace) return;
+            if (!ctx._policyTrace[pnid]) return;
+            if (!ctx._policyTrace[pnid].childVisible) {
+                ctx._policyTrace[pnid].childVisible = { kind: "childVisible", evaluated: [], aggregate: null, final: null };
+            }
+            ctx._policyTrace[pnid].childVisible.evaluated.push({
+                name: tr.name, priority: tr.priority || 0, enabled: true,
+                args: tr.args,
+                returned: tr.returned,
+                effect: tr.effect || "combined",
+                reasons: tr.returned && tr.returned.reasons ? tr.returned.reasons.slice() : []
+            });
+        }).value;
     }
 
     // COMPATIBILITY: determines whether a child visually "dominates" its parent,
@@ -40,11 +61,26 @@ Singleton {
     function childDominates(childEval, parentEval, ctx) {
         var profile = childProfile(parentEval);
         var names = profile.childBypass || defaultChildBypass;
+        var pnid = parentEval && parentEval.node && parentEval.node.id;
+        if (pnid && ctx && ctx._policyTrace && !ctx._policyTrace[pnid]) ctx._policyTrace[pnid] = {};
         return PolicyChain.run(names, function(name, spec) {
             var policy = PolicyChain.lookupPolicy(JsRegistry.childBypass, spec);
             if (!policy) return null;
             return policy.apply(childEval, parentEval, ctx, spec && spec.args);
-        }, "childBypass").value;
+        }, "childBypass", function(tr) {
+            if (!pnid || !ctx || !ctx._policyTrace) return;
+            if (!ctx._policyTrace[pnid]) return;
+            if (!ctx._policyTrace[pnid].childBypass) {
+                ctx._policyTrace[pnid].childBypass = { kind: "childBypass", evaluated: [], aggregate: null, final: null };
+            }
+            ctx._policyTrace[pnid].childBypass.evaluated.push({
+                name: tr.name, priority: tr.priority || 0, enabled: true,
+                args: tr.args,
+                returned: tr.returned,
+                effect: tr.effect || "combined",
+                reasons: tr.returned && tr.returned.reasons ? tr.returned.reasons.slice() : []
+            });
+        }).value;
     }
 
     // COMPATIBILITY: old group-options config reader. Used when no primitive

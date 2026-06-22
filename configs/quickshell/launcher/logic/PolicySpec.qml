@@ -105,9 +105,11 @@ Singleton {
         case "claim-context-pass-all":
         case "consume-namespace-pass-rest":
         case "consume-action-token":
+        case "consume-switch-pass-rest":
         case "consume-path-segment":
             return "tokenFlow";
         case "explicit-child-token":
+        case "child-own-match-parent-no-own-match":
         case "child-covers-passed-tokens":
         case "own-score-dominates-takeover":
         case "exact-action-token-takeover":
@@ -117,6 +119,11 @@ Singleton {
         case "accept-dominated-claims":
             return "takeoverAccept";
         case "expand-when":
+        case "expand-on-own-match":
+        case "expand-on-trailing-space":
+        case "expand-on-explicit-parent-token":
+        case "expand-on-child-match":
+        case "expand-on-own-match-or-trailing-space":
         case "expand-all":
         case "expand-none":
             return "expand";

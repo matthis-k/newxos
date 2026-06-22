@@ -84,10 +84,11 @@ Singleton {
         var riskPolicy = JsRegistry.riskGate.get("risk-gate");
         if (riskPolicy) {
             gateResult = riskPolicy.apply(node, ctx, { activation: mode, level: level, confirmation: conf, allowed: allowed });
-            if (gateResult && gateResult.allowed !== undefined)
+            if (gateResult && gateResult.allowed !== undefined) {
                 allowed = gateResult.allowed;
-            if (gateResult && gateResult.reason)
-                reason = gateResult.reason;
+                if (gateResult.reason)
+                    reason = gateResult.reason;
+            }
         }
 
         return {
@@ -95,6 +96,7 @@ Singleton {
             mode: mode,
             riskLevel: level,
             reason: reason,
+            policyReason: gateResult && gateResult.reason ? gateResult.reason : "",
             requiresConfirm: mode === "confirm" || mode === "confirm-and-explicit-prefix",
             requiresExplicitPrefix: mode === "explicit-prefix-only" || mode === "confirm-and-explicit-prefix" || mode === "explicit-prefix"
         };

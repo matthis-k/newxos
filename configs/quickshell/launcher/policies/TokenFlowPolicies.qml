@@ -24,6 +24,10 @@ QtObject {
             return TokenFlow.consumeActionToken(node, query, ctx, args);
         });
 
+        Launcher.PolicyRegistry.registerTokenFlow("consume-switch-pass-rest", function(node, query, ctx, args) {
+            return TokenFlow.consumeSwitchPassRest(node, query, ctx, args);
+        });
+
         Launcher.PolicyRegistry.registerTokenFlow("consume-path-segment", function(node, query, ctx, args) {
             return TokenFlow.consumePathSegment(node, query, ctx, args);
         });

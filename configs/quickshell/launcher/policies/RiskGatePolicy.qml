@@ -36,7 +36,7 @@ QtObject {
                 mode: "explicit-prefix"
             };
         default:
-            return { allowed: true, reason: "risk-gate: normal activation", mode: "normal" };
+            return { allowed: undefined, reason: "risk-gate: normal activation", mode: "normal" };
         }
     }
 

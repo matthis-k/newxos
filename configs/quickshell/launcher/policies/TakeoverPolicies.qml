@@ -8,6 +8,10 @@ QtObject {
             return TakeoverEngine.explicitChildToken(childEv, parentEv, ctx, args);
         });
 
+        Launcher.PolicyRegistry.registerTakeoverRequest("child-own-match-parent-no-own-match", function(childEv, parentEv, ctx, args) {
+            return TakeoverEngine.childOwnMatchParentNoOwnMatch(childEv, parentEv, ctx, args);
+        });
+
         Launcher.PolicyRegistry.registerTakeoverRequest("child-covers-passed-tokens", function(childEv, parentEv, ctx, args) {
             return TakeoverEngine.childCoversPassedTokens(childEv, parentEv, ctx, args);
         });

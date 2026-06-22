@@ -94,38 +94,35 @@ Singleton {
         if (!target || !action)
             return { close: false, success: false };
 
-        if (action.intent) {
-            var legacyResult = controller._legacyApplyIntent(target, action.intent);
-            return { close: !!legacyResult, success: true };
-        }
-
-        var payload = action.payload || {};
-        if (payload && payload.service) {
-            var dispatched = dispatchServicePayload(payload, target, controller);
-            if (dispatched)
-                return { close: false, success: true };
-        }
-
-        var backend = null;
-        for (var i = 0; i < (controller.backends || []).length; i += 1) {
-            if (controller.backends[i] && controller.backendId(controller.backends[i]) === target.source) {
-                backend = controller.backends[i];
-                break;
-            }
-        }
-        if (!backend)
-            return { close: false, success: false };
-
         try {
-            var nodeRisk = target.risk || {};
-            var nodeForGate = { id: target.id || target.nodeId || "", label: target.title || "", risk: nodeRisk, dangerous: target.dangerous };
-            var queryText = (controller && controller.query) || "";
-            var confirmed = !!(controller && controller.confirmationSatisfied);
-            if (!ActivationGate.canActivate(nodeForGate, action, controller, queryText, confirmed)) {
+            if (!_targetCanActivate(target, action, controller)) {
                 if (debugEnabled)
                     DebugLogger.log("action", "activation blocked by risk gate", { targetId: target.id || target.nodeId || "", actionId: action.id || "" });
                 return { close: false, success: false };
             }
+
+            if (action.intent) {
+                var legacyResult = controller._legacyApplyIntent(target, action.intent);
+                return { close: !!legacyResult, success: true };
+            }
+
+            var payload = action.payload || {};
+            if (payload && payload.service) {
+                var dispatched = dispatchServicePayload(payload, target, controller);
+                if (dispatched)
+                    return { close: false, success: true };
+            }
+
+            var backend = null;
+            for (var i = 0; i < (controller.backends || []).length; i += 1) {
+                if (controller.backends[i] && controller.backendId(controller.backends[i]) === target.source) {
+                    backend = controller.backends[i];
+                    break;
+                }
+            }
+            if (!backend)
+                return { close: false, success: false };
+
             backend.activate(target, action);
             if (debugEnabled)
                 DebugLogger.log("action", "run-action activated", {
@@ -142,6 +139,19 @@ Singleton {
         }
     }
 
+    function _targetCanActivate(target, action, controller) {
+        var nodeRisk = target.risk || (action && action.risk) || {};
+        var nodeForGate = {
+            id: target.id || target.nodeId || "",
+            label: target.title || target.label || "",
+            risk: nodeRisk,
+            dangerous: !!(target.dangerous || (action && action.dangerous))
+        };
+        var queryText = (controller && controller.query) || "";
+        var confirmed = !!(controller && controller.confirmationSatisfied);
+        return ActivationGate.canActivate(nodeForGate, action, controller, queryText, confirmed);
+    }
+
     function alignedControlValue(current, delta, step, from, to) {
         var base = delta < 0 ? Math.floor(current / step) * step : Math.ceil(current / step) * step;
         if (Math.abs(base - current) < 0.0001)
@@ -152,18 +162,6 @@ Singleton {
     function dispatchServicePayload(payload, target, controller) {
         if (!payload || !payload.service)
             return false;
-
-        var isDestructive = payload.op === "shutdown" || payload.op === "reboot" || payload.op === "poweroff" ||
-            payload.op === "logout" || payload.op === "hibernate" ||
-            (payload.op === "setWifiEnabled" && payload.enabled === false);
-
-        if (isDestructive && target) {
-            var nodeForGate = { id: target.id || "", label: target.title || "", risk: { level: "state-change", activation: "confirm" }, dangerous: true };
-            var gateQueryText = (controller && controller.query) || "";
-            var confirmed = !!(controller && controller.confirmationSatisfied);
-            if (!ActivationGate.canActivate(nodeForGate, { id: payload.op }, null, gateQueryText, confirmed))
-                return false;
-        }
 
         switch (String(payload.service)) {
         case "brightness":
