@@ -30,6 +30,27 @@ Singleton {
         });
     }
 
+    function placement(ev, ctx, decision) {
+        if (!ev || !ev.node || !ev.node.id || !ctx._decisionTrace) return;
+        var nid = ev.node.id;
+        var expandFinal = ctx._policyTrace && ctx._policyTrace[nid] && ctx._policyTrace[nid].expand && ctx._policyTrace[nid].expand.final;
+        var retainFinal = ctx._policyTrace && ctx._policyTrace[nid] && ctx._policyTrace[nid].retain && ctx._policyTrace[nid].retain.final;
+        var takeoverFinal = ctx._policyTrace && ctx._policyTrace[nid] && ctx._policyTrace[nid].takeover && ctx._policyTrace[nid].takeover.final;
+        ctx._decisionTrace[nid] = {
+            nodeId: nid,
+            visibility: { value: { visible: ev.visible }, reasons: [{ code: "visibility", text: "visible=" + ev.visible + " ownVisible=" + ev.ownVisible }] },
+            placement: { value: decision.placement || decision.mode || "unknown", reasons: [{ code: "placement", text: "mode=" + (decision.mode || "normal") + " showParent=" + (decision.showParent !== false) + " placement=" + (decision.placement || decision.mode || "unknown") }] },
+            flattening: { value: { flatten: decision.mode === "flatten-children" || decision.mode === "flatten-all-children", mode: decision.mode || "normal" }, reasons: [{ code: "flattening", text: "mode=" + (decision.mode || "normal") }] },
+            breadcrumbs: null,
+            defaultAction: null,
+            childVisibility: null,
+            _expand: expandFinal || null,
+            _retain: retainFinal || null,
+            _takeover: takeoverFinal || null
+        };
+        DecisionTrace.final(ev, ctx, "placement", { placement: decision.placement || decision.mode || "unknown", mode: decision.mode || "normal", showParent: decision.showParent !== false }, [{ code: "placement_decided", text: "final placement=" + (decision.placement || decision.mode || "unknown") + " mode=" + (decision.mode || "normal") }]);
+    }
+
     function final(ev, ctx, kind, value, reasons) {
         if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
         var nid = ev.node.id;
