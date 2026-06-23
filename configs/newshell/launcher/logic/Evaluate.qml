@@ -341,7 +341,7 @@ Singleton {
             ownVisible: own.visible,
             visible: ctx.showHidden || own.visible || retained.some(function(c) { return c.visible || ctx.showHidden; }) || (ctx.query.isEmpty && node.kind === "backend" && !directiveActive),
             visibleReason: own.reason,
-            children: keepAllChildren ? retained : retained.sort(compareEvaluated),
+            children: profile.keepAllChildren ? retained : retained.sort(compareEvaluated),
             tokenFlow: tokenFlow
         };
 
