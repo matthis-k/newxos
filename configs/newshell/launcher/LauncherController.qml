@@ -1,11 +1,14 @@
 import QtQuick
 import QtQml
+import qs.services
 import "logic/"
 import "logic/RoutingTree.js" as RoutingTree
 import "controllers" as Controllers
 import "policies" as P
 
 Item {
+    readonly property var tracer: Logger.scope("launcher.controller", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.controller", { category: "launcher" })
     id: root
 
     property alias query: searchSession.query
@@ -134,9 +137,12 @@ Item {
     onAsyncBackendResultsReceived: function(backend, key, text, requestGeneration, update) { searchSession.receiveAsyncBackendResults(backend, key, text, requestGeneration, update); }
     onSearchRequested: function(text, requestGeneration) { searchSession.requestSearch(text, requestGeneration); }
     onResultsAvailable: function(text, requestGeneration, revision, rows, output) {
-        if (!output || requestGeneration !== root.generation || revision !== root.queryRevision || text !== root.query)
+        if (!output || requestGeneration !== root.generation || revision !== root.queryRevision || text !== root.query) {
+            tracer.trace("resultsAvailable", function() { return { text: text, stale: true, gen: requestGeneration, revision: revision }; });
             return;
+        }
 
+        tracer.info("resultsAvailable", function() { return { text: text, rows: (rows || []).length, gen: requestGeneration }; });
         lastQuery = output.query;
         lastDirective = output.directive;
         lastEvaluatedRoot = output.evaluatedRoot;
@@ -210,6 +216,7 @@ Item {
 
     // Search/session façade
     function stateForSearch() {
+        tracer.trace("stateForSearch", function() { return {}; });
         return {
             selectedNodeId: selectedResult() ? selectedResult().nodeId : null,
             expandedNodeIds: expandedNodeIds || {}
@@ -226,10 +233,10 @@ Item {
         };
     }
 
-    function updateQuery(text) { queryUpdateRequested(text || ""); }
-    function triggerAsyncBackends(text, currentGeneration) { searchSession.triggerAsyncBackends(text, currentGeneration); }
+    function updateQuery(text) { tracer.info("updateQuery", function() { return { text: text }; }); queryUpdateRequested(text || ""); }
+    function triggerAsyncBackends(text, currentGeneration) { if (tracer.traceOn) tracer.trace("triggerAsyncBackends", function() { return { text: text, gen: currentGeneration }; }); searchSession.triggerAsyncBackends(text, currentGeneration); }
     function hasPendingAsyncBackends() { return searchSession.hasPendingAsyncBackends(); }
-    function reset() { resetRequested(); }
+    function reset() { tracer.info("reset", function() { return {}; }); resetRequested(); }
     function backendId(backend) { return backend ? backend.backendId || "" : ""; }
 
     // Activation/action façade

@@ -1,15 +1,21 @@
 import QtQml
+import qs.services
 
 QtObject {
+    readonly property var tracer: Logger.scope("launcher.legacyIntent", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.legacyIntent", { category: "launcher" })
     id: root
 
     property var controller: null
     property var actionController: null
 
     function applyIntent(result, intent) {
-        if (!result || !intent)
+        if (!result || !intent) {
+            tracer.debug("applyIntent", function() { return { reason: !result ? "no result" : "no intent" }; });
             return false;
+        }
 
+        tracer.info("applyIntent", function() { return { resultId: result.id || result.nodeId || "", intentType: intent.type || "activate" }; });
         switch (intent.type || "activate") {
         case "sequence": {
             var closeRequested = false;

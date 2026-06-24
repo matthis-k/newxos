@@ -1,9 +1,12 @@
 import QtQuick
 import QtQml
+import qs.services
 import "../logic/"
 import "../logic/RoutingTree.js" as RoutingTree
 
 Item {
+    readonly property var tracer: Logger.scope("launcher.searchSession", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.searchSession", { category: "launcher" })
     id: root
 
     property var controller: null
@@ -30,6 +33,7 @@ Item {
     }
 
     function updateQuery(text) {
+        tracer.trace("updateQuery", function() { return { textLen: (text || "").length, revision: queryRevision + 1 }; });
         queryRevision += 1;
         generation += 1;
         query = text || "";
@@ -37,6 +41,7 @@ Item {
             controller.selectedActionIndex = 0;
 
         if (!query || query.trim().length === 0) {
+            tracer.debug("updateQuery", function() { return { action: "clear", queryEmpty: true }; });
             resultsClearRequested();
             if (controller)
                 controller.clearSearchOutputState();
@@ -48,6 +53,7 @@ Item {
     }
 
     function reset() {
+        tracer.info("reset", function() { return { wasQuery: query, wasLoading: loading }; });
         searchTimer.stop();
         query = "";
         resultsClearRequested();
@@ -63,7 +69,8 @@ Item {
         startSearch(text || "", requestGeneration, false);
     }
 
-    function startSearch(text, requestGeneration, bumpAsyncGeneration) {
+    function _startSearch(text, requestGeneration, bumpAsyncGeneration) {
+        tracer.info("startSearch", function() { return { text: text, generation: requestGeneration, bump: bumpAsyncGeneration }; });
         var ag = bumpAsyncGeneration ? (root.asyncGeneration += 1) : root.asyncGeneration;
         var revision = root.queryRevision;
         triggerAsyncBackends(text, requestGeneration);
@@ -83,6 +90,8 @@ Item {
         );
     }
 
+    readonly property var startSearch: prof.fn("startSearch", _startSearch)
+
     function stateForSearch() {
         return controller ? controller.stateForSearch() : {};
     }
@@ -91,7 +100,8 @@ Item {
         return controller ? controller.searchOptions() : {};
     }
 
-    function triggerAsyncBackends(text, currentGeneration) {
+    function _triggerAsyncBackends(text, currentGeneration) {
+        if (tracer.traceOn) tracer.trace("triggerAsyncBackends", function() { return { text: text, generation: currentGeneration }; });
         var route = RoutingTree.routeQuery(root.routingTree, text || "");
         var directive = route && route.endpoints && route.endpoints.length > 0
             ? Engine.buildDirectiveFromRoute(text || "", route, backends || [])
@@ -120,7 +130,10 @@ Item {
         }
     }
 
+    readonly property var triggerAsyncBackends: prof.fn("triggerAsyncBackends", _triggerAsyncBackends)
+
     function beginAsyncBackendSearch(backend, key, text) {
+        tracer.debug("beginAsyncBackendSearch", function() { return { key: key, text: text, backend: backend.backendId }; });
         var state = asyncBackendQueries[key] || {};
         state.pending = text;
         state.ready = "";
@@ -132,9 +145,12 @@ Item {
     }
 
     function receiveAsyncBackendResults(backend, key, text, requestGeneration, update) {
-        if (requestGeneration !== root.generation || text !== root.query)
+        if (requestGeneration !== root.generation || text !== root.query) {
+            tracer.debug("receiveAsyncBackendResults", function() { return { key: key, text: text, stale: true, requestGeneration: requestGeneration, currentGen: root.generation }; });
             return;
+        }
 
+        tracer.info("receiveAsyncBackendResults", function() { return { key: key, text: text, generation: requestGeneration, updateCount: (update || []).length }; });
         var state = asyncBackendQueries[key] || {};
         state.pending = "";
         state.ready = text;

@@ -1,8 +1,11 @@
 import QtQml
+import qs.services
 import "tree"
 import "../logic/"
 
 LauncherBackendBase {
+    readonly property var tracer: Logger.scope("launcher.treeBackend", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.treeBackend", { category: "launcher" })
     id: root
 
     default property list<QtObject> nodes
@@ -37,11 +40,13 @@ LauncherBackendBase {
     }
 
     function prewarmCompositeRoot() {
-        if (root.enabled)
+        if (root.enabled) {
+            tracer.trace("prewarmCompositeRoot", function() { return { backendId: root.backendId }; });
             root.rootNode({ raw: "" }, {});
+        }
     }
 
-    function rootNode(query, context) {
+    function _rootNode(query, context) {
         const roots = root.effectiveTreeRoots();
         const cacheKey = root.backendId + ":" + roots.length;
         if (!root.dynamicCompositeRoot && root.compositeRootCache && root.compositeRootCacheKey === cacheKey)
@@ -55,10 +60,14 @@ LauncherBackendBase {
         IndexBuilder.buildSearchIndex(compositeRoot);
         if (!root.dynamicCompositeRoot)
             root.compositeRootCache = compositeRoot;
+        tracer.trace("rootNode", function() { return { backendId: root.backendId, rootsCount: roots.length, cacheHit: root.compositeRootCacheKey === cacheKey }; });
         return compositeRoot;
     }
 
+    readonly property var rootNode: prof.fn("rootNode", _rootNode)
+
     function invalidateCompositeRootCache() {
+        tracer.trace("invalidateCompositeRootCache", function() { return { backendId: root.backendId }; });
         root.compositeRootCache = null;
         root.compositeRootCacheKey = "";
     }

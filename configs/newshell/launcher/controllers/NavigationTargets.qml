@@ -1,6 +1,9 @@
 import QtQml
+import qs.services
 
 QtObject {
+    readonly property var tracer: Logger.scope("launcher.navTargets", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.navTargets", { category: "launcher" })
     id: root
 
     property var controller: null
@@ -50,7 +53,7 @@ QtObject {
         return null;
     }
 
-    function flatten(results, collapsedState, selectable) {
+    function _flatten(results, collapsedState, selectable) {
         var out = [];
         function visit(row, parentIndex, depth, path) {
             if (!row) return;
@@ -67,10 +70,11 @@ QtObject {
         }
         for (var i = 0; i < (results || []).length; i += 1)
             visit(results[i], i, 0, []);
-        if (root.controller && root.controller.debugEnabled)
-            console.warn("[NAV] navigationTargets: results=" + (results ? results.length : 0) + " targets=" + out.length + " collapsed=" + Object.keys(collapsedState).join(",") + " targets=" + out.map(function(t) { return t.key + "(d=" + t.depth + " p=" + t.parentIndex + ")"; }).join(" | "));
+        tracer.debug("flatten", function() { return { results: (results || []).length, targets: out.length, collapsedKeys: Object.keys(collapsedState).length }; });
         return out;
     }
+
+    readonly property var flatten: prof.fn("flatten", _flatten)
 
     function stepTarget(targets, currentKey, delta) {
         if (!targets || targets.length === 0)

@@ -3,9 +3,12 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQml
 import QtQml.Models
+import qs.services
 import qs.animations as Animations
 
 QtObject {
+    readonly property var tracer: Logger.scope("launcher.visualCoordinator", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.visualCoordinator", { category: "launcher" })
     id: root
 
     enum AnimationMode {
@@ -31,6 +34,7 @@ QtObject {
     }
 
     function applySnapshot(results, mode) {
+        tracer.info("applySnapshot", function() { return { resultCount: (results || []).length, mode: mode, reason: mode === VisualResultCoordinator.AnimationMode.None ? "reset" : "query" }; });
         coordinator.applySnapshot(adaptResults(results || []), { reason: mode === VisualResultCoordinator.AnimationMode.None ? "reset" : "query" });
     }
 
@@ -55,6 +59,7 @@ QtObject {
     }
 
     function animationModeForSnapshot(query, contextKey) {
+        tracer.trace("animationModeForSnapshot", function() { return { queryLen: (query || "").length, contextKey: contextKey || "" }; });
         return coordinator.policy.modeForSnapshot({
             inputText: query || "",
             previousInputText: coordinator._lastInputText,

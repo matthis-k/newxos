@@ -1,6 +1,9 @@
 import QtQml
+import qs.services
 
 QtObject {
+    readonly property var tracer: Logger.scope("launcher.lazyLoader", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.lazyLoader", { category: "launcher" })
     id: root
 
     property var controller: null
@@ -8,9 +11,15 @@ QtObject {
     property var expandedNodeIds: ({})
 
     function loadLazyChildren(key) {
-        if (!root.controller || !root.navigationTargets) return;
+        if (!root.controller || !root.navigationTargets) {
+            tracer.debug("loadLazyChildren", function() { return { key: key, reason: "no controller/targets" }; });
+            return;
+        }
         var treeRow = root.navigationTargets.findRowByKey(root.controller.results, key);
-        if (!treeRow || !treeRow.lazy) return;
+        if (!treeRow || !treeRow.lazy) {
+            tracer.debug("loadLazyChildren", function() { return { key: key, reason: !treeRow ? "not found" : "not lazy" }; });
+            return;
+        }
         var parentResult = root.navigationTargets.findParentResultByKey(root.controller.results, key);
         if (!parentResult) return;
         var sourceId = treeRow.source || parentResult.source || parentResult.backendId || "";
@@ -21,12 +30,20 @@ QtObject {
                 break;
             }
         }
-        if (!backend || typeof backend.scanDirectory !== "function") return;
+        if (!backend || typeof backend.scanDirectory !== "function") {
+            tracer.debug("loadLazyChildren", function() { return { key: key, reason: "no backend or scanDirectory" }; });
+            return;
+        }
         var path = (treeRow.meta && treeRow.meta.path) || "";
         if (!path && treeRow.id && treeRow.id.indexOf("file:") === 0)
             path = treeRow.id.slice(5);
-        if (!path) return;
+        if (!path) {
+            tracer.debug("loadLazyChildren", function() { return { key: key, reason: "no path" }; });
+            return;
+        }
+        tracer.info("loadLazyChildren", function() { return { key: key, path: path, sourceId: sourceId }; });
         backend.scanDirectory(path, function(children) {
+            tracer.trace("loadLazyChildren", function() { return { key: key, childrenLoaded: (children || []).length }; });
             treeRow.children = children;
             treeRow.lazy = false;
             root.expandedNodeIds[treeRow.nodeId || treeRow.id] = true;

@@ -15,6 +15,9 @@ import "logic/KeybindPresets.js" as KeybindPresets
 PanelWindow {
     id: root
 
+    readonly property var tracer: Logger.scope("launcher", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher", { category: "launcher" })
+
     property alias query: controller.query
     property var shellScreenState: null
     property string backendSet: "all"
@@ -38,6 +41,7 @@ PanelWindow {
     property var lastExecutedAction: null
 
     function open(arg) {
+        tracer.info("open", function() { return { arg: arg, wasVisible: root.visible }; });
         if (arg === undefined) {
             root.backends = root.backendSets[root.backendSet] || root.backendSets.all;
         } else if (typeof arg === "string") {
@@ -66,6 +70,7 @@ PanelWindow {
     }
 
     function close() {
+        tracer.info("close", function() { return { visible: root.visible, closing: root.closing }; });
         if (!root.visible && !closing)
             return;
         if (closing)
@@ -81,6 +86,7 @@ PanelWindow {
     }
 
     function finishClose() {
+        tracer.info("finishClose", function() { return {}; });
         closeTimer.stop();
         visible = false;
         closing = false;
@@ -198,6 +204,7 @@ PanelWindow {
     // ── query/input helpers ─────────────────────────────
 
     function setLauncherQuery(text) {
+        tracer.debug("setLauncherQuery", function() { return { textLen: String(text || "").length }; });
         const next = String(text || "");
         input.text = next;
         if (next.trim().length === 0)
@@ -574,6 +581,7 @@ PanelWindow {
     // ── perform interaction (core dispatcher) ────────────
 
     function performInteraction(action, payload, before, includeVisual) {
+        tracer.debug("performInteraction", function() { return { action: action, hasPayload: !!payload }; });
         try {
             let result = null;
 

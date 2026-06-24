@@ -1,12 +1,17 @@
 pragma Singleton
 import Quickshell
+import qs.services
 
 Singleton {
     id: root
 
+    readonly property var tracer: Logger.scope("launcher.bindingRegistry", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.bindingRegistry", { category: "launcher" })
+
     property var _bindings: ({})
 
     function register(nodeId, delegateProp, sourceObj, sourceProp) {
+        tracer.debug("register", function() { return { nodeId: nodeId, delegateProp: delegateProp }; });
         if (!nodeId || !delegateProp || !sourceObj || !sourceProp) {
             console.warn("BindingRegistry.register: invalid args", nodeId, delegateProp);
             return;
@@ -39,6 +44,7 @@ Singleton {
     }
 
     function applyBindings(delegate, nodeId) {
+        tracer.trace("applyBindings", function() { return { nodeId: nodeId, hasBindings: !!_bindings[nodeId] }; });
         if (!delegate || !nodeId || !_bindings[nodeId])
             return;
 

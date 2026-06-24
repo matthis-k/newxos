@@ -1,9 +1,12 @@
 import QtQuick
 import QtQml
 import QtQml.Models
+import qs.services
 import "../logic/DebugLogger.js" as DebugLogger
 
 Item {
+    readonly property var tracer: Logger.scope("launcher.navState", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.navState", { category: "launcher" })
     id: root
 
     property var controller: null
@@ -113,6 +116,7 @@ Item {
     }
 
     function clearResults() {
+        tracer.info("clearResults", function() { return { prevCount: results.length }; });
         results = [];
         resultsQuery = "";
         resetSelection();
@@ -123,6 +127,7 @@ Item {
     }
 
     function resetSelection() {
+        tracer.trace("resetSelection", function() { return {}; });
         selectedIndex = -1;
         selectedActionIndex = 0;
         treeAdapter.clear();
@@ -139,9 +144,8 @@ Item {
         return !controller || !controller.query || controller.query.trim().length === 0;
     }
 
-    function setResults(newResults, sourceQuery) {
-        if (controller && controller.debugEnabled)
-            console.warn("[NAV] setResults: count=" + (newResults ? newResults.length : 0) + " query=" + sourceQuery + " prevCount=" + results.length);
+    function _setResults(newResults, sourceQuery) {
+        tracer.info("setResults", function() { return { count: (newResults || []).length, query: sourceQuery, prevCount: results.length, sameQuery: (sourceQuery || "") === (resultsQuery || "") }; });
         var sameQuery = (sourceQuery || "") === (resultsQuery || "");
         var previousActiveKey = sameQuery ? activeNodeKey : "";
         var oldResults = results;
@@ -161,39 +165,33 @@ Item {
             oldResults, results, function(r) { return targets.rowKey(r); }
         );
 
-        if (controller && controller.debugEnabled) {
-            for (var i = 0; i < results.length; i += 1) {
-                var key = targets.rowKey(results[i]);
-                console.warn("[NAV] setResults: result[" + i + "] key=" + key + " alwaysExpanded=" + results[i].alwaysExpanded + " collapsed=" + !!collapseState.collapsedResultIndices[i] + " children=" + (results[i].children ? results[i].children.length : 0));
-            }
-        }
-
         var flatTargets = targets.flatten(results, collapseState.collapsedResultIndices, root.isRowSelectable);
         var selectedTarget = previousActiveKey
             ? flatTargets.find(function(t) { return t.key === previousActiveKey; })
             : null;
-        if (controller && controller.debugEnabled)
-            console.warn("[NAV] setResults: selecting target=" + (selectedTarget ? selectedTarget.key : (flatTargets.length > 0 ? flatTargets[0].key : "NONE")));
+        tracer.debug("setResults", function() { return { flatTargets: flatTargets.length, selectedKey: (selectedTarget || flatTargets[0] || {}).key, prevActiveKey: previousActiveKey }; });
         root.applyNavigationTarget(selectedTarget || (flatTargets.length > 0 ? flatTargets[0] : null));
     }
+
+    readonly property var setResults: prof.fn("setResults", _setResults)
 
     function registerResultTreeView(index, treeView) {
         treeAdapter.registerTreeView(index, treeView);
     }
 
-    function moveSelection(delta) {
+    function _moveSelection(delta) {
+        if (tracer.traceOn) tracer.trace("moveSelection", function() { return { delta: delta, activeNodeKey: activeNodeKey, results: results.length }; });
         var flatTargets = targets.flatten(results, collapseState.collapsedResultIndices, root.isRowSelectable);
         var nextTarget = targets.stepTarget(flatTargets, activeNodeKey, delta);
         if (!nextTarget) {
-            if (controller && controller.debugEnabled)
-                console.warn("[NAV] moveSelection: no targets, clearing");
+            tracer.debug("moveSelection", function() { return { action: "clear", reason: "no targets", delta: delta }; });
             root.applyNavigationTarget(null);
             return;
         }
-        if (controller && controller.debugEnabled)
-            console.warn("[NAV] moveSelection delta=" + delta + " activeNodeKey=" + activeNodeKey + " targets=" + flatTargets.length + " nextKey=" + nextTarget.key + " nextTitle=" + nextTarget.row.title + " nextDepth=" + nextTarget.depth + " nextParent=" + nextTarget.parentIndex);
         root.applyNavigationTarget(nextTarget);
     }
+
+    readonly property var moveSelection: prof.fn("moveSelection", _moveSelection)
 
     function navigationTargets() {
         return targets.flatten(results, collapseState.collapsedResultIndices, root.isRowSelectable);
@@ -203,28 +201,27 @@ Item {
         return treeAdapter.resolveTreeViewAtIndex(index);
     }
 
-    function applyNavigationTarget(target) {
+    function _applyNavigationTarget(target) {
         if (!target) {
-            if (controller && controller.debugEnabled)
-                console.warn("[NAV] applyNavigationTarget: null target, clearing");
+            tracer.debug("applyNavigationTarget", function() { return { action: "clear", reason: "null target" }; });
             selectedIndex = -1;
             activeNodeKey = "";
             treeAdapter.clear();
             return;
         }
+        var isTree = target.isTreeChild || target.depth > 0 || target.treeDepth > 0;
+        tracer.trace("applyNavigationTarget", function() { return { key: target.key, parentIndex: target.parentIndex, depth: target.depth || target.treeDepth, isTree: isTree }; });
         selectedIndex = target.parentIndex;
         selectedActionIndex = 0;
         activeNodeKey = target.key;
-        if (target.isTreeChild || target.depth > 0 || target.treeDepth > 0) {
-            if (controller && controller.debugEnabled)
-                console.warn("[NAV] applyNav: depth=" + (target.depth || target.treeDepth) + " parentIndex=" + target.parentIndex + " key=" + target.key);
+        if (isTree) {
             treeAdapter.syncSelection(target.parentIndex, target.key);
         } else {
-            if (controller && controller.debugEnabled)
-                console.warn("[NAV] applyNav: depth=0 exiting tree");
             treeAdapter.clear();
         }
     }
+
+    readonly property var applyNavigationTarget: prof.fn("applyNavigationTarget", _applyNavigationTarget)
 
     function syncTreeSelection(parentIndex, key) {
         return treeAdapter.syncSelection(parentIndex, key);

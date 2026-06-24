@@ -1,10 +1,14 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 import "logic/CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
+    readonly property var tracer: Logger.scope("launcher.policyRegistry", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.policyRegistry", { category: "launcher" })
     function registerEvidence(id, group, matchFn) {
+        tracer.trace("registerEvidence", function() { return { id: id, group: group }; });
         JsRegistry.evidence.register(id, {
             name: id,
             phase: "evidence",

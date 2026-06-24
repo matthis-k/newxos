@@ -1,8 +1,11 @@
 import QtQuick
 import QtQml
+import qs.services
 import "../logic/"
 
 Item {
+    readonly property var tracer: Logger.scope("launcher.debug", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.debug", { category: "launcher" })
     id: root
 
     property var controller: null
@@ -100,7 +103,7 @@ Item {
     function logJsonValidation(label, value) {
         var invalid = root.findInvalidJsonValue(value, "$", [], []);
         if (invalid) {
-            console.warn("[LAUNCHER PIPELINE DTO INVALID] " + label + " path=" + invalid.path + " reason=" + invalid.reason + " preview=" + invalid.preview);
+            tracer.warn("jsonValidation", function() { return { label: label, path: invalid.path, reason: invalid.reason, preview: invalid.preview }; });
             return false;
         }
         return true;
@@ -266,7 +269,8 @@ Item {
         return text;
     }
 
-    function debugBenchmark(arg) {
+    function _debugBenchmark(arg) {
+        tracer.info("debugBenchmark", function() { return { argLen: (arg || "").length }; });
         var config = parseBenchmarkConfig(arg);
         var queries = config.queries.slice(0, 32);
         var iterations = Math.max(1, Math.min(config.iterations, 20));
@@ -309,6 +313,8 @@ Item {
         return JSON.stringify(summary, null, 2);
     }
 
+    readonly property var debugBenchmark: prof.fn("debugBenchmark", _debugBenchmark)
+
     function parseBenchmarkConfig(arg) {
         var defaults = {
             iterations: 3,
@@ -343,6 +349,7 @@ Item {
 
     function debugApplyQuery(text) {
         text = root.resolveQueryArg(text);
+        tracer.info("debugApplyQuery", function() { return { query: text }; });
         controller.query = text || "";
         controller.generation += 1;
         if (!controller.query || controller.query.trim().length === 0) {
@@ -502,12 +509,13 @@ Item {
         return (phases || []).map(function(phase) { return root.summarizePhase(phase); }).filter(Boolean);
     }
 
-    function queryPipeline(text) {
+    function _queryPipeline(text) {
         var stage = "resolve";
         try {
             var pipelineConfig = root.parsePipelineConfig(text);
             text = pipelineConfig.query;
             stage = "search";
+            tracer.info("queryPipeline", function() { return { query: text, showHidden: pipelineConfig.showHidden, details: pipelineConfig.details }; });
             var output = Engine.search(controller.backends || [], text || "", controller.stateForSearch(),
                 Object.assign(controller.searchOptions(), { showHidden: pipelineConfig.showHidden, trace: true }));
             var diag = PolicyDiagnostics.empty();
@@ -582,13 +590,15 @@ Item {
             stage = "stringify";
             var encoded = JSON.stringify(payload);
             if (encoded.length > 100000)
-                console.warn("[LAUNCHER PIPELINE DTO OVERSIZE] query=" + (text || "") + " bytes=" + encoded.length + " focus=" + (pipelineConfig.focusNodeId || ""));
+                tracer.warn("pipelineOversize", function() { return { query: text, bytes: encoded.length, focus: pipelineConfig.focusNodeId || "" }; });
             return encoded;
         } catch (error) {
-            console.warn("[LAUNCHER PIPELINE DTO ERROR] stage=" + stage + " query=" + (text || "") + " error=" + String(error));
+            tracer.error("queryPipeline", function() { return { stage: stage, query: text, error: String(error) }; });
             return JSON.stringify({ version: 3, type: "pipeline", query: text || "", error: String(error), stage: stage });
         }
     }
+
+    readonly property var queryPipeline: prof.fn("queryPipeline", _queryPipeline)
 
     function queryPolicies(text) {
         text = root.resolveQueryArg(text);
@@ -708,7 +718,7 @@ Item {
             "db wifi", "dashboard wifi",
             "au", "aud", "audi", "audio",
             "en", "screen", "session",
-            "newxos", "ai", "vpn", "vpn ", "vpn ger", "vpn germany", "vpn of",
+            "newxos", "ai", "vpn", "vpn ", "vpn ger", "vpn germany", "vpn of", "vpn no", "vpn nor", "vpn norway",
             "ger", "alg", "bel", "swe", "germany", "algeria", "belgium", "sweden",
             "net", "network", "networking", "bluetooth",
             "notes", "/tmp"
@@ -768,7 +778,8 @@ Item {
         return JSON.stringify(safe)
     }
 
-    function resolveEvaluation(argsJson) {
+    function _resolveEvaluation(argsJson) {
+        tracer.trace("resolveEvaluation", function() { return { argsLen: (argsJson || "").length }; });
         var args = root.parseDebugArgs(argsJson);
 
         // IPC boundary hardening: validate input before touching pipeline
@@ -822,7 +833,10 @@ Item {
         return { args: args, error: { code: "unknown_source", message: "Unknown source '" + source + "'. Supported: query, current" } };
     }
 
+    readonly property var resolveEvaluation: prof.fn("resolveEvaluation", _resolveEvaluation)
+
     function debugOverview(argsJson) {
+        tracer.trace("debugOverview", function() { return {}; });
         var resolved = root.resolveEvaluation(argsJson);
         if (resolved.error) return root.returnDebugEnvelope("overview", null, resolved.error, "error");
         var args = resolved.args || {};
@@ -831,6 +845,7 @@ Item {
     }
 
     function debugInspect(argsJson) {
+        tracer.trace("debugInspect", function() { return { argsLen: (argsJson || "").length }; });
         var resolved = root.resolveEvaluation(argsJson);
         if (resolved.error) return root.returnDebugEnvelope("inspect", null, resolved.error, "error");
         var args = resolved.args || {};
@@ -843,6 +858,7 @@ Item {
     }
 
     function debugPolicies(argsJson) {
+        tracer.trace("debugPolicies", function() { return {}; });
         var resolved = root.resolveEvaluation(argsJson);
         if (resolved.error) return root.returnDebugEnvelope("policies", null, resolved.error, "error");
         var args = resolved.args || {};
@@ -855,6 +871,7 @@ Item {
     }
 
     function debugFind(argsJson) {
+        tracer.trace("debugFind", function() { return {}; });
         var resolved = root.resolveEvaluation(argsJson);
         if (resolved.error) return root.returnDebugEnvelope("find", null, resolved.error, "error");
         var args = resolved.args || {};
@@ -869,6 +886,7 @@ Item {
     }
 
     function debugAction(argsJson) {
+        tracer.trace("debugAction", function() { return {}; });
         var resolved = root.resolveEvaluation(argsJson);
         if (resolved.error) return root.returnDebugEnvelope("action", null, resolved.error, "error");
         var args = resolved.args || {};
@@ -881,6 +899,7 @@ Item {
     }
 
     function debugStats(argsJson) {
+        tracer.trace("debugStats", function() { return {}; });
         var resolved = root.resolveEvaluation(argsJson);
         if (resolved.error) return root.returnDebugEnvelope("stats", null, resolved.error, "error");
         var args = resolved.args || {};
@@ -893,6 +912,7 @@ Item {
     }
 
     function debugRaw(argsJson) {
+        tracer.trace("debugRaw", function() { return {}; });
         var resolved = root.resolveEvaluation(argsJson);
         if (resolved.error) return root.returnDebugEnvelope("raw", null, resolved.error, "error");
         var args = resolved.args || {};

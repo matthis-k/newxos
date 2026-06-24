@@ -1,8 +1,11 @@
 import QtQuick
 import QtQml
+import qs.services
 import "../logic/"
 
 Item {
+    readonly property var tracer: Logger.scope("launcher.actions", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.actions", { category: "launcher" })
     id: root
 
     property var controller: null
@@ -39,7 +42,8 @@ Item {
         controlHandler: controlHandler
     }
 
-    function activateSelected(shiftPressed) {
+    function _activateSelected(shiftPressed) {
+        tracer.info("activateSelected", function() { return { shiftPressed: shiftPressed, inTree: root.controller ? root.controller.isInTree() : false }; });
         if (root.controller && root.controller.isInTree()) {
             if (root.controller.currentTreeKey)
                 return targetResolver.activateTreeRowByKey(root.controller.currentTreeKey, null);
@@ -55,12 +59,20 @@ Item {
         });
     }
 
-    function activateWithConfirmation(target, activationFn) {
-        if (!target || typeof activationFn !== "function")
+    readonly property var activateSelected: prof.fn("activateSelected", _activateSelected)
+
+    function _activateWithConfirmation(target, activationFn) {
+        if (!target || typeof activationFn !== "function") {
+            tracer.debug("activateWithConfirmation", function() { return { reason: !target ? "no target" : "activationFn not function" }; });
             return false;
+        }
         var check = confirmHandler.checkActivation(target);
-        if (!check.confirmed)
+        if (!check.confirmed) {
+            tracer.debug("activateWithConfirmation", function() { return { action: "needsConfirm", targetId: target.id || target.nodeId || "" }; });
             return false;
+        }
+
+        tracer.info("activateWithConfirmation", function() { return { targetId: target.id || target.nodeId || "" }; });
 
         if (root.controller)
             root.controller.confirmationSatisfied = true;
@@ -72,20 +84,29 @@ Item {
         }
     }
 
+    readonly property var activateWithConfirmation: prof.fn("activateWithConfirmation", _activateWithConfirmation)
+
     function requiresConfirm(activation) {
         return confirmHandler.requiresConfirm(activation);
     }
 
     function completeSelected() {
         var result = root.controller ? root.controller.selectedResult() : null;
-        if (!result)
+        if (!result) {
+            tracer.debug("completeSelected", function() { return { reason: "no result" }; });
             return false;
+        }
+        tracer.info("completeSelected", function() { return { title: result.title, source: result.source || result.backendId }; });
         return root.executeRecipeSlot(result, "complete");
     }
 
-    function activateResult(result, action) {
-        if (!result || !action)
+    function _activateResult(result, action) {
+        if (!result || !action) {
+            tracer.debug("activateResult", function() { return { reason: !result ? "no result" : "no action" }; });
             return false;
+        }
+
+        tracer.info("activateResult", function() { return { resultId: result.id || result.nodeId || "", actionId: action.id || "" }; });
         if (result.metadata && result.metadata.replaceQuery) {
             var editResult = ActionRegistry.executeRecipe([["edit-query", { from: "metadata.replaceQuery" }]], result, root.controller);
             return !!editResult.success;
@@ -97,13 +118,20 @@ Item {
         });
     }
 
-    function executeRecipeSlot(target, slotName) {
-        if (!target)
+    readonly property var activateResult: prof.fn("activateResult", _activateResult)
+
+    function _executeRecipeSlot(target, slotName) {
+        if (!target) {
+            tracer.debug("executeRecipeSlot", function() { return { reason: "no target" }; });
             return { close: false };
+        }
         var recipe = RecipeResolver.effectiveRecipe(target, slotName || "activate", {});
         var recipeResult = ActionRegistry.executeRecipe(recipe, target, root.controller);
+        tracer.trace("executeRecipeSlot", function() { return { slot: slotName, targetId: target.id || target.nodeId || "", close: !!recipeResult.close, success: recipeResult.success }; });
         return { close: !!recipeResult.close, success: recipeResult.success };
     }
+
+    readonly property var executeRecipeSlot: prof.fn("executeRecipeSlot", _executeRecipeSlot)
 
     function applyIntent(result, intent) {
         return legacyIntentExecutor.applyIntent(result, intent);
@@ -134,8 +162,11 @@ Item {
     }
 
     function runRecipe(recipe, target) {
-        if (!recipe || !target)
+        if (!recipe || !target) {
+            tracer.debug("runRecipe", function() { return { reason: !recipe ? "no recipe" : "no target" }; });
             return { close: false };
+        }
+        tracer.trace("runRecipe", function() { return { recipeLen: recipe.length, targetId: target.id || target.nodeId || "" }; });
         return ActionRegistry.executeRecipe(recipe, target, root.controller);
     }
 
@@ -153,16 +184,18 @@ Item {
 
     function runInteractionForKey(keyName) {
         var target = root.selectedActionTarget();
-        if (!target)
-            return { close: false, success: false };
-
-        var interactions = root.effectiveInteractionsForTarget(target);
-        if (!interactions || !interactions[keyName]) {
-            if (root.controller && root.controller.debugEnabled)
-                console.warn("[Actions] no interaction for key: " + keyName);
+        if (!target) {
+            tracer.debug("runInteractionForKey", function() { return { key: keyName, reason: "no target" }; });
             return { close: false, success: false };
         }
 
+        var interactions = root.effectiveInteractionsForTarget(target);
+        if (!interactions || !interactions[keyName]) {
+            tracer.debug("runInteractionForKey", function() { return { key: keyName, reason: "no matching interaction" }; });
+            return { close: false, success: false };
+        }
+
+        tracer.info("runInteractionForKey", function() { return { key: keyName, targetId: target.id || target.nodeId || "" }; });
         return root.runRecipe(interactions[keyName].recipe, target);
     }
 
@@ -189,6 +222,7 @@ Item {
     }
 
     function _handleActivationWithConfirm() {
+        tracer.info("_handleActivationWithConfirm", function() { return {}; });
         if (root.controller && root.controller.isInTree()) {
             if (root.controller.currentTreeKey)
                 return { close: targetResolver.activateTreeRowByKey(root.controller.currentTreeKey, null), closeRequested: false };

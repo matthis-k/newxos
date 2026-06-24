@@ -1,8 +1,11 @@
 import QtQuick
 import QtQml
 import QtQml.Models
+import qs.services
 
 QtObject {
+    readonly property var tracer: Logger.scope("launcher.treeAdapter", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.treeAdapter", { category: "launcher" })
     id: root
 
     property var controller: null
@@ -16,8 +19,7 @@ QtObject {
 
     function registerTreeView(index, treeView) {
         if (index < 0 || !treeView) return;
-        if (root.controller && root.controller.debugEnabled)
-            console.warn("[NAV] registerResultTreeView index=" + index + " rows=" + treeView.rows + " currentTreeKey=" + currentTreeKey);
+        tracer.debug("registerTreeView", function() { return { index: index, rows: treeView.rows, currentKey: currentTreeKey }; });
         resultTreeViews[index] = treeView;
         if (index === (root.controller ? root.controller.selectedIndex : -1) && currentTreeKey)
             root.syncSelection(index, currentTreeKey);
@@ -25,34 +27,27 @@ QtObject {
 
     function resolveTreeViewAtIndex(index) {
         if (resultTreeViews[index]) {
-            if (root.controller && root.controller.debugEnabled)
-                console.warn("[NAV] resolveTreeView: cache hit index=" + index + " rows=" + resultTreeViews[index].rows);
+            tracer.debug("resolveTreeView", function() { return { index: index, cache: "hit", rows: resultTreeViews[index].rows }; });
             return resultTreeViews[index];
         }
-        if (root.controller && root.controller.debugEnabled)
-            console.warn("[NAV] resolveTreeView: cache miss index=" + index + " resultView=" + !!resultView);
-        if (!resultView || index < 0)
+        if (!resultView || index < 0) {
+            tracer.debug("resolveTreeView", function() { return { index: index, cache: "miss", resultView: !!resultView }; });
             return null;
+        }
         var loader = resultView.itemAt(index);
-        if (root.controller && root.controller.debugEnabled)
-            console.warn("[NAV] resolveTreeView: loader=" + !!loader + " item=" + !!(loader && loader.item) + " treeView=" + !!(loader && loader.item && loader.item.treeView));
         if (loader && loader.item && loader.item.treeView) {
             resultTreeViews[index] = loader.item.treeView;
-            if (root.controller && root.controller.debugEnabled)
-                console.warn("[NAV] resolveTreeView: resolved from UI rows=" + loader.item.treeView.rows);
+            tracer.debug("resolveTreeView", function() { return { index: index, cache: "resolved", rows: loader.item.treeView.rows }; });
             return loader.item.treeView;
         }
         return null;
     }
 
-    function syncSelection(parentIndex, key) {
+    function _syncSelection(parentIndex, key) {
         currentTreeView = resolveTreeViewAtIndex(parentIndex);
         currentTreeKey = key;
-        if (root.controller && root.controller.debugEnabled)
-            console.warn("[NAV] syncTreeSelection: currentTreeView=" + !!currentTreeView + " model=" + !!(currentTreeView && currentTreeView.model) + " viewRows=" + (currentTreeView ? currentTreeView.rows : "N/A"));
         treeVisualRow = currentTreeView ? root.findVisualRow(currentTreeView, key) : -1;
-        if (root.controller && root.controller.debugEnabled)
-            console.warn("[NAV] syncTreeSelection: treeVisualRow=" + treeVisualRow);
+        tracer.trace("syncSelection", function() { return { parentIndex: parentIndex, key: key, hasTreeView: !!currentTreeView, visualRow: treeVisualRow }; });
         if (!currentTreeView || treeVisualRow < 0)
             return false;
         var idx = currentTreeView.index(treeVisualRow, 0);
@@ -62,6 +57,8 @@ QtObject {
         }
         return false;
     }
+
+    readonly property var syncSelection: prof.fn("syncSelection", _syncSelection)
 
     function findVisualRow(treeView, key) {
         if (!treeView || !treeView.model || !key) return -1;
@@ -117,10 +114,9 @@ QtObject {
         return true;
     }
 
-    function treeCollapseSelected() {
+    function _treeCollapseSelected() {
         if (!currentTreeView) {
-            if (root.controller && root.controller.debugEnabled)
-                console.warn("[NAV] treeCollapseSelected without tree");
+            tracer.debug("treeCollapseSelected", function() { return { reason: "no tree" }; });
             return false;
         }
         if (treeVisualRow >= 0) {
@@ -129,8 +125,7 @@ QtObject {
                     currentTreeView.collapseAnimated(treeVisualRow);
                 else
                     currentTreeView.collapse(treeVisualRow);
-                if (root.controller && root.controller.debugEnabled)
-                    console.warn("[NAV] treeCollapseSelected collapsed current row", { row: treeVisualRow, key: currentTreeKey });
+                tracer.trace("treeCollapseSelected", function() { return { action: "collapseCurrent", row: treeVisualRow, key: currentTreeKey }; });
                 return true;
             }
             var idx = currentTreeView.index(treeVisualRow, 0);
@@ -146,20 +141,19 @@ QtObject {
                 treeVisualRow = parentIdx.row;
                 var keyIdx = currentTreeView.index(parentIdx.row, 9);
                 currentTreeKey = keyIdx.valid ? currentTreeView.model.data(keyIdx, "display") : "";
-                if (root.controller && root.controller.debugEnabled)
-                    console.warn("[NAV] treeCollapseSelected collapsed parent row", { row: treeVisualRow, key: currentTreeKey });
+                tracer.trace("treeCollapseSelected", function() { return { action: "collapseParent", row: treeVisualRow, key: currentTreeKey }; });
                 return true;
             }
         }
-        if (root.controller && root.controller.debugEnabled)
-            console.warn("[NAV] treeCollapseSelected not handled", { row: treeVisualRow, key: currentTreeKey });
+        tracer.debug("treeCollapseSelected", function() { return { action: "notHandled", row: treeVisualRow, key: currentTreeKey }; });
         return false;
     }
 
-    function treeExpandSelected() {
+    readonly property var treeCollapseSelected: prof.fn("treeCollapseSelected", _treeCollapseSelected)
+
+    function _treeExpandSelected() {
         if (!currentTreeView || treeVisualRow < 0) {
-            if (root.controller && root.controller.debugEnabled)
-                console.warn("[NAV] treeExpandSelected without row", { row: treeVisualRow, key: currentTreeKey });
+            tracer.debug("treeExpandSelected", function() { return { reason: "no row", row: treeVisualRow, key: currentTreeKey }; });
             return false;
         }
         var idx = currentTreeView.index(treeVisualRow, 0);
@@ -167,18 +161,18 @@ QtObject {
             ? currentTreeView.model.hasChildren(idx)
             : false;
         if (!hasChildren) {
-            if (root.controller && root.controller.debugEnabled)
-                console.warn("[NAV] treeExpandSelected leaf not handled", { row: treeVisualRow, key: currentTreeKey });
+            tracer.debug("treeExpandSelected", function() { return { reason: "leaf", row: treeVisualRow, key: currentTreeKey }; });
             return false;
         }
         if (typeof currentTreeView.expandAnimated === "function")
             currentTreeView.expandAnimated(treeVisualRow);
         else
             currentTreeView.expand(treeVisualRow);
-        if (root.controller && root.controller.debugEnabled)
-            console.warn("[NAV] treeExpandSelected expanded current row", { row: treeVisualRow, key: currentTreeKey });
+        tracer.trace("treeExpandSelected", function() { return { action: "expanded", row: treeVisualRow, key: currentTreeKey }; });
         return true;
     }
+
+    readonly property var treeExpandSelected: prof.fn("treeExpandSelected", _treeExpandSelected)
 
     function treeToggleSelected() {
         if (!currentTreeView || treeVisualRow < 0) return false;
