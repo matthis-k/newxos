@@ -9,12 +9,26 @@ import "PolicyChain.qml"
 import "ResultSemantics.qml"
 import "TakeoverEngine.qml"
 import "DecisionTrace.qml"
+import "DecisionDecider.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
     id: root
     readonly property var prof: Profiler.scope("launcher.shaping", { category: "launcher" })
     readonly property var tracer: Logger.scope("launcher.shaping", { category: "launcher" })
+
+    function resultDecision(result) {
+        return result ? (result.decision !== undefined ? result.decision : result.value) : null;
+    }
+
+    function resultReason(result, fallback) {
+        if (!result) return fallback || "";
+        var r = result.reason;
+        if (r) return r;
+        if (result.reasons && result.reasons.length > 0)
+            return result.reasons[0].text;
+        return fallback || "";
+    }
 
     function _shape(evaluatedRoot, state, ctx) {
         tracer.trace("shape", function() { return { rootId: evaluatedRoot && evaluatedRoot.node && evaluatedRoot.node.id, childCount: (evaluatedRoot && evaluatedRoot.children || []).length }; });
@@ -173,7 +187,7 @@ Singleton {
         var nestingNames = profile.nesting || [];
         if (nestingNames.length === 0) return null;
         var raw = evaluatePolicies(ev, ctx, nestingNames, JsRegistry.nesting);
-        return raw && raw.value;
+        return raw && raw.decision;
     }
 
     function _decidePlacement(ev, ctx) {
@@ -221,7 +235,7 @@ Singleton {
                             : nestingResult.includeChildren === "matching" ? eligibleChildren(ev.children, { includeAllChildren: false, minScore: 0.05 })
                             : [];
                         if (nestingKids.length > 0) {
-                            DecisionTrace.final(ev, ctx, "nesting", { override: "takeover", children: nestingKids.length }, [{ code: "nesting_override", text: nestingResult.reason }]);
+                            DecisionTrace.final(ev, ctx, "nesting", { override: "takeover", children: nestingKids.length }, [{ code: "nesting_override", text: resultReason(nestingResult, "nesting override") }]);
                             return _d({
                                 placement: "nested-group",
                                 mode: "nested-group",
@@ -303,7 +317,7 @@ Singleton {
                     var expandShowParent = true;
                     if (retainNames.length > 0) {
                         var retainRaw = evaluatePolicies(ev, ctx, retainNames, JsRegistry.retainParent);
-                        var retainResult = retainRaw && retainRaw.value;
+                        var retainResult = resultDecision(retainRaw);
                         if (retainResult && retainResult.retain === false)
                             expandShowParent = false;
                     }
@@ -332,7 +346,7 @@ Singleton {
         }
         if (!explicitExpand && expandNames.length > 0) {
             var expandRaw = evaluatePolicies(ev, ctx, expandNames, JsRegistry.expand);
-            expandResult = expandRaw && expandRaw.value;
+            expandResult = resultDecision(expandRaw);
             if (expandResult && expandResult.expand && ev.children && ev.children.length > 0) {
                 var expandKids = eligibleChildren(ev.children, {
                     includeAllChildren: !!expandResult.includeAllChildren,
@@ -344,7 +358,7 @@ Singleton {
                     var expandShowParent = true;
                     if (retainNames.length > 0) {
                         var retainRaw = evaluatePolicies(ev, ctx, retainNames, JsRegistry.retainParent);
-                        var retainResult = retainRaw && retainRaw.value;
+                        var retainResult = resultDecision(retainRaw);
                         if (retainResult && retainResult.retain === false)
                             expandShowParent = false;
                     }
@@ -364,7 +378,7 @@ Singleton {
         // 3. Retain-only (no expand or expand produced no children)
         if (retainNames.length > 0) {
             var retainRaw = evaluatePolicies(ev, ctx, retainNames, JsRegistry.retainParent);
-            var retainResult = retainRaw && retainRaw.value;
+            var retainResult = resultDecision(retainRaw);
             if (retainResult && retainResult.retain === false && ev.children && ev.children.length > 0) {
                 var retainKids = eligibleChildren(ev.children, { includeAllChildren: true });
                 DecisionTrace.final(ev, ctx, "retain", { retain: false, children: retainKids.length }, [{ code: "retain_suppress", text: "Retain suppressed parent, flattening " + retainKids.length + " children" }]);
@@ -402,7 +416,10 @@ Singleton {
     function attachNesting(decision, nestingResult, ownershipResult) {
         if (!nestingResult && !ownershipResult) return decision;
         var ext = {};
-        if (nestingResult) ext.nesting = { intent: nestingResult.intent, includeChildren: nestingResult.includeChildren, reason: nestingResult.reason };
+        if (nestingResult) {
+            var nestingReason = resultReason(nestingResult, "nesting");
+            ext.nesting = { intent: nestingResult.intent, includeChildren: nestingResult.includeChildren, reason: nestingReason };
+        }
         if (ownershipResult) ext.ownership = { visualOwnerId: ownershipResult.visualOwnerId, selectedOwnerId: ownershipResult.selectedOwnerId, actionOwnerId: ownershipResult.actionOwnerId, suppressParentActions: ownershipResult.suppressParentActions, reason: ownershipResult.reason };
         return Object.assign({}, decision, ext);
     }

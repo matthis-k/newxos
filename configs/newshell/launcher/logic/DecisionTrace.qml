@@ -14,10 +14,9 @@ Singleton {
         if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
     }
 
-    function policy(ev, ctx, kind, name, returned, effect, reasons) {
-        if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
+    function ensureTrace(ev, ctx, kind) {
+        if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return null;
         var nid = ev.node.id;
-        tracer.trace("policy", function() { return { nodeId: nid, kind: kind, name: name, effect: effect }; });
         if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
         if (!ctx._policyTrace[nid][kind]) {
             ctx._policyTrace[nid][kind] = {
@@ -27,14 +26,59 @@ Singleton {
                 final: null
             };
         }
+        return ctx._policyTrace[nid][kind];
+    }
+
+    function policy(ev, ctx, kind, voteOrName, returned, effect, reasons) {
+        if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
+        var nid = ev.node.id;
+        tracer.trace("policy", function() { return { nodeId: nid, kind: kind, voteType: typeof voteOrName, effect: effect }; });
+        if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
+        if (!ctx._policyTrace[nid][kind]) {
+            ctx._policyTrace[nid][kind] = {
+                kind: kind,
+                evaluated: [],
+                aggregate: null,
+                final: null
+            };
+        }
+
+        // Normalize voteOrName: if it's an object with policy/priority, treat as normalized vote
+        var name, priority;
+        if (typeof voteOrName === "object" && voteOrName !== null && !Array.isArray(voteOrName) && voteOrName.policy !== undefined) {
+            name = String(voteOrName.policy || kind);
+            priority = Number(voteOrName.priority) || 0;
+        } else if (typeof voteOrName === "object" && voteOrName !== null && voteOrName.name !== undefined) {
+            // PolicyChain trace callback format
+            name = String(voteOrName.name || kind);
+            priority = Number(voteOrName.priority) || 0;
+        } else {
+            name = String(voteOrName || kind);
+            priority = 0;
+        }
+
+        var returnedVal = returned !== undefined ? returned : null;
+        var reasonsList = (reasons || []).slice();
+
         ctx._policyTrace[nid][kind].evaluated.push({
-            name: String(name || kind),
-            priority: 0,
+            name: name,
+            priority: priority,
             enabled: true,
-            returned: returned !== undefined ? returned : null,
+            returned: returnedVal,
             effect: String(effect || "no-op"),
-            reasons: (reasons || []).slice()
+            reasons: reasonsList
         });
+    }
+
+    function aggregate(ev, ctx, kind, strategy, result, reasons) {
+        var trace = ensureTrace(ev, ctx, kind);
+        if (!trace) return;
+        trace.aggregate = {
+            strategy: strategy || "unknown",
+            inputCount: (trace.evaluated || []).length,
+            result: result,
+            reasons: (reasons || []).slice()
+        };
     }
 
     function placement(ev, ctx, decision) {
@@ -60,14 +104,10 @@ Singleton {
     }
 
     function final(ev, ctx, kind, value, reasons) {
-        if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
-        var nid = ev.node.id;
-        tracer.trace("final", function() { return { nodeId: nid, kind: kind }; });
-        if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
-        if (!ctx._policyTrace[nid][kind]) {
-            ctx._policyTrace[nid][kind] = { kind: kind, evaluated: [], aggregate: null, final: null };
-        }
-        ctx._policyTrace[nid][kind].final = {
+        var trace = ensureTrace(ev, ctx, kind);
+        if (!trace) return;
+        tracer.trace("final", function() { return { nodeId: ev.node.id, kind: kind }; });
+        trace.final = {
             value: value,
             reasons: (reasons || []).slice()
         };

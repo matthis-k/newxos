@@ -99,7 +99,7 @@ Singleton {
             return policy.apply(node, ctx, runtime, spec && spec.args);
         }, "first-wins");
 
-        var gateValue = gateResult && gateResult.value;
+        var gateValue = gateResult && gateResult.decision;
         if (gateValue && gateValue.allowed !== undefined) {
             allowed = gateValue.allowed;
         }

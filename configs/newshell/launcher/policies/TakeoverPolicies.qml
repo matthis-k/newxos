@@ -29,36 +29,44 @@ QtObject {
         });
 
         Launcher.PolicyRegistry.registerTakeoverAccept("accept-all-claims", function(parentEv, claims, ctx, args) {
-            if (!claims || !claims.length) return { accepted: false, reason: "no claims" };
+            if (!claims || !claims.length) return { decision: { accepted: false, reason: "no claims" }, reasons: [{ code: "no_claims", text: "no claims" }] };
             var best = claims[0];
             return {
-                accepted: true,
-                ownerId: best.claimantId,
-                representation: "promote-child",
-                retainParent: false,
-                suppressParentActions: true,
-                selectedOwnerId: best.claimantId,
-                defaultActionOwnerId: best.claimantId,
-                activation: "normal",
-                reason: "accept-all-claims: accepted claim from " + best.claimantId
+                decision: {
+                    accepted: true,
+                    ownerId: best.claimantId,
+                    representation: "promote-child",
+                    retainParent: false,
+                    suppressParentActions: true,
+                    selectedOwnerId: best.claimantId,
+                    defaultActionOwnerId: best.claimantId,
+                    activation: "normal",
+                    includeAllChildren: false,
+                    reason: "accept-all-claims: accepted claim from " + best.claimantId
+                },
+                reasons: [{ code: "accept_all", text: "accept-all-claims: accepted claim from " + best.claimantId }]
             };
         });
 
         Launcher.PolicyRegistry.registerTakeoverAccept("accept-explicit-claims", function(parentEv, claims, ctx, args) {
-            if (!claims || !claims.length) return { accepted: false, reason: "no claims" };
+            if (!claims || !claims.length) return { decision: { accepted: false, reason: "no claims" }, reasons: [{ code: "no_claims", text: "no claims" }] };
             var explicitClaims = claims.filter(function(c) { return c.strength >= 0.7; });
-            if (explicitClaims.length === 0) return { accepted: false, reason: "no explicit claims (strength < 0.7)" };
+            if (explicitClaims.length === 0) return { decision: { accepted: false, reason: "no explicit claims (strength < 0.7)" }, reasons: [{ code: "no_explicit_claims", text: "no explicit claims (strength < 0.7)" }] };
             var best = explicitClaims[0];
             return {
-                accepted: true,
-                ownerId: best.claimantId,
-                representation: "promote-child",
-                retainParent: false,
-                suppressParentActions: true,
-                selectedOwnerId: best.claimantId,
-                defaultActionOwnerId: best.claimantId,
-                activation: "normal",
-                reason: "accept-explicit-claims: accepted strong claim from " + best.claimantId
+                decision: {
+                    accepted: true,
+                    ownerId: best.claimantId,
+                    representation: "promote-child",
+                    retainParent: false,
+                    suppressParentActions: true,
+                    selectedOwnerId: best.claimantId,
+                    defaultActionOwnerId: best.claimantId,
+                    activation: "normal",
+                    includeAllChildren: false,
+                    reason: "accept-explicit-claims: accepted strong claim from " + best.claimantId
+                },
+                reasons: [{ code: "accept_explicit", text: "accept-explicit-claims: accepted strong claim from " + best.claimantId }]
             };
         });
     }

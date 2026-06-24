@@ -17,33 +17,39 @@ QtObject {
 
         var blockLevels = specArgs && specArgs.blockLevels || [];
         if (blockLevels.length > 0 && blockLevels.indexOf(level) >= 0) {
-            return { allowed: false, mode: "blocked", reason: "risk-gate: blocked risk level " + level };
+            return {
+                decision: { allowed: false, mode: "blocked" },
+                reasons: [{ code: "blocked_level", text: "risk-gate: blocked risk level " + level }]
+            };
         }
 
         switch (mode) {
         case "blocked":
-            return { allowed: false, reason: "risk-gate: execution blocked by policy", mode: "blocked" };
+            return {
+                decision: { allowed: false, mode: "blocked" },
+                reasons: [{ code: "blocked", text: "risk-gate: execution blocked by policy" }]
+            };
         case "confirm":
             return {
-                allowed: upstreamAllowed === false ? false : undefined,
-                reason: "risk-gate: confirmation required",
-                mode: "confirm"
+                decision: { allowed: upstreamAllowed === false ? false : undefined, mode: "confirm" },
+                reasons: [{ code: "confirm_required", text: "risk-gate: confirmation required" }]
             };
         case "confirm-and-explicit-prefix":
             return {
-                allowed: upstreamAllowed === false ? false : undefined,
-                reason: "risk-gate: confirmation and explicit prefix required",
-                mode: "confirm-and-explicit-prefix"
+                decision: { allowed: upstreamAllowed === false ? false : undefined, mode: "confirm-and-explicit-prefix" },
+                reasons: [{ code: "confirm_and_prefix_required", text: "risk-gate: confirmation and explicit prefix required" }]
             };
         case "explicit-prefix":
         case "explicit-prefix-only":
             return {
-                allowed: upstreamAllowed === false ? false : undefined,
-                reason: "risk-gate: explicit prefix required",
-                mode: mode
+                decision: { allowed: upstreamAllowed === false ? false : undefined, mode: mode },
+                reasons: [{ code: "prefix_required", text: "risk-gate: explicit prefix required" }]
             };
         default:
-            return { allowed: undefined, reason: "risk-gate: normal activation", mode: "normal" };
+            return {
+                decision: { allowed: undefined, mode: "normal" },
+                reasons: [{ code: "normal_activation", text: "risk-gate: normal activation" }]
+            };
         }
     }
 
@@ -51,13 +57,15 @@ QtObject {
         Launcher.PolicyRegistry.registerRiskGate("risk-gate", riskGateApply);
         Launcher.PolicyRegistry.registerRiskGate("risk-gate-confirm", function(node, ctx, runtime, specArgs) {
             return {
-                allowed: runtime && runtime.allowed === false ? false : undefined,
-                mode: "confirm",
-                reason: "risk-gate: confirm required"
+                decision: { allowed: runtime && runtime.allowed === false ? false : undefined, mode: "confirm" },
+                reasons: [{ code: "confirm_required", text: "risk-gate: confirm required" }]
             };
         });
         Launcher.PolicyRegistry.registerRiskGate("risk-gate-block", function(node, ctx, runtime, specArgs) {
-            return { allowed: false, mode: "blocked", reason: "risk-gate: blocked" };
+            return {
+                decision: { allowed: false, mode: "blocked" },
+                reasons: [{ code: "blocked", text: "risk-gate: blocked" }]
+            };
         });
     }
 }

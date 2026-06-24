@@ -10,12 +10,14 @@ QtObject {
     Component.onCompleted: {
         Launcher.PolicyRegistry.registerNesting("self-item", function(ev, ctx, args) {
             return {
-                intent: "self-item",
-                includeChildren: "none",
-                childSource: "evaluated-children",
-                retainContext: false,
-                allowVisualTakeover: true,
-                reason: "self-item: standalone leaf result"
+                decision: {
+                    intent: "self-item",
+                    includeChildren: "none",
+                    childSource: "evaluated-children",
+                    retainContext: false,
+                    allowVisualTakeover: true
+                },
+                reasons: [{ code: "self_item", text: "self-item: standalone leaf result" }]
             };
         });
 
@@ -25,14 +27,14 @@ QtObject {
             var residual = (ev && ev.tokenFlow && ev.tokenFlow.passed) ? ev.tokenFlow.passed.length : 0;
             var isBrowse = ownMatched && trailing && residual === 0;
             return {
-                intent: isBrowse ? "self-group" : "self-item",
-                includeChildren: isBrowse ? "all" : "none",
-                childSource: "evaluated-children",
-                retainContext: isBrowse,
-                allowVisualTakeover: false,
-                reason: isBrowse
-                    ? "self-group-on-trailing-space: trailing browse includes all children"
-                    : "self-group-on-trailing-space: not a trailing browse"
+                decision: {
+                    intent: isBrowse ? "self-group" : "self-item",
+                    includeChildren: isBrowse ? "all" : "none",
+                    childSource: "evaluated-children",
+                    retainContext: isBrowse,
+                    allowVisualTakeover: !isBrowse
+                },
+                reasons: [{ code: isBrowse ? "trailing_browse_group" : "not_browse", text: isBrowse ? "self-group-on-trailing-space: trailing browse includes all children" : "self-group-on-trailing-space: not a trailing browse" }]
             };
         });
 
@@ -42,14 +44,14 @@ QtObject {
             var residual = (ev && ev.tokenFlow && ev.tokenFlow.passed) ? ev.tokenFlow.passed.length : 0;
             var hasResidualSearch = ownMatched && !trailing && residual > 0;
             return {
-                intent: hasResidualSearch ? "self-group" : "parent-item",
-                includeChildren: hasResidualSearch ? "matching" : "none",
-                childSource: "evaluated-children",
-                retainContext: true,
-                allowVisualTakeover: false,
-                reason: hasResidualSearch
-                    ? "self-group-with-matching-children: " + residual + " residual tokens filter children"
-                    : "self-group-with-matching-children: no residual tokens"
+                decision: {
+                    intent: hasResidualSearch ? "self-group" : "parent-item",
+                    includeChildren: hasResidualSearch ? "matching" : "none",
+                    childSource: "evaluated-children",
+                    retainContext: true,
+                    allowVisualTakeover: !hasResidualSearch
+                },
+                reasons: [{ code: hasResidualSearch ? "residual_group" : "no_residual", text: hasResidualSearch ? "self-group-with-matching-children: " + residual + " residual tokens filter children" : "self-group-with-matching-children: no residual tokens" }]
             };
         });
 
@@ -66,15 +68,14 @@ QtObject {
             var isGroup = ownMatched && (isBrowse || hasResidualSearch);
             var childInfo = ev && ev.children ? "kids=" + ev.children.length + " vis=" + ev.children.filter(function(c) { return c.visible; }).length + " cand=" + ev.children.filter(function(c) { return c.candidate; }).length : "no-ev-children";
             return {
-                intent: isGroup ? "self-group" : "parent-item",
-                includeChildren: include,
-                childSource: "evaluated-children",
-                retainContext: true,
-                allowVisualTakeover: false,
-                reason: isGroup
-                    ? (isBrowse ? "namespace-dynamic-group: trailing browse " + include + " children (" + childInfo + ")"
-                       : "namespace-dynamic-group: matching children filtered by residual (" + childInfo + ")")
-                    : "namespace-dynamic-group: own match without browse (" + childInfo + ")"
+                decision: {
+                    intent: isGroup ? "self-group" : "parent-item",
+                    includeChildren: include,
+                    childSource: "evaluated-children",
+                    retainContext: true,
+                    allowVisualTakeover: !isGroup
+                },
+                reasons: [{ code: isGroup ? (isBrowse ? "trailing_browse_namespace" : "residual_namespace") : "no_group", text: isGroup ? (isBrowse ? "namespace-dynamic-group: trailing browse " + include + " children (" + childInfo + ")" : "namespace-dynamic-group: matching children filtered by residual (" + childInfo + ")") : "namespace-dynamic-group: own match without browse (" + childInfo + ")" }]
             };
         });
 
@@ -90,15 +91,14 @@ QtObject {
             else include = "none";
             var isGroup = ownMatched && (isBrowse || hasResidualSearch);
             return {
-                intent: isGroup ? "self-group" : "self-item",
-                includeChildren: include,
-                childSource: "evaluated-children",
-                retainContext: isGroup,
-                allowVisualTakeover: hasResidualSearch,
-                reason: isGroup
-                    ? (isBrowse ? "desktop-app-actions: trailing browse " + include + " children"
-                       : "desktop-app-actions: matching children for '" + (ctx.query ? ctx.query.raw : "") + "'")
-                    : "desktop-app-actions: own match without browse"
+                decision: {
+                    intent: isGroup ? "self-group" : "self-item",
+                    includeChildren: include,
+                    childSource: "evaluated-children",
+                    retainContext: isGroup,
+                    allowVisualTakeover: hasResidualSearch
+                },
+                reasons: [{ code: isGroup ? (isBrowse ? "desktop_trailing_browse" : "desktop_residual") : "desktop_no_group", text: isGroup ? (isBrowse ? "desktop-app-actions: trailing browse " + include + " children" : "desktop-app-actions: matching children for '" + (ctx.query ? ctx.query.raw : "") + "'") : "desktop-app-actions: own match without browse" }]
             };
         });
     }

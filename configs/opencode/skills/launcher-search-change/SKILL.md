@@ -9,9 +9,11 @@ description: Use when changing launcher backends, tokenization, evidence, scorin
 
 Launcher behavior changes should be policy-driven. Backend data must cross the DTO boundary as plain serializable objects. UI delegates render, they do not compute.
 
+Decision pipeline: **Pipeline stage → decision kind → decider → policy votes → final decision**.
+
 ## Inspect First
 
-- `docs/architecture.md` — launcher architecture section (pipeline, DTO boundary, prefix gating)
+- `docs/architecture.md` — launcher architecture section (pipeline, DTO boundary, prefix gating, decision model)
 - `docs/contracts/quickshell-design.md` — anti-patterns section
 - `docs/pitfalls.md` — launcher pitfalls (retained trees, circular references, children bypass)
 - `docs/test-cases/launcher-ranking.md` — ranking rationale and intent
@@ -23,6 +25,7 @@ Launcher behavior changes should be policy-driven. Backend data must cross the D
 
 - **Backends** produce normalized tree DTOs (plain JS objects, no live QML refs).
 - **Composite search** (`logic/`) handles indexing, evidence, scoring, flattening, row generation.
+- **Decision pipeline** uses `PolicyChain` to run policy specs, `DecisionDecider` to reduce votes.
 - **Result rows** carry primitive fields, actions, and evidence metadata only.
 - **UI delegates** render normalized rows; no score recomputation or backend references.
 - **Prefix gating** via `RoutingTree.js` — backends register routes in `Component.onCompleted`.
@@ -42,8 +45,14 @@ Launcher behavior changes should be policy-driven. Backend data must cross the D
 ## Pipeline Flow
 
 ```
-Directive/tokenize → Candidate collection → Evidence → Scoring → Path policies → Shaping → Row DTOs
+Directive/tokenize → Candidate collection → Evidence → Scoring → Structural policies → Shaping → Row DTOs
 ```
+
+Structural policies (expand, retainParent, nesting, takeoverAccept, defaultAction, riskGate) return normalized votes:
+```js
+{ decision, priority, reasons }
+```
+Evidence policies return arrays. Boost policies return numbers.
 
 ## Change Routing
 
@@ -75,6 +84,7 @@ For full debug flow (policies, benchmark, cases, probes), see `configs/opencode/
 - Put ranking or action-selection logic in UI delegates.
 - Serialize raw QML objects in IPC responses.
 - Keep old policy names or compatibility APIs. The launcher has one pipeline: primitive policies → ResultShaping → row DTOs.
+- Overwrite evaluated policy trace entries. PolicyChain writes votes, decider writes aggregate, stage writes final.
 
 ## Deferred Architecture
 

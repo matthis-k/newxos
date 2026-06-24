@@ -23,11 +23,61 @@ Singleton {
         return d.getTime();
     }
 
+    function normalizeReasons(raw) {
+        if (!raw) return [];
+        if (Array.isArray(raw)) return raw.slice();
+        if (typeof raw === "string") return [{ code: "reason", text: raw }];
+        if (raw && raw.code && raw.text) return [raw];
+        return [{ code: "reason", text: String(raw) }];
+    }
+
+    function normalizePolicyResult(raw, spec) {
+        if (raw === null || raw === undefined)
+            return null;
+
+        var isObj = typeof raw === "object" && !Array.isArray(raw);
+
+        var decision;
+        if (isObj && Object.prototype.hasOwnProperty.call(raw, "decision"))
+            decision = raw.decision;
+        else if (isObj && Object.prototype.hasOwnProperty.call(raw, "value"))
+            decision = raw.value;
+        else
+            decision = raw;
+
+        var priority = 0;
+        if (isObj && raw.priority !== undefined)
+            priority = Number(raw.priority) || 0;
+        else if (spec && spec.priority !== undefined)
+            priority = Number(spec.priority) || 0;
+
+        var reasons = [];
+        if (isObj) {
+            if (raw.reasons && Array.isArray(raw.reasons))
+                reasons = raw.reasons.slice();
+            else if (raw.reason)
+                reasons = normalizeReasons(raw.reason);
+        }
+
+        return {
+            decision: decision,
+            value: decision,
+            priority: priority,
+            reasons: reasons,
+            policy: spec && spec.name || "",
+            kind: spec && spec.kind || ""
+        };
+    }
+
+    function normalize(raw) {
+        return normalizePolicyResult(raw, null);
+    }
+
     function _run(names, call, modeOrPhase, tracePerPolicy, timings) {
         var mode = defaultModes[modeOrPhase] || modeOrPhase;
         tracer.trace("run", function() { return { names: (names || []).length, mode: modeOrPhase || "unknown", resolvedMode: mode }; });
         if (!mode)
-            return { value: null, priority: 0 };
+            return { value: null, decision: null, priority: 0 };
 
         var results = [];
         for (var i = 0; i < names.length; i += 1) {
@@ -44,7 +94,7 @@ Singleton {
 
             if (raw === null || raw === undefined)
                 continue;
-            var r = normalize(raw);
+            var r = normalizePolicyResult(raw, spec);
 
             // Trace each policy at the real execution site
             if (typeof tracePerPolicy === "function") {
@@ -58,7 +108,8 @@ Singleton {
                     modeEffect = "accumulated";
                 else if (mode === "all-and" || mode === "all-or")
                     modeEffect = "evaluated";
-                if (r.value !== null && r.value !== undefined) {
+                var hasDecision = r.decision !== null && r.decision !== undefined;
+                if (hasDecision) {
                     if (mode === "first-wins" && results.length === 0)
                         effect = "selected";
                     else if (mode !== "first-wins")
@@ -68,17 +119,16 @@ Singleton {
                 }
                 tracePerPolicy({
                     name: spec.name,
-                    priority: spec.priority || 0,
+                    priority: r.priority,
                     enabled: true,
                     args: spec.args || null,
-                    returned: { value: r.value, reasons: r.reasons || [], priority: r.priority || 0 },
+                    returned: r,
                     effect: effect
                 });
             }
 
             results.push(r);
             if (mode === "first-wins") {
-                // Trace remaining not-evaluated policies
                 if (typeof tracePerPolicy === "function") {
                     for (var j = i + 1; j < names.length; j += 1) {
                         var remainingSpec = PolicySpec.normalize(names[j]);
@@ -100,41 +150,23 @@ Singleton {
                 }
                 break;
             }
-            if (mode === "all-and" && !r.value)
-                return { value: false, priority: 0 };
-            if (mode === "all-or" && r.value)
-                return { value: true, priority: 0 };
+            if (mode === "all-and" && !r.decision)
+                return { value: false, decision: false, priority: 0 };
+            if (mode === "all-or" && r.decision)
+                return { value: true, decision: true, priority: 0 };
         }
         return combine(results, mode);
     }
 
     readonly property var run: prof.fn("run", _run)
 
-    function normalize(raw) {
-        if (raw === null || raw === undefined)
-            return null;
-        if (typeof raw !== "object" || Array.isArray(raw))
-            return { value: raw, priority: 0, reasons: [] };
-        if (raw.hasOwnProperty("value"))
-            return {
-                value: raw.value,
-                priority: raw.priority || 0,
-                reasons: raw.reasons || []
-            };
-        return {
-            value: raw,
-            priority: 0,
-            reasons: raw.reasons || []
-        };
-    }
-
     function combine(results, mode) {
         if (!results.length) {
             switch (mode) {
-            case "all-and":  return { value: true };
-            case "all-or":   return { value: false };
-            case "accumulate": return { value: [] };
-            default:         return { value: null };
+            case "all-and":  return { value: true, decision: true };
+            case "all-or":   return { value: false, decision: false };
+            case "accumulate": return { value: [], decision: [] };
+            default:         return { value: null, decision: null };
             }
         }
         switch (mode) {
@@ -147,12 +179,12 @@ Singleton {
                 else
                     acc.push(v);
             }
-            return { value: acc };
+            return { value: acc, decision: acc };
         }
         case "all-and":
-            return { value: results.every(function(r) { return r.value; }) };
+            return { value: results.every(function(r) { return r.value; }), decision: results.every(function(r) { return r.value; }) };
         case "all-or":
-            return { value: results.some(function(r) { return r.value; }) };
+            return { value: results.some(function(r) { return r.value; }), decision: results.some(function(r) { return r.value; }) };
         case "first-wins":
             return results[0];
         case "best-wins": {
@@ -165,7 +197,7 @@ Singleton {
             return best;
         }
         default:
-            return results[0] || { value: null, priority: 0 };
+            return results[0] || { value: null, decision: null, priority: 0 };
         }
     }
 }

@@ -319,27 +319,43 @@ Singleton {
             };
         }
 
-        // Capture policy trace (for evidence policies that ran)
+        // Capture policy trace — preserve real evaluated entries, only add aggregate/final
         if (node && node.id && ctx._policyTrace) {
-            var evidencePolicyResults = [];
-            for (var ei3 = 0; ei3 < mergedEvidence.length; ei3 += 1) {
-                var e3 = mergedEvidence[ei3];
-                evidencePolicyResults.push({
-                    name: e3.strategy || e3.field || "unknown",
-                    priority: 0,
-                    enabled: true,
-                    returned: { value: { score: e3.score, weight: e3.weight, effective: e3.effective }, reasons: [{ code: e3.kind || "match", text: e3.reason || "evidence match" }] },
-                    effect: "selected",
-                    reasons: [{ code: e3.kind || "match", text: e3.reason || "evidence match" }]
-                });
-            }
             if (!ctx._policyTrace[node.id]) ctx._policyTrace[node.id] = {};
-            ctx._policyTrace[node.id].evidence = {
-                kind: "evidence",
-                evaluated: evidencePolicyResults,
-                aggregate: { strategy: "accumulate", inputCount: evidencePolicyResults.length, result: { score: own.value }, reasons: [{ code: "accumulated", text: "Evidence accumulated from " + evidencePolicyResults.length + " policies" }] },
-                final: { value: { score: own.value }, reasons: [{ code: "evidence_done", text: "Evidence computed" }] }
+            var evidenceTrace = ctx._policyTrace[node.id].evidence;
+
+            // Only synthesize evidence policy results if no real PolicyChain entries exist
+            if (!evidenceTrace) {
+                evidenceTrace = { kind: "evidence", evaluated: [], aggregate: null, final: null };
+                ctx._policyTrace[node.id].evidence = evidenceTrace;
+            }
+            if (evidenceTrace.evaluated.length === 0) {
+                var evidencePolicyResults = [];
+                for (var ei3 = 0; ei3 < mergedEvidence.length; ei3 += 1) {
+                    var e3 = mergedEvidence[ei3];
+                    evidencePolicyResults.push({
+                        name: e3.strategy || e3.field || "unknown",
+                        priority: 0,
+                        enabled: true,
+                        returned: { value: { score: e3.score, weight: e3.weight, effective: e3.effective }, reasons: [{ code: e3.kind || "match", text: e3.reason || "evidence match" }] },
+                        effect: "selected",
+                        reasons: [{ code: e3.kind || "match", text: e3.reason || "evidence match" }]
+                    });
+                }
+                evidenceTrace.evaluated = evidencePolicyResults;
+            }
+            evidenceTrace.aggregate = {
+                strategy: "accumulate",
+                inputCount: evidenceTrace.evaluated.length,
+                result: { score: own.value },
+                reasons: [{ code: "accumulated", text: "Evidence accumulated from " + evidenceTrace.evaluated.length + " policies" }]
             };
+            evidenceTrace.final = {
+                value: { score: own.value },
+                decision: { score: own.value },
+                reasons: [{ code: "evidence_done", text: "Evidence computed" }]
+            };
+
             ctx._policyTrace[node.id].scoring = {
                 kind: "scoring",
                 evaluated: [

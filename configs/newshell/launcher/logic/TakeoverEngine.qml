@@ -104,7 +104,7 @@ Singleton {
     function defaultAcceptPolicy(parentEv, claims, ctx, args) {
         tracer.trace("defaultAcceptPolicy", function() { return { parentId: parentEv && parentEv.node && parentEv.node.id, claimCount: (claims || []).length }; });
         if (!claims || !claims.length) {
-            return { accepted: false, reason: "no claims" };
+            return { decision: { accepted: false, reason: "no claims" }, reasons: [{ code: "no_claims", text: "no claims" }] };
         }
 
         var bestClaim = claims[0];
@@ -159,16 +159,19 @@ Singleton {
         }
 
         return {
-            accepted: true,
-            ownerId: selectedOwnerId,
-            representation: representation,
-            retainParent: retainParent,
-            suppressParentActions: suppressParentActions,
-            selectedOwnerId: selectedOwnerId,
-            defaultActionOwnerId: defaultActionOwnerId,
-            activation: activation,
-            includeAllChildren: false,
-            reason: reason
+            decision: {
+                accepted: true,
+                ownerId: selectedOwnerId,
+                representation: representation,
+                retainParent: retainParent,
+                suppressParentActions: suppressParentActions,
+                selectedOwnerId: selectedOwnerId,
+                defaultActionOwnerId: defaultActionOwnerId,
+                activation: activation,
+                includeAllChildren: false,
+                reason: reason
+            },
+            reasons: [{ code: "default_accept", text: reason }]
         };
     }
 

@@ -152,6 +152,32 @@ The Quickshell launcher uses a composite search pipeline:
 - **Backends** produce normalized tree DTOs (plain JS objects, no live QML refs). Backend types: static trees, model-derived trees, computed results, streaming results, process-backed results, and **worker-script-backed results** (`ScriptWorkerBackendBase`) which offload filtering/scoring/sorting to a `WorkerScript` thread via `LauncherQueryWorker.js`.
 - **LauncherController** (`configs/newshell/launcher/LauncherController.qml`) orchestrates the pipeline. Controllers in `configs/newshell/launcher/controllers/` split responsibilities: session/search lifecycle, navigation/selection, activation/recipes, and debug endpoints.
 - **Pipeline** (`configs/newshell/launcher/logic/`) handles indexing, evidence, scoring, shaping, row DTO construction, policy, and routing tree for prefix gating.
+
+### Decision model
+
+The launcher uses a staged decision pipeline: **Pipeline stage → decision kind → decider → policy votes → final decision**.
+
+**Policy votes** are the unit of structural decision-making. Every structural policy (expand, retainParent, nesting, takeoverAccept, defaultAction, riskGate) returns a normalized vote:
+
+```js
+{
+  decision: any,       // The policy's decision payload
+  priority: number,    // Priority for conflict resolution
+  reasons: [           // Traceable justification
+    { code: string, text: string, data?: object }
+  ]
+}
+```
+
+**Deciders** reduce votes for a decision kind. The default reducer is **highest-priority** (highest `priority` wins; ties preserve profile order). `DecisionDecider.qml` provides the `reduce(kind, votes, options)` helper with modes: `highest-priority`, `first-wins`, `best-wins`, `accumulate`, `all-and`, `all-or`, and `custom`.
+
+**Evidence policies** return evidence arrays. **Boost policies** return numbers. Neither uses the heavy vote wrapper; their aggregate/debug trace is consistent and never overwrites policy execution traces.
+
+**Trace contract:**
+- `PolicyChain` writes evaluated votes.
+- `Decider` writes aggregate.
+- Stage writes final.
+- No later stage overwrites evaluated policy votes. `policyTrace[nodeId].evidence.evaluated` preserves real PolicyChain entries; only `aggregate` and `final` are appended.
 - **Visual layer** (`configs/newshell/launcher/visual/`) diffs row snapshots and drives animated list/delegate transitions without feeding back into scoring.
 - **UI delegates** render normalized row data; they do not recompute scoring or hold backend references.
 - Normalized result rows carry only primitive fields, actions, and evidence — no raw tree objects.
