@@ -4,8 +4,11 @@ import QtQuick
 import QtCore
 import Quickshell
 import Quickshell.Io
+import qs.services
 
 Singleton {
+    readonly property var tracer: Logger.scope("service.config", { category: "service" })
+    readonly property var prof: Profiler.scope("service.config", { category: "service" })
     id: root
 
     function colorWithOpacity(colorValue, alpha) {
@@ -213,6 +216,19 @@ Singleton {
 
         property int peekCloseDelay: 250
         property double hoverBgOpacity: 0.2
+        property bool devMode: false
+
+        property bool profilerInstalled: false
+        property string profilerMode: "off"
+        property int profilerMaxEvents: 50000
+        property int profilerMaxSamplesPerName: 512
+
+        property int loggerMaxEvents: 20000
+        property int loggerMaxPayloads: 10000
+
+        property bool loggerInstalled: false
+        property int loggerInstalledMaxLevel: -1
+        property int loggerRuntimeMaxLevel: -1
 
         readonly property QtObject animation: QtObject {
             property double duration_multiplier: 1.0

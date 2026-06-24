@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 import "Tokenize.qml"
 import "IndexBuilder.qml"
 import "Evaluate.qml"
@@ -13,6 +14,8 @@ import "Evaluation.js" as EvalBuilder
 import "FormatUtils.qml"
 
 Singleton {
+    readonly property var prof: Profiler.scope("launcher.engine", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.pipeline", { category: "launcher" })
     function buildDirectiveFromRoute(rawQuery, route, backends) {
         if (!route || !route.endpoints || route.endpoints.length === 0)
             return { active: false, raw: rawQuery, searchRaw: rawQuery, prefix: "", label: "All", tags: [], kinds: [], backendIds: [] };
@@ -113,6 +116,8 @@ Singleton {
     }
 
     function searchAsync(backends, rawQuery, state, options, isCurrent, onComplete) {
+        tracer.info("searchAsync", function() { return { query: rawQuery } })
+
         var sync = options && options.sync;
         var schedule = sync ? function(fn) { fn(); } : Qt.callLater;
         var totalStart = Tokenize.nowMs();
@@ -140,6 +145,8 @@ Singleton {
 
         function phase0() {
             if (!isCurrent()) { abort(); return; }
+
+            tracer.info("tokenize", function() { return { query: rawQuery } })
 
             if (routingTree)
                 route = JsRoutingTree.routeQuery(routingTree, rawQuery);
@@ -178,6 +185,8 @@ Singleton {
         function phase1() {
             if (!isCurrent()) { abort(); return; }
 
+            tracer.info("gateBackends", function() { return { activeCount: active.length } })
+
             children = [];
             var backendTimings = {};
             var rootNodeStart = Tokenize.nowMs();
@@ -214,6 +223,8 @@ Singleton {
         function phase2() {
             if (!isCurrent()) { abort(); return; }
 
+            tracer.info("collectCandidates", function() { return {} })
+
             var candidateStart = Tokenize.nowMs();
             ctx.candidateIds = IndexBuilder.collectCandidateIdsForRoots(children, query, ctx.candidateCap || 256);
             ctx.candidateMs = Tokenize.nowMs() - candidateStart;
@@ -232,6 +243,8 @@ Singleton {
 
         function phase3() {
             if (!isCurrent()) { abort(); return; }
+
+            tracer.info("scoreCandidates", function() { return {} })
 
             var evaluateStart = Tokenize.nowMs();
             var evaluated = Evaluate.evaluateNode(root, query, ctx);
@@ -292,6 +305,8 @@ Singleton {
 
         function phase5() {
             if (!isCurrent()) { abort(); return; }
+
+            tracer.info("decidePresentation", function() { return {} })
 
             var shapeStart = Tokenize.nowMs();
             var shapedResult = ResultShaping.shape(ctx.evaluated, state, ctx);
@@ -370,6 +385,14 @@ Singleton {
             evaluation._stages = phases.map(function(p) {
                 return { name: p.name || "", durationMs: p.evaluateMs || p.shapeMs || p.candidateMs || p.rootNodeMs || 0 };
             });
+
+            tracer.info("searchComplete", function() {
+                return {
+                    rows: rows.length,
+                    totalMs: timings.totalMs,
+                    activeBackends: timings.activeBackends
+                }
+            })
 
             var result = { rows: rows, query: query, directive: directive, route: route, evaluatedRoot: ctx.evaluated, shapedResult: shapedResult, timings: timings, phases: phases, evaluation: evaluation };
             syncResult = result;

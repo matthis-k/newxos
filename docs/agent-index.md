@@ -62,6 +62,10 @@
 - Qt Documentation MCP — Qt and QML framework docs
 - Basic Memory and `docs/` — repo-specific behavior and decisions
 
+## When touching logger/tracer
+- `docs/newshell/logger.md` — structured logging API, cost model, IPC commands
+- Source: `services/Logger.qml`, `services/logger/LogStore.qml`, `services/logger/LogStats.qml`, `services/logger/LoggerIpc.qml`
+
 ## When debugging
 - `docs/pitfalls.md` — known issues and their root causes
 - `docs/architecture.md` — scope boundaries, module boundaries

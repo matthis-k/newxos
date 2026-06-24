@@ -14,9 +14,13 @@ import "../launcher" as Launcher
 Singleton {
     id: root
 
+    readonly property var tracer: Logger.scope("service.shellState", { category: "service" })
+    readonly property var prof: Profiler.scope("service.shellState", { category: "service" })
+
     readonly property alias instances: screenStates.instances
 
     Component.onCompleted: {
+        tracer.info("completed", function() { return { screenCount: screenStates?.instances?.length || 0 }; });
         ShellActions.launcherOpenRequested.connect(function(arg) {
             forActiveScreens(screen => {
                 const ss = getScreenByName(screen.name);
@@ -219,6 +223,7 @@ Singleton {
 
     IpcHandler {
         target: IpcTargets.name("bar")
+        Component.onCompleted: { tracer.info("ipc-handler", function() { return { target: "bar" }; }); }
         function open() {
             forActiveScreens(screen => getScreenByName(screen.name).bar.open());
         }
@@ -232,6 +237,7 @@ Singleton {
 
     IpcHandler {
         target: IpcTargets.name("launcher")
+        Component.onCompleted: { tracer.info("ipc-handler", function() { return { target: "launcher" }; }); }
         function open() {
             forActiveScreens(screen => {
                 const ss = getScreenByName(screen.name);
@@ -353,6 +359,7 @@ Singleton {
 
     IpcHandler {
         target: IpcTargets.name("query")
+        Component.onCompleted: { tracer.info("ipc-handler", function() { return { target: "query" }; }); }
         function pipeline(query: string): string {
             const state = root.instances[0];
             return state ? state.launcher.queryPipeline(query) : "{}";
@@ -422,6 +429,22 @@ Singleton {
         function debugRaw(args: string): string {
             const state = root.instances[0];
             return state ? state.launcher.debugRaw(args) : "{}";
+        }
+    }
+
+    IpcHandler {
+        target: IpcTargets.name("profiler")
+        Component.onCompleted: { tracer.info("ipc-handler", function() { return { target: "profiler" }; }); }
+        function handle(request: string): string {
+            return JSON.stringify(ProfilerIpc.handle(JSON.parse(request)))
+        }
+    }
+
+    IpcHandler {
+        target: IpcTargets.name("logger")
+        Component.onCompleted: { tracer.info("ipc-handler", function() { return { target: "logger" }; }); }
+        function handle(request: string): string {
+            return JSON.stringify(LoggerIpc.handle(JSON.parse(request)))
         }
     }
 
