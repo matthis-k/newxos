@@ -1,6 +1,10 @@
 import QtQml
+import qs.services
 
 QtObject {
+    readonly property var tracer: Logger.scope("network.nmcliParser", { category: "network" })
+    readonly property var prof: Profiler.scope("network.nmcliParser", { category: "network" })
+
     function splitEscaped(text, separator) {
         const result = [];
         let current = "";

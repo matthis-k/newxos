@@ -5,9 +5,13 @@ import QtQuick
 import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
+import qs.services
 
 Singleton {
     id: root
+
+    readonly property var tracer: Logger.scope("hyprland.service", { category: "hyprland" })
+    readonly property var prof: Profiler.scope("hyprland.service", { category: "hyprland" })
 
     readonly property var backend: Hyprland
 
@@ -21,6 +25,7 @@ Singleton {
     property int revision: 0
 
     function refresh(): void {
+        root.tracer.info("refresh");
         Hyprland.refreshMonitors();
         Hyprland.refreshWorkspaces();
         Hyprland.refreshToplevels();
@@ -120,20 +125,32 @@ Singleton {
 
     function activateWorkspace(id: var): void {
         const ws = rawWorkspaceById(id);
-        if (ws && ws.activate)
+        if (ws && ws.activate) {
+            root.tracer.info("activateWorkspace", function() { return { id: id, name: ws.name } });
             ws.activate();
+        } else {
+            root.tracer.warn("activateWorkspace.notFound", function() { return { id: id } });
+        }
     }
 
     function activateToplevel(id: var): void {
         const tl = rawToplevelById(id);
-        if (tl && tl.wayland && tl.wayland.activate)
+        if (tl && tl.wayland && tl.wayland.activate) {
+            root.tracer.info("activateToplevel", function() { return { id: id, title: tl.title } });
             tl.wayland.activate();
+        } else {
+            root.tracer.warn("activateToplevel.notFound", function() { return { id: id } });
+        }
     }
 
     function closeToplevel(id: var): void {
         const tl = rawToplevelById(id);
-        if (tl && tl.wayland && tl.wayland.close)
+        if (tl && tl.wayland && tl.wayland.close) {
+            root.tracer.info("closeToplevel", function() { return { id: id, title: tl.title } });
             tl.wayland.close();
+        } else {
+            root.tracer.warn("closeToplevel.notFound", function() { return { id: id } });
+        }
     }
 
     function findMatchingColumn(columns: var, entry: var): var {
@@ -154,7 +171,9 @@ Singleton {
             }
         }
 
-        return bestOverlap >= root.columnOverlapThreshold ? best : null;
+        const result = bestOverlap >= root.columnOverlapThreshold ? best : null;
+        root.tracer.trace("findMatchingColumn", function() { return { entry: entry.id, columns: columns.length, matched: !!result, overlap: bestOverlap } });
+        return result;
     }
 
     function toplevelsForWorkspace(workspace: var, orderMode: int): var {

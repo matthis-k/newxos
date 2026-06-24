@@ -101,7 +101,7 @@ Item {
     }
 
     function _triggerAsyncBackends(text, currentGeneration) {
-        if (tracer.traceOn) tracer.trace("triggerAsyncBackends", function() { return { text: text, generation: currentGeneration }; });
+        tracer.trace("triggerAsyncBackends", function() { return { text: text, generation: currentGeneration }; });
         var route = RoutingTree.routeQuery(root.routingTree, text || "");
         var directive = route && route.endpoints && route.endpoints.length > 0
             ? Engine.buildDirectiveFromRoute(text || "", route, backends || [])

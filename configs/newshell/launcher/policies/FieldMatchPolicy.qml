@@ -1,4 +1,5 @@
 import QtQml
+import qs.services
 import "../" as Launcher
 import "../logic/"
 
@@ -7,11 +8,15 @@ QtObject {
     property string filterType: "all"
     property var strategyList: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"]
 
+    readonly property var tracer: Logger.scope("policy.fieldMatch", { category: "policy" })
+    readonly property var prof: Profiler.scope("policy.fieldMatch", { category: "policy" })
+
     function policyMatch(node, query, ctx, specArgs) {
         if (query.isEmpty)
             return [];
         var originGroup = "own";
         var fields = IndexBuilder.searchableFields(node);
+        tracer.trace("policyMatch", function() { return { policyId: policyId, nodeId: node?.id, fieldCount: fields.length, filterType: filterType }; });
 
         if (specArgs && specArgs.fields) {
             fields = fields.filter(function(f) {
@@ -33,6 +38,7 @@ QtObject {
                 matches[mi].originGroup = originGroup;
             out = out.concat(matches);
         }
+        tracer.trace("policyMatch.result", function() { return { policyId: policyId, nodeId: node?.id, evidenceCount: out.length }; });
         return out;
     }
 

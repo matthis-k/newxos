@@ -20,7 +20,7 @@ Singleton {
     function searchableFields(node) {
         if (node.__searchableFields)
             return node.__searchableFields;
-        if (tracer.traceOn) tracer.trace("searchableFields", function() { return { nodeId: node.id, kind: node.kind }; });
+        tracer.trace("searchableFields", function() { return { nodeId: node.id, kind: node.kind }; });
         var w = node.fieldWeights || {};
         var fields = [{ field: "label", text: node.label, weight: w.label === undefined ? 1.0 : w.label, nodeId: node.id, primary: true }];
         if (node.subtitle) fields.push({ field: "subtitle", text: node.subtitle, weight: w.subtitle === undefined ? 0.55 : w.subtitle, nodeId: node.id });

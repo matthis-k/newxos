@@ -1,8 +1,12 @@
 import QtQml
+import qs.services
 import "../" as Launcher
 import "../logic/"
 
 QtObject {
+    readonly property var tracer: Logger.scope("policy.nesting", { category: "policy" })
+    readonly property var prof: Profiler.scope("policy.nesting", { category: "policy" })
+
     Component.onCompleted: {
         Launcher.PolicyRegistry.registerNesting("self-item", function(ev, ctx, args) {
             return {

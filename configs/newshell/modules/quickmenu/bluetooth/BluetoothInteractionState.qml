@@ -1,9 +1,11 @@
 import QtQml
-
 import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("quickmenu.bluetoothInteractionState", { category: "quickmenu" })
+    readonly property var prof: Profiler.scope("quickmenu.bluetoothInteractionState", { category: "quickmenu" })
 
     property string interactiveDeviceKey: ""
     property bool interactiveShowAdvanced: false
@@ -34,6 +36,7 @@ QtObject {
     }
 
     function lockInteractionFor(device) {
+        tracer.debug("lockInteractionFor", function() { return { deviceKey: root.deviceKey(device), wasLocked: root.interactionLocked }; });
         const key = root.deviceKey(device);
         if (!key)
             return;
@@ -48,6 +51,7 @@ QtObject {
     }
 
     function unlockInteraction() {
+        tracer.info("unlockInteraction", function() { return {}; });
         root.interactiveDeviceKey = "";
         root.interactiveShowAdvanced = false;
         root.frozenDeviceOrder = [];

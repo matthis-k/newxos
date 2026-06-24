@@ -32,7 +32,7 @@
             "exactlyOneSelected": true,
             "expanded": [{ "title": "VPN" }],
             "rows": {
-              "containsTitle": ["VPN", "Germany", "Netherlands", "Fastest", "Algeria", "Georgia", "Uganda"],
+              "containsTitle": ["VPN", "Germany", "Netherlands", "Fastest", "Algeria", "Georgia", "Uganda", "Norway"],
               "noneHighlightedExceptSelected": true
             }
           }
@@ -141,6 +141,65 @@
       ]
     },
     {
+      "name": "Query 'vpn norway' promotes Norway to standalone",
+      "tags": ["vpn", "filtering", "exact", "norway"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn norway" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Norway" },
+            "rows": {
+              "containsTitle": ["VPN", "Norway"],
+              "notContainsTitle": ["Germany", "Netherlands", "Algeria", "Georgia", "Uganda", "Norway"],
+              "noneHighlightedExceptSelected": true
+            },
+            "invariants": ["exactly-one-selected", "no-hidden-selected-node"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'vpn nor' shows Norway under VPN parent",
+      "tags": ["vpn", "filtering", "residual", "norway"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn nor" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "rows": {
+              "containsTitle": ["VPN", "Norway"],
+              "notContainsTitle": ["Germany", "Netherlands", "Algeria", "Georgia", "Uganda", "Norway"],
+              "noneHighlightedExceptSelected": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'vpn no' shows Norway under VPN parent",
+      "tags": ["vpn", "filtering", "residual", "norway"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn no" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "rows": {
+              "containsTitle": ["VPN", "Norway"],
+              "notContainsTitle": ["Germany", "Netherlands", "Algeria", "Georgia", "Uganda", "Norway"],
+              "noneHighlightedExceptSelected": true
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Query 'vpn' one-match retains VPN parent context",
       "tags": ["vpn", "context", "stability"],
       "steps": [
@@ -153,7 +212,7 @@
             "selected": { "title": "Fastest" },
             "rows": {
               "containsTitle": ["VPN", "Fastest"],
-              "notContainsTitle": ["Germany", "Netherlands", "Algeria", "Georgia", "Uganda"],
+              "notContainsTitle": ["Germany", "Netherlands", "Algeria", "Georgia", "Uganda", "Norway"],
               "noneHighlightedExceptSelected": true
             },
             "invariants": ["exactly-one-selected", "no-hidden-selected-node"]

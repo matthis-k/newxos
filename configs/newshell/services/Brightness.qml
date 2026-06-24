@@ -4,9 +4,13 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.services
 
 Singleton {
     id: root
+
+    readonly property var tracer: Logger.scope("brightness", { category: "brightness" })
+    readonly property var prof: Profiler.scope("brightness", { category: "brightness" })
 
     readonly property var backend: root
 
@@ -93,6 +97,7 @@ Singleton {
         const parts = (text || "").trim().split(/\s+/);
         if (parts.length < 2) {
             available = false;
+            root.tracer.warn("applyProbe.invalidOutput", function() { return { text: text } });
             return;
         }
 
@@ -100,15 +105,18 @@ Singleton {
         const max = parseInt(parts[1], 10);
         if (isNaN(current) || isNaN(max) || max <= 0) {
             available = false;
+            root.tracer.warn("applyProbe.parseFailed", function() { return { current: current, max: max } });
             return;
         }
 
         currentValue = current;
         maxValue = max;
         available = true;
+        root.tracer.debug("brightnessProbed", function() { return { current: current, max: max, percent: root.percent } });
     }
 
     function refresh() {
+        root.tracer.trace("refresh");
         probe.exec({
             command: [
                 "sh",
@@ -119,10 +127,13 @@ Singleton {
     }
 
     function setPercent(targetPercent) {
-        if (!available)
+        if (!available) {
+            root.tracer.warn("setPercent.unavailable");
             return;
+        }
 
         const clamped = Math.max(0, Math.min(100, Math.round(targetPercent)));
+        root.tracer.info("setPercent", function() { return { target: clamped } });
         beginOperation("set-brightness", `${clamped}%`);
         setter.exec({
             command: ["brightnessctl", "-q", "-n2", "-c", "backlight", "set", `${clamped}%`]
@@ -131,13 +142,17 @@ Singleton {
     }
 
     function adjust(delta) {
+        root.tracer.debug("adjustBrightness", function() { return { delta: delta, current: root.percent } });
         setPercent(root.percent + delta);
     }
 
     function executePayload(payload) {
-        if (!payload || payload.service !== "brightness")
+        if (!payload || payload.service !== "brightness") {
+            if (payload) root.tracer.warn("executePayload.wrongService", function() { return { service: payload.service } });
             return false;
+        }
 
+        root.tracer.debug("executePayload", function() { return { op: payload.op } });
         switch (payload.op) {
         case "set":
             root.setPercent(Number(payload.value || 0));
@@ -146,6 +161,7 @@ Singleton {
             root.adjust(Number(payload.delta || 0));
             return true;
         default:
+            root.tracer.warn("executePayload.unknownOp", function() { return { op: payload.op } });
             return false;
         }
     }

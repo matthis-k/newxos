@@ -1,9 +1,13 @@
 import QtQuick
 import QtQml
 import Quickshell.Io
+import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("network.commands", { category: "network" })
+    readonly property var prof: Profiler.scope("network.commands", { category: "network" })
 
     signal networksOutput(string text)
     signal radioOutput(string text)
@@ -95,6 +99,7 @@ QtObject {
     }
 
     function refreshAll() {
+        root.tracer.trace("refreshAll");
         root.networkingStateProcess.exec({
             command: ["nmcli", "networking"]
         });
@@ -111,6 +116,7 @@ QtObject {
     }
 
     function scan() {
+        root.tracer.info("scan.executing");
         root.rescanProcess.exec({
             command: ["nmcli", "dev", "wifi", "list", "--rescan", "yes"]
         });
@@ -118,6 +124,7 @@ QtObject {
 
     function setNetworkingEnabled(value) {
         const cmd = value ? "on" : "off";
+        root.tracer.info("setNetworkingEnabled", function() { return { enabled: value } });
         root.nmcliNetworkingProcess.exec({
             command: ["nmcli", "networking", cmd]
         });
@@ -125,6 +132,7 @@ QtObject {
 
     function setWifiEnabled(enabled) {
         const cmd = enabled ? "on" : "off";
+        root.tracer.info("setWifiEnabled", function() { return { enabled: enabled } });
         root.wifiToggleProcess.exec({
             command: ["nmcli", "radio", "wifi", cmd]
         });
@@ -134,32 +142,43 @@ QtObject {
         const args = ["nmcli", "dev", "wifi", "connect", ssid];
         if (password)
             args.push("password", password);
+        root.tracer.info("connectToNetwork", function() { return { ssid: ssid, hasPassword: !!password } });
         root.connectProcess.exec({
             command: args
         });
     }
 
     function disconnectDevice(deviceName) {
-        if (!deviceName) return;
+        if (!deviceName) {
+            root.tracer.warn("disconnectDevice.noDeviceName");
+            return;
+        }
+        root.tracer.info("disconnectDevice", function() { return { device: deviceName } });
         root.disconnectProcess.exec({
             command: ["nmcli", "dev", "disconnect", deviceName]
         });
     }
 
     function forgetNetwork(uuid) {
-        if (!uuid) return;
+        if (!uuid) {
+            root.tracer.warn("forgetNetwork.noUuid");
+            return;
+        }
+        root.tracer.info("forgetNetwork", function() { return { uuid: uuid } });
         root.forgetProcess.exec({
             command: ["nmcli", "con", "delete", "uuid", uuid]
         });
     }
 
     function _checkWiredConnection() {
+        root.tracer.trace("checkWiredConnection");
         root.wiredCheckProcess.exec({
             command: ["nmcli", "-g", "DEVICE,TYPE,STATE,IP4.ADDRESS", "device", "status"]
         });
     }
 
     function _onOperationExited(exitCode, kind, failMsg) {
+        root.tracer.debug("operationExited", function() { return { kind: kind, exitCode: exitCode } });
         root.operationFinished(kind, exitCode === 0, exitCode === 0 ? "" : `${failMsg} (${exitCode})`);
     }
 }

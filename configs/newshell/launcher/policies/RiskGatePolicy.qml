@@ -1,11 +1,17 @@
 import QtQml
+import qs.services
 import "../" as Launcher
 import "../logic/"
 
 QtObject {
+    readonly property var tracer: Logger.scope("policy.riskGate", { category: "policy" })
+    readonly property var prof: Profiler.scope("policy.riskGate", { category: "policy" })
+
     function riskGateApply(node, ctx, runtime, specArgs) {
         if (!runtime) return null;
         var mode = runtime.activation || "normal";
+        var level = runtime.level || "none";
+        tracer.trace("riskGateApply", function() { return { nodeId: node?.id, mode: mode, level: level }; });
         var level = runtime.level || "none";
         var upstreamAllowed = runtime.allowed !== undefined ? runtime.allowed : true;
 

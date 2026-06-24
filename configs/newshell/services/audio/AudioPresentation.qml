@@ -1,6 +1,10 @@
 import QtQml
+import qs.services
 
 QtObject {
+    readonly property var tracer: Logger.scope("audio.presentation", { category: "audio" })
+    readonly property var prof: Profiler.scope("audio.presentation", { category: "audio" })
+
     function streamName(stream) {
         if (!stream) return "Unknown";
         const props = stream.properties || {};

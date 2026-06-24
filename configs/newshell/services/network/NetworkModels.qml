@@ -1,6 +1,11 @@
 import QtQml
+import qs.services
 
 QtObject {
+    id: root
+    readonly property var tracer: Logger.scope("network.models", { category: "network" })
+    readonly property var prof: Profiler.scope("network.models", { category: "network" })
+
     function networkKey(network) {
         return `${network?.frequency || "unknown"}:${network?.ssid || "Hidden network"}:${network?.bssid || ""}`;
     }
@@ -42,6 +47,7 @@ QtObject {
             result.push(network);
         }
 
+        root.tracer.trace("networksMerged", function() { return { existing: (existingNetworks || []).length, parsed: (parsedNetworks || []).length, merged: result.length } });
         return result;
     }
 }

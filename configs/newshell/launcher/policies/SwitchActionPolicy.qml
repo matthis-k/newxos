@@ -1,11 +1,17 @@
 import QtQml
+import qs.services
 import "../" as Launcher
 import "../logic/"
 
 QtObject {
+    readonly property var tracer: Logger.scope("policy.switchAction", { category: "policy" })
+    readonly property var prof: Profiler.scope("policy.switchAction", { category: "policy" })
+
     function policyMatch(node, query, ctx, specArgs) {
-        if (!node.switchActions || query.isEmpty)
+        if (!node.switchActions || query.isEmpty) {
+            tracer.trace("policyMatch", function() { return { nodeId: node?.id, queryEmpty: query.isEmpty, hasSwitches: !!node?.switchActions, resultCount: 0 }; });
             return [];
+        }
 
         var aliasMap = {
             on: ["on", "enable", "connect"],
@@ -37,6 +43,7 @@ QtObject {
                 }
             }
         }
+        tracer.trace("policyMatch.result", function() { return { nodeId: node?.id, evidenceCount: out.length }; });
         return out;
     }
 

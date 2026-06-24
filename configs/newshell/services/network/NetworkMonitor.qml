@@ -1,9 +1,13 @@
 import QtQuick
 import QtQml
 import Quickshell.Io
+import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("network.monitor", { category: "network" })
+    readonly property var prof: Profiler.scope("network.monitor", { category: "network" })
 
     signal refreshRequested()
 
@@ -45,10 +49,12 @@ QtObject {
     }
 
     function start() {
+        root.tracer.info("monitorStarted");
         root.initTimer.start();
     }
 
     function restart() {
+        root.tracer.info("monitorRestarting");
         root.monitorProcess.exec({
             command: ["nmcli", "monitor"]
         });

@@ -234,7 +234,7 @@ Item {
     }
 
     function updateQuery(text) { tracer.info("updateQuery", function() { return { text: text }; }); queryUpdateRequested(text || ""); }
-    function triggerAsyncBackends(text, currentGeneration) { if (tracer.traceOn) tracer.trace("triggerAsyncBackends", function() { return { text: text, gen: currentGeneration }; }); searchSession.triggerAsyncBackends(text, currentGeneration); }
+    function triggerAsyncBackends(text, currentGeneration) { tracer.trace("triggerAsyncBackends", function() { return { text: text, gen: currentGeneration }; }); searchSession.triggerAsyncBackends(text, currentGeneration); }
     function hasPendingAsyncBackends() { return searchSession.hasPendingAsyncBackends(); }
     function reset() { tracer.info("reset", function() { return {}; }); resetRequested(); }
     function backendId(backend) { return backend ? backend.backendId || "" : ""; }

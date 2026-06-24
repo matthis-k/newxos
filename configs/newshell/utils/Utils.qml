@@ -2,11 +2,15 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Services.Pipewire
+import qs.services
 
 Singleton {
+    readonly property var tracer: Logger.scope("utils", { category: "service" })
+    readonly property var prof: Profiler.scope("utils", { category: "service" })
     id: root
 
     function nodeName(node, fallback) {
+        .trace("nodeName", function() { return { hasNode: !!node }; });
         if (!node) return fallback;
         return node.nickname || node.description || node.name || fallback;
     }
@@ -16,11 +20,13 @@ Singleton {
     }
 
     function setVolume(node, percent) {
+        tracer.debug("setVolume", function() { return { percent: percent }; });
         if (!node || !node.audio) return;
         node.audio.volume = Math.max(0, Math.min(1, percent / 100));
     }
 
     function toggleMute(node) {
+        tracer.debug("toggleMute", function() { return { wasMuted: !!(node?.audio?.muted) }; });
         if (!node || !node.audio) return;
         node.audio.muted = !node.audio.muted;
     }

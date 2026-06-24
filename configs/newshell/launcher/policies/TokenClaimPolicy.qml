@@ -1,8 +1,12 @@
 import QtQml
+import qs.services
 import "../" as Launcher
 import "../logic/"
 
 QtObject {
+    readonly property var tracer: Logger.scope("policy.tokenClaim", { category: "policy" })
+    readonly property var prof: Profiler.scope("policy.tokenClaim", { category: "policy" })
+
     function policyMatch(node, query, ctx, specArgs) {
         if (!node.behavior || !node.behavior.tokenPolicy || !node.behavior.tokenPolicy.tokens || query.isEmpty)
             return [];
@@ -10,6 +14,7 @@ QtObject {
         var out = [];
         for (var ci = 0; ci < claims.length; ci += 1)
             out.push(Evidence.tokenClaimToEvidence(node, query, claims[ci]));
+        tracer.trace("policyMatch", function() { return { nodeId: node?.id, claimCount: claims.length, resultCount: out.length }; });
         return out;
     }
 

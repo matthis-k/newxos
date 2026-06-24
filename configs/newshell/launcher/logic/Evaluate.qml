@@ -158,7 +158,7 @@ Singleton {
         if (node.kind !== "root" && node.kind !== "backend") {
             tokenFlowResult = TokenFlow.evaluate(node, query, ctx);
             tokenFlow = tokenFlowResult && tokenFlowResult.value;
-            if (tracer.traceOn) tracer.trace("tokenFlow", function() { return { nodeId: node.id, consumed: (tokenFlow && tokenFlow.consumed || []).length, passed: (tokenFlow && tokenFlow.passed || []).length, reason: (tokenFlow && tokenFlow.reason) || "none" }; });
+            tracer.trace("tokenFlow", function() { return { nodeId: node.id, consumed: (tokenFlow && tokenFlow.consumed || []).length, passed: (tokenFlow && tokenFlow.passed || []).length, reason: (tokenFlow && tokenFlow.reason) || "none" }; });
             if (tokenFlow && tokenFlow.passed) {
                 childQuery = TokenFlow.buildChildQuery(node, tokenFlow, query);
                 childCtx = Object.assign({}, ctx, { query: childQuery, childQuery: childQuery, tokenFlow: tokenFlow });

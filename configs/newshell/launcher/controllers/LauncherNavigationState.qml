@@ -180,7 +180,7 @@ Item {
     }
 
     function _moveSelection(delta) {
-        if (tracer.traceOn) tracer.trace("moveSelection", function() { return { delta: delta, activeNodeKey: activeNodeKey, results: results.length }; });
+        tracer.trace("moveSelection", function() { return { delta: delta, activeNodeKey: activeNodeKey, results: results.length }; });
         var flatTargets = targets.flatten(results, collapseState.collapsedResultIndices, root.isRowSelectable);
         var nextTarget = targets.stepTarget(flatTargets, activeNodeKey, delta);
         if (!nextTarget) {

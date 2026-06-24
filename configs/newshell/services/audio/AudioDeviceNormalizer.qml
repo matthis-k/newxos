@@ -5,6 +5,9 @@ import qs.services
 QtObject {
     id: root
 
+    readonly property var tracer: Logger.scope("audio.normalizer", { category: "audio" })
+    readonly property var prof: Profiler.scope("audio.normalizer", { category: "audio" })
+
     property var nodeUtils: null
     property var audioModels: null
     property var allNodes: []
@@ -109,11 +112,13 @@ QtObject {
             if (aDefault !== bDefault) return aDefault ? -1 : 1;
             return root.nodeUtils.nodeName(a).localeCompare(root.nodeUtils.nodeName(b));
         });
-        return sinks.map(function(sink) {
+        const entries = sinks.map(function(sink) {
             const entry = root.normalizeDevice(sink, false);
             entry.streams = root.streamEntriesForOutput(entry.id);
             return entry;
         });
+        root.tracer.trace("outputDeviceEntries", function() { return { count: entries.length } });
+        return entries;
     }
 
     function inputDeviceEntries() {
@@ -124,11 +129,13 @@ QtObject {
             if (aDefault !== bDefault) return aDefault ? -1 : 1;
             return root.nodeUtils.nodeName(a).localeCompare(root.nodeUtils.nodeName(b));
         });
-        return sources.map(function(source) {
+        const entries = sources.map(function(source) {
             const entry = root.normalizeDevice(source, true);
             entry.streams = [];
             return entry;
         });
+        root.tracer.trace("inputDeviceEntries", function() { return { count: entries.length } });
+        return entries;
     }
 
     function streamEntriesForOutput(outputId) {
@@ -137,13 +144,15 @@ QtObject {
         const streams = root.audioModels.outputStreams(root.allNodes).filter(function(stream) {
             return root.audioModels.isStreamConnectedTo(stream, sink, root.linkGroups);
         });
-        return streams.map(function(stream) {
+        const entries = streams.map(function(stream) {
             const entry = root.normalizeStream(stream);
             entry.targetId = String(sink.id);
             entry.targetName = root.nodeUtils.nodeName(sink, "Output");
             entry.defaultTarget = root.defaultSink && sink.id === root.defaultSink.id;
             return entry;
         });
+        root.tracer.trace("streamEntriesForOutput", function() { return { outputId: outputId, count: entries.length } });
+        return entries;
     }
 
     function rawNodeById(id) {
@@ -151,6 +160,7 @@ QtObject {
             if (node.id === id || String(node.id) === String(id))
                 return node;
         }
+        root.tracer.trace("rawNodeById.notFound", function() { return { id: id } });
         return null;
     }
 

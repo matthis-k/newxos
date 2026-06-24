@@ -1,7 +1,11 @@
 import QtQml
+import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("quickmenu.networkInteractionState", { category: "quickmenu" })
+    readonly property var prof: Profiler.scope("quickmenu.networkInteractionState", { category: "quickmenu" })
 
     property string interactiveNetworkKey: ""
     property bool interactiveShowAdvanced: false
@@ -36,6 +40,7 @@ QtObject {
     }
 
     function lockInteractionFor(network) {
+        tracer.debug("lockInteractionFor", function() { return { networkKey: networkKey(network), wasLocked: interactionLocked }; });
         const key = networkKey(network);
         if (!key)
             return;
@@ -51,6 +56,7 @@ QtObject {
     }
 
     function unlockInteraction() {
+        tracer.info("unlockInteraction", function() { return {}; });
         interactiveNetworkKey = "";
         interactiveShowAdvanced = false;
         interactiveShowPasswordInput = false;

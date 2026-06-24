@@ -10,8 +10,7 @@ QtObject {
     property var nodeFactory: null
 
     function switchActionMap(node, children) {
-        if (Logger.traceOn)
-            tracer.trace("switchActionMap", function() { return { nodeId: node?.id, childCount: (children || []).length }; });
+        .trace("switchActionMap", function() { return { nodeId: node?.id, childCount: (children || []).length }; });
         const byState = {};
         for (const child of children || []) {
             const leafAction = child.actionList && child.actionList[0];

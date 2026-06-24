@@ -22,7 +22,7 @@ Singleton {
     function boundedDamerauLevenshtein(a, b, maxDistance) { return root.matchUtils.boundedDamerauLevenshtein(a, b, maxDistance); }
     function getAcronymRanges(text) { return root.matchUtils.getAcronymRanges(text); }
     function tokenize(rawQuery) {
-        if (tracer.traceOn) tracer.trace("tokenize", function() { return { rawLen: (rawQuery || "").length }; });
+        tracer.trace("tokenize", function() { return { rawLen: (rawQuery || "").length }; });
         return root.queryTokenizer.tokenize(rawQuery);
     }
     function parseDirective(rawQuery, backends) { return root.directiveParser.parseDirective(rawQuery, backends); }

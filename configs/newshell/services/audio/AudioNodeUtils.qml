@@ -1,7 +1,11 @@
 import QtQml
+import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("audio.nodeUtils", { category: "audio" })
+    readonly property var prof: Profiler.scope("audio.nodeUtils", { category: "audio" })
 
     function nodeName(node, fallback) {
         if (!node) return fallback || "";
@@ -14,15 +18,23 @@ QtObject {
     }
 
     function setVolume(node, percent) {
-        if (!node || !node.audio) return false;
+        if (!node || !node.audio) {
+            root.tracer.warn("setVolume.noAudio", function() { return { nodeId: node?.id } });
+            return false;
+        }
         node.audio.volume = Math.max(0, Math.min(1, percent / 100));
+        root.tracer.trace("volumeSet", function() { return { nodeId: node.id, percent: percent } });
         return true;
     }
 
     function adjustVolume(node, delta) {
-        if (!node || !node.audio) return;
+        if (!node || !node.audio) {
+            root.tracer.warn("adjustVolume.noAudio", function() { return { nodeId: node?.id } });
+            return;
+        }
         const current = root.volumePercent(node);
         root.setVolume(node, current + delta);
+        root.tracer.trace("volumeAdjusted", function() { return { nodeId: node.id, delta: delta, newPercent: current + delta } });
     }
 
     function isMuted(node) {
@@ -30,14 +42,22 @@ QtObject {
     }
 
     function setMuted(node, value) {
-        if (!node || !node.audio) return false;
+        if (!node || !node.audio) {
+            root.tracer.warn("setMuted.noAudio", function() { return { nodeId: node?.id } });
+            return false;
+        }
         node.audio.muted = value;
+        root.tracer.trace("muteSet", function() { return { nodeId: node.id, muted: value } });
         return true;
     }
 
     function toggleMute(node) {
-        if (!node || !node.audio) return false;
+        if (!node || !node.audio) {
+            root.tracer.warn("toggleMute.noAudio", function() { return { nodeId: node?.id } });
+            return false;
+        }
         node.audio.muted = !node.audio.muted;
+        root.tracer.trace("muteToggled", function() { return { nodeId: node.id, muted: node.audio.muted } });
         return true;
     }
 

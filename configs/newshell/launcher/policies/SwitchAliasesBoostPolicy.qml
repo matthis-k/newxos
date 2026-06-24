@@ -1,11 +1,17 @@
 import QtQml
+import qs.services
 import "../" as Launcher
 import "../logic/"
 
 QtObject {
+    readonly property var tracer: Logger.scope("policy.switchAliasesBoost", { category: "policy" })
+    readonly property var prof: Profiler.scope("policy.switchAliasesBoost", { category: "policy" })
+
     function policyApply(node, query, ctx, evaluatedChildren, scores) {
-        if (!node.switchActions || !scores || !scores.ownScore || scores.ownScore <= 0)
+        if (!node.switchActions || !scores || !scores.ownScore || scores.ownScore <= 0) {
+            tracer.trace("policyApply.skip", function() { return { nodeId: node?.id, reason: "no switch actions or no own score" }; });
             return 0;
+        }
 
         var aliasMap = {
             on: ["on", "enable", "connect"],
@@ -33,6 +39,7 @@ QtObject {
                 }
             }
         }
+        tracer.trace("policyApply.result", function() { return { nodeId: node?.id, bestTokenScore: bestTokenScore }; });
         return bestTokenScore;
     }
 

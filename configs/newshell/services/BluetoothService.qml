@@ -10,6 +10,9 @@ import "bluetooth"
 Singleton {
     id: root
 
+    readonly property var tracer: Logger.scope("bluetooth.service", { category: "bluetooth" })
+    readonly property var prof: Profiler.scope("bluetooth.service", { category: "bluetooth" })
+
     readonly property var backend: Bluetooth
     readonly property var adapter: Bluetooth.defaultAdapter
 
@@ -106,6 +109,7 @@ Singleton {
             root.operationState.beginOperation("toggle", "adapter");
             adapter.enabled = value;
             root.operationState.finishOperation(true, "");
+            root.tracer.info("adapterEnabled", function() { return { enabled: value } });
         }
     }
 
@@ -114,6 +118,7 @@ Singleton {
             root.operationState.beginOperation("toggle", "adapter");
             adapter.enabled = !adapter.enabled;
             root.operationState.finishOperation(true, "");
+            root.tracer.info("adapterToggled", function() { return { enabled: adapter.enabled } });
         }
     }
 
@@ -123,6 +128,7 @@ Singleton {
             adapter.discovering = value;
             if (!value)
                 root.operationState.finishOperation(true, "");
+            root.tracer.info("scanToggled", function() { return { scanning: value } });
         }
     }
 
@@ -133,7 +139,9 @@ Singleton {
         if (device) {
             device.connect();
             root.operationState.finishOperation(true, "");
+            root.tracer.info("deviceConnected", function() { return { key: key, name: root.displayName(device) } });
         } else {
+            root.tracer.error("connectDevice.notFound", function() { return { key: key } });
             root.operationState.finishOperation(false, "Bluetooth device not found");
         }
     }
@@ -145,7 +153,9 @@ Singleton {
         if (device) {
             device.disconnect();
             root.operationState.finishOperation(true, "");
+            root.tracer.info("deviceDisconnected", function() { return { key: key, name: root.displayName(device) } });
         } else {
+            root.tracer.error("disconnectDevice.notFound", function() { return { key: key } });
             root.operationState.finishOperation(false, "Bluetooth device not found");
         }
     }
@@ -155,6 +165,7 @@ Singleton {
         const key = root.deviceKey(device) || String(deviceOrId || "");
         root.operationState.beginOperation("pair", key);
         if (!device) {
+            root.tracer.error("pairDevice.notFound", function() { return { key: key } });
             root.operationState.finishOperation(false, "Bluetooth device not found");
             return;
         }
@@ -163,6 +174,7 @@ Singleton {
         else
             device.pair();
         root.operationState.finishOperation(true, "");
+        root.tracer.info("devicePaired", function() { return { key: key, pairing: device.pairing } });
     }
 
     function pairOrCancelDevice(device) {
@@ -176,7 +188,9 @@ Singleton {
         if (device) {
             device.forget();
             root.operationState.finishOperation(true, "");
+            root.tracer.info("deviceForgotten", function() { return { key: key, name: root.displayName(device) } });
         } else {
+            root.tracer.error("forgetDevice.notFound", function() { return { key: key } });
             root.operationState.finishOperation(false, "Bluetooth device not found");
         }
     }
@@ -188,7 +202,9 @@ Singleton {
         if (device) {
             device.trusted = value;
             root.operationState.finishOperation(true, "");
+            root.tracer.info("deviceTrustSet", function() { return { key: key, trusted: value } });
         } else {
+            root.tracer.error("setTrusted.notFound", function() { return { key: key } });
             root.operationState.finishOperation(false, "Bluetooth device not found");
         }
     }
@@ -200,7 +216,11 @@ Singleton {
     }
 
     function executePayload(payload) {
-        if (!payload) return false;
+        if (!payload) {
+            root.tracer.warn("executePayload.nullPayload");
+            return false;
+        }
+        root.tracer.debug("executePayload", function() { return { op: payload.op, id: payload.id } });
         switch (payload.op) {
         case "setEnabled": root.setEnabled(!!payload.enabled); return true;
         case "toggle": root.toggle(); return true;
@@ -210,7 +230,7 @@ Singleton {
         case "pair": root.pairDevice(payload.id); return true;
         case "forget": root.forgetDevice(payload.id); return true;
         case "trust": root.setTrusted(payload.id, !!payload.trusted); return true;
-        default: return false;
+        default: root.tracer.warn("executePayload.unknownOp", function() { return { op: payload.op } }); return false;
         }
     }
 

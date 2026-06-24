@@ -56,7 +56,7 @@ Singleton {
     }
 
     function _fromEvaluated(ev, query) {
-        if (tracer.traceOn) tracer.trace("fromEvaluated", function() { return { nodeId: ev && ev.node && ev.node.id, ownScore: ev && ev.ownScore }; });
+        tracer.trace("fromEvaluated", function() { return { nodeId: ev && ev.node && ev.node.id, ownScore: ev && ev.ownScore }; });
         if (!ev) return null;
         var evidenceItems = (ev.ownEvidence || ev.evidence || []);
         var node = ev.node;

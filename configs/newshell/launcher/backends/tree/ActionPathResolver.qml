@@ -10,8 +10,7 @@ QtObject {
     property var treeRootsProvider: null
 
     function originalNodeForPath(commandPath) {
-        if (Logger.traceOn)
-            tracer.trace("originalNodeForPath", function() { return { pathLen: (commandPath || []).length }; });
+        .trace("originalNodeForPath", function() { return { pathLen: (commandPath || []).length }; });
         var nodes = root.treeRootsProvider ? root.treeRootsProvider() : [];
         var current = null;
 

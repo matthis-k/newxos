@@ -25,7 +25,7 @@ Singleton {
 
     function _run(names, call, modeOrPhase, tracePerPolicy, timings) {
         var mode = defaultModes[modeOrPhase] || modeOrPhase;
-        if (tracer.traceOn) tracer.trace("run", function() { return { names: (names || []).length, mode: modeOrPhase || "unknown", resolvedMode: mode }; });
+        tracer.trace("run", function() { return { names: (names || []).length, mode: modeOrPhase || "unknown", resolvedMode: mode }; });
         if (!mode)
             return { value: null, priority: 0 };
 

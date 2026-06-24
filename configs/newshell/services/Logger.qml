@@ -25,6 +25,16 @@ QtObject {
     readonly property bool debugOn: 50 <= runtimeMaxLevel
     readonly property bool traceOn: 60 <= runtimeMaxLevel
 
+    readonly property var fatal: 10 <= LogStore.runtimeMaxLevel ? _fatalImpl : _noopLog
+    readonly property var error: 20 <= LogStore.runtimeMaxLevel ? _errorImpl : _noopLog
+    readonly property var warn:  30 <= LogStore.runtimeMaxLevel ? _warnImpl : _noopLog
+    readonly property var info:  40 <= LogStore.runtimeMaxLevel ? _infoImpl : _noopLog
+    readonly property var debug: 50 <= LogStore.runtimeMaxLevel ? _debugImpl : _noopLog
+    readonly property var trace: 60 <= LogStore.runtimeMaxLevel ? _traceImpl : _noopLog
+
+    readonly property var beginTrace: 60 <= LogStore.runtimeMaxLevel ? _beginTraceImpl : _nullBeginTrace
+    readonly property var endTrace: 60 <= LogStore.runtimeMaxLevel ? _endTraceImpl : _noopEndTrace
+
     Component.onCompleted: {
         LogStore.configure({
             installedMaxLevel: installedMaxLevel,
@@ -34,6 +44,72 @@ QtObject {
         })
 
         root.installed = true
+    }
+
+    function _noopLog(name, defaults, payloadProvider) {}
+    function _nullBeginTrace(name, defaults, payloadProvider) { return null }
+    function _noopEndTrace(span, payloadProvider) {}
+
+    function _logImpl(level, name, defaults, payloadProvider) {
+        const nameId = LogStore.internName(name)
+        const categoryId = LogStore.internCategory(
+            (defaults && defaults.category) || inferCategory(name)
+        )
+
+        let payload = null
+        if (typeof payloadProvider === "function")
+            payload = payloadProvider()
+        else if (payloadProvider !== undefined)
+            payload = payloadProvider
+
+        LogStore.appendLog(level, nameId, categoryId, payload)
+    }
+
+    function _fatalImpl(name, defaults, payloadProvider) {
+        root._logImpl(10, name, defaults, payloadProvider)
+    }
+    function _errorImpl(name, defaults, payloadProvider) {
+        root._logImpl(20, name, defaults, payloadProvider)
+    }
+    function _warnImpl(name, defaults, payloadProvider) {
+        root._logImpl(30, name, defaults, payloadProvider)
+    }
+    function _infoImpl(name, defaults, payloadProvider) {
+        root._logImpl(40, name, defaults, payloadProvider)
+    }
+    function _debugImpl(name, defaults, payloadProvider) {
+        root._logImpl(50, name, defaults, payloadProvider)
+    }
+    function _traceImpl(name, defaults, payloadProvider) {
+        root._logImpl(60, name, defaults, payloadProvider)
+    }
+
+    function _beginTraceImpl(name, defaults, payloadProvider) {
+        const nameId = LogStore.internName(name)
+        const categoryId = LogStore.internCategory(
+            (defaults && defaults.category) || inferCategory(name)
+        )
+
+        let payload = null
+        if (typeof payloadProvider === "function")
+            payload = payloadProvider()
+        else if (payloadProvider !== undefined)
+            payload = payloadProvider
+
+        return LogStore.beginTrace(60, nameId, categoryId, payload)
+    }
+
+    function _endTraceImpl(span, payloadProvider) {
+        if (span === null || span === undefined)
+            return
+
+        let payload = null
+        if (typeof payloadProvider === "function")
+            payload = payloadProvider()
+        else if (payloadProvider !== undefined)
+            payload = payloadProvider
+
+        LogStore.endTrace(span, payload)
     }
 
     function levelFromName(name) {
@@ -83,79 +159,6 @@ QtObject {
         return LogStats.textReport(options || {})
     }
 
-    function log(level, name, defaults, payloadProvider) {
-        if (level > LogStore.runtimeMaxLevel)
-            return
-
-        const nameId = LogStore.internName(name)
-        const categoryId = LogStore.internCategory(
-            (defaults && defaults.category) || inferCategory(name)
-        )
-
-        let payload = null
-        if (typeof payloadProvider === "function")
-            payload = payloadProvider()
-        else if (payloadProvider !== undefined)
-            payload = payloadProvider
-
-        LogStore.appendLog(level, nameId, categoryId, payload)
-    }
-
-    function fatal(name, defaults, payloadProvider) {
-        root.log(10, name, defaults, payloadProvider)
-    }
-
-    function error(name, defaults, payloadProvider) {
-        root.log(20, name, defaults, payloadProvider)
-    }
-
-    function warn(name, defaults, payloadProvider) {
-        root.log(30, name, defaults, payloadProvider)
-    }
-
-    function info(name, defaults, payloadProvider) {
-        root.log(40, name, defaults, payloadProvider)
-    }
-
-    function debug(name, defaults, payloadProvider) {
-        root.log(50, name, defaults, payloadProvider)
-    }
-
-    function trace(name, defaults, payloadProvider) {
-        root.log(60, name, defaults, payloadProvider)
-    }
-
-    function beginTrace(name, defaults, payloadProvider) {
-        if (60 > LogStore.runtimeMaxLevel)
-            return null
-
-        const nameId = LogStore.internName(name)
-        const categoryId = LogStore.internCategory(
-            (defaults && defaults.category) || inferCategory(name)
-        )
-
-        let payload = null
-        if (typeof payloadProvider === "function")
-            payload = payloadProvider()
-        else if (payloadProvider !== undefined)
-            payload = payloadProvider
-
-        return LogStore.beginTrace(60, nameId, categoryId, payload)
-    }
-
-    function endTrace(span, payloadProvider) {
-        if (span === null || span === undefined)
-            return
-
-        let payload = null
-        if (typeof payloadProvider === "function")
-            payload = payloadProvider()
-        else if (payloadProvider !== undefined)
-            payload = payloadProvider
-
-        LogStore.endTrace(span, payload)
-    }
-
     function traceFn(name, defaults, fn, payloadProvider) {
         return function traceFnWrapper() {
             const span = root.beginTrace(name, defaults, payloadProvider)
@@ -181,9 +184,9 @@ QtObject {
         if (level > installedMaxLevel)
             return fn
 
-        const L = root.scope(name, options)
+        const s = root.scope(name, options)
         return function tracedWrapper() {
-            const span = L.beginTrace(name, options)
+            const span = s.beginTrace(name, options)
 
             try {
                 return fn.apply(this, arguments)
@@ -192,7 +195,7 @@ QtObject {
                     LogStore.markTraceError(span, error)
                 throw error
             } finally {
-                L.endTrace(span)
+                s.endTrace(span)
             }
         }
     }
@@ -206,9 +209,9 @@ QtObject {
         if (level > installedMaxLevel)
             return fn
 
-        const L = root.scope(name, options)
+        const s = root.scope(name, options)
         return function tracedWrapper0() {
-            const span = L.beginTrace(name, options)
+            const span = s.beginTrace(name, options)
 
             try {
                 return fn.call(this)
@@ -217,7 +220,7 @@ QtObject {
                     LogStore.markTraceError(span, error)
                 throw error
             } finally {
-                L.endTrace(span)
+                s.endTrace(span)
             }
         }
     }
@@ -231,9 +234,9 @@ QtObject {
         if (level > installedMaxLevel)
             return fn
 
-        const L = root.scope(name, options)
+        const s = root.scope(name, options)
         return function tracedWrapper1(a) {
-            const span = L.beginTrace(name, options)
+            const span = s.beginTrace(name, options)
 
             try {
                 return fn.call(this, a)
@@ -242,7 +245,7 @@ QtObject {
                     LogStore.markTraceError(span, error)
                 throw error
             } finally {
-                L.endTrace(span)
+                s.endTrace(span)
             }
         }
     }
@@ -256,9 +259,9 @@ QtObject {
         if (level > installedMaxLevel)
             return fn
 
-        const L = root.scope(name, options)
+        const s = root.scope(name, options)
         return function tracedWrapper2(a, b) {
-            const span = L.beginTrace(name, options)
+            const span = s.beginTrace(name, options)
 
             try {
                 return fn.call(this, a, b)
@@ -267,7 +270,7 @@ QtObject {
                     LogStore.markTraceError(span, error)
                 throw error
             } finally {
-                L.endTrace(span)
+                s.endTrace(span)
             }
         }
     }
@@ -281,9 +284,9 @@ QtObject {
         if (level > installedMaxLevel)
             return fn
 
-        const L = root.scope(name, options)
+        const s = root.scope(name, options)
         return function tracedWrapper3(a, b, c) {
-            const span = L.beginTrace(name, options)
+            const span = s.beginTrace(name, options)
 
             try {
                 return fn.call(this, a, b, c)
@@ -292,13 +295,13 @@ QtObject {
                     LogStore.markTraceError(span, error)
                 throw error
             } finally {
-                L.endTrace(span)
+                s.endTrace(span)
             }
         }
     }
 
     function tap(name, value, defaults, summarizer) {
-        if (50 <= LogStore.runtimeMaxLevel && typeof summarizer === "function")
+        if (typeof summarizer === "function")
             root.debug(name, defaults, function() { return summarizer(value) })
 
         return value

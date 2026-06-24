@@ -1,8 +1,12 @@
 import QtQml
+import qs.services
 import "../" as Launcher
 import "../logic/"
 
 QtObject {
+    readonly property var tracer: Logger.scope("policy.tokenFlow", { category: "policy" })
+    readonly property var prof: Profiler.scope("policy.tokenFlow", { category: "policy" })
+
     Component.onCompleted: {
         Launcher.PolicyRegistry.registerTokenFlow("pass-all", function(node, query, ctx, args) {
             return TokenFlow.passAll(node, query, ctx, args);

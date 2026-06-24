@@ -10,14 +10,14 @@ Singleton {
     function initPolicyTrace(ev, ctx) {
         if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
         var nid = ev.node.id;
-        if (tracer.traceOn) tracer.trace("initPolicyTrace", function() { return { nodeId: nid }; });
+        tracer.trace("initPolicyTrace", function() { return { nodeId: nid }; });
         if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
     }
 
     function policy(ev, ctx, kind, name, returned, effect, reasons) {
         if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
         var nid = ev.node.id;
-        if (tracer.traceOn) tracer.trace("policy", function() { return { nodeId: nid, kind: kind, name: name, effect: effect }; });
+        tracer.trace("policy", function() { return { nodeId: nid, kind: kind, name: name, effect: effect }; });
         if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
         if (!ctx._policyTrace[nid][kind]) {
             ctx._policyTrace[nid][kind] = {
@@ -62,7 +62,7 @@ Singleton {
     function final(ev, ctx, kind, value, reasons) {
         if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
         var nid = ev.node.id;
-        if (tracer.traceOn) tracer.trace("final", function() { return { nodeId: nid, kind: kind }; });
+        tracer.trace("final", function() { return { nodeId: nid, kind: kind }; });
         if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
         if (!ctx._policyTrace[nid][kind]) {
             ctx._policyTrace[nid][kind] = { kind: kind, evaluated: [], aggregate: null, final: null };

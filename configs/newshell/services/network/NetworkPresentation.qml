@@ -1,6 +1,10 @@
 import QtQml
+import qs.services
 
 QtObject {
+    readonly property var tracer: Logger.scope("network.presentation", { category: "network" })
+    readonly property var prof: Profiler.scope("network.presentation", { category: "network" })
+
     function signalBucket(strength) {
         const normalized = Math.max(0, Math.min(1, strength || 0));
         const percent = Math.round(normalized * 100);

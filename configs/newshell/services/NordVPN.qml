@@ -2,9 +2,13 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.services
 
 Singleton {
     id: root
+
+    readonly property var tracer: Logger.scope("nordvpn", { category: "vpn" })
+    readonly property var prof: Profiler.scope("nordvpn", { category: "vpn" })
 
     property bool available: false
     property bool connected: false
@@ -45,11 +49,13 @@ Singleton {
         currentOperationTarget = target || "";
         currentOperationRunning = true;
         currentOperationLastError = "";
+        root.tracer.trace("beginOperation", function() { return { kind: kind, target: target } });
     }
 
     function finishOperation(success, message) {
         currentOperationRunning = false;
         currentOperationLastError = success ? "" : (message || `${currentOperationKind || "operation"} failed`);
+        root.tracer.trace("finishOperation", function() { return { kind: currentOperationKind, target: currentOperationTarget, success: success, error: currentOperationLastError } });
     }
 
     function parseList(text) {
@@ -139,6 +145,7 @@ Singleton {
         root.postQuantumVpn = newPostQuantumVpn;
         root.transfer = newTransfer;
         root.uptime = newUptime;
+        root.tracer.info("statusParsed", function() { return { connected: newConnected, status: newStatus, server: newServer, country: newCountry } });
     }
 
     function parseSettings(text) {
@@ -191,14 +198,18 @@ Singleton {
     }
 
     function connect(destination) {
-        if (root.currentOperationRunning)
+        if (root.currentOperationRunning) {
+            root.tracer.warn("connect.alreadyRunning");
             return;
+        }
 
+        const destStr = destination ? String(destination) : "fastest";
         const command = ["nordvpn", "connect"];
         if (destination !== null && destination !== undefined && String(destination).trim() !== "")
             command.push(String(destination));
 
-        beginOperation("connect", destination ? String(destination) : "fastest");
+        beginOperation("connect", destStr);
+        root.tracer.info("connect", function() { return { destination: destStr } });
         connectProcess.exec({
             command: command
         });
@@ -209,10 +220,12 @@ Singleton {
         try {
             event = JSON.parse(line);
         } catch (error) {
+            root.tracer.warn("handleStateEvent.parseFailed", function() { return { line: line } });
             refreshStatus();
             return;
         }
 
+        root.tracer.debug("stateEvent", function() { return { type: event.type } });
         switch (event.type) {
         case "settings":
             refreshSettings();
@@ -229,6 +242,7 @@ Singleton {
 
     function disconnect() {
         beginOperation("disconnect", "vpn");
+        root.tracer.info("disconnect");
         disconnectProcess.exec({
             command: ["nordvpn", "disconnect"]
         });
@@ -237,12 +251,14 @@ Singleton {
     function setSetting(key, value) {
         const strValue = value === true ? "enabled" : value === false ? "disabled" : String(value);
         beginOperation("set-profile", key);
+        root.tracer.info("setSetting", function() { return { key: key, value: strValue } });
         setProcess.exec({
             command: ["nordvpn", "set", key, strValue]
         });
     }
 
     Component.onCompleted: {
+        root.tracer.info("serviceStarting");
         root.refreshStatus();
         root.refreshSettings();
         root.refreshDestinations();
@@ -256,8 +272,11 @@ Singleton {
             onStreamFinished: root.parseStatus(text)
         }
         function onExited(exitCode) {
-            if (exitCode !== 0 && !root.available && !root.connecting)
-                root.available = false;
+            if (exitCode !== 0) {
+                root.tracer.warn("statusProcess.exited", function() { return { exitCode: exitCode } });
+                if (!root.available && !root.connecting)
+                    root.available = false;
+            }
         }
     }
 

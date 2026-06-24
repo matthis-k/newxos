@@ -1,8 +1,12 @@
 import QtQml
+import qs.services
 import "../" as Launcher
 import "../logic/"
 
 QtObject {
+    readonly property var tracer: Logger.scope("policy.expandRetain", { category: "policy" })
+    readonly property var prof: Profiler.scope("policy.expandRetain", { category: "policy" })
+
     Component.onCompleted: {
         Launcher.PolicyRegistry.registerExpand("expand-when", function(ev, ctx, args) {
             var mode = (args && args.mode) || "own-match";

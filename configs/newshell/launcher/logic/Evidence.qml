@@ -14,7 +14,7 @@ Singleton {
     }
 
     function _matchField(field, query, strategyIds) {
-        if (tracer.traceOn) tracer.trace("matchField", function() { return { field: field.field, tokenCount: query.tokens.length, fieldTextLen: (field.text || "").length }; });
+        tracer.trace("matchField", function() { return { field: field.field, tokenCount: query.tokens.length, fieldTextLen: (field.text || "").length }; });
         if (query.isEmpty) return [];
         var out = [];
         var ids = strategyIds || ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"];

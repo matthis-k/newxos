@@ -34,7 +34,7 @@ Singleton {
     }
 
     function consumeOwnPassRest(node, query, ctx, args) {
-        if (tracer.traceOn) tracer.trace("consumeOwnPassRest", function() { return { nodeId: node.id, tokenCount: (query.tokens || []).length }; });
+        tracer.trace("consumeOwnPassRest", function() { return { nodeId: node.id, tokenCount: (query.tokens || []).length }; });
         var fields = (args && args.fields) || ["label", "alias", "keyword"];
         var inheritAsContext = args && args.inheritConsumedAsContext;
         var consumed = [];
@@ -91,7 +91,7 @@ Singleton {
     }
 
     function claimContextPassAll(node, query, ctx, args) {
-        if (tracer.traceOn) tracer.trace("claimContextPassAll", function() { return { nodeId: node.id }; });
+        tracer.trace("claimContextPassAll", function() { return { nodeId: node.id }; });
         var fields = (args && args.fields) || ["label", "alias", "keyword"];
         var claims = [];
 
@@ -127,7 +127,7 @@ Singleton {
     }
 
     function consumeNamespacePassRest(node, query, ctx, args) {
-        if (tracer.traceOn) tracer.trace("consumeNamespacePassRest", function() { return { nodeId: node.id }; });
+        tracer.trace("consumeNamespacePassRest", function() { return { nodeId: node.id }; });
         var fields = (args && args.fields) || ["label", "alias"];
         var sameLevelFirst = args && args.sameLevelFirst;
 
@@ -174,7 +174,7 @@ Singleton {
     }
 
     function consumeActionToken(node, query, ctx, args) {
-        if (tracer.traceOn) tracer.trace("consumeActionToken", function() { return { nodeId: node.id, aliasCount: ((args && args.aliases) || []).length }; });
+        tracer.trace("consumeActionToken", function() { return { nodeId: node.id, aliasCount: ((args && args.aliases) || []).length }; });
         var aliases = (args && args.aliases) || [];
         var consumed = [];
         var consumedIds = {};
@@ -210,7 +210,7 @@ Singleton {
     }
 
     function consumeSwitchPassRest(node, query, ctx, args) {
-        if (tracer.traceOn) tracer.trace("consumeSwitchPassRest", function() { return { nodeId: node.id }; });
+        tracer.trace("consumeSwitchPassRest", function() { return { nodeId: node.id }; });
         var consumed = [];
         var consumedIds = {};
         var serviceFields = (args && args.fields) || ["label", "alias"];
@@ -255,7 +255,7 @@ Singleton {
     }
 
     function consumePathSegment(node, query, ctx, args) {
-        if (tracer.traceOn) tracer.trace("consumePathSegment", function() { return { nodeId: node.id }; });
+        tracer.trace("consumePathSegment", function() { return { nodeId: node.id }; });
         var sameLevelFirst = args && args.sameLevelFirst;
         var recurseWhenNoLocalMatch = args && args.recurseWhenNoLocalMatch;
 
@@ -297,7 +297,7 @@ Singleton {
     }
 
     function buildChildQuery(node, tokenFlowResult, originalQuery) {
-        if (tracer.traceOn) tracer.trace("buildChildQuery", function() { return { nodeId: node.id, passedCount: (tokenFlowResult.passed || []).length, inheritedCount: (tokenFlowResult.inherited || []).length }; });
+        tracer.trace("buildChildQuery", function() { return { nodeId: node.id, passedCount: (tokenFlowResult.passed || []).length, inheritedCount: (tokenFlowResult.inherited || []).length }; });
         var passedTokens = tokenFlowResult.passed || [];
         var inherited = tokenFlowResult.inherited || [];
         var inheritedText = inherited.map(function(i) { return i.tokenText; }).join(" ");

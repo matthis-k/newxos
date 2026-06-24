@@ -1,8 +1,12 @@
 import QtQml
 import Quickshell.Bluetooth
+import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("bluetooth.presentation", { category: "bluetooth" })
+    readonly property var prof: Profiler.scope("bluetooth.presentation", { category: "bluetooth" })
 
     function displayName(device) {
         return device?.name || device?.deviceName || device?.address || "Bluetooth device";

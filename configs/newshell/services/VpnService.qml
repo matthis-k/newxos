@@ -3,9 +3,13 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
+import qs.services
 
 Singleton {
     id: root
+
+    readonly property var tracer: Logger.scope("vpn.service", { category: "vpn" })
+    readonly property var prof: Profiler.scope("vpn.service", { category: "vpn" })
 
     readonly property var backend: NordVPN
 
@@ -82,12 +86,15 @@ Singleton {
     }
 
     function refresh() {
+        root.tracer.trace("refresh");
         NordVPN.refreshStatus();
     }
 
     function connect(destinationId) {
-        if (root.connecting)
+        if (root.connecting) {
+            root.tracer.warn("connect.alreadyConnecting");
             return;
+        }
 
         const dests = NordVPN.destinations || [];
         let destination = null;
@@ -96,14 +103,17 @@ Singleton {
             if (found)
                 destination = found.value;
         }
+        root.tracer.info("connect", function() { return { destination: destination || "fastest", destinationId: destinationId } });
         NordVPN.connect(destination);
     }
 
     function disconnect() {
+        root.tracer.info("disconnect");
         NordVPN.disconnect();
     }
 
     function toggle() {
+        root.tracer.info("toggle");
         if (root.connected || root.connecting)
             root.disconnect();
         else
@@ -111,9 +121,12 @@ Singleton {
     }
 
     function executePayload(payload) {
-        if (!payload || payload.service !== "vpn")
+        if (!payload || payload.service !== "vpn") {
+            if (payload) root.tracer.warn("executePayload.wrongService", function() { return { service: payload.service } });
             return false;
+        }
 
+        root.tracer.debug("executePayload", function() { return { op: payload.op } });
         switch (payload.op) {
         case "connect":
             root.connect(payload.destination || null);
@@ -125,6 +138,7 @@ Singleton {
             root.toggle();
             return true;
         default:
+            root.tracer.warn("executePayload.unknownOp", function() { return { op: payload.op } });
             return false;
         }
     }

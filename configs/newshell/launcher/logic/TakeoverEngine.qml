@@ -102,7 +102,7 @@ Singleton {
     readonly property var decideTakeover: prof.fn("decideTakeover", _decideTakeover)
 
     function defaultAcceptPolicy(parentEv, claims, ctx, args) {
-        if (tracer.traceOn) tracer.trace("defaultAcceptPolicy", function() { return { parentId: parentEv && parentEv.node && parentEv.node.id, claimCount: (claims || []).length }; });
+        tracer.trace("defaultAcceptPolicy", function() { return { parentId: parentEv && parentEv.node && parentEv.node.id, claimCount: (claims || []).length }; });
         if (!claims || !claims.length) {
             return { accepted: false, reason: "no claims" };
         }
@@ -182,7 +182,7 @@ Singleton {
     }
 
     function childOwnMatchParentNoOwnMatch(childEv, parentEv, ctx, args) {
-        if (tracer.traceOn) tracer.trace("childOwnMatchParentNoOwnMatch", function() { return { childId: childEv && childEv.node && childEv.node.id, parentId: parentEv && parentEv.node && parentEv.node.id }; });
+        tracer.trace("childOwnMatchParentNoOwnMatch", function() { return { childId: childEv && childEv.node && childEv.node.id, parentId: parentEv && parentEv.node && parentEv.node.id }; });
         var claims = [];
         if (!childEv || !parentEv || !childEv.node || !parentEv.node) return claims;
         var minChildScore = (args && args.minChildScore) || 0.05;
@@ -203,7 +203,7 @@ Singleton {
     }
 
     function explicitChildToken(childEv, parentEv, ctx, args) {
-        if (tracer.traceOn) tracer.trace("explicitChildToken", function() { return { childId: childEv && childEv.node && childEv.node.id }; });
+        tracer.trace("explicitChildToken", function() { return { childId: childEv && childEv.node && childEv.node.id }; });
         var claims = [];
         if (!childEv.visible || !childEv.ownScore) return claims;
         var tokens = ctx.query && ctx.query.tokens || [];
@@ -244,7 +244,7 @@ Singleton {
     }
 
     function childCoversPassedTokens(childEv, parentEv, ctx, args) {
-        if (tracer.traceOn) tracer.trace("childCoversPassedTokens", function() { return { childId: childEv && childEv.node && childEv.node.id }; });
+        tracer.trace("childCoversPassedTokens", function() { return { childId: childEv && childEv.node && childEv.node.id }; });
         var claims = [];
         var tokenFlow = parentEv.tokenFlow;
         if (!tokenFlow || !tokenFlow.passed || tokenFlow.passed.length === 0) return claims;
@@ -281,7 +281,7 @@ Singleton {
     }
 
     function ownScoreDominatesTakeover(childEv, parentEv, ctx, args) {
-        if (tracer.traceOn) tracer.trace("ownScoreDominatesTakeover", function() { return { childId: childEv && childEv.node && childEv.node.id }; });
+        tracer.trace("ownScoreDominatesTakeover", function() { return { childId: childEv && childEv.node && childEv.node.id }; });
         var claims = [];
         var margin = (args && args.margin) || 0.18;
         if (!childEv.ownScore || !parentEv.ownScore) return claims;
@@ -299,7 +299,7 @@ Singleton {
     }
 
     function exactActionTokenTakeover(childEv, parentEv, ctx, args) {
-        if (tracer.traceOn) tracer.trace("exactActionTokenTakeover", function() { return { childId: childEv && childEv.node && childEv.node.id }; });
+        tracer.trace("exactActionTokenTakeover", function() { return { childId: childEv && childEv.node && childEv.node.id }; });
         var claims = [];
         if (!childEv.node || !childEv.node.switchActions) return claims;
         var tokens = ctx.query && ctx.query.tokens || [];

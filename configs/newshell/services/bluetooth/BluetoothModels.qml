@@ -1,7 +1,11 @@
 import QtQml
+import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("bluetooth.models", { category: "bluetooth" })
+    readonly property var prof: Profiler.scope("bluetooth.models", { category: "bluetooth" })
 
     function deviceKey(device) {
         return device?.address || device?.dbusPath || (device ? root.displayFallback(device) : "");
@@ -9,8 +13,10 @@ QtObject {
 
     function collectDevices(adapter, presentation) {
         const items = [];
-        if (!adapter)
+        if (!adapter) {
+            root.tracer.debug("collectDevices.noAdapter");
             return items;
+        }
 
         for (const device of adapter.devices.values || [])
             items.push(device);
@@ -33,15 +39,20 @@ QtObject {
             return aName.localeCompare(bName);
         });
 
+        root.tracer.trace("devicesCollected", function() { return { count: items.length, connected: items.filter(d => d.connected).length } });
         return items;
     }
 
     function connectedDevices(devices) {
-        return (devices || []).filter(device => !!device && device.connected);
+        const result = (devices || []).filter(device => !!device && device.connected);
+        root.tracer.trace("connectedDevices", function() { return { count: result.length } });
+        return result;
     }
 
     function otherDevices(devices) {
-        return (devices || []).filter(device => !!device && !device.connected);
+        const result = (devices || []).filter(device => !!device && !device.connected);
+        root.tracer.trace("otherDevices", function() { return { count: result.length } });
+        return result;
     }
 
     function displayFallback(device) {

@@ -1,4 +1,5 @@
 import QtQml
+import qs.services
 import "../" as Launcher
 import "../logic/"
 
@@ -6,7 +7,11 @@ QtObject {
     property string policyId
     property string factor: "auto"
 
+    readonly property var tracer: Logger.scope("policy.descendantBoost", { category: "policy" })
+    readonly property var prof: Profiler.scope("policy.descendantBoost", { category: "policy" })
+
     function policyApply(node, query, ctx, evaluatedChildren, scores, specArgs) {
+        tracer.trace("policyApply", function() { return { policyId: policyId, nodeId: node?.id, childCount: evaluatedChildren ? evaluatedChildren.length : 0 }; });
         var directiveActive = !!(ctx.directive && ctx.directive.active);
         var ownScore = scores ? scores.ownScore || 0 : 0;
 
@@ -45,7 +50,9 @@ QtObject {
                 : 0.28;
         }
 
-        return bestChildScore * depthPenalty * factorVal;
+        var result = bestChildScore * depthPenalty * factorVal;
+        tracer.trace("policyApply.result", function() { return { policyId: policyId, nodeId: node?.id, bestChildScore: bestChildScore, depthPenalty: depthPenalty, factor: factorVal, result: result }; });
+        return result;
     }
 
     Component.onCompleted: {

@@ -4,9 +4,13 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Services.Notifications
+import qs.services
 
 Singleton {
     id: root
+
+    readonly property var tracer: Logger.scope("notificationCenter", { category: "notification" })
+    readonly property var prof: Profiler.scope("notificationCenter", { category: "notification" })
 
     readonly property var backend: server
 
@@ -56,19 +60,26 @@ Singleton {
     }
 
     function dismiss(notification) {
-        notification?.dismiss();
+        if (notification) {
+            root.tracer.debug("dismiss", function() { return { appName: notification.appName } });
+            notification.dismiss();
+        }
     }
 
     function clearAll() {
+        root.tracer.info("clearAll", function() { return { count: notifications.length } });
         for (const notification of notifications)
             notification.dismiss();
     }
 
     function invokeDefaultAction(notification) {
-        if (!notification)
+        if (!notification) {
+            root.tracer.warn("invokeDefaultAction.nullNotification");
             return;
+        }
 
         if (notification.actions.length > 0) {
+            root.tracer.debug("invokeDefaultAction", function() { return { appName: notification.appName, actionCount: notification.actions.length } });
             notification.actions[0].invoke();
             return;
         }
@@ -135,16 +146,21 @@ Singleton {
 
     function setDoNotDisturb(value) {
         root.toastsEnabled = !value;
+        root.tracer.info("dndSet", function() { return { enabled: !value } });
     }
 
     function toggleDoNotDisturb() {
         root.toastsEnabled = !root.toastsEnabled;
+        root.tracer.info("dndToggled", function() { return { enabled: root.toastsEnabled } });
     }
 
     function executePayload(payload) {
-        if (!payload || payload.service !== "notifications")
+        if (!payload || payload.service !== "notifications") {
+            if (payload) root.tracer.warn("executePayload.wrongService", function() { return { service: payload.service } });
             return false;
+        }
 
+        root.tracer.debug("executePayload", function() { return { op: payload.op } });
         switch (payload.op) {
         case "setDnd":
             root.setDoNotDisturb(!!payload.enabled);
@@ -156,6 +172,7 @@ Singleton {
             root.clearAll();
             return true;
         default:
+            root.tracer.warn("executePayload.unknownOp", function() { return { op: payload.op } });
             return false;
         }
     }

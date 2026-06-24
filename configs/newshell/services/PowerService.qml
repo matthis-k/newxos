@@ -4,9 +4,13 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Services.UPower
+import qs.services
 
 Singleton {
     id: root
+
+    readonly property var tracer: Logger.scope("power.service", { category: "power" })
+    readonly property var prof: Profiler.scope("power.service", { category: "power" })
 
     readonly property var backend: UPower
 
@@ -110,18 +114,23 @@ Singleton {
         beginOperation("set-profile", profileLabel(profile));
         PowerProfiles.profile = profile;
         finishOperation(true, "");
+        root.tracer.info("profileSet", function() { return { profile: profileLabel(profile) } });
     }
 
     function cycleProfile(direction) {
         const idx = profileIndex(PowerProfiles.profile);
         const newIdx = Math.max(0, Math.min(2, idx + direction));
+        root.tracer.debug("cycleProfile", function() { return { direction: direction, from: profileLabel(PowerProfiles.profile), to: profileLabel(profileFromIndex(newIdx)) } });
         setProfile(profileFromIndex(newIdx));
     }
 
     function executePayload(payload) {
-        if (!payload || payload.service !== "power")
+        if (!payload || payload.service !== "power") {
+            if (payload) root.tracer.warn("executePayload.wrongService", function() { return { service: payload.service } });
             return false;
+        }
 
+        root.tracer.debug("executePayload", function() { return { op: payload.op } });
         switch (payload.op) {
         case "setProfile":
             root.setProfile(root.profileFromIndex(payload.index));
@@ -130,6 +139,7 @@ Singleton {
             root.cycleProfile(Number(payload.delta || 0));
             return true;
         default:
+            root.tracer.warn("executePayload.unknownOp", function() { return { op: payload.op } });
             return false;
         }
     }
