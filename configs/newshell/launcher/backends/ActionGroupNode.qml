@@ -7,7 +7,8 @@ Node {
             strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
             scorePolicy: "default",
             profile: {
-                evidence: [["field-match", { filterType: "all" }], "switch-action", "semantic", "token-claim", "usage", "recency"],
+                fields: ["label", "aliases"],
+                evidence: ["field-match", "switch-action", "semantic", "token-claim", "usage", "recency"],
                 boost: ["descendant-boost"],
                 childVisible: ["visible-flag"],
                 tokenFlow: ["consume-namespace-pass-rest"],

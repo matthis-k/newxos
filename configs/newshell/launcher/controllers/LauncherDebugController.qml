@@ -906,4 +906,209 @@ Item {
         });
         return root.returnDebugEnvelope("raw", resolved.evaluation, result, resolved.source);
     }
+
+    // ── Benchmark V2: per-phase, per-policy, per-query statistical benchmark ──
+
+    function parseBenchmarkV2Config(arg) {
+        var defaults = {
+            count: 5,
+            warmups: 1,
+            queries: [
+                "?", "= 1+2",
+                ":wifi", ":wifi on", ":audio", ":shutdown", "@app", "@apps", "@apps zen",
+                "/tmp",
+                "a", "n", "w", "z",
+                "ai", "audio", "bluetooth", "documents", "downloads",
+                "files", "net", "network", "networking", "new window", "newxos", "newxos ai",
+                "pictures", "private", "rebuild", "session", "shutdown", "switch",
+                "vpn", "vpn ", "vpn g", "vpn ger", "vpn germany", "vpn algeria", "vpn fastest",
+                "wifi", "wifi ", "wifi on",
+                "zen", "zen ", "zen browser", "zen priv", "zen window"
+            ]
+        };
+        if (!arg) return defaults;
+        try {
+            var parsed = JSON.parse(arg);
+            if (Array.isArray(parsed))
+                defaults.queries = parsed.map(function(x) { return String(x); });
+            else if (parsed && typeof parsed === "object") {
+                if (Array.isArray(parsed.queries))
+                    defaults.queries = parsed.queries.map(function(x) { return String(x); });
+                if (parsed.count !== undefined) defaults.count = Math.max(1, Math.min(Number(parsed.count), 50));
+                if (parsed.warmups !== undefined) defaults.warmups = Math.max(0, Math.min(Number(parsed.warmups), 10));
+            }
+        } catch (error) {
+            defaults.queries = [String(arg)];
+        }
+        return defaults;
+    }
+
+    function benchmarkStats(values) {
+        if (!values || values.length === 0) return null;
+        var n = values.length;
+        var sorted = values.slice().sort(function(a, b) { return a - b; });
+        var sum = 0;
+        for (var i = 0; i < n; i += 1) sum += sorted[i];
+        var mean = sum / n;
+        var variance = 0;
+        for (var j = 0; j < n; j += 1) variance += (sorted[j] - mean) * (sorted[j] - mean);
+        variance /= n;
+        function pct(p) {
+            var idx = Math.floor(p * (n - 1));
+            return sorted[idx];
+        }
+        return {
+            min: sorted[0],
+            max: sorted[n - 1],
+            mean: mean,
+            sigma: Math.sqrt(variance),
+            p50: pct(0.50),
+            p95: pct(0.95),
+            p99: pct(0.99),
+            samples: n
+        };
+    }
+
+    function computeQueryStats(samples) {
+        var wallVals = [];
+        var phaseBuckets = {};
+        var policyBuckets = {};
+        for (var si = 0; si < samples.length; si += 1) {
+            var s = samples[si];
+            wallVals.push(s.wallMs);
+            if (s.phases) {
+                for (var pk in s.phases) {
+                    if (!s.phases.hasOwnProperty(pk)) continue;
+                    if (!phaseBuckets[pk]) phaseBuckets[pk] = [];
+                    phaseBuckets[pk].push(s.phases[pk]);
+                }
+            }
+            if (s.policies) {
+                for (var cat in s.policies) {
+                    if (!s.policies.hasOwnProperty(cat)) continue;
+                    if (!policyBuckets[cat]) policyBuckets[cat] = {};
+                    for (var pn in s.policies[cat]) {
+                        if (!s.policies[cat].hasOwnProperty(pn)) continue;
+                        if (!policyBuckets[cat][pn]) policyBuckets[cat][pn] = [];
+                        policyBuckets[cat][pn].push(s.policies[cat][pn]);
+                    }
+                }
+            }
+        }
+        var result = {
+            totalWallMs: root.benchmarkStats(wallVals),
+            phases: {},
+            policies: {}
+        };
+        for (var pk2 in phaseBuckets) {
+            if (phaseBuckets.hasOwnProperty(pk2))
+                result.phases[pk2] = root.benchmarkStats(phaseBuckets[pk2]);
+        }
+        for (var cat2 in policyBuckets) {
+            if (policyBuckets.hasOwnProperty(cat2)) {
+                result.policies[cat2] = {};
+                for (var pn2 in policyBuckets[cat2]) {
+                    if (policyBuckets[cat2].hasOwnProperty(pn2))
+                        result.policies[cat2][pn2] = root.benchmarkStats(policyBuckets[cat2][pn2]);
+                }
+            }
+        }
+        return result;
+    }
+
+    function debugBenchmarkV2(arg) {
+        var config = root.parseBenchmarkV2Config(arg);
+        var queries = config.queries.slice(0, 32);
+        var count = config.count;
+        var warmups = config.warmups;
+        var allSamples = {};
+
+        function benchSearch(queryText) {
+            return Engine.search(controller.backends || [], queryText, controller.stateForSearch(),
+                Object.assign({}, controller.searchOptions(), { trace: true, _policyTimings: { evidence: {}, boost: {} } }));
+        }
+
+        // Warmup
+        for (var wi = 0; wi < warmups; wi += 1) {
+            for (var wq = 0; wq < queries.length; wq += 1)
+                benchSearch(queries[wq]);
+        }
+
+        // Timed runs
+        for (var qi = 0; qi < queries.length; qi += 1) {
+            var q = queries[qi];
+            var samples = [];
+            for (var ci = 0; ci < count; ci += 1) {
+                var start = Date.now();
+                var output = benchSearch(q);
+                var wallMs = Date.now() - start;
+                var timings = output.timings || {};
+
+                var totalMs = timings.totalMs || 0;
+                var phaseSum = (timings.rootNodeMs || 0) + (timings.candidateMs || 0) + (timings.evaluateMs || 0) + (timings.pathMs || 0) + (timings.shapeMs || 0);
+                var phases = {
+                    "directive-tokenize": Math.max(0, totalMs - phaseSum),
+                    "root-nodes": timings.rootNodeMs || 0,
+                    "candidates": timings.candidateMs || 0,
+                    "evaluation": timings.evaluateMs || 0,
+                    "path-policies": timings.pathMs || 0,
+                    "shaping": timings.shapeMs || 0
+                };
+
+                var policies = {};
+                var pt = timings.policyTimings;
+                if (pt) {
+                    if (pt.evidence) {
+                        policies.evidence = {};
+                        for (var ek in pt.evidence)
+                            if (pt.evidence.hasOwnProperty(ek))
+                                policies.evidence[ek] = pt.evidence[ek];
+                    }
+                    if (pt.boost) {
+                        policies.boost = {};
+                        for (var bk in pt.boost)
+                            if (pt.boost.hasOwnProperty(bk))
+                                policies.boost[bk] = pt.boost[bk];
+                    }
+                }
+
+                samples.push({
+                    wallMs: wallMs,
+                    totalMs: totalMs,
+                    phases: phases,
+                    policies: policies,
+                    rows: output.rows ? output.rows.length : 0
+                });
+            }
+            allSamples[q] = samples;
+        }
+
+        var byQuery = {};
+        for (var qi2 = 0; qi2 < queries.length; qi2 += 1) {
+            var q2 = queries[qi2];
+            var samps = allSamples[q2] || [];
+            if (samps.length === 0) continue;
+            byQuery[q2] = {
+                samples: samps,
+                stats: root.computeQueryStats(samps)
+            };
+        }
+
+        var allSamplesFlat = [];
+        for (var qk in allSamples) {
+            if (allSamples.hasOwnProperty(qk))
+                allSamplesFlat = allSamplesFlat.concat(allSamples[qk]);
+        }
+        var overall = root.computeQueryStats(allSamplesFlat);
+
+        var result = {
+            version: 2,
+            type: "benchmarkV2",
+            config: { count: count, warmups: warmups, queryCount: queries.length, queries: queries },
+            overall: overall,
+            byQuery: byQuery
+        };
+
+        return JSON.stringify(result, null, 2);
+    }
 }

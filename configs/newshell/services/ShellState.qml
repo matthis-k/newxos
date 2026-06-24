@@ -365,6 +365,10 @@ Singleton {
             const state = root.instances[0];
             return state ? state.launcher.debugBenchmark(arg) : "{}";
         }
+        function benchmarkV2(arg: string): string {
+            const state = root.instances[0];
+            return state ? state.launcher.debugBenchmarkV2(arg) : "{}";
+        }
         function cases(): string {
             const state = root.instances[0];
             return state ? state.launcher.queryCases() : "{}";

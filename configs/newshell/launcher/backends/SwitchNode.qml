@@ -77,7 +77,8 @@ Node {
                 strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"],
                 scorePolicy: "default",
                 profile: {
-                    evidence: [["field-match", { filterType: "primary" }], ["field-match", { filterType: "breadcrumb" }], "switch-action"],
+                    fields: ["label", "aliases"],
+                    evidence: ["field-match", ["field-match", { fields: ["breadcrumb"] }], "switch-action"],
                     boost: ["descendant-boost", "switch-aliases"],
                     childVisible: root.childVisible || [["own-score-min", { threshold: 0.25 }]],
                     tokenFlow: ["consume-switch-pass-rest"],

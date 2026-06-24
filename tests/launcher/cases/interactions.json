@@ -1,0 +1,223 @@
+{
+  "cases": [
+    {
+      "name": "Alt+Space toggles selected test switch",
+      "tags": ["interaction", "alt", "switch", "toggle"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "test switch" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Switch", "selectable": true, "executable": true },
+            "rows": {
+              "noneHighlightedExceptSelected": true
+            }
+          }
+        },
+        { "do": { "type": "altInteract", "key": "space" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Switch" },
+            "rows": {
+              "noneHighlightedExceptSelected": true
+            },
+            "lastInteraction": {
+              "ok": true,
+              "mode": "switch-toggle",
+              "success": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Keyboard-equivalent Space key path works with qtKey",
+      "tags": ["interaction", "alt", "switch", "qtkey"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "test switch" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Switch" },
+            "rows": {
+              "noneHighlightedExceptSelected": true
+            }
+          }
+        },
+        { "do": { "type": "altInteract", "key": "space", "qtKey": 32 } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Switch" },
+            "rows": {
+              "noneHighlightedExceptSelected": true
+            },
+            "lastInteraction": {
+              "ok": true,
+              "mode": "switch-toggle",
+              "success": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alt+h switches off selected switch",
+      "tags": ["interaction", "alt", "switch", "off"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "test switch" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Switch" }
+          }
+        },
+        { "do": { "type": "altInteract", "key": "h" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Switch" },
+            "rows": {
+              "noneHighlightedExceptSelected": true
+            },
+            "lastInteraction": {
+              "ok": true,
+              "mode": "switch-off",
+              "success": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alt+l switches on selected switch",
+      "tags": ["interaction", "alt", "switch", "on"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "test switch" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Switch" }
+          }
+        },
+        { "do": { "type": "altInteract", "key": "l" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Switch" },
+            "rows": {
+              "noneHighlightedExceptSelected": true
+            },
+            "lastInteraction": {
+              "ok": true,
+              "mode": "switch-on",
+              "success": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alt+h decreases selected slider",
+      "tags": ["interaction", "alt", "slider", "decrease"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "test slider" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Slider" },
+            "rows": {
+              "noneHighlightedExceptSelected": true
+            }
+          }
+        },
+        { "do": { "type": "altInteract", "key": "h" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Slider" },
+            "rows": {
+              "noneHighlightedExceptSelected": true
+            },
+            "lastInteraction": {
+              "ok": true,
+              "mode": "slider-dec",
+              "success": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alt+l increases selected slider",
+      "tags": ["interaction", "alt", "slider", "increase"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "test slider" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Slider" },
+            "rows": {
+              "noneHighlightedExceptSelected": true
+            }
+          }
+        },
+        { "do": { "type": "altInteract", "key": "l" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Slider" },
+            "rows": {
+              "noneHighlightedExceptSelected": true
+            },
+            "lastInteraction": {
+              "ok": true,
+              "mode": "slider-inc",
+              "success": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Unsupported Alt key reports failure cleanly",
+      "tags": ["interaction", "alt", "failure"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "test switch" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Switch" }
+          }
+        },
+        { "do": { "type": "altInteract", "key": "x" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Test Switch" },
+            "lastInteraction": {
+              "ok": true,
+              "success": false,
+              "reason": "no_interaction"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

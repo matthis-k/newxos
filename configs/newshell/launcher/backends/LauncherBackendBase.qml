@@ -97,7 +97,7 @@ QtObject {
             behavior: Object.assign({
                 exclusiveWhen: (root.routes || []).filter(function(route) { return route && (route.mode === "exclusive" || route.combine === "exclusive"); })
             }, opts.behavior || {}),
-            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { evidence: [["field-match", { filterType: "all" }]], boost: [], childVisible: ["visible-flag"], tokenFlow: ["pass-all"], takeoverRequest: [], takeoverAccept: [], expand: [], retainParent: [], defaultAction: [], riskGate: [] } }
+            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym"], scorePolicy: "backend", profile: { fields: ["label", "aliases"], evidence: ["field-match"], boost: [], childVisible: ["visible-flag"], tokenFlow: ["pass-all"], takeoverRequest: [], takeoverAccept: [], expand: [], retainParent: [], defaultAction: [], riskGate: [] } }
         }, opts));
     }
 

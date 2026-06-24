@@ -185,6 +185,7 @@ Item {
     function findHelpTitle(backendId) { return Engine.findHelpTitle(backends || [], backendId); }
 
     function debugBenchmark(arg) { return debugController.debugBenchmark(arg); }
+    function debugBenchmarkV2(arg) { return debugController.debugBenchmarkV2(arg); }
     function parseBenchmarkConfig(arg) { return debugController.parseBenchmarkConfig(arg); }
     function debugVisualRows(text) { return debugController.debugVisualRows(text); }
     function debugApplyQuery(text) { return debugController.debugApplyQuery(text); }

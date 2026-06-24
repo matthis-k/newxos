@@ -100,6 +100,10 @@ PanelWindow {
         return controller.debugBenchmark(arg || "");
     }
 
+    function debugBenchmarkV2(arg) {
+        return controller.debugBenchmarkV2(arg || "");
+    }
+
     function queryCases() {
         return controller.queryCases();
     }

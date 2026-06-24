@@ -119,7 +119,7 @@ Singleton {
     function collectCandidateIds(index, query, marked, capState) {
         if (!index || query.isEmpty) return null;
         marked = marked || {};
-        capState = capState || { hits: 0, cap: 256 };
+        capState = capState || { hits: 0, cap: 256, fuzzyCap: 12 };
         for (var ti = 0; ti < query.tokens.length; ti += 1) {
             if (capState.hits >= capState.cap) break;
             var token = query.tokens[ti].normalized;
@@ -145,21 +145,25 @@ Singleton {
     }
 
     function collectFuzzyHitsCapped(idx, token, marked, capState) {
-        if (String(token || "").length < 3) return;
+        if (String(token || "").length < 4) return;
         var tokenLen = token.length;
-        var minLen = tokenLen - 2;
-        if (minLen < 3) minLen = 3;
+        // Tighter candidate-collection distance: floor(len/4), min 1.
+        // Only catches very close misspellings, not tangentially related words.
+        var maxDist = Math.max(1, Math.floor(tokenLen / 4));
+        var fuzzyLimit = capState.fuzzyCap || 12;
+        var minLen = Math.max(tokenLen - 2, 3);
         var maxLen = tokenLen + 2;
         for (var len = minLen; len <= maxLen; len += 1) {
+            if (fuzzyLimit <= 0) return;
             var bucket = idx.termsByLength[len];
             if (!bucket) continue;
             for (var ti = 0; ti < bucket.length; ti += 1) {
                 if (capState.hits >= capState.cap) return;
+                if (fuzzyLimit <= 0) return;
                 var term = bucket[ti];
                 if (term === token) continue;
-                var maxDist = Tokenize.fuzzyDistanceLimit(token, term);
-                if (maxDist <= 0) continue;
                 if (Tokenize.boundedDamerauLevenshtein(token, term, maxDist) > maxDist) continue;
+                fuzzyLimit -= 1;
                 collectIndexHitsCapped(idx.terms, term, marked, capState);
             }
         }
@@ -174,12 +178,17 @@ Singleton {
         }
     }
 
-    function markNodeAndDescendants(marked, node) {
+    function markNodeAndDescendants(marked, node, limit) {
+        if (limit && limit.remaining <= 0) return;
+        if (marked[node.id]) return;
         marked[node.id] = true;
+        if (limit) limit.remaining -= 1;
         var children = node.children;
         if (!children) return;
-        for (var i = 0; i < children.length; i += 1)
-            markNodeAndDescendants(marked, children[i]);
+        for (var i = 0; i < children.length; i += 1) {
+            if (limit && limit.remaining <= 0) return;
+            markNodeAndDescendants(marked, children[i], limit);
+        }
     }
 
     function explorationPreviewLimit(node) {
@@ -207,7 +216,9 @@ Singleton {
                 markPreviewChildren(marked, node, explorationPreviewLimit(node));
             return;
         }
-        markNodeAndDescendants(marked, node);
+        // Limit descendant marking to prevent a single match from flooding
+        // the candidate set with hundreds of children (e.g. 50 VPN destinations).
+        markNodeAndDescendants(marked, node, { remaining: 32 });
     }
 
     function collectCandidateIdsForRoots(roots, query, cap) {

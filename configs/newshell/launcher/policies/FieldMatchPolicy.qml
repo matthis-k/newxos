@@ -10,15 +10,25 @@ QtObject {
     function policyMatch(node, query, ctx, specArgs) {
         if (query.isEmpty)
             return [];
-        var effectiveFilterType = specArgs && specArgs.filterType !== undefined
-            ? String(specArgs.filterType)
-            : filterType;
-        var originGroup = effectiveFilterType === "breadcrumb" ? "inherited" : "own";
+        var originGroup = "own";
         var fields = IndexBuilder.searchableFields(node);
-        var filtered = Evidence.filterFields(fields, effectiveFilterType);
+
+        if (specArgs && specArgs.fields) {
+            fields = fields.filter(function(f) {
+                return specArgs.fields.indexOf(f.field) >= 0;
+            });
+            originGroup = specArgs.fields.indexOf("breadcrumb") >= 0 ? "inherited" : "own";
+        } else {
+            var effectiveFilterType = specArgs && specArgs.filterType !== undefined
+                ? String(specArgs.filterType)
+                : filterType;
+            originGroup = effectiveFilterType === "breadcrumb" ? "inherited" : "own";
+            fields = Evidence.filterFields(fields, effectiveFilterType);
+        }
+
         var out = [];
-        for (var fi = 0; fi < filtered.length; fi += 1) {
-            var matches = Evidence.matchField(filtered[fi], query, strategyList);
+        for (var fi = 0; fi < fields.length; fi += 1) {
+            var matches = Evidence.matchField(fields[fi], query, strategyList);
             for (var mi = 0; mi < matches.length; mi += 1)
                 matches[mi].originGroup = originGroup;
             out = out.concat(matches);
