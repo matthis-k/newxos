@@ -22,11 +22,11 @@ PanelWindow {
     property var shellScreenState: null
     property string backendSet: "all"
     property var backendSets: ({
-        "all": [backendsBackend, desktopActionsBackend, calculatorBackend, desktopBackend, filesBackend, webBackend],
+        "all": [backendsBackend, desktopActionsBackend, calculatorBackend, desktopBackend, filesBackend, webBackend, workerTestBackend],
         "desktop": [desktopBackend],
         "dmenu": [desktopBackend, calculatorBackend, filesBackend]
     })
-    readonly property var allBackends: [backendsBackend, desktopActionsBackend, calculatorBackend, desktopBackend, filesBackend, webBackend]
+    readonly property var allBackends: [backendsBackend, desktopActionsBackend, calculatorBackend, desktopBackend, filesBackend, webBackend, workerTestBackend]
     property var backends: root.backendSets[root.backendSet] || root.backendSets.all
     property Component resultDelegate: defaultResultDelegate
     property bool showSubtitles: true
@@ -842,6 +842,12 @@ PanelWindow {
     Backends.FilesBackend {
         id: filesBackend
         backendId: "files"
+        controller: controller
+    }
+
+    Backends.WorkerTestBackend {
+        id: workerTestBackend
+        backendId: "worker-test"
         controller: controller
     }
 

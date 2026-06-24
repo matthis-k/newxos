@@ -1,0 +1,79 @@
+{
+  "cases": [
+    {
+      "name": "@worker ger shows Germany (alternate) because keyword 'ger' matches",
+      "tags": ["worker"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "@worker ger" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Germany (alternate)", "backend": "worker-test", "selectable": true, "executable": true },
+            "rows": {
+              "contains": [
+                { "title": "Germany (alternate)", "backend": "worker-test", "selectable": true, "executable": true }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "@worker germany shows Germany (alternate) and Germany",
+      "tags": ["worker"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "@worker germany" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Germany", "backend": "worker-test", "selectable": true, "executable": true },
+            "rows": {
+              "contains": [
+                { "title": "Germany", "backend": "worker-test", "selectable": true, "executable": true },
+                { "title": "Germany (alternate)", "backend": "worker-test" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "@worker xyzzy shows no results for non-matching query",
+      "tags": ["worker"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "@worker xyzzy" } },
+        {
+          "expect": {
+            "rows": {
+              "count": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "@worker shows help description when query is prefix-only",
+      "tags": ["worker"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "@worker" } },
+        {
+          "expect": {
+            "rows": {
+              "contains": [
+                { "title": "Worker Test", "backend": "worker-test", "selectable": true }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

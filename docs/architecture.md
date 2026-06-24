@@ -149,7 +149,7 @@ Contract and backend limits: `docs/contracts/hyprland-keymap.md`.
 
 The Quickshell launcher uses a composite search pipeline:
 
-- **Backends** produce normalized tree DTOs (plain JS objects, no live QML refs). Backend types: static trees, model-derived trees, computed results, streaming results, process-backed results.
+- **Backends** produce normalized tree DTOs (plain JS objects, no live QML refs). Backend types: static trees, model-derived trees, computed results, streaming results, process-backed results, and **worker-script-backed results** (`ScriptWorkerBackendBase`) which offload filtering/scoring/sorting to a `WorkerScript` thread via `LauncherQueryWorker.js`.
 - **LauncherController** (`configs/newshell/launcher/LauncherController.qml`) orchestrates the pipeline. Controllers in `configs/newshell/launcher/controllers/` split responsibilities: session/search lifecycle, navigation/selection, activation/recipes, and debug endpoints.
 - **Pipeline** (`configs/newshell/launcher/logic/`) handles indexing, evidence, scoring, shaping, row DTO construction, policy, and routing tree for prefix gating.
 - **Visual layer** (`configs/newshell/launcher/visual/`) diffs row snapshots and drives animated list/delegate transitions without feeding back into scoring.
