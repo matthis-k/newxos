@@ -5,6 +5,9 @@ import "../logic/DebugLogger.js" as DebugLogger
 ModelTreeBackendBase {
     id: root
 
+    readonly property var tracer: Logger.scope("backend.desktop", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.desktop", { category: "backend" })
+
     category: qsTr("Applications")
 
     backendId: "desktop"
@@ -64,6 +67,7 @@ ModelTreeBackendBase {
 
     function buildAppTree() {
         const entries = TestMode.isActive ? root.fixtureApps : (DesktopEntries.applications.values || []);
+        tracer.debug("buildAppTree", function() { return { entryCount: entries ? entries.length : 0, testMode: TestMode.isActive }; });
         const children = [];
         for (const entry of entries) {
             if (skipEntry(entry))
@@ -113,6 +117,7 @@ ModelTreeBackendBase {
     }
 
     function activate(result, action) {
+        tracer.info("activate", function() { return { resultId: result ? result.id : null, entryId: result ? result.metadata?.desktopEntry : null, testMode: TestMode.isActive }; });
         if (TestMode.isActive) {
             root.debugLog("desktop-launch", "Test mode: skipping desktop activation", {
                 resultId: result ? result.id : null
@@ -176,6 +181,7 @@ ModelTreeBackendBase {
     }
 
     function launchDesktopCommand(command, workingDirectory, runInTerminal) {
+        tracer.debug("launchDesktopCommand", function() { return { commandLen: command ? command.length : 0, workingDir: workingDirectory || "", runInTerminal: runInTerminal }; });
         if (!command || command.length === 0) {
             root.debugLog("desktop-launch", "Empty desktop command", {});
             return;

@@ -1,5 +1,11 @@
+import Quickshell
+import qs.services
+
 ModelTreeBackendBase {
     id: root
+
+    readonly property var tracer: Logger.scope("backend.backends", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.backends", { category: "backend" })
 
     property var describedBackends: []
 
@@ -33,6 +39,7 @@ ModelTreeBackendBase {
 
     function activate(result, action) {
         const metadata = result ? result.metadata || {} : {};
+        tracer.info("activate", function() { return { resultId: result ? result.id : null, hasReplaceQuery: !!(action?.payload?.replaceQuery || metadata?.action?.payload?.replaceQuery) }; });
         const cmdAction = (action && action.payload) || (metadata.action && metadata.action.payload) || metadata.action || {};
         if (cmdAction.replaceQuery) {
             if (controller)

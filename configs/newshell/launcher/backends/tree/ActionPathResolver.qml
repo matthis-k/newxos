@@ -1,11 +1,17 @@
 import QtQml
+import qs.services
 
 QtObject {
     id: root
 
+    readonly property var tracer: Logger.scope("backend.tree.actionPathResolver", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.tree.actionPathResolver", { category: "backend" })
+
     property var treeRootsProvider: null
 
     function originalNodeForPath(commandPath) {
+        if (Logger.traceOn)
+            tracer.trace("originalNodeForPath", function() { return { pathLen: (commandPath || []).length }; });
         var nodes = root.treeRootsProvider ? root.treeRootsProvider() : [];
         var current = null;
 

@@ -13,6 +13,7 @@ Node {
     property var childVisible: null
 
     function switchAction(kind, state, actionFn, dangerous) {
+        tracer.trace("switchAction", function() { return { kind: kind, hasFn: typeof actionFn === "function" }; });
         if (typeof actionFn !== "function")
             return null;
         return {
@@ -26,6 +27,7 @@ Node {
     }
 
     function ownSwitchActions() {
+        tracer.trace("ownSwitchActions", function() { return { nodeId: root.nodeId, hasToggle: !!root.toggleAction, hasOn: !!root.onAction, hasOff: !!root.offAction }; });
         var actions = {};
         var toggle = root.switchAction("toggle", null, root.toggleAction, false);
         var on = root.switchAction("on", true, root.onAction, false);
@@ -55,6 +57,7 @@ Node {
     }
 
     function toTreeObject() {
+        tracer.trace("toTreeObject", function() { return { nodeId: root.nodeId, hasSwitchActions: !!root.toggleAction }; });
         var id = root.nodeId || root.name || root.title;
         var out = {
             id: id,

@@ -1,11 +1,17 @@
 import QtQml
+import qs.services
 
 QtObject {
     id: root
 
+    readonly property var tracer: Logger.scope("backend.tree.switchActionInferer", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.tree.switchActionInferer", { category: "backend" })
+
     property var nodeFactory: null
 
     function switchActionMap(node, children) {
+        if (Logger.traceOn)
+            tracer.trace("switchActionMap", function() { return { nodeId: node?.id, childCount: (children || []).length }; });
         const byState = {};
         for (const child of children || []) {
             const leafAction = child.actionList && child.actionList[0];
@@ -24,8 +30,10 @@ QtObject {
     }
 
     function actionDtosForSwitchActions(switchActions) {
-        if (!switchActions)
+        if (!switchActions) {
+            tracer.trace("actionDtosForSwitchActions", function() { return { result: "null" }; });
             return null;
+        }
         var out = {};
         for (var key in switchActions) {
             var action = switchActions[key];
@@ -39,6 +47,7 @@ QtObject {
     }
 
     function _makeActionDto(id, label, payload, extraProps) {
+        tracer.trace("_makeActionDto", function() { return { id: id, label: label, hasPayload: !!payload, hasExtra: !!extraProps }; });
         var dto;
         if (root.nodeFactory) {
             dto = root.nodeFactory.actionDto(id, label, payload);

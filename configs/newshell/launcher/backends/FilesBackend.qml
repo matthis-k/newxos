@@ -6,6 +6,9 @@ import "../logic/"
 ProcessBackendBase {
     id: root
 
+    readonly property var tracer: Logger.scope("backend.files", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.files", { category: "backend" })
+
     property FileQueryParser fileQueryParser: FileQueryParser {}
     property FilePathResolver filePathResolver: FilePathResolver {}
     property string searchRoot: StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "")
@@ -71,6 +74,7 @@ ProcessBackendBase {
     }
 
     function scanDirectory(path, callback) {
+        tracer.debug("scanDirectory", function() { return { path: path, cached: !!root.lazyNodeCache[path] }; });
         if (root.lazyNodeCache[path]) {
             Qt.callLater(function() { callback(root.lazyNodeCache[path]); });
             return;
@@ -92,18 +96,22 @@ ProcessBackendBase {
     }
 
     function shouldParticipate(rawQuery, directive, query) {
-        if (directive && directive.active && directive.raw)
+        var result = null;
             return true;
         const raw = String(rawQuery || "").trim();
         if (raw[0] === "/" || raw[0] === "~" || raw.indexOf("file://") === 0 || /^@files?(\s|$)/.test(raw))
             return true;
         if (raw.indexOf("~ ") === 0 && raw.length > 2)
-            return true;
-        return false;
+            result = true;
+        else
+            result = false;
+        tracer.trace("shouldParticipate", function() { return { rawQuery: rawQuery, result: result }; });
+        return result;
     }
 
     function rootNode(query, context) {
         const rawQuery = context && context.directive && context.directive.active ? context.directive.raw : (query ? query.raw : "");
+        tracer.debug("rootNode", function() { return { rawQuery: rawQuery, testMode: TestMode.isActive }; });
         if (!shouldParticipate(rawQuery, context ? context.directive : null, query))
             return null;
 
@@ -129,6 +137,7 @@ ProcessBackendBase {
     }
 
     function buildExploreResults(parsed) {
+        tracer.debug("buildExploreResults", function() { return { mode: parsed.mode, concretePath: parsed.concretePath }; });
         var children = [];
         if (parsed.concretePath) {
             var home = StandardPaths.writableLocation(StandardPaths.HomeLocation).toString().replace("file://", "");
@@ -166,6 +175,7 @@ ProcessBackendBase {
     }
 
     function buildFlatSearchResults(parsed, query, context) {
+        tracer.debug("buildFlatSearchResults", function() { return { mode: parsed.mode, hasDirective: !!(context?.directive?.active) }; });
         const rawQuery = context && context.directive && context.directive.active ? context.directive.raw : (query ? query.raw : "");
         const pathQuery = expandHome(fileQueryText(rawQuery));
         const seenPaths = {};
@@ -292,6 +302,7 @@ ProcessBackendBase {
     }
 
     function activate(result, action) {
+        tracer.info("activate", function() { return { path: result?.metadata?.path || action?.payload?.path, actionId: action?.id }; });
         if (TestMode.isActive) {
             print("FILES BACKEND: test mode, skipping file activation");
             return;

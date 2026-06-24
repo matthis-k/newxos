@@ -4,6 +4,9 @@ import qs.services
 LauncherBackendBase {
     id: root
 
+    readonly property var tracer: Logger.scope("backend.webSearch", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.webSearch", { category: "backend" })
+
     category: qsTr("Web Search")
 
     backendId: "web"
@@ -21,6 +24,7 @@ LauncherBackendBase {
 
     function resultNodes(query, context) {
         const searchText = query ? query.raw.trim() : "";
+        tracer.debug("resultNodes", function() { return { query: searchText, directive: context?.directive?.prefix || null }; });
         const directivePrefix = context && context.directive ? context.directive.prefix : "";
         const queryTokens = (query && query.tokens || []).map(function(token) { return token.raw; });
         if (!directivePrefix && (searchText[0] === "/" || searchText[0] === "~" || searchText.indexOf("file://") === 0 || /^@files?(\s|$)/.test(searchText)))
@@ -44,6 +48,7 @@ LauncherBackendBase {
     }
 
     function activate(result, action) {
+        tracer.info("activate", function() { return { resultId: result ? result.id : null, testMode: TestMode.isActive }; });
         if (TestMode.isActive)
             return;
 
@@ -53,6 +58,7 @@ LauncherBackendBase {
         if (!searchQuery)
             return;
 
+        tracer.debug("activate.search", function() { return { query: searchQuery, browser: Quickshell.env("BROWSER") || "xdg-open" }; });
         Quickshell.execDetached({ command: [Quickshell.env("BROWSER") || "xdg-open", searchQuery] });
     }
 }

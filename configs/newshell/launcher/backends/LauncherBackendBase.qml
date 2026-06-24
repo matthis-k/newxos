@@ -1,9 +1,13 @@
 import QtQml
+import qs.services
 import "../logic/"
 import "../logic/RoutingTree.js" as RoutingTree
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("backend.launcherBackendBase", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.launcherBackendBase", { category: "backend" })
 
     property string backendId: ""
     property string name: ""
@@ -22,10 +26,12 @@ QtObject {
     property int activeGeneration: 0
 
     Component.onCompleted: {
+        tracer.info("completed", function() { return { backendId: root.backendId, routeCount: (root.routes || []).length }; });
         root.registerRoutesOnTree();
     }
 
     Component.onDestruction: {
+        tracer.info("destruction", function() { return { backendId: root.backendId }; });
         root.unregisterRoutesFromTree();
     }
 
@@ -68,6 +74,7 @@ QtObject {
     }
 
     function activate(result, action) {
+        tracer.debug("activate", function() { return { resultId: result?.id, actionId: action?.id }; });
     }
 
     function actionDto(id, label, payload) {
@@ -116,6 +123,7 @@ QtObject {
 
     function rootNode(query, context) {
         const children = root.resultNodes(query, context) || [];
+        tracer.trace("rootNode", function() { return { backendId: root.backendId, childCount: children.length }; });
         return root.backendRootDto(children);
     }
 

@@ -6,6 +6,9 @@ import "actions" as Actions
 TreeBackendBase {
     id: root
 
+    readonly property var tracer: Logger.scope("backend.desktopActions", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.desktopActions", { category: "backend" })
+
     property var shellScreenState: null
     category: qsTr("Desktop Actions")
     backendId: "desktop-actions"
@@ -120,7 +123,7 @@ TreeBackendBase {
         if (vpnSwitchActions && Object.keys(vpnSwitchActions).length > 0) {
             var vpnNode = {
                 id: "networking_vpn",
-                aliases: ["vpn", "nordvpn", "connect to"],
+                aliases: ["vpn", "connect to"],
                 title: "VPN",
                 template: "switch",
                 switchState: false,
@@ -185,6 +188,7 @@ TreeBackendBase {
     }
 
     function effectiveTreeRoots() {
+        tracer.debug("effectiveTreeRoots", function() { return { testMode: TestMode.isActive, fixtureTree: !!(TestMode.isActive && root.fixtureTree) }; });
         if (TestMode.isActive && root.fixtureTree)
             return root.fixtureTree;
 
@@ -201,6 +205,7 @@ TreeBackendBase {
     }
 
     function activate(result, action) {
+        tracer.info("activate", function() { return { resultId: result ? result.id : null, service: action ? action.payload?.service : null, testMode: TestMode.isActive }; });
         if (TestMode.isActive)
             return;
 

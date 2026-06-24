@@ -1,7 +1,11 @@
 import QtQml
+import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("backend.tree.nodeDefaults", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.tree.nodeDefaults", { category: "backend" })
 
     property var defaultEvaluationProfile: ({
         mode: "generic+custom",
@@ -65,6 +69,7 @@ QtObject {
 
     function groupProfile(options) {
         var opts = options || {};
+        tracer.trace("groupProfile", function() { return { hasOptions: !!options }; });
         return {
             mode: "generic+custom",
             strategies: opts.strategies || ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
@@ -92,6 +97,7 @@ QtObject {
 
     function leafProfile(options) {
         var opts = options || {};
+        tracer.trace("leafProfile", function() { return { hasOptions: !!options }; });
         return {
             mode: "generic+custom",
             strategies: opts.strategies || ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
@@ -113,7 +119,9 @@ QtObject {
     }
 
     function isGroupTemplate(node) {
-        return node && (node.template === "action-group" || node.template === "flat-action-group" || node.template === "switch");
+        var result = node && (node.template === "action-group" || node.template === "flat-action-group" || node.template === "switch");
+        tracer.trace("isGroupTemplate", function() { return { nodeId: node?.id, result: result }; });
+        return result;
     }
 
     function behaviorForNode(node, children, extra) {

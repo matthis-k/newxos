@@ -1,7 +1,11 @@
 import QtQml
+import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("backend.tree.nodeMaterializer", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.tree.nodeMaterializer", { category: "backend" })
 
     property var defaults: null
     property var switchInferer: null
@@ -11,6 +15,7 @@ QtObject {
     property var helpIcon: "system-search"
 
     function compositeNode(node, path) {
+        tracer.trace("compositeNode", function() { return { nodeId: node?.id, pathLen: (path || []).length }; });
         const children = (node.children || []).map(function(child) {
             return root.compositeNode(child, path.concat([node]));
         });
@@ -63,6 +68,7 @@ QtObject {
     }
 
     function _semanticTermsForNode(node) {
+        tracer.trace("_semanticTermsForNode", function() { return { nodeId: node?.id, aliasCount: (node?.aliases || []).length }; });
         const aliases = node.aliases || [];
         return aliases.map(function(alias) {
             return { triggers: [String(alias).toLowerCase()], matches: [String(alias).toLowerCase(), String(node.title || "").toLowerCase()], field: "semantic", score: 0.74, weight: 0.32 };
@@ -70,6 +76,7 @@ QtObject {
     }
 
     function _actionDto(id, label, payload) {
+        tracer.trace("_actionDto", function() { return { id: id, hasPayload: !!payload }; });
         return nodeFactory ? nodeFactory.actionDto(id, label, payload) : { id: id, label: label || id, icon: null, default: false, payload: payload || null };
     }
 
@@ -94,6 +101,7 @@ QtObject {
     }
 
     function _makeNodeDto(options) {
+        tracer.trace("_makeNodeDto", function() { return { hasNodeFactory: !!nodeFactory, nodeId: options?.id }; });
         return nodeFactory ? nodeFactory.nodeDto(options) : options;
     }
 }

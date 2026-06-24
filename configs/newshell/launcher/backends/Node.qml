@@ -1,7 +1,11 @@
 import QtQml
+import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("backend.node", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.node", { category: "backend" })
 
     default property list<QtObject> entries
 
@@ -27,6 +31,7 @@ QtObject {
     property var replaceQuery: null
 
     function childNodes() {
+        tracer.trace("childNodes", function() { return { nodeId: root.nodeId, entryCount: root.entries.length, dynamicCount: (root.dynamicChildren || []).length }; });
         var out = [];
         for (var ci = 0; ci < (root.dynamicChildren || []).length; ci += 1)
             out.push(materializeChild(root.dynamicChildren[ci]));
@@ -46,6 +51,7 @@ QtObject {
     }
 
     function ownAction() {
+        tracer.trace("ownAction", function() { return { nodeId: root.nodeId, hasAction: !!root.action }; });
         var id = root.actionId || root.nodeId || root.name || "run";
         if (typeof root.action === "function") {
             var payload = Object.assign({ actionId: id }, root.actionProps || {});
@@ -58,6 +64,7 @@ QtObject {
     }
 
     function toTreeObject() {
+        tracer.trace("toTreeObject", function() { return { nodeId: root.nodeId, template: root.template, entryCount: root.entries.length }; });
         var id = root.nodeId || root.name || root.title;
         var out = {
             id: id,

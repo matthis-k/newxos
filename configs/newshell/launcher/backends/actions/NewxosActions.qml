@@ -3,10 +3,12 @@ import Quickshell
 import qs.services
 
 QtObject {
+    readonly property var tracer: Logger.scope("backend.actions.newxos", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.actions.newxos", { category: "backend" })
     function isDevMode() { return Quickshell.env("NEWXOS_DEV") === "1" || Quickshell.env("DEVMODE") === "1"; }
     function action(id, title, subtitle, icon, color, payload, extra) { return Object.assign({ id: id, title: title, subtitle: subtitle || "", icon: icon, iconColor: color, action: payload }, extra || {}); }
     function commandGroupProfile() { return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default", profile: { fields: ["label", "aliases"], evidence: ["field-match", "switch-action", "semantic", "token-claim", "usage", "recency"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["consume-namespace-pass-rest"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-own-match-or-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }], defaultAction: ["default-action-expand"], riskGate: ["risk-gate"] } }; }
-    function roots(context) { return [{
+    function roots(context) { tracer.trace("roots", function() { return {}; }); return [{
         id: "newxos", aliases: ["newxos", "nx", "repo"], title: qsTr("Newxos"), icon: "nix-snowflake-symbolic",
         template: "flat-action-group", evaluationProfile: commandGroupProfile(),
         behavior: { filterChildren: true, presentation: "discoverable-command-group", displayPolicy: { discoverable: true, breadcrumbMode: "when-parent-dominates" } },

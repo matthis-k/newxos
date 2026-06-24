@@ -1,7 +1,11 @@
 import Quickshell
+import qs.services
 
 LauncherBackendBase {
     id: root
+
+    readonly property var tracer: Logger.scope("backend.calculator", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.calculator", { category: "backend" })
 
     property string category: qsTr("Calculator")
 
@@ -179,6 +183,7 @@ LauncherBackendBase {
     }
 
     function evaluate(expression) {
+        tracer.trace("evaluate", function() { return { expression: expression }; });
         return parseExpression(tokenize(expression));
     }
 
@@ -189,6 +194,7 @@ LauncherBackendBase {
 
     function resultNodes(query, context) {
         const expression = query ? query.raw.trim() : "";
+        tracer.debug("resultNodes", function() { return { expression: expression, looksLikeMath: expression ? looksLikeMath(expression) : false }; });
         const children = [];
         if (expression && looksLikeMath(expression)) {
             try {
@@ -215,6 +221,7 @@ LauncherBackendBase {
     }
 
     function activate(result, action) {
+        tracer.info("activate", function() { return { resultId: result ? result.id : null, actionId: action ? action.id : null }; });
         const metadata = result.metadata || {};
         const value = action && action.id === "copy-expression" ? metadata.expression : metadata.result;
         Quickshell.execDetached({ command: ["wl-copy", value] });

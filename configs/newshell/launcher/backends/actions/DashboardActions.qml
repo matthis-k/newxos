@@ -2,6 +2,9 @@ import QtQml
 import qs.services
 
 QtObject {
+    readonly property var tracer: Logger.scope("backend.actions.dashboard", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.actions.dashboard", { category: "backend" })
+
     property var shellScreenState: null
 
     function titleForTab(tab) { return tab === "wifi" ? "Wi-Fi" : tab; }
@@ -30,6 +33,7 @@ QtObject {
     }
     function dashboardProfile() { return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"], scorePolicy: "default", profile: { fields: ["label", "aliases"], evidence: ["field-match", "semantic"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["consume-namespace-pass-rest"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-own-match-or-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }], defaultAction: ["default-action-expand"], riskGate: ["risk-gate"] } }; }
     function roots(context) {
+        tracer.trace("roots", function() { return {}; });
         var tabs = (shellScreenState && shellScreenState.dashboardTabs) || ["overview", "audio", "notifications", "bluetooth", "wifi", "energy", "stats"];
         return [{ id: "dashboard", aliases: ["db", "dashboard"], title: qsTr("Dashboard"), icon: iconForTab("overview"), iconColor: colorForTab("overview"), template: "flat-action-group", behavior: { filterChildren: true }, evaluationProfile: dashboardProfile(), action: { service: "dashboard", tab: "overview" }, children: tabs.map(function(tab) { return { id: tab, title: titleForTab(tab), icon: iconForTab(tab), iconColor: colorForTab(tab), action: { service: "dashboard", tab: tab } }; }) }];
     }

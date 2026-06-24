@@ -2,6 +2,7 @@ Node {
     template: "action-group"
 
     function defaultGroupProfile() {
+        tracer.trace("defaultGroupProfile", function() { return {}; });
         return {
             mode: "generic+custom",
             strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
@@ -28,6 +29,7 @@ Node {
     }
 
     function toTreeObject() {
+        tracer.trace("toTreeObject", function() { return {}; });
         var base = Node.prototype.toTreeObject.call(this);
         if (!base.evaluationProfile && !this.evaluationProfile)
             base.evaluationProfile = defaultGroupProfile();

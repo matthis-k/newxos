@@ -1,12 +1,17 @@
 import Quickshell.Io
+import qs.services
 
 StreamingBackendBase {
     id: root
+
+    readonly property var tracer: Logger.scope("backend.process", { category: "backend" })
+    readonly property var prof: Profiler.scope("backend.process", { category: "backend" })
 
     property var pendingQuery: ""
     property var pendingCallback: null
 
     function cancelSearch(query, generation) {
+        tracer.trace("cancelSearch", function() { return { query: query, generation: generation }; });
         root.pendingCallback = null;
         root.pendingQuery = "";
         searchProcess.running = false;
@@ -23,6 +28,7 @@ StreamingBackendBase {
     }
 
     function applySearchOutput(text) {
+        tracer.info("applySearchOutput", function() { return { textLen: (text || "").length, hasCallback: !!root.pendingCallback }; });
         const callback = root.pendingCallback;
         if (!callback)
             return;
@@ -35,6 +41,7 @@ StreamingBackendBase {
     }
 
     function resultsAsync(query, callback) {
+        tracer.trace("resultsAsync", function() { return { query: query, hasCallback: !!callback }; });
         const text = root.queryText(query);
         if (!text) {
             if (callback)
