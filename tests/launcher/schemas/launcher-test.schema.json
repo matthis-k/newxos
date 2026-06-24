@@ -123,6 +123,25 @@
           "type": "array",
           "items": { "$ref": "#/definitions/RowMatcher" }
         },
+        "absent": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/RowMatcher" }
+        },
+        "invariants": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "exactly-one-selected",
+              "non-selectable-groups-not-selected",
+              "children-can-be-selected-even-if-parent-cannot",
+              "no-hidden-selected-node",
+              "stable-row-order",
+              "title-only-matching",
+              "no-action-title-matching"
+            ]
+          }
+        },
         "rows": {
           "type": "object",
           "additionalProperties": false,

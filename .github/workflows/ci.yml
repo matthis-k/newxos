@@ -21,5 +21,8 @@ jobs:
       - name: Confirm generated files are up to date
         run: git diff --exit-code -- flake.nix
 
-      - name: Run flake checks
+      - name: List launcher test cases
+        run: nix run "path:$PWD#newshell-launcher-test" -- list tests/launcher/cases
+
+      - name: Run flake checks (includes launcher case validation)
         run: nix flake check "path:$PWD"

@@ -50,6 +50,62 @@ pub fn assert_expectation(state: &LauncherVisualState, expect: &Expectation) -> 
         }
     }
 
+    if let Some(ref matchers) = expect.absent {
+        for matcher in matchers {
+            let matched: Vec<&VisualRow> = state.rows.iter()
+                .filter(|r| row_matches_logical(r, matcher))
+                .collect();
+            if !matched.is_empty() {
+                failures.push(format!(
+                    "absent: found row matching {:?} (should be absent)",
+                    matcher
+                ));
+            }
+        }
+    }
+
+    if let Some(ref invariants) = expect.invariants {
+        for invariant in invariants {
+            match invariant.as_str() {
+                "exactly-one-selected" => {
+                    let count = state.rows.iter().filter(|r| r.selected).count();
+                    if count != 1 {
+                        failures.push(format!(
+                            "invariant 'exactly-one-selected': expected 1, found {}",
+                            count
+                        ));
+                    }
+                }
+                "non-selectable-groups-not-selected" => {
+                    for row in &state.rows {
+                        if !row.selectable && row.selected {
+                            failures.push(format!(
+                                "invariant 'non-selectable-groups-not-selected': row '{}' is selected but not selectable",
+                                row.title
+                            ));
+                        }
+                    }
+                }
+                "children-can-be-selected-even-if-parent-cannot" => {
+                    // This invariant is informational and doesn't fail
+                }
+                "no-hidden-selected-node" => {
+                    for row in &state.rows {
+                        if !row.visible && row.selected {
+                            failures.push(format!(
+                                "invariant 'no-hidden-selected-node': row '{}' is selected but not visible",
+                                row.title
+                            ));
+                        }
+                    }
+                }
+                other => {
+                    failures.push(format!("unknown invariant: '{}'", other));
+                }
+            }
+        }
+    }
+
     if let Some(ref matcher) = expect.last_executed_action {
         match state.last_executed_action {
             Some(ref action) => {

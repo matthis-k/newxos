@@ -12,8 +12,7 @@ Singleton {
 
     function normalizeString(str) {
         if (str.indexOf(":") >= 0) {
-            console.warn("PolicySpec: colon-encoded policy spec is no longer supported: '" + str + "'. Use array spec like ['" + str.split(":")[0] + "', { ... }] instead.");
-            return null;
+            throw new Error("PolicySpec: colon-encoded policy spec is no longer supported: '" + str + "'. Use array spec like ['" + str.split(":")[0] + "', { ... }] instead.");
         }
         return {
             name: str,

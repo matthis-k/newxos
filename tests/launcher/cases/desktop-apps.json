@@ -131,6 +131,39 @@
           }
         }
       ]
+    },
+    {
+      "name": "Query 'zen window' selects new window action",
+      "tags": ["desktop", "zen"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "zen window" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "New Window", "backend": "desktop", "selectable": true, "executable": true }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Actions do not appear when only app title matches",
+      "tags": ["desktop", "matching", "regression"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "zen" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Zen Browser", "backend": "desktop", "selectable": true, "executable": true },
+            "rows": {
+              "notContainsTitle": ["New Window", "New Private Window"]
+            }
+          }
+        }
+      ]
     }
   ]
 }

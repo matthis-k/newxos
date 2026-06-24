@@ -57,7 +57,25 @@
         {
           "expect": {
             "exactlyOneSelected": true,
-            "selected": { "title": "Zen Browser" }
+            "selected": { "title": "Zen Browser" },
+            "rows": {
+              "notContainsTitle": ["New Window", "New Private Window"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'newxos ' and 'newxos' show same result when no children",
+      "tags": ["trailing", "newxos", "stability"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "newxos " } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Newxos", "backend": "desktop-actions", "selectable": true }
           }
         }
       ]

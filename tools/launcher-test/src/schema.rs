@@ -79,6 +79,8 @@ pub struct Expectation {
     pub exactly_one_selected: Option<bool>,
     pub selected: Option<RowMatcher>,
     pub expanded: Option<Vec<RowMatcher>>,
+    pub absent: Option<Vec<RowMatcher>>,
+    pub invariants: Option<Vec<String>>,
     pub rows: Option<RowsExpectation>,
     pub last_executed_action: Option<RowMatcher>,
 }

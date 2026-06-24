@@ -1,8 +1,8 @@
 # Launcher ranking intent
 
-> **Canonical behavior cases**: JSON case files under `tests/launcher/cases/`. These are the executable source of truth for query expectations. Run with `repo-gate newshell-cases`.
+> **Canonical behavior cases**: JSON case files under `tests/launcher/cases/`. Run with `repo-gate launcher`.
 
-Probes are derived from canonical cases — do not maintain separate jq case files. See `docs/newshell/launcher-testing.md` for probe derivation.
+Probes are derived from canonical cases — do not maintain separate jq case files.
 
 ## Ranking rationale (case-backed)
 

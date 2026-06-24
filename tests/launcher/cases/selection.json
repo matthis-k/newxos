@@ -81,6 +81,38 @@
       ]
     },
     {
+      "name": "Zen private window selects private action by title",
+      "tags": ["selection", "zen", "action"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "zen priv" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Zen Browser (Private Window)", "backend": "desktop", "selectable": true, "executable": true },
+            "invariants": ["exactly-one-selected"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'a' does not expand Files from action title match",
+      "tags": ["selection", "matching", "regression"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "a" } },
+        {
+          "expect": {
+            "rows": {
+              "notContainsTitle": ["New Window", "New Private Window"]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "VPN shows promoted without visible Networking parent",
       "tags": ["vpn", "promotion"],
       "steps": [

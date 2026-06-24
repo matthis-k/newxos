@@ -89,6 +89,14 @@
           echo "error: old launcher compatibility API found. Use primitive pipeline policies only." >&2
           errors=$((errors + 1))
         fi
+
+        # 10.9 No colon-encoded policy spec strings
+        if ${rgBin} -n '"policy:\s*[a-z]+-[a-z]+:\d+|\\"[a-z]+-[a-z]+:\\d+|\\"[a-z]+:\\d+' \
+          configs/newshell/launcher \
+          --glob '!docs/history/**' 2>/dev/null; then
+          echo "error: colon-encoded policy spec found. Use array/object format only." >&2
+          errors=$((errors + 1))
+        fi
       '';
 
       repoDoctor = pkgs.writeShellScriptBin "repo-doctor" ''
@@ -520,8 +528,9 @@
             repo-doctor       run repo invariants
             rust              run newxos-cli Rust tests
             newshell-static   lint/type-check QML source
-            newshell-cases    validate canonical launcher case files (no runtime needed)
+            newshell-cases    validate canonical launcher case files and schema (no runtime needed)
             newshell-session  run canonical cases against running service/session
+            launcher          alias for newshell-cases
             newshell-runtime  boot + optional IPC tests (auto if launcher files changed, or set NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1)
             newshell-probe    derive/debug launcher probes from canonical cases (diagnostic)
             hyprland          verify Hyprland config
@@ -530,6 +539,7 @@
             hooks             reinstall managed git hooks
 
           Aliases:
+            launcher          newshell-cases (validate launcher test cases and schema)
             newshell          newshell-static + newshell-runtime + newshell-cases
             session           newshell-session
             runtime           newshell-runtime
@@ -576,6 +586,7 @@
             resolve_alias() {
               local name="$1"
               case "$name" in
+                launcher)  echo "newshell-cases" ;;
                 newshell)  echo "newshell-static newshell-runtime newshell-cases" ;;
                 runtime)   echo "newshell-runtime" ;;
                 nix)       echo "write-flake statix fmt flake-check" ;;
@@ -810,6 +821,15 @@
         pass_filenames = false;
       };
 
+      pre-commit.settings.hooks.check-newshell-cases = {
+        enable = true;
+        name = "check launcher test cases";
+        description = "Validate launcher JSON test case files against schema.";
+        entry = "${lib.getExe repoGate} --hook newshell-cases";
+        files = "^tests/launcher/";
+        pass_filenames = false;
+      };
+
       devShells.default = config.pre-commit.devShell;
 
       packages.fmt = config.treefmt.build.wrapper;
@@ -864,6 +884,9 @@
 
       # Enhance newshell static check to lint all .qml files (uses same logic as hook)
       checks.check-newshell-static = checkNewshellConfig;
+
+      # Launcher case validation: validate JSON test case schemas (no runtime needed)
+      checks.check-newshell-cases = newshellCasesCheck;
 
       # Runtime check: boot config in headless compositor + optional IPC tests (opt-in)
       checks.check-newshell-runtime = newshellRuntimeCheck;
