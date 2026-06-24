@@ -3,6 +3,7 @@ import QtQml
 import Quickshell
 import qs.services
 import "PolicyChain.qml"
+import "DecisionDecider.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
@@ -75,13 +76,17 @@ Singleton {
         var profile = (parentEv.node.evaluationProfile && parentEv.node.evaluationProfile.profile) || {};
         var takeoverAcceptRaw = profile.takeoverAccept;
         var acceptNames = takeoverAcceptRaw === undefined ? ["accept-dominated-claims"] : takeoverAcceptRaw;
-        var acceptResult = PolicyChain.run(acceptNames, function(name, spec) {
+        var acceptVotes = [];
+        PolicyChain.run(acceptNames, function(name, spec) {
             var policy = PolicyChain.lookupPolicy(JsRegistry.takeoverAccept, spec);
             if (!policy) return null;
-            return policy.apply(parentEv, claims, ctx, spec && spec.args);
-        }, "first-wins");
+            var vote = policy.apply(parentEv, claims, ctx, spec && spec.args);
+            if (vote && vote.decision) acceptVotes.push(vote);
+            return vote;
+        }, "accumulate");
 
-        var accepted = acceptResult.value;
+        var acceptReduced = DecisionDecider.reduce("takeoverAccept", acceptVotes, { mode: "first-wins", tieBreak: "first" });
+        var accepted = acceptReduced && acceptReduced.decision;
         if (!accepted || !accepted.accepted) {
             return {
                 accepted: false,

@@ -103,12 +103,37 @@ Singleton {
         final(ev, ctx, "placement", { placement: decision.placement || decision.mode || "unknown", mode: decision.mode || "normal", showParent: decision.showParent !== false }, [{ code: "placement_decided", text: "final placement=" + (decision.placement || decision.mode || "unknown") + " mode=" + (decision.mode || "normal") }]);
     }
 
+    function policyVote(ev, ctx, kind, vote, effect) {
+        if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
+        var nid = ev.node.id;
+        tracer.trace("policyVote", function() { return { nodeId: nid, kind: kind, policy: vote && vote.policy, priority: vote && vote.priority }; });
+        if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
+        if (!ctx._policyTrace[nid][kind]) {
+            ctx._policyTrace[nid][kind] = {
+                kind: kind,
+                evaluated: [],
+                aggregate: null,
+                final: null
+            };
+        }
+
+        ctx._policyTrace[nid][kind].evaluated.push({
+            name: (vote && vote.policy) || "",
+            priority: (vote && vote.priority) || 0,
+            enabled: true,
+            returned: vote || null,
+            effect: String(effect || "no-op"),
+            reasons: (vote && vote.reasons || []).slice()
+        });
+    }
+
     function final(ev, ctx, kind, value, reasons) {
         var trace = ensureTrace(ev, ctx, kind);
         if (!trace) return;
         tracer.trace("final", function() { return { nodeId: ev.node.id, kind: kind }; });
         trace.final = {
             value: value,
+            decision: value,
             reasons: (reasons || []).slice()
         };
     }

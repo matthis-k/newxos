@@ -3,6 +3,7 @@ import QtQml
 import Quickshell
 import qs.services
 import "PolicyChain.qml"
+import "DecisionDecider.qml"
 import "PolicySpec.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
@@ -93,13 +94,17 @@ Singleton {
         var profile = node && node.evaluationProfile && node.evaluationProfile.profile || {};
         var riskGateNames = profile.riskGate || ["risk-gate"];
 
-        var gateResult = PolicyChain.run(riskGateNames, function(name, spec) {
+        var riskVotes = [];
+        PolicyChain.run(riskGateNames, function(name, spec) {
             var policy = PolicyChain.lookupPolicy(JsRegistry.riskGate, spec);
             if (!policy) return null;
-            return policy.apply(node, ctx, runtime, spec && spec.args);
-        }, "first-wins");
+            var vote = policy.apply(node, ctx, runtime, spec && spec.args);
+            if (vote) riskVotes.push(vote);
+            return vote;
+        }, "accumulate");
 
-        var gateValue = gateResult && gateResult.decision;
+        var gateReduced = DecisionDecider.reduce("riskGate", riskVotes, { mode: "first-wins", tieBreak: "first" });
+        var gateValue = gateReduced && gateReduced.decision;
         if (gateValue && gateValue.allowed !== undefined) {
             allowed = gateValue.allowed;
         }

@@ -61,6 +61,8 @@ Singleton {
 
         return {
             decision: decision,
+            // Compatibility only. Structural decision call sites must use .decision.
+            // Remove after all structural policy consumers no longer read .value.
             value: decision,
             priority: priority,
             reasons: reasons,
@@ -191,8 +193,17 @@ Singleton {
             var best = results[0];
             for (var i = 1; i < results.length; i += 1) {
                 var ri = results[i];
-                if (ri.priority > best.priority || (ri.priority === best.priority && ri.value > best.value))
-                    best = ri;
+                var riNum = typeof ri.decision === "number";
+                var bestNum = typeof best.decision === "number";
+                if (riNum && bestNum) {
+                    if (ri.priority > best.priority ||
+                        (ri.priority === best.priority && ri.decision > best.decision))
+                        best = ri;
+                } else {
+                    if (ri.priority > best.priority ||
+                        (ri.priority === best.priority && ri.decision > best.decision))
+                        best = ri;
+                }
             }
             return best;
         }

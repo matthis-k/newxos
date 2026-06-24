@@ -9,27 +9,17 @@ description: Use when changing launcher backends, tokenization, evidence, scorin
 
 Launcher behavior changes should be policy-driven. Backend data must cross the DTO boundary as plain serializable objects. UI delegates render, they do not compute.
 
-Decision pipeline: **Pipeline stage → decision kind → decider → policy votes → final decision**.
+Decision pipeline: `Pipeline stage → decision kind → decider → policy votes → final decision`. Full contract: `docs/contracts/launcher-policy-decisions.md`.
 
 ## Inspect First
 
-- `docs/architecture.md` — launcher architecture section (pipeline, DTO boundary, prefix gating, decision model)
+- `docs/contracts/launcher-policy-decisions.md`
 - `docs/contracts/quickshell-design.md` — anti-patterns section
-- `docs/pitfalls.md` — launcher pitfalls (retained trees, circular references, children bypass)
-- `docs/test-cases/launcher-ranking.md` — ranking rationale and intent
-- `docs/newshell/launcher-testing.md` — test workflow, how to run/probe
-- `configs/opencode/skills/newshell-debugging/SKILL.md` — debugging flow
+- `docs/pitfalls.md` — launcher pitfalls
+- `docs/test-cases/launcher-ranking.md`
+- `docs/newshell/launcher-testing.md`
+- `configs/opencode/skills/newshell-debugging/SKILL.md`
 - Owning backend or logic file in `configs/newshell/launcher/`
-
-## Architecture Boundary
-
-- **Backends** produce normalized tree DTOs (plain JS objects, no live QML refs).
-- **Composite search** (`logic/`) handles indexing, evidence, scoring, flattening, row generation.
-- **Decision pipeline** uses `PolicyChain` to run policy specs, `DecisionDecider` to reduce votes.
-- **Result rows** carry primitive fields, actions, and evidence metadata only.
-- **UI delegates** render normalized rows; no score recomputation or backend references.
-- **Prefix gating** via `RoutingTree.js` — backends register routes in `Component.onCompleted`.
-- **Async backends** check generation counters before applying results.
 
 ## Ownership Map
 
@@ -38,21 +28,9 @@ Decision pipeline: **Pipeline stage → decision kind → decider → policy vot
 | `launcher/logic/` | Pipeline modules (evidence, scoring, shaping, row DTOs, policy, routing) |
 | `launcher/controllers/` | Session lifecycle, navigation, activation, debug endpoints |
 | `launcher/backends/` | Backend DTOs and search |
-| `launcher/policies/` | Individual policy implementations |
-| `launcher/delegates/` | UI delegates rendering rows |
-| `launcher/Launcher.qml` | IPC boundary, delegates to controller |
-
-## Pipeline Flow
-
-```
-Directive/tokenize → Candidate collection → Evidence → Scoring → Structural policies → Shaping → Row DTOs
-```
-
-Structural policies (expand, retainParent, nesting, takeoverAccept, defaultAction, riskGate) return normalized votes:
-```js
-{ decision, priority, reasons }
-```
-Evidence policies return arrays. Boost policies return numbers.
+| `launcher/policies/` | Policy implementations |
+| `launcher/delegates/` | UI delegates |
+| `launcher/Launcher.qml` | IPC boundary |
 
 ## Change Routing
 
@@ -62,18 +40,18 @@ Evidence policies return arrays. Boost policies return numbers.
 | Ranking wrong | Edit scoring/boost policy |
 | Display wrong | Edit row DTO (`RenderedRows.qml`), presentation context, or delegate |
 | Source data wrong | Edit backend DTO construction |
-| Backend not participating | Check prefix/routing registration in backend's `Component.onCompleted` |
-| Children missing or leaking after shaping | Check the shaped child contract in `Engine.qml` and `ResultShaping.qml`; explicit empty children must be respected |
-| Web fallback appearing with visible results | Check web fallback gating in composite search |
-| Row DTO field missing or wrong type | Update `RenderedRows.qml` and all consuming delegates |
+| Backend not participating | Check prefix/routing registration |
+| Children missing or leaking after shaping | Check child contract in `Engine.qml` and `ResultShaping.qml` |
+| Web fallback appearing with visible results | Check web fallback gating |
+| Row DTO field missing or wrong type | Update `RenderedRows.qml` and delegates |
 
 ## IPC Commands
 
 ```bash
-newshell ipc call query pipeline '<query>'    # Universal debug — rows, phases, backends, timings
+newshell ipc call query pipeline '<query>'    # Universal debug
 ```
 
-For full debug flow (policies, benchmark, cases, probes), see `configs/opencode/skills/newshell-debugging/SKILL.md`.
+For full debug flow: `configs/opencode/skills/newshell-debugging/SKILL.md`.
 
 ## Do Not
 
@@ -83,15 +61,7 @@ For full debug flow (policies, benchmark, cases, probes), see `configs/opencode/
 - Let web fallback compete when non-web visible rows exist.
 - Put ranking or action-selection logic in UI delegates.
 - Serialize raw QML objects in IPC responses.
-- Keep old policy names or compatibility APIs. The launcher has one pipeline: primitive policies → ResultShaping → row DTOs.
-- Overwrite evaluated policy trace entries. PolicyChain writes votes, decider writes aggregate, stage writes final.
-
-## Deferred Architecture
-
-Do not implement unless repeated concrete need:
-
-- `TokenFlowDecision` (token flow exists through `TokenFlow.qml` + `tokenFlow` registry; a separate decision abstraction is deferred)
-- Generic rule engine
+- Overwrite evaluated policy trace entries.
 
 ## Done Criteria
 
@@ -101,4 +71,3 @@ Do not implement unless repeated concrete need:
 - Web fallback behavior preserved.
 - Ranking intent verified with representative queries.
 - No raw QML objects in IPC responses.
-- Docs/playbook updated only if the workflow changed.

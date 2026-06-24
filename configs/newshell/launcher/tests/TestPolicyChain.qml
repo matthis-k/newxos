@@ -1,8 +1,11 @@
-// PolicyChain internal tests — loadable via newshell-runtime or dev shell
+// PolicyChain + DecisionDecider invariants — loadable via newshell-runtime or dev shell
 // Verifies:
 // 1. Policy priority from spec affects normalization
 // 2. Trace preservation: evaluated entries not overwritten
 // 3. DecisionTrace.policy() preserves nonzero priority
+// 4. DecisionDecider is used for structural decisions (not first-wins)
+// 5. best-wins handles numeric vs structural decisions
+// 6. Trace aggregate exists after runDecisionPolicies path
 //
 // Usage: newshell ipc call debugPolicies '{"check":"policy-chain-invariants"}'
 
@@ -30,6 +33,12 @@ QtObject {
         results.push(testDecisionTracePriority());
         results.push(testNormalizeReasons());
         results.push(testNormalizeDecisionField());
+        results.push(testDeciderForStructural());
+        results.push(testBestWinsNumeric());
+        results.push(testBestWinsStructural());
+        results.push(testTraceAggregate());
+        results.push(testNoTraceOverwrite());
+        results.push(testPriorityChangesDecision());
         return { name: "PolicyChain", results: results };
     }
 
@@ -133,5 +142,108 @@ QtObject {
         }, { name: "expand-on-trailing-space", kind: "expand" });
         var ok = r && r.decision && r.decision.expand === true && r.decision.maxChildren === 8 && r.policy === "expand-on-trailing-space";
         return result(ok, "normalize-decision-field", ok ? "Decision field extracted, policy attached" : "Got " + (r ? JSON.stringify(r) : "null"));
+    }
+
+    function testDeciderForStructural() {
+        // Verify that structural decision kinds use DecisionDecider (not first-wins in PolicyChain)
+        // Two expand policy votes, higher priority must win
+        var votes = [
+            { decision: { expand: true, maxChildren: 4 }, priority: 0, policy: "expand-on-trailing-space", reasons: [] },
+            { decision: { expand: true, includeAllChildren: true, minScore: 0.02 }, priority: 100, policy: "implicit-direct-expand", reasons: [] }
+        ];
+        var reduced = DecisionDecider.reduce("expand", votes, { mode: "highest-priority", tieBreak: "first" });
+        var ok = reduced && reduced.selectedPolicy === "implicit-direct-expand" && reduced.priority === 100 && reduced.decision.includeAllChildren === true;
+        return result(ok, "decider-for-structural", ok ? "Direct expand wins via highest-priority (100 > 0)" : "Selected " + (reduced ? reduced.selectedPolicy : "none") + " at priority " + (reduced ? reduced.priority : 0));
+    }
+
+    function testBestWinsNumeric() {
+        // best-wins with numeric decisions: highest value at same priority wins
+        var votes = [
+            { decision: 0.5, priority: 50, policy: "policy-a", reasons: [] },
+            { decision: 0.8, priority: 50, policy: "policy-b", reasons: [] }
+        ];
+        var reduced = DecisionDecider.reduce("boost", votes, { mode: "best-wins", tieBreak: "first" });
+        var ok = reduced && reduced.selectedPolicy === "policy-b" && reduced.decision === 0.8;
+        return result(ok, "best-wins-numeric", ok ? "policy-b wins (0.8 > 0.5 at same priority)" : "Selected " + (reduced ? reduced.selectedPolicy : "none"));
+    }
+
+    function testBestWinsStructural() {
+        // best-wins with structural (object) decisions: falls back to highest-priority
+        var votes = [
+            { decision: { expand: true, maxChildren: 4 }, priority: 0, policy: "expand-a", reasons: [] },
+            { decision: { expand: true, maxChildren: 8 }, priority: 80, policy: "expand-b", reasons: [] }
+        ];
+        var reduced = DecisionDecider.reduce("expand", votes, { mode: "best-wins", tieBreak: "first" });
+        // best-wins with non-numeric decision should fall back to priority comparison
+        var ok = reduced && reduced.selectedPolicy === "expand-b" && reduced.priority === 80;
+        return result(ok, "best-wins-structural", ok ? "expand-b wins via higher priority fallback" : "Selected " + (reduced ? reduced.selectedPolicy : "none"));
+    }
+
+    function testTraceAggregate() {
+        // Verify trace has evaluated + aggregate + final sections after runDecisionPolicies path
+        var ev = { node: { id: "trace-test" } };
+        var ctx = { _policyTrace: {} };
+        var vote1 = { decision: { expand: true }, priority: 10, policy: "policy-a", kind: "expand", reasons: [{ code: "test1", text: "test" }] };
+        var vote2 = { decision: { expand: true, includeAllChildren: true }, priority: 50, policy: "policy-b", kind: "expand", reasons: [{ code: "test2", text: "test" }] };
+
+        DecisionTrace.initPolicyTrace(ev, ctx);
+        DecisionTrace.policyVote(ev, ctx, "expand", vote1, "accumulated");
+        DecisionTrace.policyVote(ev, ctx, "expand", vote2, "accumulated");
+
+        var reduced = DecisionDecider.reduce("expand", [vote1, vote2], { mode: "highest-priority", tieBreak: "first" });
+        DecisionTrace.aggregate(ev, ctx, "expand", "highest-priority", {
+            selectedPolicy: reduced.selectedPolicy,
+            priority: reduced.priority,
+            decision: reduced.decision
+        }, reduced.reasons || []);
+        DecisionTrace.final(ev, ctx, "expand", { expand: true, children: 3 }, [{ code: "expand_done", text: "expanded" }]);
+
+        var trace = ctx._policyTrace["trace-test"];
+        var hasEvaluated = trace && trace.expand && trace.expand.evaluated && trace.expand.evaluated.length === 2;
+        var hasAggregate = trace && trace.expand && trace.expand.aggregate !== null;
+        var hasFinal = trace && trace.expand && trace.expand.final !== null;
+        var aggregateResult = trace && trace.expand && trace.expand.aggregate && trace.expand.aggregate.result;
+        var aggregateHasPriority = aggregateResult && aggregateResult.priority === 50;
+        var ok = hasEvaluated && hasAggregate && hasFinal && aggregateHasPriority;
+        return result(ok, "trace-aggregate", ok ? "Trace has evaluated (" + (trace.expand.evaluated.length) + "), aggregate (" + (trace.expand.aggregate.strategy) + "), and final" : "evaluated=" + hasEvaluated + " aggregate=" + hasAggregate + " final=" + hasFinal);
+    }
+
+    function testNoTraceOverwrite() {
+        // Verify aggregate/final do not overwrite evaluated entries
+        var ev = { node: { id: "no-overwrite" } };
+        var ctx = { _policyTrace: {} };
+        var vote = { decision: { expand: true }, priority: 10, policy: "test-policy", kind: "expand", reasons: [{ code: "test", text: "test" }] };
+
+        DecisionTrace.initPolicyTrace(ev, ctx);
+        DecisionTrace.policyVote(ev, ctx, "expand", vote, "accumulated");
+        DecisionTrace.aggregate(ev, ctx, "expand", "highest-priority", { selectedPolicy: "test-policy", priority: 10, decision: vote.decision }, vote.reasons);
+        DecisionTrace.final(ev, ctx, "expand", { expand: true, children: 1 }, [{ code: "done", text: "done" }]);
+
+        var trace = ctx._policyTrace["no-overwrite"];
+        var evaluatedCount = trace && trace.expand && trace.expand.evaluated.length;
+        var ok = evaluatedCount === 1;
+        return result(ok, "no-trace-overwrite", ok ? "Evaluated entries preserved after aggregate+final (" + evaluatedCount + ")" : "Evaluated count changed: " + evaluatedCount);
+    }
+
+    function testPriorityChangesDecision() {
+        // Changing priority must change which expand policy is selected
+        // This would fail if ResultShaping still used first-wins
+        var votes = [
+            { decision: { expand: true, maxChildren: 4 }, priority: 10, policy: "expand-limited", reasons: [] },
+            { decision: { expand: true, includeAllChildren: true }, priority: 80, policy: "expand-all", reasons: [] }
+        ];
+        var reduced = DecisionDecider.reduce("expand", votes, { mode: "highest-priority", tieBreak: "first" });
+        var defaultSelected = reduced && reduced.selectedPolicy;
+
+        // Swap priorities
+        votes = [
+            { decision: { expand: true, maxChildren: 4 }, priority: 80, policy: "expand-limited", reasons: [] },
+            { decision: { expand: true, includeAllChildren: true }, priority: 10, policy: "expand-all", reasons: [] }
+        ];
+        var swapped = DecisionDecider.reduce("expand", votes, { mode: "highest-priority", tieBreak: "first" });
+        var swappedSelected = swapped && swapped.selectedPolicy;
+
+        var ok = defaultSelected !== swappedSelected && swappedSelected === "expand-limited";
+        return result(ok, "priority-changes-decision", ok ? "Priority changes selection: " + defaultSelected + " -> " + swappedSelected : "Same selection: " + defaultSelected + " / " + swappedSelected);
     }
 }

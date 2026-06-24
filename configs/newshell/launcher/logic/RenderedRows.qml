@@ -7,6 +7,7 @@ import "Evidence.qml"
 import "Evaluate.qml"
 import "ScoreBundle.qml"
 import "PolicyChain.qml"
+import "DecisionDecider.qml"
 import "PresentationContext.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
@@ -40,23 +41,28 @@ Singleton {
         var _policyOverrode = false;
         var defaultActionNames = profile.defaultAction || [];
         if (defaultActionNames.length > 0) {
-            var daResult = PolicyChain.run(defaultActionNames, function(name, spec) {
+            var daVotes = [];
+            PolicyChain.run(defaultActionNames, function(name, spec) {
                 var policy = PolicyChain.lookupPolicy(JsRegistry.defaultAction, spec);
                 if (!policy) return null;
-                return policy.apply(ev, ctx, spec && spec.args);
-            }, "first-wins");
-            if (daResult && daResult.value && daResult.value.actionId) {
+                var vote = policy.apply(ev, ctx, spec && spec.args);
+                if (vote) daVotes.push(vote);
+                return vote;
+            }, "accumulate");
+            var daReduced = DecisionDecider.reduce("defaultAction", daVotes, { mode: "first-wins", tieBreak: "first" });
+            var daResult = daReduced && daReduced.decision;
+            if (daResult && daResult.actionId) {
                 var overrideAction = null;
-                if (daResult.value.actionId === "expand" || daResult.value.actionId === "noop" || daResult.value.actionId === "blocked") {
+                if (daResult.actionId === "expand" || daResult.actionId === "noop" || daResult.actionId === "blocked") {
                     action = null;
                     selectedAction = null;
                     _policyOverrode = true;
                 } else {
-                    if (node.switchActions && node.switchActions[daResult.value.actionId])
-                        overrideAction = node.switchActions[daResult.value.actionId];
+                    if (node.switchActions && node.switchActions[daResult.actionId])
+                        overrideAction = node.switchActions[daResult.actionId];
                     else if (node.actionList) {
                         for (var dai = 0; dai < node.actionList.length; dai += 1) {
-                            if (node.actionList[dai].id === daResult.value.actionId) {
+                            if (node.actionList[dai].id === daResult.actionId) {
                                 overrideAction = node.actionList[dai];
                                 break;
                             }
@@ -68,7 +74,7 @@ Singleton {
                             if (!child) continue;
                             var childActions = child.actionList || [];
                             for (var dai2 = 0; dai2 < childActions.length; dai2 += 1) {
-                                if (childActions[dai2].id === daResult.value.actionId) {
+                                if (childActions[dai2].id === daResult.actionId) {
                                     overrideAction = childActions[dai2];
                                     break;
                                 }
@@ -77,17 +83,17 @@ Singleton {
                         }
                     }
                     if (overrideAction) {
-                        selectedAction = { action: overrideAction, id: overrideAction.id, role: "policy-default", score: 1, priority: 100, reasons: [daResult.value.reason] };
+                        selectedAction = { action: overrideAction, id: overrideAction.id, role: "policy-default", score: 1, priority: 100, reasons: [daResult.reason] };
                         action = overrideAction;
                         _policyOverrode = true;
-                    } else if (daResult.value.actionId !== "") {
-                        var synthAction = { id: daResult.value.actionId, label: daResult.value.actionId, payload: daResult.value.payload || null };
-                        selectedAction = { action: synthAction, id: synthAction.id, role: "policy-default", score: 1, priority: 100, reasons: [daResult.value.reason] };
+                    } else if (daResult.actionId !== "") {
+                        var synthAction = { id: daResult.actionId, label: daResult.actionId, payload: daResult.payload || null };
+                        selectedAction = { action: synthAction, id: synthAction.id, role: "policy-default", score: 1, priority: 100, reasons: [daResult.reason] };
                         action = synthAction;
                         _policyOverrode = true;
                     }
                 }
-            } else if (daResult && daResult.value && daResult.value.expand === true) {
+            } else if (daResult && daResult.expand === true) {
                 action = null;
                 selectedAction = null;
                 _policyOverrode = true;

@@ -1,5 +1,6 @@
 import Quickshell
 import qs.services
+import "../logic/EvaluationProfiles.qml" as EvalProfiles
 
 LauncherBackendBase {
     id: root
@@ -209,7 +210,7 @@ LauncherBackendBase {
                         root.action("copy", qsTr("Copy result"), { expression: expression, result: output, actionId: "copy" }),
                         root.action("copy-expression", qsTr("Copy expression"), { expression: expression, result: output, actionId: "copy-expression" })
                     ],
-                    evaluationProfile: { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "semantic"], scorePolicy: "semantic-result", profile: { fields: ["label", "aliases"], evidence: ["field-match", "semantic"], boost: [], childVisible: ["visible-flag", ["above-min-score", { threshold: 0.25 }]], tokenFlow: ["pass-all"], takeoverRequest: [], takeoverAccept: [], expand: ["expand-none"], retainParent: ["retain-always"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } },
+                    evaluationProfile: EvalProfiles.EvaluationProfiles.calculatorProfile(),
                     semanticTerms: [{ triggers: [expression], matches: [expression], field: "semantic", score: 1, weight: 1.4 }],
                     meta: { expression: expression, result: output }
                 }));

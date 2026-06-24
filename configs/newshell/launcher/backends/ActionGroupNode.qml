@@ -1,31 +1,15 @@
+import "tree" as Tree
+
 Node {
     template: "action-group"
 
+    readonly property var _nodeDefaults: Tree.TreeNodeDefaults {
+        defaultPriority: 0
+    }
+
     function defaultGroupProfile() {
         tracer.trace("defaultGroupProfile", function() { return {}; });
-        return {
-            mode: "generic+custom",
-            strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
-            scorePolicy: "default",
-            profile: {
-                fields: ["label", "aliases"],
-                evidence: ["field-match", "switch-action", "semantic", "token-claim", "usage", "recency"],
-                boost: ["descendant-boost"],
-                childVisible: ["visible-flag"],
-                tokenFlow: ["consume-namespace-pass-rest"],
-                takeoverRequest: [
-                    "child-own-match-parent-no-own-match",
-                    "explicit-child-token",
-                    "child-covers-passed-tokens",
-                    "own-score-dominates-takeover"
-                ],
-                takeoverAccept: ["accept-dominated-claims"],
-                expand: ["expand-on-own-match-or-trailing-space"],
-                retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }],
-                defaultAction: ["default-action-expand"],
-                riskGate: ["risk-gate"]
-            }
-        };
+        return _nodeDefaults.groupProfile({});
     }
 
     function toTreeObject() {

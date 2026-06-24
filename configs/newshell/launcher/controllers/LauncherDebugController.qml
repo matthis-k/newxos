@@ -862,6 +862,25 @@ Item {
         var resolved = root.resolveEvaluation(argsJson);
         if (resolved.error) return root.returnDebugEnvelope("policies", null, resolved.error, "error");
         var args = resolved.args || {};
+
+        // policy-chain-invariants check
+        if (args.check === "policy-chain-invariants") {
+            var comp = Qt.createComponent("../tests/TestPolicyChain.qml");
+            if (comp.status === Component.Error) {
+                return root.returnDebugEnvelope("policies", null, { name: "PolicyChain", error: comp.errorString() }, "test-error");
+            }
+            var testObj = comp.createObject(root);
+            var testResult = testObj.runAll();
+            testObj.destroy();
+            comp.destroy();
+            // Compute pass/fail summary
+            var failures = testResult.results.filter(function(r) { return !r.ok; });
+            testResult.passed = failures.length === 0;
+            testResult.failCount = failures.length;
+            testResult.totalCount = testResult.results.length;
+            return root.returnDebugEnvelope("policies", null, testResult, "test");
+        }
+
         var result = _policiesFmt.serialize(resolved.evaluation, {
             nodeId: args.nodeId || "",
             kind: args.kind || "",

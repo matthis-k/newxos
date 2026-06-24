@@ -1,6 +1,7 @@
 import Quickshell
 import qs.services
 import "../logic/DebugLogger.js" as DebugLogger
+import "../logic/EvaluationProfiles.qml" as EvalProfiles
 
 ModelTreeBackendBase {
     id: root
@@ -48,8 +49,8 @@ ModelTreeBackendBase {
         };});
     }
 
-    function appProfile() { return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"], scorePolicy: "default", profile: { evidence: [["field-match", { fields: ["label"] }], "semantic", "usage", "recency"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["consume-own-pass-rest"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }],             defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } }; }
-    function visualRootProfile() { return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"], scorePolicy: "default", profile: { evidence: [["field-match", { fields: ["label"] }], "semantic"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["pass-all"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-own-match-or-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }], defaultAction: ["default-action-expand"], riskGate: ["risk-gate"] } }; }
+    function appProfile() { return EvalProfiles.EvaluationProfiles.appProfile(); }
+    function visualRootProfile() { return EvalProfiles.EvaluationProfiles.visualRootProfile(); }
 
     function debugLog(category, message, data) {
         if (root.controller && root.controller.debugEnabled)

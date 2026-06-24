@@ -97,9 +97,17 @@ Singleton {
         var best = votes[0];
         for (var i = 1; i < votes.length; i += 1) {
             var v = votes[i];
-            if (v.priority > best.priority ||
-                (v.priority === best.priority && v.decision > best.decision))
-                best = v;
+            var vNum = typeof v.decision === "number";
+            var bestNum = typeof best.decision === "number";
+            if (vNum && bestNum) {
+                if (v.priority > best.priority ||
+                    (v.priority === best.priority && v.decision > best.decision))
+                    best = v;
+            } else {
+                if (v.priority > best.priority ||
+                    (v.priority === best.priority && tieBreak === "last"))
+                    best = v;
+            }
         }
         return best;
     }

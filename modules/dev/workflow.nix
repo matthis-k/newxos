@@ -578,6 +578,18 @@
           export NEWSHELL_TEST_INSTANCE_MODE=headless
           $LAUNCHER_TEST_BIN run "${self}/tests/launcher/cases" --mode headless >"$canonical_log" 2>&1
           cat "$canonical_log"
+
+          # Run policy-chain-invariants unit tests via IPC
+          echo ""
+          echo "Running policy-chain-invariants unit tests..."
+          policy_test=$("$NEWSHELL_BIN" ipc call debugPolicies '{"check":"policy-chain-invariants"}' 2>/dev/null || echo "FAILED")
+          if echo "$policy_test" | grep -q '"passed"[[:space:]]*:[[:space:]]*true'; then
+            echo "policy-chain-invariants: all tests passed"
+          else
+            echo "ERROR: policy-chain-invariants tests failed"
+            echo "$policy_test"
+            exit 1
+          fi
         '';
       };
 

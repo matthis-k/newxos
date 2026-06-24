@@ -2,6 +2,7 @@ import QtQml
 import Quickshell
 import qs.services
 import "actions" as Actions
+import "../logic/EvaluationProfiles.qml" as EvalProfiles
 
 TreeBackendBase {
     id: root
@@ -40,15 +41,11 @@ TreeBackendBase {
     Connections { target: NotificationCenter; function onDoNotDisturbEnabledChanged() { root.invalidateCompositeRootCache(); } function onHasCriticalChanged() { root.invalidateCompositeRootCache(); } }
     Connections { target: NetworkService; function onWifiEnabledChanged() { root.invalidateCompositeRootCache(); } function onWifiHardwareEnabledChanged() { root.invalidateCompositeRootCache(); } function onConnectedSsidChanged() { root.invalidateCompositeRootCache(); } function onHasWiredConnectionChanged() { root.invalidateCompositeRootCache(); } function onConnectedNetworkChanged() { root.invalidateCompositeRootCache(); } }
 
-    function fixtureProfile() {
-        return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"], scorePolicy: "default", profile: { fields: ["label", "aliases"], evidence: ["field-match", "switch-action", "semantic"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["consume-namespace-pass-rest"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-own-match-or-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }], defaultAction: ["default-action-expand"], riskGate: ["risk-gate"] } };
-    }
+    function fixtureProfile() { return EvalProfiles.EvaluationProfiles.groupProfile(); }
 
     readonly property var fixtureTree: TestMode.isActive ? buildFixtureTree() : null
 
-    function fixtureVpnProfile() {
-        return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"], scorePolicy: "default", profile: { fields: ["label", "aliases"], evidence: ["field-match", ["field-match", { fields: ["breadcrumb"] }], "switch-action"], boost: ["descendant-boost", "switch-aliases"], childVisible: ["has-own-score"], tokenFlow: ["consume-switch-pass-rest"], takeoverRequest: [], takeoverAccept: [], expand: ["expand-on-own-match-or-trailing-space"], retainParent: ["retain-always"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"] } };
-    }
+    function fixtureVpnProfile() { return EvalProfiles.EvaluationProfiles.switchProfile(); }
 
     function buildFixtureTree() {
         var path = TestMode.fixturePath("ACTIONS");

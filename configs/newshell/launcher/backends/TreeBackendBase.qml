@@ -2,6 +2,7 @@ import QtQml
 import qs.services
 import "tree"
 import "../logic/"
+import "../logic/EvaluationProfiles.qml" as EvalProfiles
 
 LauncherBackendBase {
     readonly property var tracer: Logger.scope("launcher.treeBackend", { category: "launcher" })
@@ -55,7 +56,7 @@ LauncherBackendBase {
         root.compositeRootCacheKey = cacheKey;
         const compositeRoot = root.backendRootDto(roots.map(function(node) { return root.nodeMaterializer.compositeNode(node, []); }), {
             tags: [root.backendId],
-            evaluationProfile: { mode: "generic", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"], scorePolicy: "backend", profile: { fields: ["label", "aliases"], evidence: ["field-match"], boost: [], childVisible: ["visible-flag"], tokenFlow: ["pass-all"], takeoverRequest: [], takeoverAccept: [], expand: [], retainParent: [], defaultAction: [], riskGate: [] } }
+            evaluationProfile: EvalProfiles.EvaluationProfiles.backendRootProfile()
         });
         IndexBuilder.buildSearchIndex(compositeRoot);
         if (!root.dynamicCompositeRoot)

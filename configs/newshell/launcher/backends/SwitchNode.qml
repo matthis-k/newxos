@@ -1,3 +1,5 @@
+import "../logic/EvaluationProfiles.qml" as EvalProfiles
+
 Node {
     id: root
     template: "switch"
@@ -75,24 +77,10 @@ Node {
             children: root.ownChildNodes(),
             replaceQuery: root.replaceQuery,
             switchActions: root.ownSwitchActions(),
-            evaluationProfile: {
-                mode: "generic+custom",
-                strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"],
-                scorePolicy: "default",
-                profile: {
-                    fields: ["label", "aliases"],
-                    evidence: ["field-match", ["field-match", { fields: ["breadcrumb"] }], "switch-action"],
-                    boost: ["descendant-boost", "switch-aliases"],
-                    childVisible: root.childVisible || [["own-score-min", { threshold: 0.25 }]],
-                    tokenFlow: ["consume-switch-pass-rest"],
-                    takeoverRequest: [],
-                    takeoverAccept: [],
-                    expand: ["expand-on-own-match-or-trailing-space"],
-                    retainParent: [],
-                    defaultAction: ["default-action-owner"],
-                    riskGate: ["risk-gate"]
-                }
-            }
+            evaluationProfile: EvalProfiles.EvaluationProfiles.switchProfile({
+                childVisible: root.childVisible || [["own-score-min", { threshold: 0.25 }]],
+                retainParent: []
+            })
         };
         if (root.switchState !== undefined)
             out.switchState = root.switchState;

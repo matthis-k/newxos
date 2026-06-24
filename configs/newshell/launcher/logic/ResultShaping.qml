@@ -17,10 +17,6 @@ Singleton {
     readonly property var prof: Profiler.scope("launcher.shaping", { category: "launcher" })
     readonly property var tracer: Logger.scope("launcher.shaping", { category: "launcher" })
 
-    function resultDecision(result) {
-        return result ? (result.decision !== undefined ? result.decision : result.value) : null;
-    }
-
     function resultReason(result, fallback) {
         if (!result) return fallback || "";
         var r = result.reason;
@@ -162,14 +158,26 @@ Singleton {
 
     readonly property var shape: prof.fn("shape", _shape)
 
-    function evaluatePolicies(ev, ctx, names, registry) {
+    function runDecisionPolicies(ev, ctx, kind, names, registry, reducerOptions) {
         if (!names || names.length === 0) return null;
         DecisionTrace.initPolicyTrace(ev, ctx);
-        return PolicyChain.run(names, function(name, spec) {
+        var votes = [];
+        var chainResult = PolicyChain.run(names, function(name, spec) {
             var policy = PolicyChain.lookupPolicy(registry, spec);
             if (!policy) return null;
             return policy.apply(ev, ctx, spec && spec.args);
-        }, "first-wins");
+        }, "accumulate", function(tr) {
+            DecisionTrace.policyVote(ev, ctx, kind, tr.returned, tr.effect);
+        });
+        votes = chainResult && chainResult.decision ? chainResult.decision : [];
+        var opts = reducerOptions || { mode: "highest-priority", tieBreak: "first" };
+        var reduced = DecisionDecider.reduce(kind, votes, opts);
+        DecisionTrace.aggregate(ev, ctx, kind, opts.mode, {
+            selectedPolicy: reduced.selectedPolicy,
+            priority: reduced.priority,
+            decision: reduced.decision
+        }, reduced.reasons || []);
+        return reduced;
     }
 
     function eligibleChildren(children, options) {
@@ -186,8 +194,34 @@ Singleton {
         var profile = (ev.node.evaluationProfile && ev.node.evaluationProfile.profile) || {};
         var nestingNames = profile.nesting || [];
         if (nestingNames.length === 0) return null;
-        var raw = evaluatePolicies(ev, ctx, nestingNames, JsRegistry.nesting);
-        return raw && raw.decision;
+        var reduced = runDecisionPolicies(ev, ctx, "nesting", nestingNames, JsRegistry.nesting, { mode: "highest-priority", tieBreak: "first" });
+        return reduced && reduced.decision;
+    }
+
+    function directExpandDecision(ev, ctx) {
+        if (!ev || !ev.children || ev.children.length === 0) return null;
+        var tf = ev.tokenFlow;
+        var hasResidual = tf && tf.passed && tf.passed.length > 0;
+        var hasOwnMatch = ev.ownVisible || (ev.ownScore || 0) > 0;
+        var trailing = ctx && ctx.query && ctx.query.lastTokenEmpty;
+        if (!hasOwnMatch || !(trailing || hasResidual)) return null;
+
+        var includeAll = trailing && !hasResidual;
+        var minScore = trailing ? 0 : (hasResidual ? 0.02 : 0.25);
+
+        return {
+            decision: {
+                expand: true,
+                includeAllChildren: includeAll,
+                minScore: minScore,
+                promoteSingleResidual: hasResidual,
+                childFilter: hasResidual ? "residual-label-contains" : null
+            },
+            priority: 100,
+            policy: "implicit-direct-expand",
+            kind: "expand",
+            reasons: [{ code: "direct_expand", text: "Direct expand: " + (trailing ? "trailing space" : "residual tokens") }]
+        };
     }
 
     function _decidePlacement(ev, ctx) {
@@ -219,6 +253,12 @@ Singleton {
         function _d(obj) {
             return attachNesting(attachTakeover(obj, takeoverClaims, takeoverDecision), nestingResult, null);
         }
+
+        // Evaluate retain decision once (used by all paths)
+        var retainReduced = retainNames.length > 0
+            ? runDecisionPolicies(ev, ctx, "retainParent", retainNames, JsRegistry.retainParent, { mode: "highest-priority", tieBreak: "first" })
+            : null;
+        var retainResult = retainReduced && retainReduced.decision;
 
         // 1. Takeover (still needed for parent-level promotion, but nesting can override)
         if (takeoverDecision && takeoverDecision.accepted) {
@@ -267,29 +307,43 @@ Singleton {
             }
         }
 
-        // 2. Expand
-        var expandResult = null;
-        var expandMinScore = 0.25;
-        var explicitExpand = false;
-        if (ev && ev.children && ev.children.length > 0) {
-            var tf = ev.tokenFlow;
-            var parentConsumed = tf && tf.consumed && tf.consumed.length > 0;
-            var hasResidual = tf && tf.passed && tf.passed.length > 0;
-            var hasOwnMatch = ev.ownVisible || (ev.ownScore || 0) > 0;
-            var trailing = ctx && ctx.query && ctx.query.lastTokenEmpty;
-            // Direct expand: if parent matched and has children (trailing browse or residual query)
-            if (hasOwnMatch && (trailing || hasResidual)) {
-                explicitExpand = true;
-                expandMinScore = trailing ? 0 : (hasResidual ? 0.02 : 0.25);
-                var includeAll = trailing && !hasResidual;
-                var expandKids = eligibleChildren(ev.children, {
-                    includeAllChildren: includeAll,
-                    minScore: expandMinScore
-                });
-                // When residual tokens exist, filter children to only include those whose
-                // label actually contains the residual token. Prevents false-positive matches
-                // from broad substring evidence (e.g. VPN countries matching "ger" in city names).
-                if (hasResidual && !includeAll && tf.passed && tf.passed.length > 0) {
+        // 2. Collect expand votes (direct expand + policy expand) and reduce via decider
+        var expandVotes = [];
+
+        // Direct expand vote (priority 100, always beats policy expand)
+        var directVote = directExpandDecision(ev, ctx);
+        if (directVote) {
+            DecisionTrace.initPolicyTrace(ev, ctx);
+            DecisionTrace.policyVote(ev, ctx, "expand", directVote, "candidate");
+            expandVotes.push(directVote);
+        }
+
+        // Policy expand votes (accumulated via runDecisionPolicies)
+        if (expandNames.length > 0) {
+            var policyReduced = runDecisionPolicies(ev, ctx, "expand", expandNames, JsRegistry.expand, { mode: "highest-priority", tieBreak: "first" });
+            if (policyReduced && policyReduced.decision && policyReduced.decision.expand)
+                expandVotes.push(policyReduced);
+        }
+
+        // Reduce expand votes
+        var expandReduced = expandVotes.length > 0
+            ? DecisionDecider.reduce("expand", expandVotes, { mode: "highest-priority", tieBreak: "first" })
+            : null;
+        var expandResult = expandReduced && expandReduced.decision;
+        var isDirectExpand = directVote !== null && expandReduced && expandReduced.selectedPolicy === "implicit-direct-expand";
+
+        // Apply expand decision
+        if (expandResult && expandResult.expand && ev.children && ev.children.length > 0) {
+            var expandKids = eligibleChildren(ev.children, {
+                includeAllChildren: !!expandResult.includeAllChildren,
+                minScore: expandResult.minScore === undefined ? (expandResult.includeAllChildren ? 0 : 0.25) : expandResult.minScore
+            });
+
+            // Residual label filtering (direct expand only)
+            if (isDirectExpand && expandResult.childFilter === "residual-label-contains") {
+                var tf = ev.tokenFlow;
+                var hasResidual = tf && tf.passed && tf.passed.length > 0;
+                if (hasResidual && !expandResult.includeAllChildren) {
                     var passedTokenTexts = [];
                     for (var pt = 0; pt < tf.passed.length; pt += 1) {
                         var ptok = typeof tf.passed[pt] === "string" ? tf.passed[pt] : (tf.passed[pt].raw || tf.passed[pt].normalized || "");
@@ -301,29 +355,33 @@ Singleton {
                             if (!label) return false;
                             var labelLow = label.toLowerCase();
                             for (var pti = 0; pti < passedTokenTexts.length; pti += 1) {
-                                if (labelLow.indexOf(passedTokenTexts[pti]) >= 0)
-                                    return true;
+                                if (labelLow.indexOf(passedTokenTexts[pti]) >= 0) return true;
                             }
                             return false;
                         });
                     }
                 }
                 // Fallback: if residual search produced no matching children, try with zero threshold
-                // (handles short-token queries like "vpn ge" where evidence scores may be low).
-                if (expandKids.length === 0 && hasResidual && !includeAll) {
+                if (expandKids.length === 0 && hasResidual && !expandResult.includeAllChildren) {
                     expandKids = eligibleChildren(ev.children, { minScore: 0 });
                 }
-                if (expandKids.length > 0) {
-                    var expandShowParent = true;
-                    if (retainNames.length > 0) {
-                        var retainRaw = evaluatePolicies(ev, ctx, retainNames, JsRegistry.retainParent);
-                        var retainResult = resultDecision(retainRaw);
-                        if (retainResult && retainResult.retain === false)
-                            expandShowParent = false;
-                    }
+            }
+
+            // Policy expand: apply maxChildren cap
+            if (!isDirectExpand && expandResult.maxChildren !== undefined) {
+                expandKids = expandKids.slice(0, expandResult.maxChildren);
+            }
+
+            if (expandKids.length > 0) {
+                var expandShowParent = true;
+                if (retainResult && retainResult.retain === false)
+                    expandShowParent = false;
+
+                // Single residual child promotion (direct expand only)
+                if (isDirectExpand && expandResult.promoteSingleResidual) {
+                    var hasResidual = ev.tokenFlow && ev.tokenFlow.passed && ev.tokenFlow.passed.length > 0;
                     if (hasResidual && expandKids.length === 1) {
-                        // Single matching child with residual: promote child, drop parent group
-                        DecisionTrace.final(ev, ctx, "expand", { promote: true, child: expandKids.length, minScore: expandMinScore }, [{ code: "expand_promote", text: "Single residual match promotes child" }]);
+                        DecisionTrace.final(ev, ctx, "expand", { promote: true, child: 1, minScore: expandResult.minScore }, [{ code: "expand_promote", text: "Single residual match promotes child" }]);
                         return _d({
                             placement: "promoted-child",
                             mode: "flatten-children",
@@ -332,64 +390,31 @@ Singleton {
                             children: expandKids
                         });
                     }
-                    DecisionTrace.final(ev, ctx, "expand", { expand: true, children: expandKids.length, minScore: expandMinScore }, [{ code: "expand_direct", text: "Direct expand " + expandKids.length + " children, minScore=" + expandMinScore }]);
-                    return _d({
-                        placement: "nested-group",
-                        mode: "nested-group",
-                        showParent: expandShowParent,
-                        suppressParentActions: false,
-                        includeAllChildren: includeAll,
-                        children: expandKids
-                    });
                 }
-            }
-        }
-        if (!explicitExpand && expandNames.length > 0) {
-            var expandRaw = evaluatePolicies(ev, ctx, expandNames, JsRegistry.expand);
-            expandResult = resultDecision(expandRaw);
-            if (expandResult && expandResult.expand && ev.children && ev.children.length > 0) {
-                var expandKids = eligibleChildren(ev.children, {
+
+                DecisionTrace.final(ev, ctx, "expand", { expand: true, children: expandKids.length, minScore: expandResult.minScore }, [{ code: isDirectExpand ? "expand_direct" : "expand_policy", text: (isDirectExpand ? "Direct" : "Policy") + " expand " + expandKids.length + " children" }]);
+                return _d({
+                    placement: "nested-group",
+                    mode: "nested-group",
+                    showParent: expandShowParent,
+                    suppressParentActions: false,
                     includeAllChildren: !!expandResult.includeAllChildren,
-                    minScore: expandResult.minScore === undefined ? 0 : expandResult.minScore
+                    children: expandKids
                 });
-                if (expandResult.maxChildren !== undefined)
-                    expandKids = expandKids.slice(0, expandResult.maxChildren);
-                if (expandKids.length > 0) {
-                    var expandShowParent = true;
-                    if (retainNames.length > 0) {
-                        var retainRaw = evaluatePolicies(ev, ctx, retainNames, JsRegistry.retainParent);
-                        var retainResult = resultDecision(retainRaw);
-                        if (retainResult && retainResult.retain === false)
-                            expandShowParent = false;
-                    }
-                    DecisionTrace.final(ev, ctx, "expand", { expand: true, children: expandKids.length }, [{ code: "expand_policy", text: "Policy expanded " + expandKids.length + " children" }]);
-                    return _d({
-                        placement: "nested-group",
-                        mode: "nested-group",
-                        showParent: expandShowParent,
-                        suppressParentActions: false,
-                        includeAllChildren: !!expandResult.includeAllChildren,
-                        children: expandKids
-                    });
-                }
             }
         }
 
         // 3. Retain-only (no expand or expand produced no children)
-        if (retainNames.length > 0) {
-            var retainRaw = evaluatePolicies(ev, ctx, retainNames, JsRegistry.retainParent);
-            var retainResult = resultDecision(retainRaw);
-            if (retainResult && retainResult.retain === false && ev.children && ev.children.length > 0) {
-                var retainKids = eligibleChildren(ev.children, { includeAllChildren: true });
-                DecisionTrace.final(ev, ctx, "retain", { retain: false, children: retainKids.length }, [{ code: "retain_suppress", text: "Retain suppressed parent, flattening " + retainKids.length + " children" }]);
-                return _d({
-                    placement: "flattened",
-                    mode: "flatten-all-children",
-                    showParent: false,
-                    suppressParentActions: false,
-                    children: flattenActionableChildren(retainKids, 16)
-                });
-            }
+        if (retainResult && retainResult.retain === false && ev.children && ev.children.length > 0) {
+            var retainKids = eligibleChildren(ev.children, { includeAllChildren: true });
+            DecisionTrace.final(ev, ctx, "retain", { retain: false, children: retainKids.length }, [{ code: "retain_suppress", text: "Retain suppressed parent, flattening " + retainKids.length + " children" }]);
+            return _d({
+                placement: "flattened",
+                mode: "flatten-all-children",
+                showParent: false,
+                suppressParentActions: false,
+                children: flattenActionableChildren(retainKids, 16)
+            });
         }
 
         // 4. Default
