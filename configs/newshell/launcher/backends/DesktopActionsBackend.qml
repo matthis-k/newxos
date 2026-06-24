@@ -38,10 +38,14 @@ TreeBackendBase {
     Connections { target: NetworkService; function onWifiEnabledChanged() { root.invalidateCompositeRootCache(); } function onWifiHardwareEnabledChanged() { root.invalidateCompositeRootCache(); } function onConnectedSsidChanged() { root.invalidateCompositeRootCache(); } function onHasWiredConnectionChanged() { root.invalidateCompositeRootCache(); } function onConnectedNetworkChanged() { root.invalidateCompositeRootCache(); } }
 
     function fixtureProfile() {
-        return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"], scorePolicy: "default", profile: { evidence: [["field-match", { filterType: "all" }], "switch-action", "semantic"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["consume-namespace-pass-rest"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-own-match-or-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }], defaultAction: ["default-action-expand"], riskGate: ["risk-gate"] } };
+        return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"], scorePolicy: "default", profile: { evidence: [["field-match", { filterType: "all" }], "switch-action", "semantic"], boost: ["descendant-boost"], childVisible: ["visible-flag"], tokenFlow: ["consume-namespace-pass-rest"], takeoverRequest: ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"], takeoverAccept: ["accept-dominated-claims"], expand: ["expand-on-own-match-or-trailing-space"], retainParent: [{ name: "retain-parent-when", args: { condition: "own-match" } }], defaultAction: ["default-action-expand"], riskGate: ["risk-gate"],  } };
     }
 
     readonly property var fixtureTree: TestMode.isActive ? buildFixtureTree() : null
+
+    function fixtureVpnProfile() {
+        return { mode: "generic+custom", strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic"], scorePolicy: "default", profile: { evidence: [["field-match", { filterType: "primary" }], ["field-match", { filterType: "breadcrumb" }], "switch-action"], boost: ["descendant-boost", "switch-aliases"], childVisible: ["has-own-score"], tokenFlow: ["consume-switch-pass-rest"], takeoverRequest: [], takeoverAccept: [], expand: ["expand-on-own-match-or-trailing-space"], retainParent: ["retain-always"], defaultAction: ["default-action-owner"], riskGate: ["risk-gate"],  } };
+    }
 
     function buildFixtureTree() {
         var path = TestMode.fixturePath("ACTIONS");
@@ -53,6 +57,8 @@ TreeBackendBase {
         };
 
         var groups = {};
+        var vpnDestinations = [];
+        var vpnSwitchActions = {};
         for (var i = 0; i < entries.length; i++) {
             var entry = entries[i];
             var p = entry.path || [];
@@ -60,6 +66,18 @@ TreeBackendBase {
 
             var groupName = p[1];
             var itemName = p[p.length - 2];
+
+            if (entry.type === "vpn-destination") {
+                vpnDestinations.push({
+                    id: entry.id,
+                    aliases: [itemName.toLowerCase()],
+                    title: itemName,
+                    executable: true,
+                    action: { service: "vpn", op: "connect", destination: entry.destinationValue }
+                });
+                continue;
+            }
+
             var isSwitch = entry.type === "switch";
 
             if (!groups[groupName]) {
@@ -75,21 +93,44 @@ TreeBackendBase {
                 };
             }
 
-            var itemKey = itemName.toLowerCase().replace(/[\s-]/g, "_");
-            if (!groups[groupName].children[itemKey]) {
+            var itemKey = entry.type === "vpn-destination" ? "vpn" : itemName.toLowerCase().replace(/[\s-]/g, "_");
+            if (entry.type !== "vpn-destination" && !groups[groupName].children[itemKey]) {
                 groups[groupName].children[itemKey] = root.fixtureItemNode(entry, itemName, groupName);
             }
 
             if (isSwitch) {
                 var actionKey = entry.id || entry.title.toLowerCase().replace(/[\s-]/g, "_");
+                if (!vpnSwitchActions[actionKey]) {
+                    vpnSwitchActions[actionKey] = {
+                        id: actionKey,
+                        title: entry.title,
+                        state: entry.state !== undefined ? entry.state : null,
+                        payload: { service: "test", op: "noop" }
+                    };
+                }
                 var item = groups[groupName].children[itemKey];
-                if (!item.switchActions) item.switchActions = {};
-                item.switchActions[entry.group || actionKey] = {
-                    id: actionKey,
-                    title: entry.title,
-                    state: entry.state !== undefined ? entry.state : null,
-                    payload: { service: "test", op: "noop" }
-                };
+                if (item) {
+                    if (!item.switchActions) item.switchActions = {};
+                    item.switchActions[entry.group || actionKey] = vpnSwitchActions[actionKey];
+                }
+            }
+        }
+
+        // Build VPN switch node with destinations as children
+        if (vpnSwitchActions && Object.keys(vpnSwitchActions).length > 0) {
+            var vpnNode = {
+                id: "networking_vpn",
+                aliases: ["vpn", "nordvpn", "connect to"],
+                title: "VPN",
+                template: "switch",
+                switchState: false,
+                behavior: { filterChildren: true, depthPenalty: 1, exploration: { descend: false } },
+                evaluationProfile: root.fixtureVpnProfile(),
+                switchActions: vpnSwitchActions,
+                children: vpnDestinations
+            };
+            if (groups["Networking"]) {
+                groups["Networking"].children["vpn"] = vpnNode;
             }
         }
 

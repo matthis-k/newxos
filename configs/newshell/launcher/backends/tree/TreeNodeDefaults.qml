@@ -17,7 +17,8 @@ QtObject {
             expand: [],
             retainParent: [],
             defaultAction: ["default-action-owner"],
-            riskGate: ["risk-gate"]
+            riskGate: ["risk-gate"],
+
         }
     })
 

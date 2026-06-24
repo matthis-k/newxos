@@ -161,7 +161,7 @@ Singleton {
             matchDepth: ev.matchDepth === undefined ? depth : ev.matchDepth,
             evidence: copyEvidence(ev.evidence || []),
             selected: state.selectedNodeId === node.id,
-            expandable: childRows ? childRows.length > 0 : (ev.children && ev.children.length > 0),
+            expandable: (childRows && childRows.length > 0) || (ev.children && ev.children.length > 0),
             expanded: state.expandedNodeIds[node.id] || node.kind === "backend",
             breadcrumbs: breadcrumbs,
             breadcrumbText: breadcrumbText,
@@ -358,7 +358,8 @@ Singleton {
             icon: a.icon || null, default: isDef === undefined ? !!a.default : !!isDef,
             intent: a.intent || null, payload: copyPayload(a.payload),
             dangerous: !!a.dangerous,
-            risk: a.risk || null
+            risk: a.risk || null,
+            state: a.state !== undefined ? a.state : undefined
         };
     }
 

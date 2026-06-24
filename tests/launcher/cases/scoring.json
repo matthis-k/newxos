@@ -32,24 +32,6 @@
       ]
     },
     {
-      "name": "VPN children appear after trailing space",
-      "tags": ["scoring", "vpn"],
-      "steps": [
-        { "do": { "type": "reset" } },
-        { "do": { "type": "open", "visible": false } },
-        { "do": { "type": "setQuery", "query": "vpn " } },
-        {
-          "expect": {
-            "exactlyOneSelected": true,
-            "selected": { "title": "VPN" },
-            "rows": {
-              "containsTitle": ["VPN"]
-            }
-          }
-        }
-      ]
-    },
-    {
       "name": "Query 'network' shows Networking group first",
       "tags": ["scoring", "group"],
       "steps": [

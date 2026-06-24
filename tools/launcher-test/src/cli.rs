@@ -39,6 +39,9 @@ pub enum Command {
         /// Path to launcher IPC socket (auto-detected if not provided)
         #[arg(long)]
         socket: Option<PathBuf>,
+        /// Print debug pipeline info on failure
+        #[arg(long)]
+        debug_pipeline: bool,
     },
     /// Derive debugging probes from canonical test cases
     Probe {

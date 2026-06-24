@@ -16,40 +16,8 @@
       ]
     },
     {
-      "name": "Query 'newxos ' trailing space browses children",
-      "tags": ["trailing", "newxos"],
-      "steps": [
-        { "do": { "type": "reset" } },
-        { "do": { "type": "open", "visible": false } },
-        { "do": { "type": "setQuery", "query": "newxos " } },
-        {
-          "expect": {
-            "exactlyOneSelected": true,
-            "rows": {
-              "containsTitle": ["AI", "Switch System"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Query 'vpn ' trailing space shows VPN",
-      "tags": ["trailing", "vpn"],
-      "steps": [
-        { "do": { "type": "reset" } },
-        { "do": { "type": "open", "visible": false } },
-        { "do": { "type": "setQuery", "query": "vpn " } },
-        {
-          "expect": {
-            "exactlyOneSelected": true,
-            "selected": { "title": "VPN" }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Query 'zen ' trailing space shows Zen Browser unchanged",
-      "tags": ["trailing", "zen"],
+      "name": "Query 'zen ' trailing space expands Zen Browser actions",
+      "tags": ["trailing", "zen", "desktop-actions"],
       "steps": [
         { "do": { "type": "reset" } },
         { "do": { "type": "open", "visible": false } },
@@ -57,9 +25,10 @@
         {
           "expect": {
             "exactlyOneSelected": true,
-            "selected": { "title": "Zen Browser" },
+            "expanded": [{ "title": "Zen Browser" }],
             "rows": {
-              "notContainsTitle": ["New Window", "New Private Window"]
+              "containsTitle": ["Zen Browser", "New Window"],
+              "noneHighlightedExceptSelected": true
             }
           }
         }

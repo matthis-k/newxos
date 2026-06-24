@@ -45,9 +45,7 @@ Singleton {
                 while (true) {
                     var idx = normText.indexOf(tokenNorm, start);
                     if (idx < 0) break;
-                    var isWordStart = idx === 0 || /[^a-z0-9]/.test(normText[idx - 1]);
-                    if (isWordStart)
-                        out.push(evidence("substring", field, "substring", 0.66, field.weight * 0.75, [{ start: idx, end: idx + token.raw.length, kind: "substring" }], "token occurs inside field", { tokenIndex: ti, exactness: "substring" }));
+                    out.push(evidence("substring", field, "substring", 0.66, field.weight * 0.75, [{ start: idx, end: idx + token.raw.length, kind: "substring" }], "token occurs inside field", { tokenIndex: ti, exactness: "substring" }));
                     start = idx + Math.max(1, tokenLen);
                 }
             }

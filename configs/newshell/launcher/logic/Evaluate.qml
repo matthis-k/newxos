@@ -13,7 +13,8 @@ Singleton {
     readonly property var defaultProfile: ({
         // Leaf-conservative default: no expand/takeover/retain unless explicitly set.
         // Backends with group/switch behavior override this in their own evaluationProfile.
-        evidence: [["field-match", { filterType: "all" }], "switch-action", "semantic", "token-claim", "usage", "recency"],
+        fields: ["label", "aliases"],
+        evidence: ["field-match", "switch-action", "semantic", "token-claim", "usage", "recency"],
         boost: ["descendant-boost"],
         childVisible: ["visible-flag"],
         tokenFlow: ["pass-all"],
@@ -60,7 +61,7 @@ Singleton {
         var singleCharQuery = isSingleCharQuery(query);
         var qEmpty = query.isEmpty;
         var directiveBrowse = directiveActive && qEmpty;
-        if (ctx.candidateIds && !ctx.candidateIds[node.id] && node.kind !== "root" && node.kind !== "backend" && !node.showWhenQueryEmpty && !(qEmpty && node.backendId === "backends" && directiveActive) && !directiveBrowse && !ctx.showHidden)
+        if (ctx.candidateIds && !ctx.candidateIds[node.id] && !ctx.explicitResidualChildSearch && node.kind !== "root" && node.kind !== "backend" && !(node.showWhenQueryEmpty && qEmpty) && !(qEmpty && node.backendId === "backends" && directiveActive) && !directiveBrowse && !ctx.showHidden)
             return { node: node, allowed: selfAllowed, candidate: false, pruned: true, evidence: [], ownEvidence: [], inheritedEvidence: [], ownScore: 0, inheritedScore: 0, score: 0, visible: false, children: [] };
 
         var ep = node.evaluationProfile || {};
@@ -68,15 +69,22 @@ Singleton {
 
         var ownEvidence = [];
         var inheritedEvidence = [];
-        var directCandidate = !ctx.candidateIds || !!ctx.candidateIds[node.id] || node.kind === "root" || node.kind === "backend" || node.showWhenQueryEmpty || directiveBrowse;
+        var directCandidate = !ctx.candidateIds || !!ctx.candidateIds[node.id] || ctx.explicitResidualChildSearch || node.kind === "root" || node.kind === "backend" || node.showWhenQueryEmpty || directiveBrowse;
 
         if (selfAllowed && directCandidate) {
             var evidenceNames = profile.evidence || [];
             if (node && node.id && ctx._policyTrace && !ctx._policyTrace[node.id]) ctx._policyTrace[node.id] = {};
+            var evidenceTimings = ctx._policyTimings ? ctx._policyTimings.evidence : null;
+            // Global default fields from profile root apply to policies without explicit fields/filterType
+            var globalEvidenceFields = profile.fields;
             var evidenceResult = PolicyChain.run(evidenceNames, function(name, spec) {
+                var effectiveArgs = spec && spec.args;
+                if (globalEvidenceFields && (!effectiveArgs || (!effectiveArgs.fields && !effectiveArgs.filterType))) {
+                    effectiveArgs = Object.assign({}, effectiveArgs || {}, { fields: globalEvidenceFields });
+                }
                 var policy = PolicyChain.lookupPolicy(JsRegistry.evidence, spec);
                 if (!policy || policy.phase !== "evidence") return null;
-                var items = policy.match(node, query, ctx, spec && spec.args);
+                var items = policy.match(node, query, ctx, effectiveArgs);
                 if (!items || !items.length) return null;
                 var group = policy.group || "own";
                 items.forEach(function(item) {
@@ -97,7 +105,7 @@ Singleton {
                     effect: "combined",
                     reasons: tr.returned && tr.returned.reasons ? tr.returned.reasons.slice() : []
                 });
-            });
+            }, evidenceTimings);
             var allEvidence = evidenceResult.value || [];
             // Inherited evidence is produced by evidence policies via originGroup: "inherited";
             // profile.inherit is not supported.
@@ -144,16 +152,39 @@ Singleton {
             tokenFlow = tokenFlowResult && tokenFlowResult.value;
             if (tokenFlow && tokenFlow.passed) {
                 childQuery = TokenFlow.buildChildQuery(node, tokenFlow, query);
-                childCtx = Object.assign({}, ctx, { childQuery: childQuery, tokenFlow: tokenFlow });
-                if (directCandidate && tokenFlow.consumed && tokenFlow.consumed.length > 0 && tokenFlow.passed.length > 0)
-                    childCtx.candidateIds = null;
+                childCtx = Object.assign({}, ctx, { query: childQuery, childQuery: childQuery, tokenFlow: tokenFlow });
+                var parentConsumed = tokenFlow.consumed
+                    && tokenFlow.consumed.length > 0;
+                var residualCount = tokenFlow.passed
+                    ? tokenFlow.passed.length
+                    : 0;
+                var explicitTrailingBrowse = parentConsumed
+                    && query.lastTokenEmpty
+                    && residualCount === 0;
+                var explicitResidualChildSearch = parentConsumed
+                    && residualCount > 0;
+                if (directCandidate && explicitTrailingBrowse) {
+                    childCtx = Object.assign({}, childCtx, {
+                        candidateIds: null,
+                        explicitTrailingBrowse: explicitTrailingBrowse,
+                        explicitResidualChildSearch: false
+                    });
+                }
+                if (directCandidate && explicitResidualChildSearch) {
+                    childCtx = Object.assign({}, childCtx, {
+                        explicitResidualChildSearch: true
+                    });
+                }
             }
         }
 
         var evaluatedChildren = evaluateChildren(node, childQuery, childCtx, directiveActive);
 
         var own = selfAllowed ? Evidence.scoreEvidence(ownEvidence, node, ctx) : { value: 0, visible: false, reason: "directive container only" };
-        if (own.value > 0 && !query.isEmpty) {
+        // Skip skipped-depth penalty when parent consumed tokens via token flow.
+        // Children evaluating residual tokens (e.g. "ger" after parent consumed "vpn")
+        // should not be penalized for their parent not matching the residual token.
+        if (own.value > 0 && !query.isEmpty && !ctx.tokenFlow) {
             var depthMultiplier = skippedDepthMultiplier(node, ownEvidence, query, ctx);
             if (depthMultiplier < 1) {
                 own.value = Tokenize.clamp(own.value * depthMultiplier);
@@ -174,6 +205,7 @@ Singleton {
         var scores = { ownScore: own.value, inheritedScore: inheritedScore };
         var boostNames = profile.boost || [];
         if (node && node.id && ctx._policyTrace && !ctx._policyTrace[node.id]) ctx._policyTrace[node.id] = {};
+        var boostTimings = ctx._policyTimings ? ctx._policyTimings.boost : null;
         var descendantBoost = (PolicyChain.run(boostNames, function(name, spec) {
             var bpol = PolicyChain.lookupPolicy(JsRegistry.boost, spec);
             if (!bpol || bpol.phase !== "boost") return null;
@@ -192,7 +224,7 @@ Singleton {
                 effect: tr.effect || "combined",
                 reasons: tr.returned && tr.returned.reasons ? tr.returned.reasons.slice() : []
             });
-        }).value) || 0;
+        }, boostTimings).value) || 0;
 
         var finalScore = Tokenize.clamp(Math.max(own.value, inheritedScore, descendantBoost));
 
@@ -325,6 +357,14 @@ Singleton {
             };
         }
 
+        var hasBaseEvidence = ownEvidence.some(function(e) {
+            return e.field !== "usage" && e.field !== "recency";
+        });
+        // A node with only usage/recency evidence should not be visible unless
+        // there is base evidence (field-match, semantic, switch-action, token-claim).
+        var usageOrRecencyOnly = ownEvidence.length > 0 && !hasBaseEvidence;
+        var ownVisible = own.visible && !usageOrRecencyOnly;
+
         var result = {
             node: node,
             allowed: selfAllowed,
@@ -334,13 +374,15 @@ Singleton {
             ownEvidence: ownEvidence,
             inheritedEvidence: inheritedEvidence,
             ownScore: own.value,
+            ownScoreBase: hasBaseEvidence ? own.value : 0,
             inheritedScore: inheritedScore,
             descendantScore: descendantBoost,
             score: finalScore,
-            matchDepth: own.visible ? 0 : bestChildMatchDepth < 9999 ? bestChildMatchDepth : 9999,
-            ownVisible: own.visible,
-            visible: ctx.showHidden || own.visible || retained.some(function(c) { return c.visible || ctx.showHidden; }) || (ctx.query.isEmpty && node.kind === "backend" && !directiveActive),
-            visibleReason: own.reason,
+            matchDepth: ownVisible ? 0 : bestChildMatchDepth < 9999 ? bestChildMatchDepth : 9999,
+            ownVisible: ownVisible,
+            hasBaseEvidence: hasBaseEvidence,
+            visible: ctx.showHidden || ownVisible || retained.some(function(c) { return c.visible || ctx.showHidden; }) || (ctx.query.isEmpty && node.kind === "backend" && !directiveActive),
+            visibleReason: ownVisible ? own.reason : (usageOrRecencyOnly ? "usage/recency only, no base evidence" : own.reason),
             children: profile.keepAllChildren ? retained : retained.sort(compareEvaluated),
             tokenFlow: tokenFlow
         };
@@ -355,11 +397,13 @@ Singleton {
         // Gate expensive child expansion for single-character or very short queries
         // when this node has exploration.descend === false (e.g., VPN country list).
         // Without this, every child (even pruned ones) gets walk-evaluated.
+        // Bypass when the parent explicitly passed residual tokens for child search.
         var behavior = node && node.behavior || {};
         var exploration = behavior.exploration || {};
         var isShortQuery = query && !query.isEmpty && query.tokens && query.tokens.length <= 1
             && query.tokens[0].raw.length <= 2;
-        if (isShortQuery && exploration.descend === false && children.length > 16) {
+        if (isShortQuery && exploration.descend === false && children.length > 16
+            && !(ctx && ctx.explicitResidualChildSearch)) {
             return [];
         }
 
@@ -385,8 +429,17 @@ Singleton {
 
     function evaluateChildList(children, query, ctx, directiveActive) {
         var out = [];
+        // Skip evaluateNode for non-candidate children when candidate filtering is active.
+        // Only skip when the query is non-empty (empty query browsing evaluates everything)
+        // and when the context isn't in explicit residual search mode (which needs all children).
+        var canSkipNonCandidates = ctx.candidateIds && !ctx.showHidden
+            && !(ctx.directive && ctx.directive.active) && query && !query.isEmpty
+            && !ctx.explicitResidualChildSearch;
         for (var i = 0; i < (children || []).length; i += 1) {
             var child = children[i];
+            if (canSkipNonCandidates && !ctx.candidateIds[child.id]
+                && child.kind !== "root" && child.kind !== "backend")
+                continue;
             if (!directiveActive || nodeTreeMayContainDirective(child, ctx))
                 out.push(evaluateNode(child, query, ctx));
         }

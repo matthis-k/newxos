@@ -27,11 +27,10 @@ Singleton {
         if (!child || !parent) return claims;
 
         var profile = (parentEv.node.evaluationProfile && parentEv.node.evaluationProfile.profile) || {};
-        var takeoverNames = profile.takeoverRequest || [];
-
-        if (takeoverNames.length === 0) {
-            takeoverNames = ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"];
-        }
+        var takeoverRequestRaw = profile.takeoverRequest;
+        var takeoverNames = takeoverRequestRaw === undefined
+            ? ["child-own-match-parent-no-own-match", "explicit-child-token", "child-covers-passed-tokens", "own-score-dominates-takeover"]
+            : takeoverRequestRaw;
 
         PolicyChain.run(takeoverNames, function(name, spec) {
             var policy = PolicyChain.lookupPolicy(JsRegistry.takeoverRequest, spec);
@@ -67,7 +66,8 @@ Singleton {
         }
 
         var profile = (parentEv.node.evaluationProfile && parentEv.node.evaluationProfile.profile) || {};
-        var acceptNames = profile.takeoverAccept || ["accept-dominated-claims"];
+        var takeoverAcceptRaw = profile.takeoverAccept;
+        var acceptNames = takeoverAcceptRaw === undefined ? ["accept-dominated-claims"] : takeoverAcceptRaw;
         var acceptResult = PolicyChain.run(acceptNames, function(name, spec) {
             var policy = PolicyChain.lookupPolicy(JsRegistry.takeoverAccept, spec);
             if (!policy) return null;
@@ -92,13 +92,16 @@ Singleton {
         return accepted;
     }
 
-    function defaultAcceptPolicy(parentEv, claims, ctx) {
+    function defaultAcceptPolicy(parentEv, claims, ctx, args) {
         if (!claims || !claims.length) {
             return { accepted: false, reason: "no claims" };
         }
 
         var bestClaim = claims[0];
         var scoreDominance = false;
+
+        var retainParentWhenParentMatched = !!(args && args.retainParentWhenParentMatched);
+        var parentHasOwnMatch = !!(parentEv && (parentEv.ownVisible || (parentEv.ownScore || 0) > 0));
 
         if (bestClaim.claimantId && bestClaim.targetId === parentEv.node.id) {
             var claimantEv = findChildEv(parentEv, bestClaim.claimantId);
@@ -120,11 +123,19 @@ Singleton {
             var dc = dominanceClaim[0];
             selectedOwnerId = dc.claimantId;
             if (dc.kind === "defaultAction" || dc.kind === "structuralChildOwnMatch" || (dc.kind === "selection" && scoreDominance)) {
-                defaultActionOwnerId = dc.claimantId;
-                retainParent = false;
-                representation = "promote-child";
-                suppressParentActions = true;
-                reason = "child " + (dc.claimantId || "") + " dominates via " + dc.reason;
+                if (retainParentWhenParentMatched && parentHasOwnMatch) {
+                    defaultActionOwnerId = dc.claimantId;
+                    retainParent = true;
+                    representation = "nested-group";
+                    suppressParentActions = true;
+                    reason = "child selected, parent retained (retainParentWhenParentMatched): " + dc.reason;
+                } else {
+                    defaultActionOwnerId = dc.claimantId;
+                    retainParent = false;
+                    representation = "promote-child";
+                    suppressParentActions = true;
+                    reason = "child " + (dc.claimantId || "") + " dominates via " + dc.reason;
+                }
             } else {
                 reason = "child " + (dc.claimantId || "") + " claims " + (dc.kind || "selection") + " via " + dc.reason;
             }
@@ -146,6 +157,7 @@ Singleton {
             selectedOwnerId: selectedOwnerId,
             defaultActionOwnerId: defaultActionOwnerId,
             activation: activation,
+            includeAllChildren: false,
             reason: reason
         };
     }

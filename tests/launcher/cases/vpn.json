@@ -1,0 +1,165 @@
+{
+  "cases": [
+    {
+      "name": "Query 'vpn' keeps VPN as parent without expanding all destinations",
+      "tags": ["vpn", "parent", "stability"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "VPN" },
+            "rows": {
+              "containsTitle": ["VPN"],
+              "notContainsTitle": ["Germany", "Netherlands", "Fastest", "Algeria", "Georgia", "Uganda"],
+              "noneHighlightedExceptSelected": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'vpn ' trailing space expands all VPN destinations",
+      "tags": ["vpn", "trailing", "dynamic"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn " } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "expanded": [{ "title": "VPN" }],
+            "rows": {
+              "containsTitle": ["VPN", "Germany", "Netherlands", "Fastest", "Algeria", "Georgia", "Uganda"],
+              "noneHighlightedExceptSelected": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'vpn g' shows all destinations matching g: Germany, Georgia, Uganda",
+      "tags": ["vpn", "filtering", "residual"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn g" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "rows": {
+              "containsTitle": ["VPN", "Germany", "Georgia", "Uganda"],
+              "notContainsTitle": ["Netherlands", "Algeria"],
+              "noneHighlightedExceptSelected": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'vpn ger' shows Germany and Algeria (prefix and substring)",
+      "tags": ["vpn", "filtering", "residual"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn ger" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "rows": {
+              "containsTitle": ["VPN", "Germany", "Algeria"],
+              "notContainsTitle": ["Netherlands", "Georgia", "Uganda"],
+              "noneHighlightedExceptSelected": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'vpn germany' filters to Germany only",
+      "tags": ["vpn", "filtering", "exact"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn germany" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Germany" },
+            "rows": {
+              "containsTitle": ["VPN", "Germany"],
+              "notContainsTitle": ["Algeria", "Netherlands", "Uganda", "Georgia"],
+              "noneHighlightedExceptSelected": true
+            },
+            "invariants": ["exactly-one-selected", "no-hidden-selected-node"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'vpn netherlands' filters to Netherlands only",
+      "tags": ["vpn", "filtering", "exact"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn netherlands" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Netherlands" },
+            "rows": {
+              "containsTitle": ["VPN", "Netherlands"],
+              "notContainsTitle": ["Germany", "Algeria", "Uganda", "Georgia"],
+              "noneHighlightedExceptSelected": true
+            },
+            "invariants": ["exactly-one-selected", "no-hidden-selected-node"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'vpn algeria' filters to Algeria only",
+      "tags": ["vpn", "filtering", "exact"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn algeria" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Algeria" },
+            "rows": {
+              "containsTitle": ["VPN", "Algeria"],
+              "notContainsTitle": ["Germany", "Netherlands", "Uganda", "Georgia"],
+              "noneHighlightedExceptSelected": true
+            },
+            "invariants": ["exactly-one-selected", "no-hidden-selected-node"]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Query 'vpn' one-match retains VPN parent context",
+      "tags": ["vpn", "context", "stability"],
+      "steps": [
+        { "do": { "type": "reset" } },
+        { "do": { "type": "open", "visible": false } },
+        { "do": { "type": "setQuery", "query": "vpn fastest" } },
+        {
+          "expect": {
+            "exactlyOneSelected": true,
+            "selected": { "title": "Fastest" },
+            "rows": {
+              "containsTitle": ["VPN", "Fastest"],
+              "notContainsTitle": ["Germany", "Netherlands", "Algeria", "Georgia", "Uganda"],
+              "noneHighlightedExceptSelected": true
+            },
+            "invariants": ["exactly-one-selected", "no-hidden-selected-node"]
+          }
+        }
+      ]
+    }
+  ]
+}

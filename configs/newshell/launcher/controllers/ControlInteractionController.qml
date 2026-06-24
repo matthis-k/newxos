@@ -76,7 +76,8 @@ QtObject {
 
     function refreshSwitchResult(result, action) {
         var payload = action && action.payload || {};
-        var state = payload.state;
+        // Check action.state first, then fall back to payload.state
+        var state = action && action.state !== undefined ? action.state : payload.state;
         var previous = result ? result.switchState : undefined;
         if (state === true || state === false) {
             result.switchState = state;

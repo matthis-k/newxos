@@ -127,6 +127,7 @@
               "notContains": [
                 { "title": "Networking", "selected": true }
               ],
+              "notContainsTitle": ["Germany", "Netherlands", "Fastest"],
               "noneHighlightedExceptSelected": true
             }
           }

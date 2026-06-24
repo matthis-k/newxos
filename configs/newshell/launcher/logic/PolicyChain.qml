@@ -15,7 +15,12 @@ Singleton {
         return spec.name ? registry.get(spec.name) : null;
     }
 
-    function run(names, call, modeOrPhase, tracePerPolicy) {
+    function nowMs() {
+        var d = new Date();
+        return d.getTime();
+    }
+
+    function run(names, call, modeOrPhase, tracePerPolicy, timings) {
         var mode = defaultModes[modeOrPhase] || modeOrPhase;
         if (!mode)
             return { value: null, priority: 0 };
@@ -25,7 +30,14 @@ Singleton {
             var spec = PolicySpec.normalize(names[i]);
             if (!spec)
                 continue;
+
+            var pStart = timings ? nowMs() : 0;
             var raw = call(spec.name, spec);
+            if (timings) {
+                var elapsed = nowMs() - pStart;
+                timings[spec.name] = (timings[spec.name] || 0) + elapsed;
+            }
+
             if (raw === null || raw === undefined)
                 continue;
             var r = normalize(raw);

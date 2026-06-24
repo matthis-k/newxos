@@ -35,8 +35,8 @@ async fn main() {
                 Err(e) => Err(e),
             }
         }
-        cli::Command::Run { path, mode, filter, socket } => {
-            match runner::run_cases(path, filter.as_deref(), mode, socket.as_deref()) {
+        cli::Command::Run { path, mode, filter, socket, debug_pipeline } => {
+            match runner::run_cases(path, filter.as_deref(), mode, socket.as_deref(), *debug_pipeline) {
                 Ok(summary) => {
                     if summary.failed > 0 {
                         Err(anyhow::anyhow!("{} test(s) failed", summary.failed))

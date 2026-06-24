@@ -25,7 +25,7 @@ QtObject {
         });
 
         Launcher.PolicyRegistry.registerTakeoverAccept("accept-dominated-claims", function(parentEv, claims, ctx, args) {
-            return TakeoverEngine.defaultAcceptPolicy(parentEv, claims, ctx);
+            return TakeoverEngine.defaultAcceptPolicy(parentEv, claims, ctx, args);
         });
 
         Launcher.PolicyRegistry.registerTakeoverAccept("accept-all-claims", function(parentEv, claims, ctx, args) {

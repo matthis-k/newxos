@@ -28,7 +28,8 @@ Singleton {
         }
 
         function makeShaped(ev, depth, sortScore, childEvs, forceInclude, options, placement, decision) {
-            if (ev.node.kind !== "root" && (forceInclude || canInclude(ev))) {
+            var acceptOwnScore = ev.ownScoreBase !== undefined ? ev.ownScoreBase > 0 : ev.ownScore > 0;
+            if (ev.node.kind !== "root" && (forceInclude || canInclude(ev) || acceptOwnScore)) {
                 collected.push({
                     ev: ev,
                     depth: depth,
@@ -75,16 +76,21 @@ Singleton {
                     var child = decision.children[ai];
                     if (child.children && child.children.length > 0)
                         collect(child, depth + 1, true);
-                    else if (child.visible || child.score >= 0.25)
+                    else if (child.visible || child.score >= 0.02)
                         makeShaped(child, depth + 1, child.score, [], true, {}, "flattened", { placement: "flattened", mode: "flattened", showParent: true });
                 }
                 return;
             }
             if (decision.mode === "normal") {
-                if (forceInclude || ev.ownVisible || ev.ownScore > 0 || (ev.children && ev.children.some(function(c) { return c.visible || c.score >= 0.25; }))) {
+                var hasBaseScore = ev.ownScoreBase !== undefined ? ev.ownScoreBase > 0 : ev.ownScore > 0;
+                if (forceInclude || ev.ownVisible || hasBaseScore || (ev.children && ev.children.some(function(c) { return c.visible || c.score >= 0.02; }))) {
                     makeShaped(ev, depth, undefined, [], forceInclude, {}, "standalone", decision);
                 }
-                for (var n = 0; n < ev.children.length; n += 1) collect(ev.children[n], depth + 1, forceInclude);
+                for (var n = 0; n < ev.children.length; n += 1) {
+                    var nc = ev.children[n];
+                    if (nc.visible || nc.score >= 0.02 || ctx.showHidden)
+                        collect(nc, depth + 1, forceInclude);
+                }
                 return;
             }
             if (decision.showParent) {
@@ -107,13 +113,16 @@ Singleton {
             if (decision.mode === "flatten-children") {
                 for (var di = 0; di < decision.children.length; di += 1) {
                     var fc = decision.children[di];
-                    if (fc.visible || fc.score >= 0.25)
-                        makeShaped(fc, depth, fc.score, [], true, {}, "promoted-child", { placement: "promoted-child", mode: "promoted-child", showParent: true });
+                    if (fc.visible || fc.score >= 0.02)
+                        collect(fc, depth, false);
                 }
                 return;
             }
-            for (var ci = 0; ci < decision.children.length; ci += 1)
-                collect(decision.children[ci], depth + 1, forceInclude);
+            for (var ci = 0; ci < decision.children.length; ci += 1) {
+                var cc = decision.children[ci];
+                if (cc.visible || cc.score >= 0.02 || ctx.showHidden)
+                    collect(cc, depth + 1, forceInclude);
+            }
         }
 
         collect(evaluatedRoot, -1, false);
@@ -142,6 +151,24 @@ Singleton {
         }, "first-wins");
     }
 
+    function eligibleChildren(children, options) {
+        var opts = options || {};
+        var includeAll = opts.includeAllChildren === true;
+        return (children || []).filter(function(c) {
+            if (!c.allowed) return false;
+            if (includeAll) return true;
+            return c.visible || c.score >= (opts.minScore === undefined ? 0.25 : opts.minScore);
+        }).sort(Evaluate.compareEvaluated);
+    }
+
+    function resolveNesting(ev, ctx) {
+        var profile = (ev.node.evaluationProfile && ev.node.evaluationProfile.profile) || {};
+        var nestingNames = profile.nesting || [];
+        if (nestingNames.length === 0) return null;
+        var raw = evaluatePolicies(ev, ctx, nestingNames, JsRegistry.nesting);
+        return raw && raw.value;
+    }
+
     function decidePlacement(ev, ctx) {
         var profile = (ev.node.evaluationProfile && ev.node.evaluationProfile.profile) || {};
         var expandNames = profile.expand || [];
@@ -164,28 +191,37 @@ Singleton {
             DecisionTrace.final(ev, ctx, "takeover", { accepted: false, reason: takeoverDecision ? takeoverDecision.reason : "no decision" }, [{ code: "takeover_rejected", text: "Takeover rejected: " + (takeoverDecision ? takeoverDecision.reason : "no decision") }]);
         }
 
+        var nestingResult = resolveNesting(ev, ctx);
+
         function _d(obj) {
-            return attachTakeover(obj, takeoverClaims, takeoverDecision);
+            return attachNesting(attachTakeover(obj, takeoverClaims, takeoverDecision), nestingResult, null);
         }
 
-        function eligibleChildren(children, options) {
-            var opts = options || {};
-            var includeAll = opts.includeAllChildren === true;
-            return (children || []).filter(function(c) {
-                if (!c.allowed) return false;
-                if (includeAll) return true;
-                return c.visible || c.score >= (opts.minScore === undefined ? 0.25 : opts.minScore);
-            }).sort(Evaluate.compareEvaluated);
-        }
-
-        // 1. Takeover
+        // 1. Takeover (still needed for parent-level promotion, but nesting can override)
         if (takeoverDecision && takeoverDecision.accepted) {
             var takeoverChildren = eligibleChildren(ev.children, {
-                includeAllChildren: takeoverDecision.includeAllChildren === true
+                includeAllChildren: takeoverDecision.includeAllChildren === true,
+                minScore: 0.02
             });
             if (takeoverChildren.length > 0) {
                 var takeoverShowParent = takeoverDecision.retainParent !== false;
                 if (takeoverDecision.representation === "flatten" || takeoverDecision.representation === "promote-child") {
+                    // If nesting says this node should be self-group, override takeover
+                    if (nestingResult && nestingResult.intent === "self-group") {
+                        var nestingKids = nestingResult.includeChildren === "all" ? eligibleChildren(ev.children, { includeAllChildren: true })
+                            : nestingResult.includeChildren === "matching" ? eligibleChildren(ev.children, { includeAllChildren: false, minScore: 0.05 })
+                            : [];
+                        if (nestingKids.length > 0) {
+                            DecisionTrace.final(ev, ctx, "nesting", { override: "takeover", children: nestingKids.length }, [{ code: "nesting_override", text: nestingResult.reason }]);
+                            return _d({
+                                placement: "nested-group",
+                                mode: "nested-group",
+                                showParent: true,
+                                suppressParentActions: false,
+                                children: nestingKids
+                            });
+                        }
+                    }
                     DecisionTrace.final(ev, ctx, "takeover", { accepted: true, representation: "flatten", children: takeoverChildren.length }, [{ code: "takeover_flatten", text: "Takeover flattens to " + takeoverChildren.length + " children" }]);
                     return _d({
                         placement: takeoverChildren.length === 1 ? "promoted-child" : "flattened",
@@ -210,7 +246,61 @@ Singleton {
 
         // 2. Expand
         var expandResult = null;
-        if (expandNames.length > 0) {
+        var expandMinScore = 0.25;
+        var explicitExpand = false;
+        if (ev && ev.children && ev.children.length > 0) {
+            var tf = ev.tokenFlow;
+            var parentConsumed = tf && tf.consumed && tf.consumed.length > 0;
+            var hasResidual = tf && tf.passed && tf.passed.length > 0;
+            var hasOwnMatch = ev.ownVisible || (ev.ownScore || 0) > 0;
+            var trailing = ctx && ctx.query && ctx.query.lastTokenEmpty;
+            // Direct expand: if parent matched and has children (trailing browse or residual query)
+            if (hasOwnMatch && (trailing || hasResidual)) {
+                explicitExpand = true;
+                expandMinScore = trailing ? 0 : (hasResidual ? 0.02 : 0.25);
+                var includeAll = trailing && !hasResidual;
+                var expandKids = eligibleChildren(ev.children, {
+                    includeAllChildren: includeAll,
+                    minScore: expandMinScore
+                });
+                // Fallback: if residual search produced no matching children, include all children
+                // (handles short-token queries like "vpn ge" where evidence scores may be low)
+                if (expandKids.length === 0 && hasResidual && !includeAll) {
+                    expandKids = eligibleChildren(ev.children, { includeAllChildren: true });
+                    includeAll = true;
+                }
+                if (expandKids.length > 0) {
+                    var expandShowParent = true;
+                    if (retainNames.length > 0) {
+                        var retainRaw = evaluatePolicies(ev, ctx, retainNames, JsRegistry.retainParent);
+                        var retainResult = retainRaw && retainRaw.value;
+                        if (retainResult && retainResult.retain === false)
+                            expandShowParent = false;
+                    }
+                    if (hasResidual && expandKids.length === 1) {
+                        // Single matching child with residual: promote child, drop parent group
+                        DecisionTrace.final(ev, ctx, "expand", { promote: true, child: expandKids.length, minScore: expandMinScore }, [{ code: "expand_promote", text: "Single residual match promotes child" }]);
+                        return _d({
+                            placement: "promoted-child",
+                            mode: "flatten-children",
+                            showParent: false,
+                            suppressParentActions: true,
+                            children: expandKids
+                        });
+                    }
+                    DecisionTrace.final(ev, ctx, "expand", { expand: true, children: expandKids.length, minScore: expandMinScore }, [{ code: "expand_direct", text: "Direct expand " + expandKids.length + " children, minScore=" + expandMinScore }]);
+                    return _d({
+                        placement: "nested-group",
+                        mode: "nested-group",
+                        showParent: expandShowParent,
+                        suppressParentActions: false,
+                        includeAllChildren: includeAll,
+                        children: expandKids
+                    });
+                }
+            }
+        }
+        if (!explicitExpand && expandNames.length > 0) {
             var expandRaw = evaluatePolicies(ev, ctx, expandNames, JsRegistry.expand);
             expandResult = expandRaw && expandRaw.value;
             if (expandResult && expandResult.expand && ev.children && ev.children.length > 0) {
@@ -227,9 +317,8 @@ Singleton {
                         var retainResult = retainRaw && retainRaw.value;
                         if (retainResult && retainResult.retain === false)
                             expandShowParent = false;
-                        DecisionTrace.final(ev, ctx, "retain", { retain: expandShowParent }, [{ code: "retain_decision", text: "showParent=" + expandShowParent }]);
                     }
-                    DecisionTrace.final(ev, ctx, "expand", { expand: true, children: expandKids.length, includeAllChildren: !!expandResult.includeAllChildren }, [{ code: "expand_decision", text: "Expanded " + expandKids.length + " children" }]);
+                    DecisionTrace.final(ev, ctx, "expand", { expand: true, children: expandKids.length }, [{ code: "expand_policy", text: "Policy expanded " + expandKids.length + " children" }]);
                     return _d({
                         placement: "nested-group",
                         mode: "nested-group",
@@ -276,6 +365,14 @@ Singleton {
                 decision: takeoverDecision
             }
         });
+    }
+
+    function attachNesting(decision, nestingResult, ownershipResult) {
+        if (!nestingResult && !ownershipResult) return decision;
+        var ext = {};
+        if (nestingResult) ext.nesting = { intent: nestingResult.intent, includeChildren: nestingResult.includeChildren, reason: nestingResult.reason };
+        if (ownershipResult) ext.ownership = { visualOwnerId: ownershipResult.visualOwnerId, selectedOwnerId: ownershipResult.selectedOwnerId, actionOwnerId: ownershipResult.actionOwnerId, suppressParentActions: ownershipResult.suppressParentActions, reason: ownershipResult.reason };
+        return Object.assign({}, decision, ext);
     }
 
     function flattenActionableChildren(children, limit) {
@@ -327,7 +424,7 @@ Singleton {
     function buildChildRows(children, currentDepth, maxDepth, includeAllChildren) {
         if (maxDepth <= 0 || !children) return [];
         var filtered = children.filter(function(c) {
-            return c.allowed && c.node.kind !== "backend" && (includeAllChildren || c.visible || c.score >= 0.25);
+            return c.allowed && c.node.kind !== "backend" && (includeAllChildren || c.visible || c.score >= 0.02);
         });
         return filtered.map(function(child) {
             var grandChildren = buildChildTree(child, currentDepth + 1, maxDepth - 1, includeAllChildren);
@@ -338,6 +435,7 @@ Singleton {
     function toDebug(shapedResult) {
         if (!shapedResult || !shapedResult.shaped) return [];
         return shapedResult.shaped.map(function(item) {
+            var decision = item.decision || {};
             return {
                 title: item.ev.node.label,
                 nodeId: item.ev.node.id,
@@ -345,8 +443,10 @@ Singleton {
                 depth: item.depth,
                 placement: item.placement,
                 childCount: (item.childEvs || []).length,
-                showParent: item.decision ? item.decision.showParent : true,
-                mode: item.decision ? item.decision.mode : "normal",
+                showParent: decision.showParent !== false,
+                mode: decision.mode || "normal",
+                nesting: decision.nesting || null,
+                ownership: decision.ownership || null,
                 semantics: ResultSemantics.toDebug(item.semantics)
             };
         });

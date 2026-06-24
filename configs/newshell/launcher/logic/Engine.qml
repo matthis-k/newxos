@@ -76,7 +76,7 @@ Singleton {
             if (maxDepth <= 0 || !ev.children) return [];
             if (exploringFromAncestor && !canDescendDuringExploration(ev)) return [];
             var filtered = ev.children.filter(function(c) {
-                return c.allowed && c.node.kind !== "backend" && (includeAllChildren || c.visible || c.score >= 0.25);
+                return c.allowed && c.node.kind !== "backend" && (includeAllChildren || c.visible || c.score >= 0.02);
             });
             return buildChildRows(filtered, currentDepth, maxDepth, includeAllChildren, exploringFromAncestor);
         }
@@ -84,7 +84,7 @@ Singleton {
         function buildChildRows(children, currentDepth, maxDepth, includeAllChildren, exploringFromAncestor) {
             if (maxDepth <= 0 || !children) return [];
             var filtered = children.filter(function(c) {
-                return c.allowed && c.node.kind !== "backend" && (includeAllChildren || c.visible || c.score >= 0.25);
+                return c.allowed && c.node.kind !== "backend" && (includeAllChildren || c.visible || c.score >= 0.02);
             });
             return filtered.map(function(child) {
                 var grandChildren = buildChildTree(child, currentDepth + 1, maxDepth - 1, includeAllChildren, exploringFromAncestor || includeAllChildren);
@@ -117,11 +117,12 @@ Singleton {
         var schedule = sync ? function(fn) { fn(); } : Qt.callLater;
         var totalStart = Tokenize.nowMs();
         var routingTree = options && options.routingTree;
-        var ctx = Object.assign({ query: null, directive: null, routingTree: routingTree, route: null, visibilityThreshold: 0.18, showHidden: false, includePath: true }, options || {});
-        ctx._evidenceTrace = {};
-        ctx._scoreTrace = {};
-        ctx._policyTrace = {};
-        ctx._decisionTrace = {};
+        var ctx = Object.assign({ query: null, directive: null, routingTree: routingTree, route: null, visibilityThreshold: 0.18, showHidden: false, includePath: true, _policyTimings: null }, options || {});
+        if (ctx.trace) {
+            ctx._evidenceTrace = {};
+            ctx._scoreTrace = {};
+            ctx._policyTrace = {};
+        }
 
         var active = null;
         var children = null;
@@ -299,11 +300,30 @@ Singleton {
             rows = Rows.finalizeRows(rows, query, directive, ctx);
             var shapeMs = Tokenize.nowMs() - shapeStart;
 
+            var policyTimingsOut = {};
+            if (ctx._policyTimings) {
+                var evTimings = ctx._policyTimings.evidence;
+                var boTimings = ctx._policyTimings.boost;
+                if (evTimings) {
+                    policyTimingsOut.evidence = {};
+                    for (var pkey in evTimings)
+                        if (evTimings.hasOwnProperty(pkey))
+                            policyTimingsOut.evidence[pkey] = evTimings[pkey];
+                }
+                if (boTimings) {
+                    policyTimingsOut.boost = {};
+                    for (var pkey2 in boTimings)
+                        if (boTimings.hasOwnProperty(pkey2))
+                            policyTimingsOut.boost[pkey2] = boTimings[pkey2];
+                }
+            }
+
             timings = {
                 totalMs: Tokenize.nowMs() - totalStart, rootNodeMs: ctx.rootNodeMs, candidateMs: ctx.candidateMs,
                 evaluateMs: ctx.evaluateMs, pathMs: ctx.pathMs, shapeMs: shapeMs,
                 activeBackends: active.length, backendRoots: children.length, candidateIds: ctx.candidateCount,
-                backends: ctx.backendTimings, rows: rows.length
+                backends: ctx.backendTimings, rows: rows.length,
+                policyTimings: ctx._policyTimings ? policyTimingsOut : undefined
             };
 
             if (ctx.trace) {

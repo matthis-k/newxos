@@ -176,6 +176,10 @@ impl LauncherIpc {
         Ok(state)
     }
 
+    pub fn query_pipeline(&self, query: &str) -> Result<String> {
+        self.call("launcher", "queryPipeline", query)
+    }
+
     pub fn wait_for_settled(&self, timeout_ms: u64) -> Result<LauncherVisualState> {
         let deadline = std::time::Instant::now() + Duration::from_millis(timeout_ms);
         let mut last_state = self.visual_state()?;

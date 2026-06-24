@@ -63,9 +63,13 @@ Singleton {
             if (!row)
                 continue;
             var children = dropInertRows(row.children || []);
+            var hasVisibleChildren = children.length > 0;
             if (children.length !== (row.children || []).length)
                 row = Object.assign({}, row, { children: children, expandable: children.length > 0 });
-            if (!hasActivation(row) && children.length === 0)
+            // Keep rows that have activation, have visible children, or are expandable
+            // (expandable means they had children at row construction time, even if not currently visible).
+            // This prevents dropping non-trailing-space parent groups like Newxos.
+            if (!hasActivation(row) && !hasVisibleChildren && !row.expandable)
                 continue;
             out.push(row);
         }

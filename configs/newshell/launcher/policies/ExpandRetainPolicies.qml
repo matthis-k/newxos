@@ -58,12 +58,22 @@ QtObject {
             var minScore = (args && args.minScore) || 0.1;
             var ownMatched = !!(ev && (ev.ownVisible || (ev.ownScore || 0) >= minScore));
             var trailing = !!(ctx && ctx.query && ctx.query.lastTokenEmpty);
-            var expand = ownMatched || (trailing && ownMatched);
+            var residual = (ev && ev.tokenFlow && ev.tokenFlow.passed) ? ev.tokenFlow.passed.length : 0;
+            var expand = ownMatched || trailing;
+            var browseAll = trailing && residual === 0;
+            var filterByResidual = !trailing && residual > 0;
             return {
                 expand: expand,
                 maxChildren: maxChildren,
-                includeAllChildren: ownMatched,
-                reason: expand ? "expand-on-own-match-or-trailing-space" : "expand-on-own-match-or-trailing-space: parent not matched"
+                includeAllChildren: browseAll,
+                minScore: filterByResidual ? 0.02 : (browseAll ? 0 : 0.25),
+                reason: expand
+                    ? browseAll
+                        ? "expand-on-own-match-or-trailing-space: trailing browse includes all children"
+                        : filterByResidual
+                        ? "expand-on-own-match-or-trailing-space: residual tokens filter children"
+                        : "expand-on-own-match-or-trailing-space: own match expands children"
+                    : "expand-on-own-match-or-trailing-space: not expanded"
             };
         });
 

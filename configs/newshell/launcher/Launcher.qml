@@ -1007,12 +1007,18 @@ PanelWindow {
                     if (!keyName)
                         return false;
 
+                    // Consume the event immediately to prevent the character
+                    // from being inserted into the search field.
+                    event.accepted = true;
+
                     var target = controller.actions.selectedActionTarget();
+                    var targetId = target ? target.id || target.nodeId || "" : "none";
+                    var targetKind = target ? target.kind || "" : "";
                     DebugLogger.log("alt-interaction", "dispatch", {
                         keyName: keyName,
                         qtKey: event.key,
-                        targetId: target ? target.id || target.nodeId || "" : "none",
-                        targetKind: target ? target.kind || "" : "",
+                        targetId: targetId,
+                        targetKind: targetKind,
                         availableKeys: target ? Object.keys(RecipeResolver.effectiveInteractions(target)) : []
                     });
 

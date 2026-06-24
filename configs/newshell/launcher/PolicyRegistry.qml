@@ -85,4 +85,12 @@ Singleton {
         });
     }
 
+    function registerNesting(id, applyFn) {
+        JsRegistry.nesting.register(id, {
+            name: id,
+            phase: "nesting",
+            apply: applyFn
+        });
+    }
+
 }

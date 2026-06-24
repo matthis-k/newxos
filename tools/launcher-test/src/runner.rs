@@ -2,6 +2,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
+use colored::Colorize;
 
 use crate::assertions;
 use crate::ipc::LauncherIpc;
@@ -125,6 +126,7 @@ pub fn run_cases(
     filter: Option<&str>,
     mode: &crate::cli::RunMode,
     socket: Option<&std::path::Path>,
+    debug_pipeline: bool,
 ) -> Result<RunSummary> {
     let ipc = if let Some(sock) = socket {
         LauncherIpc::with_socket(Some(sock.to_path_buf()))?
@@ -161,7 +163,7 @@ pub fn run_cases(
         pretty::print_case_header(&case.name, i, filtered.len());
         let case_start = Instant::now();
 
-        match run_single_case(case, &ipc, mode) {
+        match run_single_case(case, &ipc, mode, debug_pipeline) {
             Ok(failures) => {
                 let duration = case_start.elapsed().as_millis() as u64;
                 if failures.is_empty() {
@@ -213,9 +215,12 @@ pub fn run_cases(
     Ok(summary)
 }
 
-fn run_single_case(case: &TestCase, ipc: &LauncherIpc, mode: &crate::cli::RunMode) -> Result<Vec<String>> {
+fn run_single_case(case: &TestCase, ipc: &LauncherIpc, mode: &crate::cli::RunMode, debug_pipeline: bool) -> Result<Vec<String>> {
     let steps = case.normalized_steps();
     let mut all_failures = Vec::new();
+
+    // Extract the last query from steps for debug pipeline dump
+    let mut last_query: Option<String> = None;
 
     for step in &steps {
         match step {
@@ -227,8 +232,16 @@ fn run_single_case(case: &TestCase, ipc: &LauncherIpc, mode: &crate::cli::RunMod
                         ipc.open(vis)?
                     }
                     StepAction::Close => ipc.close()?,
-                    StepAction::SetQuery { query } => ipc.set_query(query)?,
-                    StepAction::TypeText { text } => ipc.type_text(text)?,
+                    StepAction::SetQuery { query } => {
+                        last_query = Some(query.clone());
+                        ipc.set_query(query)?
+                    },
+                    StepAction::TypeText { text } => {
+                        if let Some(ref q) = last_query {
+                            last_query = Some(format!("{}{}", q, text));
+                        }
+                        ipc.type_text(text)?
+                    },
                     StepAction::Backspace { count } => ipc.backspace(count.unwrap_or(1))?,
                     StepAction::MoveSelection { direction } => ipc.move_selection(direction)?,
                     StepAction::Expand { selector } => {
@@ -273,6 +286,51 @@ fn run_single_case(case: &TestCase, ipc: &LauncherIpc, mode: &crate::cli::RunMod
                 let failures = assertions::assert_expectation(&state, expect);
                 if !failures.is_empty() {
                     pretty::print_visual_state(&state);
+                    // Dump pipeline debug info if requested
+                    if debug_pipeline {
+                        if let Some(ref q) = last_query {
+                            match ipc.query_pipeline(q) {
+                                Ok(pipeline_json) => {
+                                    println!("  {}", "Pipeline debug:".bold().underline());
+                                    // Print evaluation and shaping phases
+                                    if let Ok(val) = serde_json::from_str::<serde_json::Value>(&pipeline_json) {
+                                        if let Some(phases) = val.get("phases").and_then(|p| p.as_array()) {
+                                            for phase in phases {
+                                                if let Some(name) = phase.get("name").and_then(|n| n.as_str()) {
+                                                    if name == "evaluation" || name == "shaping" {
+                                                        let trimmed = serde_json::to_string_pretty(phase)
+                                                            .unwrap_or_default();
+                                                        for line in trimmed.lines().take(30) {
+                                                            println!("    {}", line);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        // Also print flat visible rows from pipeline
+                                        if let Some(rows) = val.get("rows").and_then(|r| r.as_array()) {
+                                            println!("    {}", "Pipeline rows:".bold());
+                                            for row in rows {
+                                                let title = row.get("title").and_then(|t| t.as_str()).unwrap_or("");
+                                                let key = row.get("key").and_then(|t| t.as_str()).unwrap_or("");
+                                                let score = row.get("score").and_then(|s| s.as_f64()).unwrap_or(0.0);
+                                                let vis = row.get("visible").and_then(|v| v.as_bool()).unwrap_or(false);
+                                                let expanded = row.get("expanded").and_then(|v| v.as_bool()).unwrap_or(false);
+                                                let placement = row.get("placement").and_then(|v| v.as_str()).unwrap_or("");
+                                                println!("    {:.3} vis={} expanded={} placement={:12} key={} title={}", score, vis, expanded, placement, key, title);
+                                            }
+                                        }
+                                    } else {
+                                        let preview: String = pipeline_json.chars().take(200).collect();
+                                        println!("    {}...", preview);
+                                    }
+                                }
+                                Err(e) => {
+                                    println!("    Pipeline debug unavailable: {}", e);
+                                }
+                            }
+                        }
+                    }
                 }
                 all_failures.extend(failures);
             }

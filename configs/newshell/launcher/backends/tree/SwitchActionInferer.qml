@@ -31,14 +31,26 @@ QtObject {
             var action = switchActions[key];
             if (!action)
                 continue;
-            out[key] = root._makeActionDto(action.id || key, action.title || action.label || key, action.payload || action);
+            var extra = {};
+            if (action.state !== undefined) extra.state = action.state;
+            out[key] = root._makeActionDto(action.id || key, action.title || action.label || key, action.payload || action, extra);
         }
         return out;
     }
 
-    function _makeActionDto(id, label, payload) {
-        if (root.nodeFactory)
-            return root.nodeFactory.actionDto(id, label, payload);
-        return { id: id, label: label || id, icon: null, default: false, payload: payload || null };
+    function _makeActionDto(id, label, payload, extraProps) {
+        var dto;
+        if (root.nodeFactory) {
+            dto = root.nodeFactory.actionDto(id, label, payload);
+        } else {
+            dto = { id: id, label: label || id, icon: null, default: false, payload: payload || null };
+        }
+        if (extraProps) {
+            for (var k in extraProps) {
+                if (extraProps.hasOwnProperty(k))
+                    dto[k] = extraProps[k];
+            }
+        }
+        return dto;
     }
 }

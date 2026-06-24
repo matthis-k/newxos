@@ -37,3 +37,4 @@ var expand = makeRegistry();
 var retainParent = makeRegistry();
 var defaultAction = makeRegistry();
 var riskGate = makeRegistry();
+var nesting = makeRegistry();

@@ -465,6 +465,122 @@
         '';
       };
 
+      newshellCasesRunCheck = pkgs.writeShellApplication {
+        name = "repo-newshell-cases-run";
+        runtimeInputs = [
+          self'.packages.newshell
+          self'.packages.newshell-launcher-test
+          pkgs.westonLite
+          pkgs.bash
+          pkgs.coreutils
+          pkgs.findutils
+          pkgs.gnugrep
+        ];
+        text = ''
+          set -euo pipefail
+
+          NEWSHELL_BIN=${lib.getExe self'.packages.newshell}
+          LAUNCHER_TEST_BIN=${lib.getExe self'.packages.newshell-launcher-test}
+          WESTON_BIN=${lib.getExe' pkgs.westonLite "weston"}
+
+          tmp_root="$(mktemp -p /tmp -d nl-run-XXXXXX)"
+          runtime_dir="$tmp_root/r"
+          weston_log="$tmp_root/weston.log"
+          newshell_log="$tmp_root/newshell.log"
+          canonical_log="$tmp_root/canonical-test.log"
+
+          INSTANCE_ID="newshell-cases-run-$$-$RANDOM"
+          IPC_NS="$INSTANCE_ID"
+
+          cleanup() {
+            local status=$?
+            if [ -n "''${NEWSHELL_PID:-}" ] && kill -0 "$NEWSHELL_PID" 2>/dev/null; then
+              kill "$NEWSHELL_PID" 2>/dev/null || true
+              wait "$NEWSHELL_PID" 2>/dev/null || true
+            fi
+            if [ -n "''${WESTON_PID:-}" ] && kill -0 "$WESTON_PID" 2>/dev/null; then
+              kill "$WESTON_PID" 2>/dev/null || true
+              wait "$WESTON_PID" 2>/dev/null || true
+            fi
+            if [ "$status" -ne 0 ]; then
+              echo "=== weston log ===" >&2
+              cat "$weston_log" >&2 2>/dev/null || true
+              echo "=== newshell log ===" >&2
+              cat "$newshell_log" >&2 2>/dev/null || true
+              [ -s "$canonical_log" ] && echo "=== canonical case log ===" >&2 && cat "$canonical_log" >&2 2>/dev/null || true
+            else
+              rm -rf "$tmp_root"
+            fi
+            exit "$status"
+          }
+          trap cleanup EXIT INT TERM
+
+          mkdir -p "$runtime_dir"
+          chmod 700 "$runtime_dir"
+
+          export XDG_RUNTIME_DIR="$runtime_dir"
+          export NEWSHELL_TEST_MODE=1
+          export NEWSHELL_TEST_INSTANCE_ID="$INSTANCE_ID"
+          export NEWSHELL_IPC_NAMESPACE="$IPC_NS"
+          export NEWXOS_DEV=0
+
+          # Start weston headless compositor
+          "$WESTON_BIN" --backend=headless-backend.so >"$weston_log" 2>&1 &
+          WESTON_PID=$!
+
+          # Wait up to 15s for Wayland socket
+          wayland_socket=""
+          for wait_try in $(seq 1 300); do
+            if ! kill -0 "$WESTON_PID" 2>/dev/null; then
+              echo "error: weston exited early after ''${wait_try} tries" >&2
+              exit 1
+            fi
+            found="$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' | head -n1 || true)"
+            if [ -n "$found" ]; then
+              wayland_socket="$found"
+              break
+            fi
+            sleep 0.05
+          done
+          if [ -z "$wayland_socket" ]; then
+            echo "error: no Wayland socket appeared" >&2
+            exit 1
+          fi
+          export WAYLAND_DISPLAY="$wayland_socket"
+
+          # Launch newshell
+          "$NEWSHELL_BIN" >"$newshell_log" 2>&1 &
+          NEWSHELL_PID=$!
+
+          # Wait for config load (up to 8s)
+          config_loaded=false
+          for wait_try in $(seq 1 80); do
+            if ! kill -0 "$NEWSHELL_PID" 2>/dev/null; then break; fi
+            if grep -qiE "Configuration Loaded" "$newshell_log" 2>/dev/null; then
+              config_loaded=true; break
+            fi
+            sleep 0.1
+          done
+
+          if grep -qiE "Failed to load configuration|Singleton is not a type" "$newshell_log" 2>/dev/null; then
+            echo "ERROR: newshell config loading failed" >&2
+            exit 1
+          fi
+          if ! $config_loaded; then
+            echo "ERROR: could not confirm 'Configuration Loaded'" >&2
+            cat "$newshell_log" >&2 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "newshell config loaded, running launcher cases..."
+
+          # Run all canonical launcher cases (fail on any failure)
+          export NEWSHELL_TEST_INSTANCE_MODE=headless
+          $LAUNCHER_TEST_BIN run "${self}/tests/launcher/cases" --mode headless >"$canonical_log" 2>&1
+          cat "$canonical_log"
+        '';
+      };
+
       newshellSessionCheck = pkgs.writeShellApplication {
         name = "repo-newshell-session";
         runtimeInputs = [
@@ -504,6 +620,7 @@
           rustCheck
           checkNewshellConfig
           newshellCasesCheck
+          newshellCasesRunCheck
           newshellRuntimeCheck
           newshellSessionCheck
           checkHyprlandConfig
@@ -528,9 +645,10 @@
             repo-doctor       run repo invariants
             rust              run newxos-cli Rust tests
             newshell-static   lint/type-check QML source
-            newshell-cases    validate canonical launcher case files and schema (no runtime needed)
-            newshell-session  run canonical cases against running service/session
-            launcher          alias for newshell-cases
+            newshell-cases      validate canonical launcher case files and schema (no runtime needed)
+            newshell-cases-run  run canonical launcher cases against headless newshell (requires display)
+            newshell-session    run canonical cases against running service/session
+            launcher            alias for newshell-cases + newshell-cases-run
             newshell-runtime  boot + optional IPC tests (auto if launcher files changed, or set NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1)
             newshell-probe    derive/debug launcher probes from canonical cases (diagnostic)
             hyprland          verify Hyprland config
@@ -539,7 +657,7 @@
             hooks             reinstall managed git hooks
 
           Aliases:
-            launcher          newshell-cases (validate launcher test cases and schema)
+            launcher          newshell-cases + newshell-cases-run
             newshell          newshell-static + newshell-runtime + newshell-cases
             session           newshell-session
             runtime           newshell-runtime
@@ -586,7 +704,7 @@
             resolve_alias() {
               local name="$1"
               case "$name" in
-                launcher)  echo "newshell-cases" ;;
+                launcher)  echo "newshell-cases newshell-cases-run" ;;
                 newshell)  echo "newshell-static newshell-runtime newshell-cases" ;;
                 runtime)   echo "newshell-runtime" ;;
                 nix)       echo "write-flake statix fmt flake-check" ;;
@@ -660,6 +778,9 @@
                   ;;
                 newshell-cases)
                   repo-newshell-cases
+                  ;;
+                newshell-cases-run)
+                  repo-newshell-cases-run
                   ;;
                 newshell-session)
                   repo-newshell-session
@@ -844,6 +965,7 @@
       packages.repo-flake-check = flakeCheck;
       packages.repo-newshell-runtime = newshellRuntimeCheck;
       packages.repo-newshell-cases = newshellCasesCheck;
+      packages.repo-newshell-cases-run = newshellCasesRunCheck;
       packages.repo-newshell-session = newshellSessionCheck;
       packages.repo-update-docs-index = updateDocsIndex;
       packages.repo-install-git-hooks = reinstallGitHooks;
@@ -887,6 +1009,9 @@
 
       # Launcher case validation: validate JSON test case schemas (no runtime needed)
       checks.check-newshell-cases = newshellCasesCheck;
+
+      # Launcher case runtime: run canonical cases against headless newshell
+      checks.check-newshell-cases-run = newshellCasesRunCheck;
 
       # Runtime check: boot config in headless compositor + optional IPC tests (opt-in)
       checks.check-newshell-runtime = newshellRuntimeCheck;
