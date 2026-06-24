@@ -55,6 +55,8 @@ pub enum StepAction {
     Collapse { selector: Option<NodeSelector> },
     #[serde(rename = "execute")]
     Execute { selector: Option<NodeSelector> },
+    #[serde(rename = "altInteract")]
+    AltInteract { key: String, qt_key: Option<u32> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -83,6 +85,8 @@ pub struct Expectation {
     pub invariants: Option<Vec<String>>,
     pub rows: Option<RowsExpectation>,
     pub last_executed_action: Option<RowMatcher>,
+    #[serde(rename = "lastInteraction")]
+    pub last_interaction: Option<LastInteraction>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,6 +100,15 @@ pub struct RowsExpectation {
     pub contains_in_order: Option<Vec<String>>,
     pub first: Option<RowMatcher>,
     pub none_highlighted_except_selected: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct LastInteraction {
+    pub ok: bool,
+    pub mode: Option<String>,
+    pub success: Option<bool>,
+    pub reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

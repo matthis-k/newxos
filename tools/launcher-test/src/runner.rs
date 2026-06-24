@@ -221,6 +221,17 @@ fn run_single_case(case: &TestCase, ipc: &LauncherIpc, mode: &crate::cli::RunMod
 
     // Extract the last query from steps for debug pipeline dump
     let mut last_query: Option<String> = None;
+    let mut last_interaction: Option<LastInteraction> = None;
+
+    fn parse_interaction_response(resp: &str) -> Option<LastInteraction> {
+        let v: serde_json::Value = serde_json::from_str(resp).ok()?;
+        let ok = v.get("ok").and_then(|o| o.as_bool()).unwrap_or(false);
+        let result = v.get("result")?.get("result")?;
+        let mode = result.get("mode").and_then(|m| m.as_str()).map(String::from);
+        let success = result.get("success").and_then(|s| s.as_bool());
+        let reason = result.get("reason").and_then(|r| r.as_str()).map(String::from);
+        Some(LastInteraction { ok, mode, success, reason })
+    }
 
     for step in &steps {
         match step {
@@ -274,6 +285,11 @@ fn run_single_case(case: &TestCase, ipc: &LauncherIpc, mode: &crate::cli::RunMod
                         }
                         ipc.activate_selected()?
                     },
+                    StepAction::AltInteract { key, qt_key } => {
+                        let resp = ipc.alt_interact(key, *qt_key)?;
+                        last_interaction = parse_interaction_response(&resp);
+                        resp
+                    },
                 };
                 let _ = ipc.wait_for_settled(2000)
                     .context("State did not settle after action")?;
@@ -283,7 +299,7 @@ fn run_single_case(case: &TestCase, ipc: &LauncherIpc, mode: &crate::cli::RunMod
                 let state = ipc.visual_state()
                     .context("Failed to get visual state for assertion")?;
 
-                let failures = assertions::assert_expectation(&state, expect);
+                let failures = assertions::assert_expectation(&state, expect, last_interaction.as_ref());
                 if !failures.is_empty() {
                     pretty::print_visual_state(&state);
                     // Dump pipeline debug info if requested

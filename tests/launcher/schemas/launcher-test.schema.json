@@ -101,6 +101,15 @@
             "type": { "enum": ["expand", "collapse", "execute"] },
             "selector": { "$ref": "#/definitions/NodeSelector" }
           }
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "type": { "enum": ["altInteract"] },
+            "key": { "type": "string" },
+            "qtKey": { "type": "integer" }
+          },
+          "required": ["key"]
         }
       ]
     },
@@ -171,7 +180,18 @@
             "noneHighlightedExceptSelected": { "type": "boolean" }
           }
         },
-        "lastExecutedAction": { "$ref": "#/definitions/RowMatcher" }
+        "lastExecutedAction": { "$ref": "#/definitions/RowMatcher" },
+        "lastInteraction": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ok": { "type": "boolean" },
+            "mode": { "type": "string" },
+            "success": { "type": "boolean" },
+            "reason": { "type": "string" }
+          },
+          "required": ["ok"]
+        }
       }
     },
     "RowMatcher": {

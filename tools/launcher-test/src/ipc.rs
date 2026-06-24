@@ -123,6 +123,15 @@ impl LauncherIpc {
         self.interact("activateSelected", "{}")
     }
 
+    pub fn alt_interact(&self, key: &str, qt_key: Option<u32>) -> Result<String> {
+        let payload = if let Some(qk) = qt_key {
+            serde_json::json!({"key": key, "qtKey": qk})
+        } else {
+            serde_json::json!({"key": key})
+        };
+        self.interact("altInteract", &serde_json::to_string(&payload)?)
+    }
+
     /// Move selection to a row matching by key
     pub fn select_by_key(&self, key: &str) -> Result<String> {
         let state = self.visual_state()?;

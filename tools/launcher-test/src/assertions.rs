@@ -1,6 +1,6 @@
 use crate::schema::*;
 
-pub fn assert_expectation(state: &LauncherVisualState, expect: &Expectation) -> Vec<String> {
+pub fn assert_expectation(state: &LauncherVisualState, expect: &Expectation, last_interaction: Option<&LastInteraction>) -> Vec<String> {
     let mut failures: Vec<String> = Vec::new();
 
     if let Some(ref expected_query) = expect.query {
@@ -130,6 +130,49 @@ pub fn assert_expectation(state: &LauncherVisualState, expect: &Expectation) -> 
             }
             None => {
                 failures.push("lastExecutedAction: expected an executed action but none recorded".to_string());
+            }
+        }
+    }
+
+    if let Some(ref expected) = expect.last_interaction {
+        match last_interaction {
+            Some(actual) => {
+                if actual.ok != expected.ok {
+                    failures.push(format!(
+                        "lastInteraction.ok: expected {}, got {}",
+                        expected.ok, actual.ok
+                    ));
+                }
+                if let Some(ref mode) = expected.mode {
+                    if actual.mode.as_deref() != Some(mode.as_str()) {
+                        failures.push(format!(
+                            "lastInteraction.mode: expected '{}', got '{}'",
+                            mode,
+                            actual.mode.as_deref().unwrap_or("")
+                        ));
+                    }
+                }
+                if let Some(success) = expected.success {
+                    if actual.success.unwrap_or(false) != success {
+                        failures.push(format!(
+                            "lastInteraction.success: expected {}, got {}",
+                            success,
+                            actual.success.unwrap_or(false)
+                        ));
+                    }
+                }
+                if let Some(ref reason) = expected.reason {
+                    if actual.reason.as_deref() != Some(reason.as_str()) {
+                        failures.push(format!(
+                            "lastInteraction.reason: expected '{}', got '{}'",
+                            reason,
+                            actual.reason.as_deref().unwrap_or("")
+                        ));
+                    }
+                }
+            }
+            None => {
+                failures.push("lastInteraction: expected interaction data but none recorded".to_string());
             }
         }
     }

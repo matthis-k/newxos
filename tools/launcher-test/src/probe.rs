@@ -144,6 +144,13 @@ fn step_action_to_json(action: &StepAction) -> String {
         StepAction::Execute { selector: _ } => {
             r#"{"action":"activateSelected"}"#.to_string()
         }
+        StepAction::AltInteract { key, qt_key } => {
+            if let Some(qk) = qt_key {
+                format!(r#"{{"action":"altInteract","key":"{}","qtKey":{}}}"#, key.replace('"', "\\\""), qk)
+            } else {
+                format!(r#"{{"action":"altInteract","key":"{}"}}"#, key.replace('"', "\\\""))
+            }
+        }
     }
 }
 
