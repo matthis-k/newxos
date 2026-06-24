@@ -1,12 +1,19 @@
 pragma Singleton
 import Quickshell
+import qs.services
 
 Singleton {
+    readonly property var tracer: Logger.scope("launcher.recipeResolver", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.recipeResolver", { category: "launcher" })
+
     function effectiveRecipe(target, slotName, options) {
         options = options || {};
 
-        if (!target)
+        if (!target) {
+            tracer.trace("effectiveRecipe", function() { return { slotName: slotName, hasTarget: false }; });
             return [];
+        }
+        tracer.trace("effectiveRecipe", function() { return { targetId: target.id || target.nodeId || "", slotName: slotName }; });
 
         if (slotName === "activate")
             return resolveActivate(target, options);
@@ -19,8 +26,11 @@ Singleton {
     function effectiveInteractions(target, options) {
         options = options || {};
 
-        if (!target)
+        if (!target) {
+            tracer.trace("effectiveInteractions", function() { return { hasTarget: false }; });
             return {};
+        }
+        tracer.trace("effectiveInteractions", function() { return { targetId: target.id || target.nodeId || "" }; });
 
         var merged = {};
         var builtins = buildDefaultInteractions(target, options);

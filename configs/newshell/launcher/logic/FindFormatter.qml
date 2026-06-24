@@ -1,9 +1,13 @@
 import QtQml
+import qs.services
 
 BaseFormatter {
+    readonly property var tracer: Logger.scope("launcher.formatter.find", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.formatter.find", { category: "launcher" })
     formatterName: "find"
 
     function serialize(evaluation, request) {
+        tracer.trace("serialize", function() { return { search: request?.search, backend: request?.backend }; });
         if (!evaluation) return { error: { code: "no_evaluation", message: "No evaluation available" } };
         var search = String(request.search || "").toLowerCase().trim();
         if (!search) return { error: { code: "no_search", message: "search string is required" } };

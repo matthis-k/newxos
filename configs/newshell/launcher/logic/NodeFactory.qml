@@ -1,13 +1,19 @@
 import QtQml
+import qs.services
 
 QtObject {
     id: root
 
+    readonly property var tracer: Logger.scope("launcher.nodeFactory", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.nodeFactory", { category: "launcher" })
+
     function makeAction(id, label, payload) {
+        tracer.trace("makeAction", function() { return { id: id, hasPayload: !!payload }; });
         return { id: id, label: label || id, icon: null, default: false, payload: payload || null };
     }
 
     function makeNode(props) {
+        tracer.trace("makeNode", function() { return { id: props?.id, label: props?.label, childCount: (props?.children || []).length }; });
         var node = props || {};
         if (node.__compositePrepared) return node;
         node.id = node.id || "";

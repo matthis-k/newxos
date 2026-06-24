@@ -1,9 +1,13 @@
 import QtQml
+import qs.services
 
 BaseFormatter {
+    readonly property var tracer: Logger.scope("launcher.formatter.action", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.formatter.action", { category: "launcher" })
     formatterName: "action"
 
     function serialize(evaluation, request) {
+        tracer.trace("serialize", function() { return { nodeId: request?.nodeId, input: request?.input }; });
         if (!evaluation) return { error: { code: "no_evaluation", message: "No evaluation available" } };
         var nodeId = String(request.nodeId || "");
         if (!nodeId) return { error: { code: "no_node_id", message: "nodeId is required" } };

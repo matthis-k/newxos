@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 import "Tokenize.qml"
 import "Evidence.qml"
 import "Evaluate.qml"
@@ -12,8 +13,11 @@ import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
     id: root
+    readonly property var prof: Profiler.scope("launcher.shaping", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.shaping", { category: "launcher" })
 
-    function shape(evaluatedRoot, state, ctx) {
+    function _shape(evaluatedRoot, state, ctx) {
+        tracer.trace("shape", function() { return { rootId: evaluatedRoot && evaluatedRoot.node && evaluatedRoot.node.id, childCount: (evaluatedRoot && evaluatedRoot.children || []).length }; });
         var collected = [];
 
         function structuralDepth(ev) {
@@ -135,11 +139,14 @@ Singleton {
             return a.depth - b.depth;
         });
 
+        tracer.info("shapeComplete", function() { return { collectedCount: collected.length, maxTreeDepth: ctx.maxTreeDepth >= 0 ? ctx.maxTreeDepth : 3 }; });
         return {
             shaped: collected,
             maxTreeDepth: ctx.maxTreeDepth >= 0 ? ctx.maxTreeDepth : 3
         };
     }
+
+    readonly property var shape: prof.fn("shape", _shape)
 
     function evaluatePolicies(ev, ctx, names, registry) {
         if (!names || names.length === 0) return null;
@@ -169,7 +176,9 @@ Singleton {
         return raw && raw.value;
     }
 
-    function decidePlacement(ev, ctx) {
+    function _decidePlacement(ev, ctx) {
+        var placementTracer = tracer;
+        placementTracer.trace("decidePlacement", function() { return { nodeId: ev.node.id, label: ev.node.label }; });
         var profile = (ev.node.evaluationProfile && ev.node.evaluationProfile.profile) || {};
         var expandNames = profile.expand || [];
         var retainNames = profile.retainParent || [];
@@ -263,11 +272,32 @@ Singleton {
                     includeAllChildren: includeAll,
                     minScore: expandMinScore
                 });
-                // Fallback: if residual search produced no matching children, include all children
-                // (handles short-token queries like "vpn ge" where evidence scores may be low)
+                // When residual tokens exist, filter children to only include those whose
+                // label actually contains the residual token. Prevents false-positive matches
+                // from broad substring evidence (e.g. VPN countries matching "ger" in city names).
+                if (hasResidual && !includeAll && tf.passed && tf.passed.length > 0) {
+                    var passedTokenTexts = [];
+                    for (var pt = 0; pt < tf.passed.length; pt += 1) {
+                        var ptok = typeof tf.passed[pt] === "string" ? tf.passed[pt] : (tf.passed[pt].raw || tf.passed[pt].normalized || "");
+                        if (ptok) passedTokenTexts.push(ptok.toLowerCase());
+                    }
+                    if (passedTokenTexts.length > 0) {
+                        expandKids = expandKids.filter(function(c) {
+                            var label = c.node && c.node.label || "";
+                            if (!label) return false;
+                            var labelLow = label.toLowerCase();
+                            for (var pti = 0; pti < passedTokenTexts.length; pti += 1) {
+                                if (labelLow.indexOf(passedTokenTexts[pti]) >= 0)
+                                    return true;
+                            }
+                            return false;
+                        });
+                    }
+                }
+                // Fallback: if residual search produced no matching children, try with zero threshold
+                // (handles short-token queries like "vpn ge" where evidence scores may be low).
                 if (expandKids.length === 0 && hasResidual && !includeAll) {
-                    expandKids = eligibleChildren(ev.children, { includeAllChildren: true });
-                    includeAll = true;
+                    expandKids = eligibleChildren(ev.children, { minScore: 0 });
                 }
                 if (expandKids.length > 0) {
                     var expandShowParent = true;
@@ -356,6 +386,8 @@ Singleton {
             children: ev.children || []
         });
     }
+
+    readonly property var decidePlacement: prof.fn("decidePlacement", _decidePlacement)
 
     function attachTakeover(decision, claims, takeoverDecision) {
         if (!takeoverDecision) return decision;

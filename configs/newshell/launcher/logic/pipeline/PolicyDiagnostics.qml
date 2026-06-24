@@ -1,25 +1,33 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 
 Singleton {
+    readonly property var prof: Profiler.scope("launcher.policyDiagnostics", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.policyDiagnostics", { category: "launcher" })
+
     function empty() {
         return { warnings: [], errors: [], info: [], unresolved: [], timings: {} };
     }
 
     function warn(diag, msg) {
+        tracer.trace("warn", function() { return { msg: msg }; });
         if (diag) diag.warnings = diag.warnings.concat([String(msg)]);
     }
 
     function error(diag, msg) {
+        tracer.warn("error", function() { return { msg: msg }; });
         if (diag) diag.errors = diag.errors.concat([String(msg)]);
     }
 
     function info(diag, msg) {
+        tracer.trace("info", function() { return { msg: msg }; });
         if (diag) diag.info = diag.info.concat([String(msg)]);
     }
 
     function unresolved(diag, name) {
+        tracer.trace("unresolved", function() { return { name: name }; });
         if (diag) diag.unresolved = diag.unresolved.concat([String(name)]);
     }
 

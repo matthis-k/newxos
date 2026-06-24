@@ -6,6 +6,9 @@ import "ActivationGate.qml"
 import "DebugLogger.js" as DebugLogger
 
 Singleton {
+    readonly property var tracer: Logger.scope("launcher.actionRegistry", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.actionRegistry", { category: "launcher" })
+
     property var _executors: ({})
     property bool debugEnabled: false
 
@@ -30,6 +33,7 @@ Singleton {
         step = ActionSpec.normalize(step);
         var name = step.name || "";
         var args = step.args || {};
+        tracer.trace("execute", function() { return { name: name, targetId: target?.id || target?.nodeId || "" }; });
         var executor = _executors[name];
 
         if (!executor) {
@@ -113,6 +117,7 @@ Singleton {
         if (!target || !action)
             return { close: false, success: false };
 
+        tracer.debug("_runAction", function() { return { targetId: target.id || target.nodeId || "", actionId: action.id || "" }; });
         try {
             if (!_targetCanActivate(target, action, controller)) {
                 if (debugEnabled)

@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 import "Tokenize.qml"
 import "IndexBuilder.qml"
 import "Evidence.qml"
@@ -10,6 +11,8 @@ import "TokenFlow.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
+    readonly property var prof: Profiler.scope("launcher.evaluate", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.evaluate", { category: "launcher" })
     readonly property var defaultProfile: ({
         // Leaf-conservative default: no expand/takeover/retain unless explicitly set.
         // Backends with group/switch behavior override this in their own evaluationProfile.
@@ -52,17 +55,22 @@ Singleton {
         return query && !query.isEmpty && query.tokens && query.tokens.length === 1 && query.tokens[0].raw.length <= 1;
     }
 
-    function evaluateNode(node, query, ctx) {
+    function _evaluateNode(node, query, ctx) {
+        tracer.trace("evaluateNode", function() { return { nodeId: node.id, kind: node.kind, queryEmpty: !!query.isEmpty, showHidden: !!ctx.showHidden }; });
         var directiveActive = !!(ctx.directive && ctx.directive.active);
         var selfAllowed = !directiveActive || nodeMatchesDirective(node, ctx);
-        if (directiveActive && !selfAllowed && !nodeTreeMayContainDirective(node, ctx))
+        if (directiveActive && !selfAllowed && !nodeTreeMayContainDirective(node, ctx)) {
+            tracer.debug("prune", function() { return { nodeId: node.id, reason: "directive container only" }; });
             return { node: node, allowed: false, candidate: false, pruned: true, evidence: [], ownEvidence: [], inheritedEvidence: [], ownScore: 0, inheritedScore: 0, score: 0, visible: false, children: [] };
+        }
 
         var singleCharQuery = isSingleCharQuery(query);
         var qEmpty = query.isEmpty;
         var directiveBrowse = directiveActive && qEmpty;
-        if (ctx.candidateIds && !ctx.candidateIds[node.id] && !ctx.explicitResidualChildSearch && node.kind !== "root" && node.kind !== "backend" && !(node.showWhenQueryEmpty && qEmpty) && !(qEmpty && node.backendId === "backends" && directiveActive) && !directiveBrowse && !ctx.showHidden)
+        if (ctx.candidateIds && !ctx.candidateIds[node.id] && !ctx.explicitResidualChildSearch && node.kind !== "root" && node.kind !== "backend" && !(node.showWhenQueryEmpty && qEmpty) && !(qEmpty && node.backendId === "backends" && directiveActive) && !directiveBrowse && !ctx.showHidden) {
+            tracer.debug("prune", function() { return { nodeId: node.id, reason: "non-candidate" }; });
             return { node: node, allowed: selfAllowed, candidate: false, pruned: true, evidence: [], ownEvidence: [], inheritedEvidence: [], ownScore: 0, inheritedScore: 0, score: 0, visible: false, children: [] };
+        }
 
         var ep = node.evaluationProfile || {};
         var profile = ep.profile || defaultProfile;
@@ -150,6 +158,7 @@ Singleton {
         if (node.kind !== "root" && node.kind !== "backend") {
             tokenFlowResult = TokenFlow.evaluate(node, query, ctx);
             tokenFlow = tokenFlowResult && tokenFlowResult.value;
+            if (tracer.traceOn) tracer.trace("tokenFlow", function() { return { nodeId: node.id, consumed: (tokenFlow && tokenFlow.consumed || []).length, passed: (tokenFlow && tokenFlow.passed || []).length, reason: (tokenFlow && tokenFlow.reason) || "none" }; });
             if (tokenFlow && tokenFlow.passed) {
                 childQuery = TokenFlow.buildChildQuery(node, tokenFlow, query);
                 childCtx = Object.assign({}, ctx, { query: childQuery, childQuery: childQuery, tokenFlow: tokenFlow });
@@ -227,6 +236,7 @@ Singleton {
         }, boostTimings).value) || 0;
 
         var finalScore = Tokenize.clamp(Math.max(own.value, inheritedScore, descendantBoost));
+        tracer.trace("score", function() { return { nodeId: node.id, own: own.value, inherited: inheritedScore, descendant: descendantBoost, final: finalScore, visible: own.visible }; });
 
         var actionAliasBoost = 0;
         if (node.switchActions && own.value > 0) {
@@ -391,8 +401,11 @@ Singleton {
         return result;
     }
 
-    function evaluateChildren(node, query, ctx, directiveActive) {
+    readonly property var evaluateNode: prof.fn("evaluateNode", _evaluateNode)
+
+    function _evaluateChildren(node, query, ctx, directiveActive) {
         var children = node.children || [];
+        tracer.trace("evaluateChildren", function() { return { nodeId: node.id, childCount: children.length, queryEmpty: !!query.isEmpty }; });
 
         // Gate expensive child expansion for single-character or very short queries
         // when this node has exploration.descend === false (e.g., VPN country list).
@@ -426,6 +439,8 @@ Singleton {
         }
         return evaluateChildList(children, effectiveQuery, effectiveCtx, directiveActive);
     }
+
+    readonly property var evaluateChildren: prof.fn("evaluateChildren", _evaluateChildren)
 
     function evaluateChildList(children, query, ctx, directiveActive) {
         var out = [];

@@ -1,11 +1,16 @@
 import QtQml
+import qs.services
 
 QtObject {
     id: root
 
+    readonly property var tracer: Logger.scope("launcher.queryTokenizer", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.queryTokenizer", { category: "launcher" })
+
     property var textUtils: null
 
     function tokenize(rawQuery) {
+        tracer.trace("tokenize", function() { return { rawLen: String(rawQuery || "").length }; });
         var raw = typeof rawQuery === "string" ? rawQuery : (rawQuery === undefined || rawQuery === null ? "" : String(rawQuery));
         if (!raw) return { raw: "", normalized: "", tokens: [], isEmpty: true, lastTokenEmpty: false };
         var tokens = [];

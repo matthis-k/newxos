@@ -1,9 +1,13 @@
 import QtQml
+import qs.services
 
 BaseFormatter {
+    readonly property var tracer: Logger.scope("launcher.formatter.raw", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.formatter.raw", { category: "launcher" })
     formatterName: "raw"
 
     function serialize(evaluation, request) {
+        tracer.trace("serialize", function() { return { hasEvaluation: !!evaluation, maxNodes: request?.maxNodes }; });
         if (!evaluation) return { error: { code: "no_evaluation", message: "No evaluation available" } };
 
         var options = request || {};

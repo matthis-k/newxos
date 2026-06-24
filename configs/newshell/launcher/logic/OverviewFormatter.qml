@@ -1,10 +1,14 @@
 import QtQml
+import qs.services
 
 BaseFormatter {
+    readonly property var tracer: Logger.scope("launcher.formatter.overview", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.formatter.overview", { category: "launcher" })
     formatterName: "overview"
 
     function serialize(evaluation, options) {
         options = options || {};
+        tracer.trace("serialize", function() { return { hasEvaluation: !!evaluation }; });
         if (!evaluation) return { backendSummary: [], selection: null, visible: [], stats: { visibleNodeCount: 0, hiddenCandidateCount: 0, evaluatedNodeCount: 0, durationMs: 0 } };
 
         var maxDepth = options.maxDepth !== undefined ? options.maxDepth : 10;

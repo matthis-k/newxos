@@ -1,12 +1,16 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 import "Tokenize.qml"
 import "Evidence.qml"
 import "ActivationGate.qml"
 
 Singleton {
+    readonly property var tracer: Logger.scope("launcher.resultSemantics", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.resultSemantics", { category: "launcher" })
     function build(ev, decision, placement, ctx) {
+        tracer.trace("build", function() { return { nodeId: ev?.node?.id, placement: placement }; });
         var node = ev.node;
         if (!node) return empty();
 

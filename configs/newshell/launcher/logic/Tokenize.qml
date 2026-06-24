@@ -1,9 +1,11 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 
 Singleton {
     id: root
+    readonly property var tracer: Logger.scope("launcher.tokenize", { category: "launcher" })
 
     property TextMatchUtils matchUtils: TextMatchUtils {}
     property QueryTokenizer queryTokenizer: QueryTokenizer { textUtils: root.matchUtils }
@@ -19,7 +21,10 @@ Singleton {
     function fuzzyDistanceLimit(a, b) { return root.matchUtils.fuzzyDistanceLimit(a, b); }
     function boundedDamerauLevenshtein(a, b, maxDistance) { return root.matchUtils.boundedDamerauLevenshtein(a, b, maxDistance); }
     function getAcronymRanges(text) { return root.matchUtils.getAcronymRanges(text); }
-    function tokenize(rawQuery) { return root.queryTokenizer.tokenize(rawQuery); }
+    function tokenize(rawQuery) {
+        if (tracer.traceOn) tracer.trace("tokenize", function() { return { rawLen: (rawQuery || "").length }; });
+        return root.queryTokenizer.tokenize(rawQuery);
+    }
     function parseDirective(rawQuery, backends) { return root.directiveParser.parseDirective(rawQuery, backends); }
     function makeAction(id, label, payload) { return root.nodeFactory.makeAction(id, label, payload); }
     function makeNode(props) { return root.nodeFactory.makeNode(props); }

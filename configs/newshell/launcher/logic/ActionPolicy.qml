@@ -1,8 +1,11 @@
 pragma Singleton
 import Quickshell
+import qs.services
 import "Tokenize.qml"
 
 Singleton {
+    readonly property var tracer: Logger.scope("launcher.actionPolicy", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.actionPolicy", { category: "launcher" })
     readonly property var baseAliases: ({
         on: ["on", "enable", "connect"],
         off: ["off", "disable", "disconnect"],
@@ -10,6 +13,7 @@ Singleton {
     })
 
     function selectDefaultAction(node, query, ev, ctx) {
+        tracer.trace("selectDefaultAction", function() { return { nodeId: node?.id }; });
         var candidates = actionCandidates(node, query, ev, ctx);
         if (!candidates.length)
             return null;

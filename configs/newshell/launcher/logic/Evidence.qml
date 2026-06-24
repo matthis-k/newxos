@@ -1,16 +1,20 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 import "Tokenize.qml"
 
 Singleton {
+    readonly property var prof: Profiler.scope("launcher.evidence", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.evidence", { category: "launcher" })
     function evidence(strategy, field, kind, score, weight, ranges, reason, meta) {
         var s = Tokenize.clamp(score);
         meta = meta || {};
         return { strategy: strategy, field: field.field, fieldText: field.text, nodeId: field.nodeId, originNodeId: meta.originNodeId || field.nodeId, originKind: meta.originKind || field.originKind || "self", depth: meta.depth === undefined ? field.depth || 0 : meta.depth, tokenIndex: meta.tokenIndex, tokenIndexes: meta.tokenIndex === undefined ? meta.tokenIndexes || [] : [meta.tokenIndex], coverageCount: meta.tokenIndex === undefined ? (meta.tokenIndexes || []).length : 1, exactness: meta.exactness || strategy, actionId: meta.actionId || null, actionRole: meta.actionRole || null, isExecutable: !!meta.isExecutable, kind: kind, score: s, weight: weight, effective: s * weight, ranges: ranges || [], reason: reason || "" };
     }
 
-    function matchField(field, query, strategyIds) {
+    function _matchField(field, query, strategyIds) {
+        if (tracer.traceOn) tracer.trace("matchField", function() { return { field: field.field, tokenCount: query.tokens.length, fieldTextLen: (field.text || "").length }; });
         if (query.isEmpty) return [];
         var out = [];
         var ids = strategyIds || ["exact", "prefix", "compact", "substring", "acronym", "fuzzy"];
@@ -94,6 +98,8 @@ Singleton {
         }
         return out;
     }
+
+    readonly property var matchField: prof.fn("matchField", _matchField)
 
     function recencyScore(daysAgo) {
         return 1 / (1 + Math.max(0, daysAgo) / 30);
@@ -245,7 +251,8 @@ Singleton {
         return out;
     }
 
-    function scoreEvidence(evidenceItems, node, ctx) {
+    function _scoreEvidence(evidenceItems, node, ctx) {
+        tracer.trace("scoreEvidence", function() { return { nodeId: node && node.id, evidenceCount: evidenceItems.length }; });
         if (!evidenceItems.length)
             return { value: 0, visible: ctx.query.isEmpty && (node.kind === "backend" || node.showWhenQueryEmpty || node.backendId === "backends" && ctx.directive && ctx.directive.active), reason: "no evidence" };
         var sorted = overlayEvidence(evidenceItems, ctx.query).sort(function(a, b) { return b.effective - a.effective; });
@@ -264,4 +271,6 @@ Singleton {
         }
         return { value: Tokenize.clamp(combined), visible: combined >= ctx.visibilityThreshold, reason: "saturating weighted evidence" };
     }
+
+    readonly property var scoreEvidence: prof.fn("scoreEvidence", _scoreEvidence)
 }

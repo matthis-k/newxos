@@ -1,8 +1,11 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 
 Singleton {
+    readonly property var prof: Profiler.scope("launcher.scoreBundle", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.scoreBundle", { category: "launcher" })
     function makeScorePart(value, evidenceItems, query) {
         var covered = {};
         var missing = [];
@@ -52,7 +55,8 @@ Singleton {
         };
     }
 
-    function fromEvaluated(ev, query) {
+    function _fromEvaluated(ev, query) {
+        if (tracer.traceOn) tracer.trace("fromEvaluated", function() { return { nodeId: ev && ev.node && ev.node.id, ownScore: ev && ev.ownScore }; });
         if (!ev) return null;
         var evidenceItems = (ev.ownEvidence || ev.evidence || []);
         var node = ev.node;
@@ -77,6 +81,7 @@ Singleton {
             activation
         );
     }
+    readonly property var fromEvaluated: prof.fn("fromEvaluated", _fromEvaluated)
 
     function attachToEvaluated(ev, query) {
         if (!ev) return;

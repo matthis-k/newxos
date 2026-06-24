@@ -1,7 +1,11 @@
 import QtQml
+import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("launcher.textMatchUtils", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.textMatchUtils", { category: "launcher" })
 
     property var _normCache: ({})
     property int _normCacheSize: 0
@@ -13,6 +17,8 @@ QtObject {
 
     function normalizeText(text) {
         var value = typeof text === "string" ? text : (text === undefined || text === null ? "" : String(text));
+        if (Logger.traceOn)
+            tracer.trace("normalizeText", function() { return { inputLen: value.length, cached: _normCache[value] !== undefined }; });
         if (!value) return "";
         var cached = _normCache[value];
         if (cached !== undefined) return cached;

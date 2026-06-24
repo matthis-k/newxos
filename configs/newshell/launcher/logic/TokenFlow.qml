@@ -1,13 +1,18 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 import "Tokenize.qml"
 import "Evidence.qml"
 import "PolicyChain.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
-    function evaluate(node, query, ctx) {
+    readonly property var prof: Profiler.scope("launcher.tokenFlow", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.tokenFlow", { category: "launcher" })
+
+    function _evaluate(node, query, ctx) {
+        tracer.trace("evaluate", function() { return { nodeId: node.id, tokenCount: (query.tokens || []).length }; });
         var profile = (node.evaluationProfile && node.evaluationProfile.profile) || {};
         var flowNames = profile.tokenFlow || ["pass-all"];
         return PolicyChain.run(flowNames, function(name, spec) {
@@ -16,6 +21,8 @@ Singleton {
             return policy.apply(node, query, ctx, spec && spec.args);
         }, "first-wins");
     }
+
+    readonly property var evaluate: prof.fn("evaluate", _evaluate)
 
     function passAll(node, query, ctx, args) {
         return {
@@ -27,6 +34,7 @@ Singleton {
     }
 
     function consumeOwnPassRest(node, query, ctx, args) {
+        if (tracer.traceOn) tracer.trace("consumeOwnPassRest", function() { return { nodeId: node.id, tokenCount: (query.tokens || []).length }; });
         var fields = (args && args.fields) || ["label", "alias", "keyword"];
         var inheritAsContext = args && args.inheritConsumedAsContext;
         var consumed = [];
@@ -83,6 +91,7 @@ Singleton {
     }
 
     function claimContextPassAll(node, query, ctx, args) {
+        if (tracer.traceOn) tracer.trace("claimContextPassAll", function() { return { nodeId: node.id }; });
         var fields = (args && args.fields) || ["label", "alias", "keyword"];
         var claims = [];
 
@@ -118,6 +127,7 @@ Singleton {
     }
 
     function consumeNamespacePassRest(node, query, ctx, args) {
+        if (tracer.traceOn) tracer.trace("consumeNamespacePassRest", function() { return { nodeId: node.id }; });
         var fields = (args && args.fields) || ["label", "alias"];
         var sameLevelFirst = args && args.sameLevelFirst;
 
@@ -164,6 +174,7 @@ Singleton {
     }
 
     function consumeActionToken(node, query, ctx, args) {
+        if (tracer.traceOn) tracer.trace("consumeActionToken", function() { return { nodeId: node.id, aliasCount: ((args && args.aliases) || []).length }; });
         var aliases = (args && args.aliases) || [];
         var consumed = [];
         var consumedIds = {};
@@ -199,6 +210,7 @@ Singleton {
     }
 
     function consumeSwitchPassRest(node, query, ctx, args) {
+        if (tracer.traceOn) tracer.trace("consumeSwitchPassRest", function() { return { nodeId: node.id }; });
         var consumed = [];
         var consumedIds = {};
         var serviceFields = (args && args.fields) || ["label", "alias"];
@@ -243,6 +255,7 @@ Singleton {
     }
 
     function consumePathSegment(node, query, ctx, args) {
+        if (tracer.traceOn) tracer.trace("consumePathSegment", function() { return { nodeId: node.id }; });
         var sameLevelFirst = args && args.sameLevelFirst;
         var recurseWhenNoLocalMatch = args && args.recurseWhenNoLocalMatch;
 
@@ -284,6 +297,7 @@ Singleton {
     }
 
     function buildChildQuery(node, tokenFlowResult, originalQuery) {
+        if (tracer.traceOn) tracer.trace("buildChildQuery", function() { return { nodeId: node.id, passedCount: (tokenFlowResult.passed || []).length, inheritedCount: (tokenFlowResult.inherited || []).length }; });
         var passedTokens = tokenFlowResult.passed || [];
         var inherited = tokenFlowResult.inherited || [];
         var inheritedText = inherited.map(function(i) { return i.tokenText; }).join(" ");

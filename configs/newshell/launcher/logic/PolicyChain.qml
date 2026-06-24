@@ -1,9 +1,12 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 import "PolicySpec.qml"
 
 Singleton {
+    readonly property var prof: Profiler.scope("launcher.policyChain", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.policyChain", { category: "launcher" })
     readonly property var defaultModes: ({
         evidence: "accumulate",
         boost: "best-wins",
@@ -20,8 +23,9 @@ Singleton {
         return d.getTime();
     }
 
-    function run(names, call, modeOrPhase, tracePerPolicy, timings) {
+    function _run(names, call, modeOrPhase, tracePerPolicy, timings) {
         var mode = defaultModes[modeOrPhase] || modeOrPhase;
+        if (tracer.traceOn) tracer.trace("run", function() { return { names: (names || []).length, mode: modeOrPhase || "unknown", resolvedMode: mode }; });
         if (!mode)
             return { value: null, priority: 0 };
 
@@ -103,6 +107,8 @@ Singleton {
         }
         return combine(results, mode);
     }
+
+    readonly property var run: prof.fn("run", _run)
 
     function normalize(raw) {
         if (raw === null || raw === undefined)

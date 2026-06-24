@@ -1,10 +1,15 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 
 Singleton {
+    readonly property var prof: Profiler.scope("launcher.presentationContext", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.presentationContext", { category: "launcher" })
+
     function forShapedItem(ev, decision, parentContext) {
         var placement = decision && decision.placement || "standalone";
+        tracer.trace("forShapedItem", function() { return { nodeId: ev && ev.node && ev.node.id, placement: placement }; });
         var chain = collectParentChain(ev && ev.node || null);
         var breadcrumbs = chain.map(function(n) { return n.label; });
 

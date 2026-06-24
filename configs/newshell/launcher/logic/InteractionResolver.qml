@@ -1,8 +1,13 @@
 pragma Singleton
 import Quickshell
+import qs.services
 
 Singleton {
+    readonly property var tracer: Logger.scope("launcher.interactionResolver", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.interactionResolver", { category: "launcher" })
+
     function resolve(target, options) {
+        tracer.trace("resolve", function() { return { targetId: target?.id || target?.nodeId || "" }; });
         return RecipeResolver.effectiveInteractions(target, options);
     }
 

@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 import "Tokenize.qml"
 import "Evidence.qml"
 import "Evaluate.qml"
@@ -10,9 +11,12 @@ import "PresentationContext.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
-    function toResultRow(ev, depth, state, ctx, childRows, options, shapedItem, parentPresentationContext) {
+    readonly property var prof: Profiler.scope("launcher.renderedRows", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.renderedRows", { category: "launcher" })
+    function _toResultRow(ev, depth, state, ctx, childRows, options, shapedItem, parentPresentationContext) {
         options = options || {};
         var node = ev.node;
+        tracer.trace("toResultRow", function() { return { nodeId: node.id, label: node.label, depth: depth, childRows: (childRows || []).length }; });
         var chain = Evaluate.collectParentChain(node);
 
         var presCtx = shapedItem
@@ -222,6 +226,7 @@ Singleton {
 
         return row;
     }
+    readonly property var toResultRow: prof.fn("toResultRow", _toResultRow)
 
     function displayPolicyFor(node) {
         var chain = Evaluate.collectParentChain(node);

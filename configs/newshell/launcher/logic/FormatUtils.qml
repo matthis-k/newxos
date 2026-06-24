@@ -1,12 +1,18 @@
 pragma Singleton
 import QtQml
+import Quickshell
+import qs.services
 
 QtObject {
     property int version: 1
+    readonly property var prof: Profiler.scope("launcher.formatUtils", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.formatUtils", { category: "launcher" })
+
 
     // ── Envelope ──────────────────────────────────────────────
 
     function make(mode, queryInfo, result, source) {
+        tracer.trace("make", function() { return { mode: mode, queryLen: (queryInfo && queryInfo.raw || "").length, source: source || "query" }; });
         var envelope = {
             version: version,
             mode: String(mode || "unknown"),
@@ -30,6 +36,7 @@ QtObject {
     }
 
     function errorResult(code, message, extra) {
+        tracer.warn("errorResult", function() { return { code: code, message: message }; });
         var err = { error: { code: code, message: message } };
         if (extra) {
             for (var key in extra) {
@@ -307,7 +314,10 @@ QtObject {
     // ── Validation ───────────────────────────────────────────
 
     function validate(evaluation) {
-        if (!evaluation) return { ok: false, errors: [{ code: "no_evaluation", message: "Evaluation is null", severity: "error" }], warnings: [] };
+        if (!evaluation) {
+            tracer.error("validate", function() { return { error: "null evaluation" }; });
+            return { ok: false, errors: [{ code: "no_evaluation", message: "Evaluation is null", severity: "error" }], warnings: [] };
+        }
         var errors = [];
         var warnings = [];
 

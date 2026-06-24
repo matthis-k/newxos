@@ -1,12 +1,17 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 
 Singleton {
+    readonly property var tracer: Logger.scope("launcher.policySpec", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.policySpec", { category: "launcher" })
+
     function normalize(spec) {
         if (typeof spec === "string") return normalizeString(spec);
         if (Array.isArray(spec)) return normalizeArray(spec);
         if (typeof spec === "object" && spec !== null) return normalizeObject(spec);
+        tracer.trace("normalize", function() { return { specType: typeof spec, result: null }; });
         return null;
     }
 

@@ -1,9 +1,14 @@
 import QtQml
+import qs.services
 
 QtObject {
     id: root
 
+    readonly property var tracer: Logger.scope("launcher.directiveParser", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.directiveParser", { category: "launcher" })
+
     function parseDirective(rawQuery, backends) {
+        tracer.trace("parseDirective", function() { return { rawQuery: rawQuery, backendCount: (backends || []).length }; });
         var raw = String(rawQuery || "");
         var trimmed = raw.replace(/^\s+/, "");
         var directives = [];

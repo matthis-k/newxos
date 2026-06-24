@@ -1,10 +1,16 @@
 pragma Singleton
 import Quickshell
+import qs.services
 
 Singleton {
+    readonly property var tracer: Logger.scope("launcher.actionSpec", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.actionSpec", { category: "launcher" })
+
     function normalize(step) {
-        if (step === null || step === undefined)
+        if (step === null || step === undefined) {
+            tracer.trace("normalize", function() { return { step: null, result: "noop" }; });
             return { name: "noop", args: {}, priority: 0, source: "normalizer" };
+        }
 
         if (typeof step === "string")
             return normalizeString(step);

@@ -1,9 +1,12 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 import "Tokenize.qml"
 
 Singleton {
+    readonly property var prof: Profiler.scope("launcher.indexBuilder", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.indexBuilder", { category: "launcher" })
     function prepareSearchableField(field) {
         var text = String(field.text === undefined || field.text === null ? "" : field.text);
         field.text = text;
@@ -17,6 +20,7 @@ Singleton {
     function searchableFields(node) {
         if (node.__searchableFields)
             return node.__searchableFields;
+        if (tracer.traceOn) tracer.trace("searchableFields", function() { return { nodeId: node.id, kind: node.kind }; });
         var w = node.fieldWeights || {};
         var fields = [{ field: "label", text: node.label, weight: w.label === undefined ? 1.0 : w.label, nodeId: node.id, primary: true }];
         if (node.subtitle) fields.push({ field: "subtitle", text: node.subtitle, weight: w.subtitle === undefined ? 0.55 : w.subtitle, nodeId: node.id });
@@ -30,6 +34,7 @@ Singleton {
     }
 
     function buildSearchIndex(root) {
+        tracer.trace("buildSearchIndex", function() { return { rootId: root && root.id }; });
         var index = { exact: {}, prefix: {}, compact: {}, compactPrefix: {}, acronym: {}, acronymPrefix: {}, terms: {}, termsByLength: {}, nodesById: {} };
         var _termsSeen = {};
         function addTermToTermsByLength(term) {
@@ -221,8 +226,9 @@ Singleton {
         markNodeAndDescendants(marked, node, { remaining: 32 });
     }
 
-    function collectCandidateIdsForRoots(roots, query, cap) {
+    function _collectCandidateIdsForRoots(roots, query, cap) {
         if (query.isEmpty) return null;
+        tracer.trace("collectCandidateIdsForRoots", function() { return { rootCount: (roots || []).length, tokenCount: (query.tokens || []).length, cap: cap }; });
         // Single-character queries get a lower cap to prevent excessive weak matches
         var isSingleChar = query && !query.isEmpty && query.tokens && query.tokens.length === 1
             && query.tokens[0].raw.length <= 1;
@@ -236,4 +242,5 @@ Singleton {
         }
         return marked;
     }
+    readonly property var collectCandidateIdsForRoots: prof.fn("collectCandidateIdsForRoots", _collectCandidateIdsForRoots)
 }

@@ -1,14 +1,20 @@
 import QtQml
 import Quickshell
 import QtCore
+import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("launcher.filePathResolver", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.filePathResolver", { category: "launcher" })
+
     property var _nodeCache: ({})
     property var _scanCache: ({})
 
     function resolveFileQuery(parsed, maxResults) {
         maxResults = maxResults || 8;
+        tracer.debug("resolveFileQuery", function() { return { mode: parsed?.mode, maxResults: maxResults }; });
 
         switch (parsed.mode) {
         case "flat-search":

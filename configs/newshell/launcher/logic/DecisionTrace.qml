@@ -1,16 +1,23 @@
 pragma Singleton
+import QtQml
 import Quickshell
+import qs.services
 
 Singleton {
+    readonly property var prof: Profiler.scope("launcher.decisionTrace", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.decisionTrace", { category: "launcher" })
+
     function initPolicyTrace(ev, ctx) {
         if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
         var nid = ev.node.id;
+        if (tracer.traceOn) tracer.trace("initPolicyTrace", function() { return { nodeId: nid }; });
         if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
     }
 
     function policy(ev, ctx, kind, name, returned, effect, reasons) {
         if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
         var nid = ev.node.id;
+        if (tracer.traceOn) tracer.trace("policy", function() { return { nodeId: nid, kind: kind, name: name, effect: effect }; });
         if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
         if (!ctx._policyTrace[nid][kind]) {
             ctx._policyTrace[nid][kind] = {
@@ -33,6 +40,7 @@ Singleton {
     function placement(ev, ctx, decision) {
         if (!ev || !ev.node || !ev.node.id || !ctx._decisionTrace) return;
         var nid = ev.node.id;
+        tracer.trace("placement", function() { return { nodeId: nid, mode: decision.mode, placement: decision.placement || decision.mode }; });
         var expandFinal = ctx._policyTrace && ctx._policyTrace[nid] && ctx._policyTrace[nid].expand && ctx._policyTrace[nid].expand.final;
         var retainFinal = ctx._policyTrace && ctx._policyTrace[nid] && ctx._policyTrace[nid].retain && ctx._policyTrace[nid].retain.final;
         var takeoverFinal = ctx._policyTrace && ctx._policyTrace[nid] && ctx._policyTrace[nid].takeover && ctx._policyTrace[nid].takeover.final;
@@ -54,6 +62,7 @@ Singleton {
     function final(ev, ctx, kind, value, reasons) {
         if (!ev || !ev.node || !ev.node.id || !ctx._policyTrace) return;
         var nid = ev.node.id;
+        if (tracer.traceOn) tracer.trace("final", function() { return { nodeId: nid, kind: kind }; });
         if (!ctx._policyTrace[nid]) ctx._policyTrace[nid] = {};
         if (!ctx._policyTrace[nid][kind]) {
             ctx._policyTrace[nid][kind] = { kind: kind, evaluated: [], aggregate: null, final: null };

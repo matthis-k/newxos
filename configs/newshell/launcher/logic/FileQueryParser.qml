@@ -1,10 +1,16 @@
 import QtQml
 import Quickshell
 import QtCore
+import qs.services
 
 QtObject {
     id: root
+
+    readonly property var tracer: Logger.scope("launcher.fileQueryParser", { category: "launcher" })
+    readonly property var prof: Profiler.scope("launcher.fileQueryParser", { category: "launcher" })
+
     function parseFileQuery(rawQuery) {
+        tracer.trace("parseFileQuery", function() { return { rawQuery: rawQuery }; });
         var text = String(rawQuery || "").trim();
         if (!text)
             return { mode: "none", tokens: [], raw: text, directive: null };

@@ -1,11 +1,13 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 import "PolicyChain.qml"
 import "PolicySpec.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
+    readonly property var prof: Profiler.scope("launcher.activationGate", { category: "launcher" })
     function riskLevelForNode(node) {
         if (!node) return "none";
         if (node.risk && node.risk.level) return node.risk.level;
@@ -39,7 +41,7 @@ Singleton {
         return !!(queryText && queryText.length > 1 && queryText.indexOf(":") >= 0);
     }
 
-    function resolveActivation(node, ctx, queryText, confirmationSatisfied) {
+    function _resolveActivation(node, ctx, queryText, confirmationSatisfied) {
         if (!node) return { allowed: false, mode: "normal", riskLevel: "none", reason: "no node", requiresConfirm: false, requiresExplicitPrefix: false };
 
         var mode = activationModeForNode(node);
@@ -115,6 +117,7 @@ Singleton {
             requiresExplicitPrefix: mode === "explicit-prefix-only" || mode === "confirm-and-explicit-prefix" || mode === "explicit-prefix"
         };
     }
+    readonly property var resolveActivation: prof.fn("resolveActivation", _resolveActivation)
 
     function guardActivation(node, action, ctx, queryText, confirmationSatisfied) {
         var resolved = resolveActivation(node, ctx, queryText, confirmationSatisfied);

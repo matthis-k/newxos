@@ -1,8 +1,11 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 
 Singleton {
+    readonly property var prof: Profiler.scope("launcher.rows", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.rows", { category: "launcher" })
     function isContextOnly(row) {
         return !!(row
             && row.semantics
@@ -178,8 +181,9 @@ Singleton {
         return rows || [];
     }
 
-    function finalizeRows(rows, queryInfo, directiveInfo, options) {
+    function _finalizeRows(rows, queryInfo, directiveInfo, options) {
         options = options || {};
+        tracer.trace("finalizeRows", function() { return { rowCount: (rows || []).length, queryEmpty: !!(queryInfo && queryInfo.isEmpty), directiveActive: !!(directiveInfo && directiveInfo.active) }; });
         var out = (rows || []).slice();
         if (options.filterRowChildren)
             out = filterChildrenByQuery(out, queryInfo);
@@ -193,4 +197,6 @@ Singleton {
             out = sortRows(out, queryInfo, directiveInfo);
         return out;
     }
+
+    readonly property var finalizeRows: prof.fn("finalizeRows", _finalizeRows)
 }

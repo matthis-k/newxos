@@ -1,11 +1,15 @@
 pragma Singleton
 import QtQml
 import Quickshell
+import qs.services
 import "PolicyChain.qml"
 import "CompositeSearchPolicyRegistry.js" as JsRegistry
 
 Singleton {
-    function evaluateTakeoverRequests(parentEv, childEvs, ctx) {
+    readonly property var prof: Profiler.scope("launcher.takeover", { category: "launcher" })
+    readonly property var tracer: Logger.scope("launcher.takeover", { category: "launcher" })
+    function _evaluateTakeoverRequests(parentEv, childEvs, ctx) {
+        tracer.trace("evaluateTakeoverRequests", function() { return { parentId: parentEv && parentEv.node && parentEv.node.id, childCount: (childEvs || []).length }; });
         var claims = [];
         if (!childEvs || !childEvs.length) return claims;
 
@@ -19,6 +23,8 @@ Singleton {
         claims.sort(function(a, b) { return b.strength - a.strength; });
         return claims;
     }
+
+    readonly property var evaluateTakeoverRequests: prof.fn("evaluateTakeoverRequests", _evaluateTakeoverRequests)
 
     function emitClaims(childEv, parentEv, ctx) {
         var claims = [];
@@ -50,7 +56,8 @@ Singleton {
         return claims;
     }
 
-    function decideTakeover(parentEv, claims, ctx) {
+    function _decideTakeover(parentEv, claims, ctx) {
+        tracer.trace("decideTakeover", function() { return { parentId: parentEv && parentEv.node && parentEv.node.id, claimCount: (claims || []).length }; });
         if (!claims || !claims.length) {
             return {
                 accepted: false,
@@ -92,7 +99,10 @@ Singleton {
         return accepted;
     }
 
+    readonly property var decideTakeover: prof.fn("decideTakeover", _decideTakeover)
+
     function defaultAcceptPolicy(parentEv, claims, ctx, args) {
+        if (tracer.traceOn) tracer.trace("defaultAcceptPolicy", function() { return { parentId: parentEv && parentEv.node && parentEv.node.id, claimCount: (claims || []).length }; });
         if (!claims || !claims.length) {
             return { accepted: false, reason: "no claims" };
         }
@@ -172,6 +182,7 @@ Singleton {
     }
 
     function childOwnMatchParentNoOwnMatch(childEv, parentEv, ctx, args) {
+        if (tracer.traceOn) tracer.trace("childOwnMatchParentNoOwnMatch", function() { return { childId: childEv && childEv.node && childEv.node.id, parentId: parentEv && parentEv.node && parentEv.node.id }; });
         var claims = [];
         if (!childEv || !parentEv || !childEv.node || !parentEv.node) return claims;
         var minChildScore = (args && args.minChildScore) || 0.05;
@@ -192,6 +203,7 @@ Singleton {
     }
 
     function explicitChildToken(childEv, parentEv, ctx, args) {
+        if (tracer.traceOn) tracer.trace("explicitChildToken", function() { return { childId: childEv && childEv.node && childEv.node.id }; });
         var claims = [];
         if (!childEv.visible || !childEv.ownScore) return claims;
         var tokens = ctx.query && ctx.query.tokens || [];
@@ -232,6 +244,7 @@ Singleton {
     }
 
     function childCoversPassedTokens(childEv, parentEv, ctx, args) {
+        if (tracer.traceOn) tracer.trace("childCoversPassedTokens", function() { return { childId: childEv && childEv.node && childEv.node.id }; });
         var claims = [];
         var tokenFlow = parentEv.tokenFlow;
         if (!tokenFlow || !tokenFlow.passed || tokenFlow.passed.length === 0) return claims;
@@ -268,6 +281,7 @@ Singleton {
     }
 
     function ownScoreDominatesTakeover(childEv, parentEv, ctx, args) {
+        if (tracer.traceOn) tracer.trace("ownScoreDominatesTakeover", function() { return { childId: childEv && childEv.node && childEv.node.id }; });
         var claims = [];
         var margin = (args && args.margin) || 0.18;
         if (!childEv.ownScore || !parentEv.ownScore) return claims;
@@ -285,6 +299,7 @@ Singleton {
     }
 
     function exactActionTokenTakeover(childEv, parentEv, ctx, args) {
+        if (tracer.traceOn) tracer.trace("exactActionTokenTakeover", function() { return { childId: childEv && childEv.node && childEv.node.id }; });
         var claims = [];
         if (!childEv.node || !childEv.node.switchActions) return claims;
         var tokens = ctx.query && ctx.query.tokens || [];
