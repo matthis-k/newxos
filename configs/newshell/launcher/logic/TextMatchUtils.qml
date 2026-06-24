@@ -17,7 +17,7 @@ QtObject {
 
     function normalizeText(text) {
         var value = typeof text === "string" ? text : (text === undefined || text === null ? "" : String(text));
-        .trace("normalizeText", function() { return { inputLen: value.length, cached: _normCache[value] !== undefined }; });
+        tracer.trace("normalizeText", function() { return { inputLen: value.length, cached: _normCache[value] !== undefined }; });
         if (!value) return "";
         var cached = _normCache[value];
         if (cached !== undefined) return cached;

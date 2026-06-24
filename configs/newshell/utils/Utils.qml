@@ -10,7 +10,7 @@ Singleton {
     id: root
 
     function nodeName(node, fallback) {
-        .trace("nodeName", function() { return { hasNode: !!node }; });
+        tracer.trace("nodeName", function() { return { hasNode: !!node }; });
         if (!node) return fallback;
         return node.nickname || node.description || node.name || fallback;
     }

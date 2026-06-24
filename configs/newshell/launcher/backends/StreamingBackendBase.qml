@@ -5,6 +5,8 @@ LauncherBackendBase {
     readonly property var prof: Profiler.scope("launcher.streamingBackend", { category: "launcher" })
     id: root
 
+    property string pendingCompositeQuery: ""
+    property string compositeQuery: ""
     property var streamItemsById: ({})
     property var streamOrder: []
     readonly property var compositeResults: streamOrder.map(function(id) { return streamItemsById[id]; }).filter(Boolean)
