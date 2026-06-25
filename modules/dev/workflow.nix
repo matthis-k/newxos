@@ -581,77 +581,77 @@
           self'.packages.repo-handoff
         ];
         text = ''
-            case "''${1:-}" in
-              --list|-l)
-                echo "Delegate to repo-handoff for check selection and execution."
-                echo "See: repo-handoff --help"
-                echo ""
-                echo "Available groups: all, test, nix, newshell, newshell.launcher"
-                echo "Available targets: fmt, rust, nix.write-flake, nix.statix,"
-                echo "  nix.flake-check, newshell.static, newshell.policy,"
-                echo "  newshell.cases, newshell.cases-run, hyprland, neovim,"
-                echo "  docs.index, newshell.session"
-                echo ""
-                echo "Usage:"
-                echo "  repo-gate                  repo-handoff (changed-file handoff)"
-                echo "  repo-gate <id>             repo-handoff run <id>"
-                echo "  repo-gate --staged handoff repo-handoff check --staged"
-                echo "  repo-gate test             repo-handoff run test"
-                echo "  repo-gate --hook <check>   run single check directly (pre-commit)"
-                exit 0
-                ;;
+          case "''${1:-}" in
+            --list|-l)
+              echo "Delegate to repo-handoff for check selection and execution."
+              echo "See: repo-handoff --help"
+              echo ""
+              echo "Available groups: all, test, nix, newshell, newshell.launcher"
+              echo "Available targets: fmt, rust, nix.write-flake, nix.statix,"
+              echo "  nix.flake-check, newshell.static, newshell.policy,"
+              echo "  newshell.cases, newshell.cases-run, hyprland, neovim,"
+              echo "  docs.index, newshell.session"
+              echo ""
+              echo "Usage:"
+              echo "  repo-gate                  repo-handoff (changed-file handoff)"
+              echo "  repo-gate <id>             repo-handoff run <id>"
+              echo "  repo-gate --staged handoff repo-handoff check --staged"
+              echo "  repo-gate test             repo-handoff run test"
+              echo "  repo-gate --hook <check>   run single check directly (pre-commit)"
+              exit 0
+              ;;
 
-              --hook)
+            --hook)
+              shift
+              check="''${1:-}"
+              case "$check" in
+                write-flake)  test-flake-write ;;
+                fmt)          treefmt ;;
+                statix)       statix fix ;;
+                flake-check)  test-flake-check ;;
+                rust)         test-rust-unit ;;
+                newshell)     test-qml-lint ;;
+                newshell-static)  test-qml-lint ;;
+                newshell-policy)  test-launcher-policy ;;
+                newshell-cases)   test-launcher-cases ;;
+                newshell-cases-run) test-launcher-cases-run ;;
+                newshell-session)  test-launcher-session ;;
+                newshell-runtime)  test-newshell-runtime ;;
+                hyprland)     test-hyprland-config ;;
+                neovim)       test-neovim-config ;;
+                docs-index)   test-docs-index ;;
+                hooks)        test-install-hooks ;;
+                *)
+                  echo "unknown hook check: $check" >&2
+                  exit 1
+                  ;;
+              esac
+              ;;
+
+            --staged)
+              shift
+              if [ "''${1:-}" = "handoff" ]; then
                 shift
-                check="''${1:-}"
-                case "$check" in
-                  write-flake)  test-flake-write ;;
-                  fmt)          treefmt ;;
-                  statix)       statix fix ;;
-                  flake-check)  test-flake-check ;;
-                  rust)         test-rust-unit ;;
-                  newshell)     test-qml-lint ;;
-                  newshell-static)  test-qml-lint ;;
-                  newshell-policy)  test-launcher-policy ;;
-                  newshell-cases)   test-launcher-cases ;;
-                  newshell-cases-run) test-launcher-cases-run ;;
-                  newshell-session)  test-launcher-session ;;
-                  newshell-runtime)  test-newshell-runtime ;;
-                  hyprland)     test-hyprland-config ;;
-                  neovim)       test-neovim-config ;;
-                  docs-index)   test-docs-index ;;
-                  hooks)        test-install-hooks ;;
-                  *)
-                    echo "unknown hook check: $check" >&2
-                    exit 1
-                    ;;
-                esac
-                ;;
+                repo-handoff check --staged "$@"
+              else
+                repo-handoff check --staged "$@"
+              fi
+              ;;
 
-              --staged)
-                shift
-                if [ "''${1:-}" = "handoff" ]; then
-                  shift
-                  repo-handoff check --staged "$@"
-                else
-                  repo-handoff check --staged "$@"
-                fi
-                ;;
+            -*)
+              echo "Unknown option: $1" >&2
+              exit 1
+              ;;
 
-              -*)
-                echo "Unknown option: $1" >&2
-                exit 1
-                ;;
-
-              *)
-                # Delegate to repo-handoff
-                if [ $# -eq 0 ]; then
-                  repo-handoff check
-                else
-                  repo-handoff run "$@"
-                fi
-                ;;
-            esac
+            *)
+              # Delegate to repo-handoff
+              if [ $# -eq 0 ]; then
+                repo-handoff check
+              else
+                repo-handoff run "$@"
+              fi
+              ;;
+          esac
         '';
       };
     in
@@ -665,123 +665,14 @@
         programs.stylua.enable = true;
       };
 
-      pre-commit.settings.hooks.statix = {
+      pre-commit.settings.hooks.agentest = {
         enable = true;
-        after = [ "test-flake-write" ];
-        entry = "${lib.getExe repoGate} --hook statix";
-        types = [ "nix" ];
-      };
-
-      pre-commit.settings.hooks.test-flake-write = {
-        enable = true;
-        name = "write flake";
-        description = "Regenerate flake.nix before commit.";
-        entry = "${lib.getExe repoGate} --hook write-flake";
+        name = "agentest";
+        description = "Run handoff checks based on changed files";
+        entry = "${lib.getExe repoGate}";
+        args = ["--staged", "handoff"];
         pass_filenames = false;
         always_run = true;
-      };
-
-      pre-commit.settings.hooks.repo-write-nvim-pack-lock =
-        lib.mkIf (self'.packages ? write-nvim-pack-lock)
-          {
-            enable = true;
-            name = "write nvim pack lockfile";
-            description = "Regenerate the Neovim pack lockfile when flake.lock changes.";
-            entry = lib.getExe self'.packages.write-nvim-pack-lock;
-            after = [ "statix" ];
-            files = "^flake\\.lock$";
-            pass_filenames = false;
-          };
-
-      pre-commit.settings.hooks.repo-fmt = {
-        enable = true;
-        name = "format repo";
-        description = "Format the repo after generated files are refreshed.";
-        entry = "${lib.getExe repoGate} --hook fmt";
-        after = [
-          "statix"
-        ]
-        ++ lib.optional (self'.packages ? write-nvim-pack-lock) "repo-write-nvim-pack-lock";
-        pass_filenames = false;
-        always_run = true;
-      };
-
-      pre-commit.settings.hooks.test-flake-check = {
-        enable = true;
-        name = "flake check";
-        description = "Run flake checks after formatting when staged Nix files changed.";
-        entry = "${lib.getExe repoGate} --hook flake-check";
-        after = [ "repo-fmt" ];
-        pass_filenames = false;
-        types = [ "nix" ];
-      };
-
-      pre-commit.settings.hooks.test-docs-index = {
-        enable = true;
-        name = "update docs index";
-        description = "Reindex Basic Memory when docs files change.";
-        entry = "${lib.getExe repoGate} --hook docs-index";
-        after = [ "repo-fmt" ];
-        files = "^docs/";
-        pass_filenames = false;
-      };
-
-      pre-commit.settings.hooks.test-install-hooks = {
-        enable = true;
-        name = "install git hooks";
-        description = "Reinstall managed git hooks when the workflow module changes.";
-        entry = "${lib.getExe repoGate} --hook hooks";
-        after = [
-          "test-flake-check"
-          "test-docs-index"
-        ];
-        files = "^modules/dev/workflow\\.nix$";
-        pass_filenames = false;
-      };
-
-      pre-commit.settings.hooks.test-hyprland-config = {
-        enable = true;
-        name = "check hyprland config";
-        description = "Verify Hyprland Lua config parses without errors.";
-        entry = "${lib.getExe repoGate} --hook hyprland";
-        files = "^configs/hypr/";
-        pass_filenames = false;
-      };
-
-      pre-commit.settings.hooks.test-neovim-config = {
-        enable = true;
-        name = "check neovim config";
-        description = "Verify Neovim starts without errors in headless mode.";
-        entry = "${lib.getExe repoGate} --hook neovim";
-        files = "^configs/nvim/";
-        pass_filenames = false;
-      };
-
-      pre-commit.settings.hooks.test-qml-lint = {
-        enable = true;
-        name = "check newshell config";
-        description = "Verify Newshell statically and boot it in a headless compositor.";
-        entry = "${lib.getExe repoGate} --hook newshell";
-        files = "^configs/newshell/";
-        pass_filenames = false;
-      };
-
-      pre-commit.settings.hooks.test-launcher-policy = {
-        enable = true;
-        name = "check launcher policy tests";
-        description = "Validate launcher policy unit test cases.";
-        entry = "${lib.getExe repoGate} --hook newshell-policy";
-        files = "^tests/launcher/policies/";
-        pass_filenames = false;
-      };
-
-      pre-commit.settings.hooks.test-launcher-cases = {
-        enable = true;
-        name = "check launcher test cases";
-        description = "Validate launcher JSON test case files against schema.";
-        entry = "${lib.getExe repoGate} --hook newshell-cases";
-        files = "^tests/launcher/";
-        pass_filenames = false;
       };
 
       devShells.default = config.pre-commit.devShell;
