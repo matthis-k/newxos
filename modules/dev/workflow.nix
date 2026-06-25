@@ -697,9 +697,13 @@
       packages.test-launcher-session = testLauncherSession;
       packages.test-docs-index = testDocsIndex;
       packages.test-install-hooks = testInstallHooks;
-      packages.agentest = pkgs.writeShellScriptBin "agentest" ''
-        exec repo-handoff check --staged "$@"
-      '';
+      packages.agentest = pkgs.writeShellApplication {
+        name = "agentest";
+        runtimeInputs = [ self'.packages.repo-handoff ];
+        text = ''
+          exec repo-handoff check --staged "$@"
+        '';
+      };
 
       # Newxos CLI tests (Rust unit tests)
       checks.newxos-cli-tests = self'.packages.newxos-cli.overrideAttrs (old: {
