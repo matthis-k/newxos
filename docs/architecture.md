@@ -181,7 +181,7 @@ Source files in `configs/newshell/launcher/` own exact behavior. See the launche
 
 ### Pre-commit hook coverage
 
-Changes under `configs/newshell/` trigger the `check-newshell-config` pre-commit hook, which invokes `repo-gate --hook newshell`. This expands to:
+Changes under `configs/newshell/` trigger the `test-qml-lint` pre-commit hook, which invokes `repo-gate --hook newshell`. This expands to:
 
 - `newshell-static` — QML lint via `qmllint` (parse/type errors, import failures warned)
 - `newshell-runtime` — boot Newshell in a headless Weston compositor and wait for `"Configuration Loaded"`; fails on `"Failed to load configuration"`, `"Singleton is not a type"`, or missing load confirmation

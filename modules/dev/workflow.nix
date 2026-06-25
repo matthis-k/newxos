@@ -24,7 +24,7 @@
       # individually runnable, no nested nix run)
       # ================================================
 
-      writeFlake = pkgs.writeShellScriptBin "repo-write-flake" ''
+      testFlakeWrite = pkgs.writeShellScriptBin "test-flake-write" ''
         set -euo pipefail
         ${lib.getExe self'.packages.write-flake}
         if ! git diff --exit-code -- flake.nix; then
@@ -33,19 +33,19 @@
         fi
       '';
 
-      flakeCheck = pkgs.writeShellScriptBin "repo-flake-check" ''
+      testFlakeCheck = pkgs.writeShellScriptBin "test-flake-check" ''
         set -euo pipefail
 
         nix flake check "path:$PWD"
       '';
 
-      updateDocsIndex = pkgs.writeShellScriptBin "repo-update-docs-index" ''
+      testDocsIndex = pkgs.writeShellScriptBin "test-docs-index" ''
         set -euo pipefail
 
         ${lib.getExe' self'.packages.newxos "newxos"} memory reindex
       '';
 
-      rustCheck = pkgs.writeShellScriptBin "repo-rust" ''
+      testRustUnit = pkgs.writeShellScriptBin "test-rust-unit" ''
         set -euo pipefail
         cd "${self}/packages/newxos-cli"
         ${pkgs.cargo}/bin/cargo test
@@ -74,8 +74,8 @@
 
       # Hyprland-headless mode: starts a private compositor that launches newshell via exec-once
       # with timeout protection.
-      newshellRuntimeCheck = pkgs.writeShellApplication {
-        name = "repo-newshell-runtime";
+      testNewshellRuntime = pkgs.writeShellApplication {
+        name = "test-newshell-runtime";
         runtimeInputs = [
           self'.packages.newshell
           self'.packages.newshell-launcher-test
@@ -276,7 +276,7 @@
         '';
       };
 
-      reinstallGitHooks = pkgs.writeShellScriptBin "repo-install-git-hooks" ''
+      testInstallHooks = pkgs.writeShellScriptBin "test-install-hooks" ''
         set -euo pipefail
         # Nested nix run only here — hooks reinstalled on workflow.nix changes only
         nix run "path:$PWD#install-git-hooks"
@@ -301,8 +301,8 @@
         path = "${self}/configs/newshell";
       };
 
-      checkHyprlandConfig = pkgs.writeShellApplication {
-        name = "check-hyprland-config";
+      testHyprlandConfig = pkgs.writeShellApplication {
+        name = "test-hyprland-config";
         runtimeInputs = [ self'.packages.newxos-hyprland ];
         text = ''
           set -euo pipefail
@@ -310,8 +310,8 @@
         '';
       };
 
-      checkNeovimConfig = pkgs.writeShellApplication {
-        name = "check-neovim-config";
+      testNeovimConfig = pkgs.writeShellApplication {
+        name = "test-neovim-config";
         runtimeInputs = [
           self'.packages.nvim
           pkgs.git
@@ -329,8 +329,8 @@
         '';
       };
 
-      checkNewshellConfig = pkgs.writeShellApplication {
-        name = "check-newshell-config";
+      testQmlLint = pkgs.writeShellApplication {
+        name = "test-qml-lint";
         runtimeInputs = [ pkgs.kdePackages.qtdeclarative ];
         text = ''
           set -euo pipefail
@@ -372,14 +372,14 @@
           done < <(find "${newshellConfigDir}" -name '*.qml' -print0)
 
           if [ "$errors_found" -gt 0 ]; then
-            echo "check-newshell-config: $errors_found file(s) have QML errors" >&2
+            echo "test-qml-lint: $errors_found file(s) have QML errors" >&2
             exit 1
           fi
         '';
       };
 
-      newshellPolicyCheck = pkgs.writeShellApplication {
-        name = "repo-newshell-policy";
+      testLauncherPolicy = pkgs.writeShellApplication {
+        name = "test-launcher-policy";
         runtimeInputs = [
           self'.packages.newshell-launcher-test
           pkgs.bash
@@ -391,8 +391,8 @@
         '';
       };
 
-      newshellCasesCheck = pkgs.writeShellApplication {
-        name = "repo-newshell-cases";
+      testLauncherMock = pkgs.writeShellApplication {
+        name = "test-launcher-mock";
         runtimeInputs = [
           self'.packages.newshell-launcher-test
           pkgs.bash
@@ -404,8 +404,8 @@
         '';
       };
 
-      newshellCasesRunCheck = pkgs.writeShellApplication {
-        name = "repo-newshell-cases-run";
+      testLauncherHeadless = pkgs.writeShellApplication {
+        name = "test-launcher-headless";
         runtimeInputs = [
           self'.packages.newshell
           self'.packages.newshell-launcher-test
@@ -532,8 +532,8 @@
         '';
       };
 
-      newshellSessionCheck = pkgs.writeShellApplication {
-        name = "repo-newshell-session";
+      testLauncherSession = pkgs.writeShellApplication {
+        name = "test-launcher-session";
         runtimeInputs = [
           self'.packages.newshell
           self'.packages.newshell-launcher-test
@@ -563,225 +563,95 @@
           pkgs.bash
           pkgs.coreutils
           pkgs.git
-          pkgs.jq
           pkgs.statix
-          writeFlake
-          flakeCheck
-          rustCheck
-          checkNewshellConfig
-          newshellPolicyCheck
-          newshellCasesCheck
-          newshellCasesRunCheck
-          newshellRuntimeCheck
-          newshellSessionCheck
-          checkHyprlandConfig
-          checkNeovimConfig
-          updateDocsIndex
-          reinstallGitHooks
+          testFlakeWrite
+          testFlakeCheck
+          testRustUnit
+          testQmlLint
+          testLauncherPolicy
+          testLauncherMock
+          testLauncherHeadless
+          testNewshellRuntime
+          testLauncherSession
+          testHyprlandConfig
+          testNeovimConfig
+          testDocsIndex
+          testInstallHooks
           config.treefmt.build.wrapper
+          self'.packages.repo-handoff
         ];
         text = ''
-            MODE="normal"
-            ARGS=()
+            case "''${1:-}" in
+              --list|-l)
+                echo "Delegate to repo-handoff for check selection and execution."
+                echo "See: repo-handoff --help"
+                echo ""
+                echo "Available groups: all, test, nix, newshell, newshell.launcher"
+                echo "Available targets: fmt, rust, nix.write-flake, nix.statix,"
+                echo "  nix.flake-check, newshell.static, newshell.policy,"
+                echo "  newshell.cases, newshell.cases-run, hyprland, neovim,"
+                echo "  docs.index, newshell.session"
+                echo ""
+                echo "Usage:"
+                echo "  repo-gate                  repo-handoff (changed-file handoff)"
+                echo "  repo-gate <id>             repo-handoff run <id>"
+                echo "  repo-gate --staged handoff repo-handoff check --staged"
+                echo "  repo-gate test             repo-handoff run test"
+                echo "  repo-gate --hook <check>   run single check directly (pre-commit)"
+                exit 0
+                ;;
 
-            while [[ $# -gt 0 ]]; do
-              case "$1" in
-                --list|-l)
-                  cat <<'LISTEOF'
-          Available checks:
-            write-flake       regenerate flake.nix and fail on drift
-            fmt               run treefmt
-            statix            run statix fix/check
-            flake-check       run nix flake check
-            rust              run newxos-cli Rust tests
-            newshell-static   lint/type-check QML source
-            newshell-policy     validate policy unit test cases (fast, deterministic, no backends)
-            newshell-cases      validate canonical launcher case files and schema (no runtime needed)
-            newshell-cases-run  run canonical launcher cases against headless newshell (requires display)
-            newshell-session    run canonical cases against running service/session
-            launcher            alias for newshell-policy + newshell-cases + newshell-cases-run
-            launcher-policy     alias for newshell-policy
-            launcher-cases      alias for newshell-cases
-            newshell-runtime  boot + optional IPC tests (auto if launcher files changed, or set NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1)
-            newshell-probe    derive/debug launcher probes from canonical cases (diagnostic)
-            hyprland          verify Hyprland config
-            neovim            verify Neovim starts headless
-            docs-index        reindex Basic Memory docs
-            hooks             reinstall managed git hooks
+              --hook)
+                shift
+                check="''${1:-}"
+                case "$check" in
+                  write-flake)  test-flake-write ;;
+                  fmt)          treefmt ;;
+                  statix)       statix fix ;;
+                  flake-check)  test-flake-check ;;
+                  rust)         test-rust-unit ;;
+                  newshell)     test-qml-lint ;;
+                  newshell-static)  test-qml-lint ;;
+                  newshell-policy)  test-launcher-policy ;;
+                  newshell-cases)   test-launcher-cases ;;
+                  newshell-cases-run) test-launcher-cases-run ;;
+                  newshell-session)  test-launcher-session ;;
+                  newshell-runtime)  test-newshell-runtime ;;
+                  hyprland)     test-hyprland-config ;;
+                  neovim)       test-neovim-config ;;
+                  docs-index)   test-docs-index ;;
+                  hooks)        test-install-hooks ;;
+                  *)
+                    echo "unknown hook check: $check" >&2
+                    exit 1
+                    ;;
+                esac
+                ;;
 
-          Aliases:
-            launcher            newshell-policy + newshell-cases + newshell-cases-run
-            launcher-policy     newshell-policy
-            launcher-cases      newshell-cases
-            launcher-integration newshell-cases-run
-            newshell          newshell-static + newshell-runtime + newshell-cases
-            session           newshell-session
-            runtime           newshell-runtime
-            nix               write-flake + statix + fmt + flake-check
-            quick             write-flake + fmt + statix + newshell-static
-            all               write-flake + fmt + statix + flake-check + rust + newshell + hyprland + neovim
-            probe             newshell-probe
-          LISTEOF
-                  exit 0
-                  ;;
-                --hook)
-                  MODE="hook"
+              --staged)
+                shift
+                if [ "''${1:-}" = "handoff" ]; then
                   shift
-                  ARGS+=("$1")
-                  shift
-                  ;;
-                --staged)
-                  MODE="staged"
-                  shift
-                  ARGS=("$@")
-                  break
-                  ;;
-                -*)
-                  echo "Unknown option: $1" >&2
-                  exit 1
-                  ;;
-                *)
-                  ARGS=("$@")
-                  break
-                  ;;
-              esac
-            done
+                  repo-handoff check --staged "$@"
+                else
+                  repo-handoff check --staged "$@"
+                fi
+                ;;
 
-            if [ "''${#ARGS[@]}" -eq 0 ]; then
-              ARGS=("all")
-            fi
+              -*)
+                echo "Unknown option: $1" >&2
+                exit 1
+                ;;
 
-            # Alias resolution
-            resolve_alias() {
-              local name="$1"
-              case "$name" in
-              launcher)  echo "newshell-policy newshell-cases newshell-cases-run" ;;
-              launcher-policy)  echo "newshell-policy" ;;
-              launcher-cases)   echo "newshell-cases" ;;
-              launcher-integration) echo "newshell-cases-run" ;;
-              newshell)  echo "newshell-static newshell-runtime newshell-cases" ;;
-              runtime)   echo "newshell-runtime" ;;
-              nix)       echo "write-flake statix fmt flake-check" ;;
-              quick)     echo "write-flake fmt statix newshell-static" ;;
-              all)       echo "write-flake fmt statix flake-check rust newshell hyprland neovim" ;;
-              probe)     echo "newshell-probe" ;;
-              session)   echo "newshell-session" ;;
-                *)         echo "$name" ;;
-              esac
-            }
-
-            # Build flat check list
-            CHECKS=()
-            for arg in "''${ARGS[@]}"; do
-              resolved=$(resolve_alias "$arg")
-              for check in $resolved; do
-                CHECKS+=("$check")
-              done
-            done
-
-            # Dedup (preserve order)
-            unique=()
-            for check in "''${CHECKS[@]}"; do
-              found=false
-              for u in "''${unique[@]}"; do
-                [ "$u" = "$check" ] && found=true && break
-              done
-              $found || unique+=("$check")
-            done
-            CHECKS=("''${unique[@]}")
-
-            # Staged mode: create temp index with all files
-            if [ "$MODE" = "staged" ]; then
-              real_index="$(git rev-parse --git-path index 2>/dev/null || echo "")"
-              temp_index="$(mktemp)"
-              trap 'rm -f "$temp_index"' EXIT
-
-              if [ -f "$real_index" ]; then
-                cp "$real_index" "$temp_index"
-              fi
-              GIT_INDEX_FILE="$temp_index" git add -A -- .
-              export GIT_INDEX_FILE
-            fi
-
-            # Run checks
-            FAILED=0
-            for check in "''${CHECKS[@]}"; do
-              printf "==> %s ... " "$check"
-
-              case "$check" in
-                write-flake)
-                  repo-write-flake
-                  ;;
-                fmt)
-                  treefmt
-                  ;;
-                statix)
-                  statix fix
-                  ;;
-                flake-check)
-                  repo-flake-check
-                  ;;
-                rust)
-                  repo-rust
-                  ;;
-                newshell-static)
-                  check-newshell-config
-                  ;;
-                newshell-policy)
-                  repo-newshell-policy
-                  ;;
-                newshell-cases)
-                  repo-newshell-cases
-                  ;;
-                newshell-cases-run)
-                  repo-newshell-cases-run
-                  ;;
-                newshell-session)
-                  repo-newshell-session
-                  ;;
-                newshell-probe)
-                  ${lib.getExe self'.packages.newshell-launcher-test} list "${self}/tests/launcher/cases"
-                  echo ""
-                  echo "To derive a probe for a specific case:"
-                  echo "  newshell-launcher-test probe tests/launcher/cases --filter <query> --print"
-                  echo "  newshell-launcher-test probe tests/launcher/cases --filter <query> --run"
-                  ;;
-                newshell-runtime)
-                  repo-newshell-runtime
-                  ;;
-                hyprland)
-                  check-hyprland-config
-                  ;;
-                neovim)
-                  check-neovim-config
-                  ;;
-                docs-index)
-                  repo-update-docs-index
-                  ;;
-                hooks)
-                  repo-install-git-hooks
-                  ;;
-                *)
-                  echo "unknown check: $check" >&2
-                  exit 1
-                  ;;
-              esac
-
-              status=$?
-              if [ "$status" -ne 0 ]; then
-                FAILED=$((FAILED + 1))
-                echo "FAIL: $check"
-              else
-                echo "OK: $check"
-              fi
-            done
-
-            echo ""
-            if [ "$FAILED" -gt 0 ]; then
-              echo "repo-gate: $FAILED check(s) failed" >&2
-              exit 1
-            fi
-            echo "repo-gate: all checks passed"
+              *)
+                # Delegate to repo-handoff
+                if [ $# -eq 0 ]; then
+                  repo-handoff check
+                else
+                  repo-handoff run "$@"
+                fi
+                ;;
+            esac
         '';
       };
     in
@@ -797,12 +667,12 @@
 
       pre-commit.settings.hooks.statix = {
         enable = true;
-        after = [ "repo-write-flake" ];
+        after = [ "test-flake-write" ];
         entry = "${lib.getExe repoGate} --hook statix";
         types = [ "nix" ];
       };
 
-      pre-commit.settings.hooks.repo-write-flake = {
+      pre-commit.settings.hooks.test-flake-write = {
         enable = true;
         name = "write flake";
         description = "Regenerate flake.nix before commit.";
@@ -836,7 +706,7 @@
         always_run = true;
       };
 
-      pre-commit.settings.hooks.repo-flake-check = {
+      pre-commit.settings.hooks.test-flake-check = {
         enable = true;
         name = "flake check";
         description = "Run flake checks after formatting when staged Nix files changed.";
@@ -846,7 +716,7 @@
         types = [ "nix" ];
       };
 
-      pre-commit.settings.hooks.repo-update-docs-index = {
+      pre-commit.settings.hooks.test-docs-index = {
         enable = true;
         name = "update docs index";
         description = "Reindex Basic Memory when docs files change.";
@@ -856,20 +726,20 @@
         pass_filenames = false;
       };
 
-      pre-commit.settings.hooks.repo-install-git-hooks = {
+      pre-commit.settings.hooks.test-install-hooks = {
         enable = true;
         name = "install git hooks";
         description = "Reinstall managed git hooks when the workflow module changes.";
         entry = "${lib.getExe repoGate} --hook hooks";
         after = [
-          "repo-flake-check"
-          "repo-update-docs-index"
+          "test-flake-check"
+          "test-docs-index"
         ];
         files = "^modules/dev/workflow\\.nix$";
         pass_filenames = false;
       };
 
-      pre-commit.settings.hooks.check-hyprland-config = {
+      pre-commit.settings.hooks.test-hyprland-config = {
         enable = true;
         name = "check hyprland config";
         description = "Verify Hyprland Lua config parses without errors.";
@@ -878,7 +748,7 @@
         pass_filenames = false;
       };
 
-      pre-commit.settings.hooks.check-neovim-config = {
+      pre-commit.settings.hooks.test-neovim-config = {
         enable = true;
         name = "check neovim config";
         description = "Verify Neovim starts without errors in headless mode.";
@@ -887,7 +757,7 @@
         pass_filenames = false;
       };
 
-      pre-commit.settings.hooks.check-newshell-config = {
+      pre-commit.settings.hooks.test-qml-lint = {
         enable = true;
         name = "check newshell config";
         description = "Verify Newshell statically and boot it in a headless compositor.";
@@ -896,7 +766,7 @@
         pass_filenames = false;
       };
 
-      pre-commit.settings.hooks.check-newshell-policy = {
+      pre-commit.settings.hooks.test-launcher-policy = {
         enable = true;
         name = "check launcher policy tests";
         description = "Validate launcher policy unit test cases.";
@@ -905,7 +775,7 @@
         pass_filenames = false;
       };
 
-      pre-commit.settings.hooks.check-newshell-cases = {
+      pre-commit.settings.hooks.test-launcher-cases = {
         enable = true;
         name = "check launcher test cases";
         description = "Validate launcher JSON test case files against schema.";
@@ -922,18 +792,18 @@
         ${config.pre-commit.installationScript}
       '';
       packages.repo-gate = repoGate;
-      packages.repo-rust = rustCheck;
-      packages.repo-write-flake = writeFlake;
-      packages.repo-flake-check = flakeCheck;
-      packages.repo-newshell-runtime = newshellRuntimeCheck;
-      packages.repo-newshell-policy = newshellPolicyCheck;
-      packages.repo-newshell-cases = newshellCasesCheck;
-      packages.repo-newshell-cases-run = newshellCasesRunCheck;
-      packages.repo-newshell-session = newshellSessionCheck;
-      packages.repo-update-docs-index = updateDocsIndex;
-      packages.repo-install-git-hooks = reinstallGitHooks;
+      packages.test-rust-unit = testRustUnit;
+      packages.test-flake-write = testFlakeWrite;
+      packages.test-flake-check = testFlakeCheck;
+      packages.test-newshell-runtime = testNewshellRuntime;
+      packages.test-launcher-policy = testLauncherPolicy;
+      packages.test-launcher-cases = testLauncherMock;
+      packages.test-launcher-cases-run = testLauncherHeadless;
+      packages.test-launcher-session = testLauncherSession;
+      packages.test-docs-index = testDocsIndex;
+      packages.test-install-hooks = testInstallHooks;
       packages.run-newshell-launcher-ipc-tests = runNewshellIpcTests;
-      packages.run-newshell-launcher-ipc-tests-hyprland = newshellRuntimeCheck;
+      packages.run-newshell-launcher-ipc-tests-hyprland = testNewshellRuntime;
       packages.run-newshell-launcher-ipc-tests-session = runNewshellIpcTestsSession;
 
       # Newxos CLI tests (Rust unit tests)
@@ -942,24 +812,53 @@
       });
 
       # Enhance newshell static check to lint all .qml files (uses same logic as hook)
-      checks.check-newshell-static = checkNewshellConfig;
+      checks.test-qml-lint = testQmlLint;
 
       # Policy unit tests: validate policy test cases (fast, deterministic, no backends)
-      checks.check-newshell-policy = newshellPolicyCheck;
+      checks.test-launcher-policy = testLauncherPolicy;
 
       # Launcher case validation: validate JSON test case schemas (no runtime needed)
-      checks.check-newshell-cases = newshellCasesCheck;
+      checks.test-launcher-cases = testLauncherMock;
 
       # Launcher case runtime: run canonical cases against headless newshell
-      checks.check-newshell-cases-run = newshellCasesRunCheck;
+      checks.test-launcher-cases-run = testLauncherHeadless;
 
       # Runtime check: boot config in headless compositor + optional IPC tests (opt-in)
-      checks.check-newshell-runtime = newshellRuntimeCheck;
+      checks.test-newshell-runtime = testNewshellRuntime;
 
       # Explicit check for Hyprland config
-      checks.check-hyprland-config = checkHyprlandConfig;
+      checks.test-hyprland-config = testHyprlandConfig;
 
       # Explicit check for Neovim config
-      checks.check-neovim-config = checkNeovimConfig;
+      checks.test-neovim-config = testNeovimConfig;
+
+      # Test gate: runs repo-handoff run test; only realizes if tests pass
+      packages.test = pkgs.writeShellApplication {
+        name = "newxos-test";
+        runtimeInputs = [
+          self'.packages.repo-handoff
+          self'.packages.repo-gate
+        ];
+        text = ''
+          set -euo pipefail
+
+          cd "${self}"
+
+          # When run via nix build (not inside the repo), provide a
+          # synthetic git repo so repo-handoff can detect the root.
+          if ! git rev-parse --git-dir >/dev/null 2>&1; then
+            git init --initial-branch=main
+            git config user.email "test@newxos"
+            git config user.name "Test"
+            git add -A
+          fi
+
+          repo-handoff run test
+        '';
+      };
+
+      packages.repo-test = self'.packages.test;
+      checks.test = self'.packages.test;
+      checks.repo-test = self'.packages.test;
     };
 }

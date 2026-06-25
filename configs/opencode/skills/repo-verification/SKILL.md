@@ -23,6 +23,8 @@ Run the narrowest check that covers the change first, then broader gates when pr
 | `configs/nvim/**` or Neovim modules | `repo-gate neovim` | — |
 | `docs/**` | `repo-gate docs-index` | `repo-gate repo-doctor` when invariants or paths changed |
 | `packages/` or Rust code | `repo-gate rust` | — |
+| `tools/handoff/**` or `.handoff.json` | `repo-handoff` | `repo-gate rust` |
+| `Any change (handoff)` | `repo-handoff` | — |
 
 ## Standard Commands
 
@@ -43,6 +45,12 @@ Run the narrowest check that covers the change first, then broader gates when pr
 | `repo-gate nix` | write-flake + statix + fmt + flake-check |
 | `repo-gate quick` | write-flake + fmt + statix + newshell-static |
 | `repo-gate all` | Full gate (all except runtime) |
+| `repo-gate handoff` | Changed-file-aware handoff via repo-handoff |
+| `repo-gate test` | Strict full test gate via repo-handoff |
+| `repo-handoff` | Path-aware handoff checks (default: changed files) |
+| `repo-handoff --staged` | Staged-only handoff check |
+| `repo-handoff run test` | Strict full test gate |
+| `repo-handoff tree` | Show configured target/group tree |
 
 ## Usage Modes
 
@@ -51,6 +59,8 @@ Run the narrowest check that covers the change first, then broader gates when pr
 repo-gate --list
 repo-gate newshell statix
 repo-gate all
+repo-gate handoff
+repo-gate test
 
 # From outside — evaluates flake once
 nix run "path:$PWD#repo-gate" -- newshell statix
@@ -58,11 +68,37 @@ nix run "path:$PWD#repo-gate" -- all
 
 # Staged mode — emulate pre-commit behavior with temp index
 repo-gate --staged newshell statix
+repo-gate --staged handoff
 
 # Hook mode — run single check for pre-commit framework
 repo-gate --hook write-flake
 repo-gate --hook pre-commit
+
+# Direct repo-handoff usage
+repo-handoff
+repo-handoff --staged
+repo-handoff run test
+repo-handoff tree
 ```
+
+## repo-handoff selection logic
+
+1. Explicit `--target`/`--group` flags
+2. `--all` selects the `test` group
+3. Changed-file rules in `.handoff.json` select groups/targets
+4. Groups are expanded to leaf targets
+5. Manual targets are excluded (unless `--allow-manual`)
+6. Exclusions are applied
+7. If no files changed and no explicit target: "No changed files; no handoff checks selected."
+
+## Handoff vs test vs manual
+
+| Mode | When |
+|------|------|
+| `repo-handoff` | Before finishing a task |
+| `repo-handoff --staged` | Before commit |
+| `repo-handoff run test` | Full strict gate |
+| Manual/session | Interactive, opt-in |
 
 ## Principles
 
@@ -86,3 +122,4 @@ repo-gate --hook pre-commit
 - All checks for changed paths passed, or skipped with documented reason.
 - `write-flake` run if flake-file declarations changed.
 - Formatting applied if code changed.
+- `repo-handoff check` passes before handoff.

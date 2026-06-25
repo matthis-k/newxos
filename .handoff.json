@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "base": "repo",
+  "defaults": {
+    "cwd": "repo",
+    "timeoutSeconds": 180,
+    "expect": {
+      "exit": "success"
+    }
+  },
+  "groups": {
+    "all": {
+      "description": "Full local gate (matches legacy repo-gate all alias)",
+      "children": ["nix", "rust", "newshell", "hyprland", "neovim"]
+    },
+    "test": {
+      "description": "Strict non-recursive test gate",
+      "children": ["rust", "newshell", "hyprland", "neovim"]
+    },
+    "nix": {
+      "description": "Nix formatting and flake checks",
+      "children": ["nix.write-flake", "nix.statix", "fmt", "nix.flake-check"]
+    },
+    "newshell": {
+      "description": "Newshell static and launcher checks",
+      "children": ["newshell.static", "newshell.launcher"]
+    },
+    "newshell.launcher": {
+      "description": "Launcher policy, schema, and strict headless mocked integration",
+      "children": ["newshell.policy", "newshell.launcher-mock", "newshell.launcher-headless"]
+    }
+  },
+  "targets": {
+    "fmt": {
+      "type": "command",
+      "description": "Format repository",
+      "command": { "program": "treefmt", "args": [] }
+    },
+    "rust": {
+      "type": "command",
+      "description": "Run Rust unit tests",
+      "command": { "program": "test-rust-unit" }
+    },
+    "nix.write-flake": {
+      "type": "command",
+      "description": "Regenerate flake.nix and fail on drift",
+      "command": { "program": "test-flake-write" }
+    },
+    "nix.statix": {
+      "type": "command",
+      "description": "Run statix",
+      "command": { "program": "statix", "args": ["fix"] }
+    },
+    "nix.flake-check": {
+      "type": "command",
+      "description": "Run nix flake check",
+      "timeoutSeconds": 900,
+      "command": { "program": "test-flake-check" }
+    },
+    "newshell.static": {
+      "type": "command",
+      "description": "Lint/type-check QML source",
+      "command": { "program": "test-qml-lint" }
+    },
+    "newshell.policy": {
+      "type": "command",
+      "description": "Validate/run launcher policy tests",
+      "command": { "program": "test-launcher-policy" }
+    },
+    "newshell.launcher-mock": {
+      "type": "command",
+      "description": "Validate launcher cases against statically defined mock backends (no runtime)",
+      "command": { "program": "test-launcher-mock" }
+    },
+    "newshell.launcher-headless": {
+      "type": "command",
+      "description": "Run launcher cases against real backends in a headless/fake Wayland env",
+      "timeoutSeconds": 300,
+      "command": { "program": "test-launcher-headless" }
+    },
+    "hyprland": {
+      "type": "command",
+      "description": "Verify Hyprland config",
+      "command": { "program": "test-hyprland-config" }
+    },
+    "neovim": {
+      "type": "command",
+      "description": "Verify Neovim starts headless",
+      "command": { "program": "test-neovim-config" }
+    },
+    "docs.index": {
+      "type": "command",
+      "description": "Reindex docs memory",
+      "command": { "program": "test-docs-index" }
+    },
+    "newshell.launcher-live": {
+      "type": "command",
+      "manual": true,
+      "description": "Run launcher cases against the currently running user session (manual only)",
+      "command": { "program": "test-launcher-live" }
+    }
+  },
+  "rules": [
+    {
+      "id": "newshell-launcher-implementation",
+      "description": "Launcher implementation changed",
+      "when": { "anyChanged": ["configs/newshell/launcher/**"] },
+      "run": ["newshell.launcher"]
+    },
+    {
+      "id": "newshell-general",
+      "description": "Non-launcher Newshell config changed",
+      "when": { "anyChanged": ["configs/newshell/**"] },
+      "run": ["newshell.static", "newshell.launcher-headless"]
+    },
+    {
+      "id": "launcher-policy-tests",
+      "when": { "anyChanged": ["tests/launcher/policies/**"] },
+      "run": ["newshell.policy"]
+    },
+    {
+      "id": "launcher-case-tests",
+      "when": { "anyChanged": ["tests/launcher/cases/**", "tests/launcher/schemas/**"] },
+      "run": ["newshell.launcher-mock", "newshell.launcher-headless"]
+    },
+    {
+      "id": "launcher-test-runner",
+      "when": { "anyChanged": ["tools/launcher-test/**"] },
+      "run": ["rust", "newshell.launcher-mock", "newshell.launcher-headless"]
+    },
+    {
+      "id": "handoff-tool",
+      "when": { "anyChanged": ["tools/handoff/**", ".handoff.json", "**/*.handoff.json"] },
+      "run": ["rust"]
+    },
+    {
+      "id": "newxos-cli",
+      "when": { "anyChanged": ["packages/newxos-cli/**"] },
+      "run": ["rust"]
+    },
+    {
+      "id": "nix-modules",
+      "when": { "anyChanged": ["modules/**/*.nix", "flake.lock"] },
+      "run": ["nix"]
+    },
+    {
+      "id": "hyprland-config",
+      "when": { "anyChanged": ["configs/hypr/**"] },
+      "run": ["hyprland"]
+    },
+    {
+      "id": "neovim-config",
+      "when": { "anyChanged": ["configs/nvim/**"] },
+      "run": ["neovim"]
+    },
+    {
+      "id": "docs",
+      "when": { "anyChanged": ["docs/**"] },
+      "run": ["docs.index"]
+    }
+  ]
+}

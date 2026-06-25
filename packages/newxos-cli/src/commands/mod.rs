@@ -13,5 +13,7 @@ pub use first_install::run as first_install;
 pub use flake::run as flake;
 pub use home::run as home;
 pub use memory::run as memory;
+mod test;
 pub use misc::{ai, dev_mode, git, reload_shell};
+pub use test::run as test;
 pub use os::run as os;

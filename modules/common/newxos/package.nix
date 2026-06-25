@@ -33,6 +33,7 @@
       repoRuntimeInputs = [
         self'.packages.basic-memory-uv2nix
         self'.packages.opencode
+        self'.packages.repo-handoff
       ];
 
       runtimeInputs = baseRuntimeInputs ++ repoRuntimeInputs;

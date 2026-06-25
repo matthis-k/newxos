@@ -41,6 +41,13 @@ NixOS flake (`newxos`) managing two personal machines (desktop, laptop) and a li
 | `nix run "path:$PWD#install-git-hooks"` | Install managed pre-commit hooks |
 | `newxos memory reindex` | Rebuild Basic Memory index (uses `docs/` as project root) |
 | `newxos memory reset` | Reset and rebuild Basic Memory |
+| `repo-handoff` | Run changed-file-aware handoff checks for working tree |
+| `repo-handoff --staged` | Run changed-file-aware handoff checks for staged files only |
+| `repo-handoff run test` | Run strict full test gate |
+| `repo-handoff tree` | Show the configured target/group tree |
+| `repo-gate handoff` | Delegate to repo-handoff |
+| `repo-gate test` | Run strict full test gate via repo-handoff |
+| `newxos test` | Build `.#test` package (only realizes if tests pass) |
 
 Inside `nix develop`, `repo-gate <checks>` avoids flake re-evaluation — all check executables are injected as store paths.
 

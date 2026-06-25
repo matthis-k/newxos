@@ -56,6 +56,11 @@ pub enum Command {
     #[command(name = "dev_mode")]
     DevMode,
 
+    Test {
+        #[arg(long)]
+        git_only: bool,
+    },
+
     Clean {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,

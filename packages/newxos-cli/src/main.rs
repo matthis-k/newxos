@@ -28,6 +28,7 @@ fn main() {
         Command::Git => commands::git(),
         Command::ReloadShell => commands::reload_shell(),
         Command::DevMode => commands::dev_mode(),
+        Command::Test { git_only } => commands::test(git_only),
         Command::Clean { args } => commands::clean(args),
         Command::Complete { group } => complete(group),
         Command::Completions { shell } => {
