@@ -670,7 +670,7 @@
         name = "agentest";
         description = "Run handoff checks based on changed files";
         entry = "${lib.getExe repoGate}";
-        args = ["--staged", "handoff"];
+        args = [ "--staged" "handoff" ];
         pass_filenames = false;
         always_run = true;
       };
