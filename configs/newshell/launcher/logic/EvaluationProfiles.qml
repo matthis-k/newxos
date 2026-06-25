@@ -5,7 +5,7 @@ import QtQml
 // Reduces duplicate inline profile objects in backend files.
 // Backends import this instead of defining their own profile functions.
 
-Singleton {
+QtObject {
     // Default action-group profile with consume-namespace-pass-rest token flow,
     // standard takeover/expand/retain policies, and field-match + semantic evidence.
     function groupProfile(opts) {
