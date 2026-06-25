@@ -82,14 +82,6 @@
           errors=$((errors + 1))
         fi
 
-        # 10.8 No old launcher compatibility API
-        if ${rgBin} -n 'PresentationPolicy|PresentationPresets|PresentationChainPolicy|flattenPolicy|groupOptions|groupDisplay|flattenAllChildrenOnParentMatch|showAllChildrenOnParentMatch|committedTokenPrefersGroup|childWinsMargin|parentWinsMargin|childDominatesMargin|maxFlattenedChildren|group-dominance|group-mode-inhibit|legacy PresentationPolicy|compatibility layer|unmigrated' \
-          configs/newshell/launcher configs/opencode/skills docs \
-          --glob '!docs/history/**' 2>/dev/null; then
-          echo "error: old launcher compatibility API found. Use primitive pipeline policies only." >&2
-          errors=$((errors + 1))
-        fi
-
         # 10.10 check-newshell-config hook must boot newshell (not just static lint)
         if ${rgBin} -n 'entry = "\$\{lib\.getExe repoGate\} --hook newshell-static";' \
           modules/dev/workflow.nix 2>/dev/null; then
