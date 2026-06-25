@@ -284,22 +284,6 @@ Singleton {
                 });
             }
 
-            schedule(phase4);
-        }
-
-        function phase4() {
-            if (!isCurrent()) { abort(); return; }
-
-            var pathStart = Tokenize.nowMs();
-            ctx.pathMs = Tokenize.nowMs() - pathStart;
-
-            if (ctx.trace) {
-                phases.push({
-                    phase: 4, name: "path-policies",
-                    pathMs: ctx.pathMs
-                });
-            }
-
             schedule(phase5);
         }
 

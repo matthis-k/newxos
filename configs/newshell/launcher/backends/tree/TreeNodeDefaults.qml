@@ -10,14 +10,6 @@ QtObject {
 
     property var defaultEvaluationProfile: EvalProfiles.defaultNodeProfile()
 
-    property var backendEvaluationProfile: EvalProfiles.backendRootProfile({
-        evidence: ["field-match", "switch-action", "semantic", "usage", "recency"],
-        boost: ["descendant-boost"],
-        childVisible: ["visible-flag", ["above-min-score", { threshold: 0.25 }]],
-        defaultAction: ["default-action-owner"],
-        riskGate: ["risk-gate"]
-    })
-
     property var switchProfile: EvalProfiles.switchProfile({
         retainParent: []
     })
@@ -28,8 +20,8 @@ QtObject {
         var opts = options || {};
         tracer.trace("groupProfile", function() { return { hasOptions: !!options }; });
         return EvalProfiles.groupProfile({
-            strategies: opts.strategies || ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
-            evidence: opts.evidence || ["field-match", "switch-action", "semantic", "token-claim", "usage", "recency"],
+            strategies: opts.strategies !== undefined ? opts.strategies : ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
+            evidence: opts.evidence !== undefined ? opts.evidence : ["field-match", "switch-action", "semantic", "token-claim", "usage", "recency"],
             boost: opts.boost,
             childVisible: opts.childVisible,
             tokenFlow: opts.tokenFlow,

@@ -1084,13 +1084,12 @@ Item {
                 var timings = output.timings || {};
 
                 var totalMs = timings.totalMs || 0;
-                var phaseSum = (timings.rootNodeMs || 0) + (timings.candidateMs || 0) + (timings.evaluateMs || 0) + (timings.pathMs || 0) + (timings.shapeMs || 0);
+                var phaseSum = (timings.rootNodeMs || 0) + (timings.candidateMs || 0) + (timings.evaluateMs || 0) + (timings.shapeMs || 0);
                 var phases = {
                     "directive-tokenize": Math.max(0, totalMs - phaseSum),
                     "root-nodes": timings.rootNodeMs || 0,
                     "candidates": timings.candidateMs || 0,
                     "evaluation": timings.evaluateMs || 0,
-                    "path-policies": timings.pathMs || 0,
                     "shaping": timings.shapeMs || 0
                 };
 

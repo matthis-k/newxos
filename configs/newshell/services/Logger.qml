@@ -200,106 +200,6 @@ QtObject {
         }
     }
 
-    function traced0(name, fn, options) {
-        options = options || {}
-        const level = options.level !== undefined
-            ? LogStore.levelFromName(options.level)
-            : 60
-
-        if (level > installedMaxLevel)
-            return fn
-
-        const s = root.scope(name, options)
-        return function tracedWrapper0() {
-            const span = s.beginTrace(name, options)
-
-            try {
-                return fn.call(this)
-            } catch (error) {
-                if (span !== null)
-                    LogStore.markTraceError(span, error)
-                throw error
-            } finally {
-                s.endTrace(span)
-            }
-        }
-    }
-
-    function traced1(name, fn, options) {
-        options = options || {}
-        const level = options.level !== undefined
-            ? LogStore.levelFromName(options.level)
-            : 60
-
-        if (level > installedMaxLevel)
-            return fn
-
-        const s = root.scope(name, options)
-        return function tracedWrapper1(a) {
-            const span = s.beginTrace(name, options)
-
-            try {
-                return fn.call(this, a)
-            } catch (error) {
-                if (span !== null)
-                    LogStore.markTraceError(span, error)
-                throw error
-            } finally {
-                s.endTrace(span)
-            }
-        }
-    }
-
-    function traced2(name, fn, options) {
-        options = options || {}
-        const level = options.level !== undefined
-            ? LogStore.levelFromName(options.level)
-            : 60
-
-        if (level > installedMaxLevel)
-            return fn
-
-        const s = root.scope(name, options)
-        return function tracedWrapper2(a, b) {
-            const span = s.beginTrace(name, options)
-
-            try {
-                return fn.call(this, a, b)
-            } catch (error) {
-                if (span !== null)
-                    LogStore.markTraceError(span, error)
-                throw error
-            } finally {
-                s.endTrace(span)
-            }
-        }
-    }
-
-    function traced3(name, fn, options) {
-        options = options || {}
-        const level = options.level !== undefined
-            ? LogStore.levelFromName(options.level)
-            : 60
-
-        if (level > installedMaxLevel)
-            return fn
-
-        const s = root.scope(name, options)
-        return function tracedWrapper3(a, b, c) {
-            const span = s.beginTrace(name, options)
-
-            try {
-                return fn.call(this, a, b, c)
-            } catch (error) {
-                if (span !== null)
-                    LogStore.markTraceError(span, error)
-                throw error
-            } finally {
-                s.endTrace(span)
-            }
-        }
-    }
-
     function tap(name, value, defaults, summarizer) {
         if (typeof summarizer === "function")
             root.debug(name, defaults, function() { return summarizer(value) })
@@ -355,24 +255,6 @@ QtObject {
                 const merged = mergeOptions(defaults, options || {})
                 merged.name = makeName(name)
                 return root.traced(merged.name, fn, merged)
-            },
-
-            traced0: function(name, fn, options) {
-                const merged = mergeOptions(defaults, options || {})
-                merged.name = makeName(name)
-                return root.traced0(merged.name, fn, merged)
-            },
-
-            traced1: function(name, fn, options) {
-                const merged = mergeOptions(defaults, options || {})
-                merged.name = makeName(name)
-                return root.traced1(merged.name, fn, merged)
-            },
-
-            traced2: function(name, fn, options) {
-                const merged = mergeOptions(defaults, options || {})
-                merged.name = makeName(name)
-                return root.traced2(merged.name, fn, merged)
             },
 
             tap: function(name, value, summarizer) {

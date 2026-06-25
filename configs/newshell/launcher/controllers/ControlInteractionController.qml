@@ -1,6 +1,5 @@
 import QtQml
 import qs.services
-import "../logic/DebugLogger.js" as DebugLogger
 import "../logic/"
 
 QtObject {

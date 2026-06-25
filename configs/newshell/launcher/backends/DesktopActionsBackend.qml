@@ -65,7 +65,7 @@ TreeBackendBase {
             if (p.length < 3) continue;
 
             var groupName = p[1];
-            var itemName = p[p.length - 2];
+            var itemName = p[p.length - 1];
 
             if (entry.type === "vpn-destination") {
                 vpnDestinations.push({

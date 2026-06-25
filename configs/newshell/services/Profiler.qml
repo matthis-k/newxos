@@ -116,87 +116,12 @@ QtObject {
         }
     }
 
-    function profiled0(name, fn, options) {
-        const nameId = ProfilerStore.internName(name)
-        const categoryId = ProfilerStore.internCategory((options && options.category) || inferCategory(name))
-        const slowThresholdUs = (options && options.slowThresholdUs) || slowThresholdForCategoryUs(categoryId)
-
-        return function profiledWrapper0() {
-            if (mode === "off")
-                return fn.call(this)
-
-            const span = ProfilerStore.begin(nameId, categoryId)
-            try {
-                return fn.call(this)
-            } catch (error) {
-                ProfilerStore.markError(span)
-                throw error
-            } finally {
-                ProfilerStore.end(span, slowThresholdUs)
-            }
-        }
-    }
-
-    function profiled1(name, fn, options) {
-        const nameId = ProfilerStore.internName(name)
-        const categoryId = ProfilerStore.internCategory((options && options.category) || inferCategory(name))
-        const slowThresholdUs = (options && options.slowThresholdUs) || slowThresholdForCategoryUs(categoryId)
-
-        return function profiledWrapper1(a) {
-            if (mode === "off")
-                return fn.call(this, a)
-
-            const span = ProfilerStore.begin(nameId, categoryId)
-            try {
-                return fn.call(this, a)
-            } catch (error) {
-                ProfilerStore.markError(span)
-                throw error
-            } finally {
-                ProfilerStore.end(span, slowThresholdUs)
-            }
-        }
-    }
-
-    function profiled2(name, fn, options) {
-        const nameId = ProfilerStore.internName(name)
-        const categoryId = ProfilerStore.internCategory((options && options.category) || inferCategory(name))
-        const slowThresholdUs = (options && options.slowThresholdUs) || slowThresholdForCategoryUs(categoryId)
-
-        return function profiledWrapper2(a, b) {
-            if (mode === "off")
-                return fn.call(this, a, b)
-
-            const span = ProfilerStore.begin(nameId, categoryId)
-            try {
-                return fn.call(this, a, b)
-            } catch (error) {
-                ProfilerStore.markError(span)
-                throw error
-            } finally {
-                ProfilerStore.end(span, slowThresholdUs)
-            }
-        }
-    }
-
     function scope(prefix, defaults) {
         defaults = defaults || {}
 
         return {
             fn: function(name, fn, options) {
                 return root.profiled(prefix + "." + name, fn, mergeOptions(defaults, options))
-            },
-
-            fn0: function(name, fn, options) {
-                return root.profiled0(prefix + "." + name, fn, mergeOptions(defaults, options))
-            },
-
-            fn1: function(name, fn, options) {
-                return root.profiled1(prefix + "." + name, fn, mergeOptions(defaults, options))
-            },
-
-            fn2: function(name, fn, options) {
-                return root.profiled2(prefix + "." + name, fn, mergeOptions(defaults, options))
             },
 
             begin: function(name) {

@@ -2,8 +2,6 @@ import QtQuick
 import QtQml
 import QtQml.Models
 import qs.services
-import "../logic/DebugLogger.js" as DebugLogger
-
 Item {
     readonly property var tracer: Logger.scope("launcher.navState", { category: "launcher" })
     readonly property var prof: Profiler.scope("launcher.navState", { category: "launcher" })

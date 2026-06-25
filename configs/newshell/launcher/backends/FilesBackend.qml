@@ -17,21 +17,27 @@ ProcessBackendBase {
     property var lazyScanPath: ""
     property var lazyScanCallback: null
 
-    readonly property var fixtureFileList: TestMode.isActive ? loadFixtureFiles() : []
+    readonly property var fixtureFileList: TestMode.isActive ? (loadFixtureFiles() || []) : []
 
     function loadFixtureFiles() {
-        var path = TestMode.fixturePath("FILES");
-        var data = TestMode.loadFixtureSync(path);
-        return data || [];
+        try {
+            var path = TestMode.fixturePath("FILES");
+            if (!path) return [];
+            var data = TestMode.loadFixtureSync(path);
+            return Array.isArray(data) ? data : [];
+        } catch (e) {
+            return [];
+        }
     }
 
     function fixtureRootNode(queryText) {
-        var children = root.fixtureFileList.map(function(f, i) {
+        var list = root.fixtureFileList || [];
+        var children = list.map(function(f, i) {
             return root.nodeForPath(f.path, i, f.name, null, null, true);
         });
         return root.backendRootDto(children, {
             subtitle: qsTr("Fixture results (%1)").arg(children.length),
-            evaluationProfile: root.defaultProfile()
+            evaluationProfile: EvalProfiles.fileProfile()
         });
     }
 
