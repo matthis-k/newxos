@@ -15,14 +15,5 @@ jobs:
 
       - uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Regenerate flake.nix
-        run: nix run "path:$PWD#write-flake"
-
-      - name: Confirm generated files are up to date
-        run: git diff --exit-code -- flake.nix
-
-      - name: List launcher test cases
-        run: nix run "path:$PWD#newshell-launcher-test" -- list tests/launcher/cases
-
-      - name: Run flake checks (includes launcher case validation)
-        run: nix flake check "path:$PWD"
+      - name: Run full gate (write-flake, lint, flake-check, launcher cases, etc.)
+        run: nix run "path:$PWD#repo-gate" -- all
