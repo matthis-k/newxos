@@ -36,6 +36,10 @@ QtObject {
         results.push(testDeciderForStructural());
         results.push(testBestWinsNumeric());
         results.push(testBestWinsStructural());
+        results.push(testBestWinsNonNumeric());
+        results.push(testAccumulateVotesPreservesMetadata());
+        results.push(testStructuralPolicyPriority());
+        results.push(testTiePreservesFirst());
         results.push(testTraceAggregate());
         results.push(testNoTraceOverwrite());
         results.push(testPriorityChangesDecision());
@@ -245,5 +249,66 @@ QtObject {
 
         var ok = defaultSelected !== swappedSelected && swappedSelected === "expand-limited";
         return result(ok, "priority-changes-decision", ok ? "Priority changes selection: " + defaultSelected + " -> " + swappedSelected : "Same selection: " + defaultSelected + " / " + swappedSelected);
+    }
+
+    function testAccumulateVotesPreservesMetadata() {
+        // accumulate-votes must return full normalized results, not just .value
+        var chainResult = PolicyChain.run([
+            { name: "retain-parent-when", args: { condition: "own-match" }, priority: 80 },
+            { name: "retain-always", priority: 50 }
+        ], function(name, spec) {
+            if (name === "retain-parent-when")
+                return { decision: { retain: true }, priority: 80 };
+            if (name === "retain-always")
+                return { decision: { retain: true } };
+            return null;
+        }, "accumulate-votes");
+
+        var votes = chainResult && chainResult.decision ? chainResult.decision : [];
+        var ok = votes.length === 2
+            && votes[0].policy === "retain-parent-when"
+            && votes[0].priority === 80
+            && votes[0].decision.retain === true
+            && votes[1].policy === "retain-always"
+            && votes[1].decision.retain === true;
+        return result(ok, "accumulate-votes-preserves-metadata", ok ? "Votes preserve policy, priority, decision" : "Got " + (votes ? votes.length : 0) + " votes: " + JSON.stringify(votes));
+    }
+
+    function testStructuralPolicyPriority() {
+        // Two structural votes with different priorities; higher priority must win
+        var votes = [
+            { decision: { retain: false }, priority: 30, policy: "retain-never", kind: "retainParent", reasons: [] },
+            { decision: { retain: true }, priority: 80, policy: "retain-parent-when", kind: "retainParent", reasons: [{ code: "test", text: "test" }] }
+        ];
+        var reduced = DecisionDecider.reduce("retainParent", votes, { mode: "highest-priority", tieBreak: "first" });
+        var ok = reduced && reduced.selectedPolicy === "retain-parent-when" && reduced.priority === 80 && reduced.decision.retain === true;
+        return result(ok, "structural-policy-priority", ok ? "retain-parent-when wins (80 > 30)" : "Selected " + (reduced ? reduced.selectedPolicy : "none") + " at priority " + (reduced ? reduced.priority : 0));
+    }
+
+    function testBestWinsNonNumeric() {
+        // best-wins with non-numeric decisions must not compare object decisions
+        var result = PolicyChain.run([
+            { name: "policy-a", priority: 50 },
+            { name: "policy-b", priority: 50 }
+        ], function(name, spec) {
+            if (name === "policy-a") return { decision: { x: 1 } };
+            if (name === "policy-b") return { decision: { x: 2 } };
+            return null;
+        }, "best-wins");
+
+        // Same priority, first should win (no object comparison crash or unpredictable selection)
+        var ok = result && result.policy === "policy-a";
+        return result(ok, "best-wins-non-numeric", ok ? "policy-a wins (first at tie)" : "Selected " + (result ? result.policy : "none"));
+    }
+
+    function testTiePreservesFirst() {
+        // Equal priority should preserve profile order (first wins)
+        var votes = [
+            { decision: { expand: true, maxChildren: 4 }, priority: 50, policy: "expand-a", reasons: [] },
+            { decision: { expand: true, includeAllChildren: true }, priority: 50, policy: "expand-b", reasons: [] }
+        ];
+        var reduced = DecisionDecider.reduce("expand", votes, { mode: "highest-priority", tieBreak: "first" });
+        var ok = reduced && reduced.selectedPolicy === "expand-a";
+        return result(ok, "tie-preserves-first", ok ? "expand-a wins (first at tie)" : "Selected " + (reduced ? reduced.selectedPolicy : "none"));
     }
 }

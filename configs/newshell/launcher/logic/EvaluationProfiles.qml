@@ -5,31 +5,7 @@ import QtQml
 // Reduces duplicate inline profile objects in backend files.
 // Backends import this instead of defining their own profile functions.
 
-// NOTE: We use lazy dynamic import for Logger to avoid a circular dependency.
-// During Quickshell module init, importing qs.services statically here would
-// trigger launcher loading which re-discovers this file before it finishes loading.
-
 Singleton {
-    // Lazily-initialized tracer. First call to tracer() dynamically imports
-    // qs.services — safe because by then the module graph is fully loaded.
-    property var _tracer: null
-
-    function tracer() {
-        if (_tracer === null) {
-            _tracer = {
-                trace: function(cat) {}
-            };
-            try {
-                _tracer = Qt.createQmlObject(
-                    'import QtQml; import qs.services; QtObject { readonly property var t: Logger.scope("launcher.evaluationProfiles", { category: "launcher" }); }',
-                    this
-                ).t;
-            } catch(e) {
-                // Logger unavailable — use noop
-            }
-        }
-        return _tracer;
-    }
     // Default action-group profile with consume-namespace-pass-rest token flow,
     // standard takeover/expand/retain policies, and field-match + semantic evidence.
     function groupProfile(opts) {

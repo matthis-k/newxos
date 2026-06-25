@@ -106,7 +106,7 @@ Singleton {
                     modeEffect = "selected";
                 else if (mode === "best-wins")
                     modeEffect = "considered";
-                else if (mode === "accumulate")
+                else if (mode === "accumulate" || mode === "accumulate-votes")
                     modeEffect = "accumulated";
                 else if (mode === "all-and" || mode === "all-or")
                     modeEffect = "evaluated";
@@ -167,8 +167,9 @@ Singleton {
             switch (mode) {
             case "all-and":  return { value: true, decision: true };
             case "all-or":   return { value: false, decision: false };
-            case "accumulate": return { value: [], decision: [] };
-            default:         return { value: null, decision: null };
+            case "accumulate":
+            case "accumulate-votes": return { value: [], decision: [] };
+            default:                return { value: null, decision: null };
             }
         }
         switch (mode) {
@@ -182,6 +183,13 @@ Singleton {
                     acc.push(v);
             }
             return { value: acc, decision: acc };
+        }
+        case "accumulate-votes": {
+            return {
+                value: results,
+                decision: results,
+                priority: 0
+            };
         }
         case "all-and":
             return { value: results.every(function(r) { return r.value; }), decision: results.every(function(r) { return r.value; }) };
@@ -200,8 +208,7 @@ Singleton {
                         (ri.priority === best.priority && ri.decision > best.decision))
                         best = ri;
                 } else {
-                    if (ri.priority > best.priority ||
-                        (ri.priority === best.priority && ri.decision > best.decision))
+                    if (ri.priority > best.priority)
                         best = ri;
                 }
             }

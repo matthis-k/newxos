@@ -166,7 +166,7 @@ Singleton {
             var policy = PolicyChain.lookupPolicy(registry, spec);
             if (!policy) return null;
             return policy.apply(ev, ctx, spec && spec.args);
-        }, "accumulate", function(tr) {
+        }, "accumulate-votes", function(tr) {
             DecisionTrace.policyVote(ev, ctx, kind, tr.returned, tr.effect);
         });
         votes = chainResult && chainResult.decision ? chainResult.decision : [];
