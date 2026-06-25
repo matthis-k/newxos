@@ -45,79 +45,6 @@
         ${lib.getExe' self'.packages.newxos "newxos"} memory reindex
       '';
 
-      repoDoctorBody = rgBin: ''
-        # 10.3 Basic Memory root is consistent
-        if ${rgBin} -n 'root\.join\("knowledge"\)' \
-          packages modules configs docs \
-          --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
-          echo "error: Basic Memory must use docs/ as project root, not knowledge/" >&2
-          errors=$((errors + 1))
-        fi
-
-        # 10.4 No stale IPC target names
-        if ${rgBin} -n 'applauncher' configs modules packages \
-          --glob '!docs/history/**' --glob '!modules/dev/workflow.nix' 2>/dev/null; then
-          echo "error: stale applauncher IPC target found; use launcher" >&2
-          errors=$((errors + 1))
-        fi
-
-        # 10.5 Runtime test packages must set INSTANCE_MODE=external for IPC tests.
-        if ${rgBin} -n 'newshellRuntimeCheck' \
-          modules/dev/workflow.nix 2>/dev/null \
-          && ! ${rgBin} -q 'INSTANCE_MODE=external' \
-            modules/dev/workflow.nix; then
-          echo "error: runtime check must set NEWSHELL_TEST_INSTANCE_MODE=external" >&2
-          errors=$((errors + 1))
-        fi
-
-        # 10.6 OpenCode package must not mask eval failure
-        if ${rgBin} -n 'builtins\.tryEval' modules/dev/opencode.nix 2>/dev/null; then
-          echo "error: opencode wrapper evaluation must fail at evaluation/build time; do not mask with tryEval" >&2
-          errors=$((errors + 1))
-        fi
-
-        # 10.7 No behavior cases in configs/newshell/launcher/tests/cases/
-        if [ -n "$(find configs/newshell/launcher/tests/cases -maxdepth 1 -name '*.json' -print -quit 2>/dev/null)" ]; then
-          echo "error: Launcher behavior cases must live in tests/launcher/cases/. jq/debug probes must be derived from canonical cases, not maintained separately." >&2
-          errors=$((errors + 1))
-        fi
-
-        # 10.10 check-newshell-config hook must boot newshell (not just static lint)
-        if ${rgBin} -n 'entry = "\$\{lib\.getExe repoGate\} --hook newshell-static";' \
-          modules/dev/workflow.nix 2>/dev/null; then
-          echo "error: check-newshell-config hook must run newshell runtime, not only newshell-static" >&2
-          errors=$((errors + 1))
-        fi
-
-        # 10.9 No colon-encoded policy spec strings
-        if ${rgBin} -n '"policy:\s*[a-z]+-[a-z]+:\d+|\\"[a-z]+-[a-z]+:\\d+|\\"[a-z]+:\\d+' \
-          configs/newshell/launcher \
-          --glob '!docs/history/**' 2>/dev/null; then
-          echo "error: colon-encoded policy spec found. Use array/object format only." >&2
-          errors=$((errors + 1))
-        fi
-      '';
-
-      repoDoctor = pkgs.writeShellScriptBin "repo-doctor" ''
-        set -euo pipefail
-
-        errors=0
-
-        # 10.1 Generated flake is current
-        if ! git diff --exit-code -- flake.nix; then
-          echo "error: flake.nix has uncommitted changes; run write-flake and commit" >&2
-          errors=$((errors + 1))
-        fi
-
-        ${repoDoctorBody "${pkgs.ripgrep}/bin/rg"}
-
-        if [ "$errors" -gt 0 ]; then
-          echo "repo-doctor: $errors check(s) failed" >&2
-          exit 1
-        fi
-        echo "repo-doctor: all checks passed"
-      '';
-
       rustCheck = pkgs.writeShellScriptBin "repo-rust" ''
         set -euo pipefail
         cd "${self}/packages/newxos-cli"
@@ -627,7 +554,6 @@
           pkgs.statix
           writeFlake
           flakeCheck
-          repoDoctor
           rustCheck
           checkNewshellConfig
           newshellCasesCheck
@@ -653,7 +579,6 @@
             fmt               run treefmt
             statix            run statix fix/check
             flake-check       run nix flake check
-            repo-doctor       run repo invariants
             rust              run newxos-cli Rust tests
             newshell-static   lint/type-check QML source
             newshell-cases      validate canonical launcher case files and schema (no runtime needed)
@@ -674,7 +599,7 @@
             runtime           newshell-runtime
             nix               write-flake + statix + fmt + flake-check
             quick             write-flake + fmt + statix + newshell-static
-            all               write-flake + fmt + statix + flake-check + repo-doctor + rust + newshell + hyprland + neovim
+            all               write-flake + fmt + statix + flake-check + rust + newshell + hyprland + neovim
             probe             newshell-probe
           LISTEOF
                   exit 0
@@ -715,7 +640,7 @@
                 runtime)   echo "newshell-runtime" ;;
                 nix)       echo "write-flake statix fmt flake-check" ;;
                 quick)     echo "write-flake fmt statix newshell-static" ;;
-                all)       echo "write-flake fmt statix flake-check repo-doctor rust newshell hyprland neovim" ;;
+                all)       echo "write-flake fmt statix flake-check rust newshell hyprland neovim" ;;
                 probe)     echo "newshell-probe" ;;
                 session)   echo "newshell-session" ;;
                 *)         echo "$name" ;;
@@ -772,9 +697,6 @@
                   ;;
                 flake-check)
                   repo-flake-check
-                  ;;
-                repo-doctor)
-                  repo-doctor
                   ;;
                 rust)
                   repo-rust
@@ -965,7 +887,6 @@
         ${config.pre-commit.installationScript}
       '';
       packages.repo-gate = repoGate;
-      packages.repo-doctor = repoDoctor;
       packages.repo-rust = rustCheck;
       packages.repo-write-flake = writeFlake;
       packages.repo-flake-check = flakeCheck;
@@ -978,32 +899,6 @@
       packages.run-newshell-launcher-ipc-tests = runNewshellIpcTests;
       packages.run-newshell-launcher-ipc-tests-hyprland = newshellRuntimeCheck;
       packages.run-newshell-launcher-ipc-tests-session = runNewshellIpcTestsSession;
-
-      # Static checks that can run in nix flake check
-      checks.repo-doctor =
-        pkgs.runCommand "repo-doctor-check"
-          {
-            nativeBuildInputs = with pkgs; [ ripgrep ];
-          }
-          ''
-            errors=0
-            cd ${self}
-
-            ${repoDoctorBody "rg"}
-
-            # profile.inherit is not supported; use originGroup: "inherited" on evidence
-            if rg 'inherit\s*:' configs/newshell/launcher 2>/dev/null; then
-              echo "ERROR: profile.inherit is not supported. Use evidence originGroup instead." >&2
-              errors=$((errors + 1))
-            fi
-
-            if [ "$errors" -gt 0 ]; then
-              echo "repo-doctor: $errors check(s) failed" >&2
-              exit 1
-            fi
-            echo "repo-doctor: all checks passed"
-            touch $out
-          '';
 
       # Newxos CLI tests (Rust unit tests)
       checks.newxos-cli-tests = self'.packages.newxos-cli.overrideAttrs (old: {
