@@ -1,5 +1,4 @@
-{ pkgs, ... }:
-{
+_: {
   perSystem =
     { pkgs, ... }:
     let
@@ -7,7 +6,7 @@
         pname = "repo-handoff";
         version = "0.1.0";
         src = ../../tools/handoff;
-        cargoHash = "";
+        cargoHash = "sha256-QR5+5lGirmabp0/iWBvpaMvbmxqqqXsYBcfyBZPsKXo=";
         meta.mainProgram = "repo-handoff";
       };
     in
