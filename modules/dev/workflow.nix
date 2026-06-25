@@ -697,9 +697,9 @@
       packages.test-launcher-session = testLauncherSession;
       packages.test-docs-index = testDocsIndex;
       packages.test-install-hooks = testInstallHooks;
-      packages.run-newshell-launcher-ipc-tests = runNewshellIpcTests;
-      packages.run-newshell-launcher-ipc-tests-hyprland = testNewshellRuntime;
-      packages.run-newshell-launcher-ipc-tests-session = runNewshellIpcTestsSession;
+      packages.agentest = pkgs.writeShellScriptBin "agentest" ''
+        exec repo-handoff check --staged "$@"
+      '';
 
       # Newxos CLI tests (Rust unit tests)
       checks.newxos-cli-tests = self'.packages.newxos-cli.overrideAttrs (old: {
@@ -755,5 +755,11 @@
       packages.repo-test = self'.packages.test;
       checks.test = self'.packages.test;
       checks.repo-test = self'.packages.test;
+
+      apps.agentest = {
+        type = "app";
+        program = "${self'.packages.agentest}/bin/agentest";
+        meta.description = "Run handoff checks against staged files (agentest)";
+      };
     };
 }
