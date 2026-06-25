@@ -675,7 +675,11 @@
         always_run = true;
       };
 
-      devShells.default = config.pre-commit.devShell;
+      devShells.default = config.pre-commit.devShell.overrideAttrs (old: {
+        buildInputs = (old.buildInputs or []) ++ [
+          self'.packages.repo-handoff
+        ];
+      });
 
       packages.fmt = config.treefmt.build.wrapper;
       packages.install-git-hooks = pkgs.writeShellScriptBin "install-git-hooks" ''
