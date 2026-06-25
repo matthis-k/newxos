@@ -1,7 +1,7 @@
 import QtQml
 import Quickshell
 import qs.services
-import "../../logic/EvaluationProfiles.qml" as EvalProfiles
+import "../../logic/EvaluationProfiles.js" as EvalProfiles
 
 QtObject {
     readonly property var tracer: Logger.scope("backend.actions.newxos", { category: "backend" })
@@ -10,7 +10,7 @@ QtObject {
     function action(id, title, subtitle, icon, color, payload, extra) { return Object.assign({ id: id, title: title, subtitle: subtitle || "", icon: icon, iconColor: color, action: payload }, extra || {}); }
     function roots(context) { tracer.trace("roots", function() { return {}; }); return [{
         id: "newxos", aliases: ["newxos", "nx", "repo"], title: qsTr("Newxos"), icon: "nix-snowflake-symbolic",
-        template: "flat-action-group", evaluationProfile: EvalProfiles.EvaluationProfiles.groupProfile({
+        template: "flat-action-group", evaluationProfile: EvalProfiles.groupProfile({
             strategies: ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
             evidence: ["field-match", "switch-action", "semantic", "token-claim", "usage", "recency"]
         }),

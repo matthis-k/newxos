@@ -2,7 +2,7 @@ import QtCore
 import Quickshell.Io
 import qs.services
 import "../logic/"
-import "../logic/EvaluationProfiles.qml" as EvalProfiles
+import "../logic/EvaluationProfiles.js" as EvalProfiles
 
 ProcessBackendBase {
     id: root
@@ -171,7 +171,7 @@ ProcessBackendBase {
 
         return root.backendRootDto(children, {
             subtitle: "Path Explorer",
-            evaluationProfile: EvalProfiles.EvaluationProfiles.fileProfile()
+            evaluationProfile: EvalProfiles.fileProfile()
         });
     }
 
@@ -206,7 +206,7 @@ ProcessBackendBase {
 
         return root.backendRootDto(children, {
             subtitle: root.compositeQuery ? qsTr("Results for %1").arg(root.compositeQuery) : root.helpDescription,
-            evaluationProfile: EvalProfiles.EvaluationProfiles.fileProfile()
+            evaluationProfile: EvalProfiles.fileProfile()
         });
     }
 

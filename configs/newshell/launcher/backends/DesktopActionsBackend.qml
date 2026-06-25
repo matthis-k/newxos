@@ -2,7 +2,7 @@ import QtQml
 import Quickshell
 import qs.services
 import "actions" as Actions
-import "../logic/EvaluationProfiles.qml" as EvalProfiles
+import "../logic/EvaluationProfiles.js" as EvalProfiles
 
 TreeBackendBase {
     id: root
@@ -41,11 +41,11 @@ TreeBackendBase {
     Connections { target: NotificationCenter; function onDoNotDisturbEnabledChanged() { root.invalidateCompositeRootCache(); } function onHasCriticalChanged() { root.invalidateCompositeRootCache(); } }
     Connections { target: NetworkService; function onWifiEnabledChanged() { root.invalidateCompositeRootCache(); } function onWifiHardwareEnabledChanged() { root.invalidateCompositeRootCache(); } function onConnectedSsidChanged() { root.invalidateCompositeRootCache(); } function onHasWiredConnectionChanged() { root.invalidateCompositeRootCache(); } function onConnectedNetworkChanged() { root.invalidateCompositeRootCache(); } }
 
-    function fixtureProfile() { return EvalProfiles.EvaluationProfiles.groupProfile(); }
+    function fixtureProfile() { return EvalProfiles.groupProfile(); }
 
     readonly property var fixtureTree: TestMode.isActive ? buildFixtureTree() : null
 
-    function fixtureVpnProfile() { return EvalProfiles.EvaluationProfiles.switchProfile(); }
+    function fixtureVpnProfile() { return EvalProfiles.switchProfile(); }
 
     function buildFixtureTree() {
         var path = TestMode.fixturePath("ACTIONS");

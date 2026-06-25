@@ -1,6 +1,6 @@
 import Quickshell
 import qs.services
-import "../logic/EvaluationProfiles.qml" as EvalProfiles
+import "../logic/EvaluationProfiles.js" as EvalProfiles
 
 LauncherBackendBase {
     id: root
@@ -210,7 +210,7 @@ LauncherBackendBase {
                         root.action("copy", qsTr("Copy result"), { expression: expression, result: output, actionId: "copy" }),
                         root.action("copy-expression", qsTr("Copy expression"), { expression: expression, result: output, actionId: "copy-expression" })
                     ],
-                    evaluationProfile: EvalProfiles.EvaluationProfiles.calculatorProfile(),
+                    evaluationProfile: EvalProfiles.calculatorProfile(),
                     semanticTerms: [{ triggers: [expression], matches: [expression], field: "semantic", score: 1, weight: 1.4 }],
                     meta: { expression: expression, result: output }
                 }));

@@ -1,4 +1,4 @@
-import "../logic/EvaluationProfiles.qml" as EvalProfiles
+import "../logic/EvaluationProfiles.js" as EvalProfiles
 
 Node {
     id: root
@@ -77,7 +77,7 @@ Node {
             children: root.ownChildNodes(),
             replaceQuery: root.replaceQuery,
             switchActions: root.ownSwitchActions(),
-            evaluationProfile: EvalProfiles.EvaluationProfiles.switchProfile({
+            evaluationProfile: EvalProfiles.switchProfile({
                 childVisible: root.childVisible || [["own-score-min", { threshold: 0.25 }]],
                 retainParent: []
             })

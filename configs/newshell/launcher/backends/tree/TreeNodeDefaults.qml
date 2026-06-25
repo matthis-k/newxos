@@ -1,6 +1,6 @@
 import QtQml
 import qs.services
-import "../../logic/EvaluationProfiles.qml" as EvalProfiles
+import "../../logic/EvaluationProfiles.js" as EvalProfiles
 
 QtObject {
     id: root
@@ -8,9 +8,9 @@ QtObject {
     readonly property var tracer: Logger.scope("backend.tree.nodeDefaults", { category: "backend" })
     readonly property var prof: Profiler.scope("backend.tree.nodeDefaults", { category: "backend" })
 
-    property var defaultEvaluationProfile: EvalProfiles.EvaluationProfiles.defaultNodeProfile()
+    property var defaultEvaluationProfile: EvalProfiles.defaultNodeProfile()
 
-    property var backendEvaluationProfile: EvalProfiles.EvaluationProfiles.backendRootProfile({
+    property var backendEvaluationProfile: EvalProfiles.backendRootProfile({
         evidence: ["field-match", "switch-action", "semantic", "usage", "recency"],
         boost: ["descendant-boost"],
         childVisible: ["visible-flag", ["above-min-score", { threshold: 0.25 }]],
@@ -18,7 +18,7 @@ QtObject {
         riskGate: ["risk-gate"]
     })
 
-    property var switchProfile: EvalProfiles.EvaluationProfiles.switchProfile({
+    property var switchProfile: EvalProfiles.switchProfile({
         retainParent: []
     })
 
@@ -27,7 +27,7 @@ QtObject {
     function groupProfile(options) {
         var opts = options || {};
         tracer.trace("groupProfile", function() { return { hasOptions: !!options }; });
-        return EvalProfiles.EvaluationProfiles.groupProfile({
+        return EvalProfiles.groupProfile({
             strategies: opts.strategies || ["exact", "prefix", "compact", "substring", "acronym", "fuzzy", "semantic", "usage", "recency"],
             evidence: opts.evidence || ["field-match", "switch-action", "semantic", "token-claim", "usage", "recency"],
             boost: opts.boost,
@@ -47,7 +47,7 @@ QtObject {
     function leafProfile(options) {
         var opts = options || {};
         tracer.trace("leafProfile", function() { return { hasOptions: !!options }; });
-        return EvalProfiles.EvaluationProfiles.leafProfile({
+        return EvalProfiles.leafProfile({
             strategies: opts.strategies,
             evidence: opts.evidence,
             boost: opts.boost,

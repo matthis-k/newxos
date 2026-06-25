@@ -1,7 +1,7 @@
 import QtQml
 import qs.services
 import "../logic/"
-import "../logic/EvaluationProfiles.qml" as EvalProfiles
+import "../logic/EvaluationProfiles.js" as EvalProfiles
 import "../logic/RoutingTree.js" as RoutingTree
 
 QtObject {
@@ -105,7 +105,7 @@ QtObject {
             behavior: Object.assign({
                 exclusiveWhen: (root.routes || []).filter(function(route) { return route && (route.mode === "exclusive" || route.combine === "exclusive"); })
             }, opts.behavior || {}),
-            evaluationProfile: EvalProfiles.EvaluationProfiles.backendRootProfile({ strategies: ["exact", "prefix", "compact", "substring", "acronym"] })
+            evaluationProfile: EvalProfiles.backendRootProfile({ strategies: ["exact", "prefix", "compact", "substring", "acronym"] })
         }, opts));
     }
 

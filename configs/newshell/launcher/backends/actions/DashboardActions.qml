@@ -1,6 +1,6 @@
 import QtQml
 import qs.services
-import "../../logic/EvaluationProfiles.qml" as EvalProfiles
+import "../../logic/EvaluationProfiles.js" as EvalProfiles
 
 QtObject {
     readonly property var tracer: Logger.scope("backend.actions.dashboard", { category: "backend" })
@@ -35,6 +35,6 @@ QtObject {
     function roots(context) {
         tracer.trace("roots", function() { return {}; });
         var tabs = (shellScreenState && shellScreenState.dashboardTabs) || ["overview", "audio", "notifications", "bluetooth", "wifi", "energy", "stats"];
-        return [{ id: "dashboard", aliases: ["db", "dashboard"], title: qsTr("Dashboard"), icon: iconForTab("overview"), iconColor: colorForTab("overview"), template: "flat-action-group", behavior: { filterChildren: true }, evaluationProfile: EvalProfiles.EvaluationProfiles.groupProfile({ evidence: ["field-match", "semantic"] }), action: { service: "dashboard", tab: "overview" }, children: tabs.map(function(tab) { return { id: tab, title: titleForTab(tab), icon: iconForTab(tab), iconColor: colorForTab(tab), action: { service: "dashboard", tab: tab } }; }) }];
+        return [{ id: "dashboard", aliases: ["db", "dashboard"], title: qsTr("Dashboard"), icon: iconForTab("overview"), iconColor: colorForTab("overview"), template: "flat-action-group", behavior: { filterChildren: true }, evaluationProfile: EvalProfiles.groupProfile({ evidence: ["field-match", "semantic"] }), action: { service: "dashboard", tab: "overview" }, children: tabs.map(function(tab) { return { id: tab, title: titleForTab(tab), icon: iconForTab(tab), iconColor: colorForTab(tab), action: { service: "dashboard", tab: tab } }; }) }];
     }
 }

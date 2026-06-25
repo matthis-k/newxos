@@ -1,7 +1,7 @@
 import Quickshell
 import qs.services
 import "../logic/DebugLogger.js" as DebugLogger
-import "../logic/EvaluationProfiles.qml" as EvalProfiles
+import "../logic/EvaluationProfiles.js" as EvalProfiles
 
 ModelTreeBackendBase {
     id: root
@@ -49,8 +49,8 @@ ModelTreeBackendBase {
         };});
     }
 
-    function appProfile() { return EvalProfiles.EvaluationProfiles.appProfile(); }
-    function visualRootProfile() { return EvalProfiles.EvaluationProfiles.visualRootProfile(); }
+    function appProfile() { return EvalProfiles.appProfile(); }
+    function visualRootProfile() { return EvalProfiles.visualRootProfile(); }
 
     function debugLog(category, message, data) {
         if (root.controller && root.controller.debugEnabled)

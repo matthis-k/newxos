@@ -1,6 +1,6 @@
 import QtQml
 import qs.services
-import "EvaluationProfiles.qml" as EvalProfiles
+import "EvaluationProfiles.js" as EvalProfiles
 
 QtObject {
     id: root
@@ -37,7 +37,7 @@ QtObject {
         node.path = node.path || "";
         node.usageCount = node.usageCount || 0;
         node.lastUsedDaysAgo = node.lastUsedDaysAgo === undefined ? 9999 : node.lastUsedDaysAgo;
-        node.evaluationProfile = node.evaluationProfile || EvalProfiles.EvaluationProfiles.defaultNodeProfile();
+        node.evaluationProfile = node.evaluationProfile || EvalProfiles.defaultNodeProfile();
         node.actionList = node.actionList || [];
         node.meta = node.meta || node.metadata || {};
         for (var i = 0; i < node.children.length; i += 1) {
