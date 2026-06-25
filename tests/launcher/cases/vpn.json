@@ -153,7 +153,7 @@
             "selected": { "title": "Norway" },
             "rows": {
               "containsTitle": ["VPN", "Norway"],
-              "notContainsTitle": ["Germany", "Netherlands", "Algeria", "Georgia", "Uganda", "Norway"],
+              "notContainsTitle": ["Germany", "Netherlands", "Algeria", "Georgia", "Uganda"],
               "noneHighlightedExceptSelected": true
             },
             "invariants": ["exactly-one-selected", "no-hidden-selected-node"]
@@ -173,7 +173,7 @@
             "exactlyOneSelected": true,
             "rows": {
               "containsTitle": ["VPN", "Norway"],
-              "notContainsTitle": ["Germany", "Netherlands", "Algeria", "Georgia", "Uganda", "Norway"],
+              "notContainsTitle": ["Germany", "Netherlands", "Algeria", "Georgia", "Uganda"],
               "noneHighlightedExceptSelected": true
             }
           }
@@ -192,7 +192,7 @@
             "exactlyOneSelected": true,
             "rows": {
               "containsTitle": ["VPN", "Norway"],
-              "notContainsTitle": ["Germany", "Netherlands", "Algeria", "Georgia", "Uganda", "Norway"],
+              "notContainsTitle": ["Germany", "Netherlands", "Algeria", "Georgia", "Uganda"],
               "noneHighlightedExceptSelected": true
             }
           }

@@ -378,6 +378,19 @@
         '';
       };
 
+      newshellPolicyCheck = pkgs.writeShellApplication {
+        name = "repo-newshell-policy";
+        runtimeInputs = [
+          self'.packages.newshell-launcher-test
+          pkgs.bash
+          pkgs.coreutils
+        ];
+        text = ''
+          set -euo pipefail
+          ${lib.getExe self'.packages.newshell-launcher-test} policy validate "${self}/tests/launcher/policies"
+        '';
+      };
+
       newshellCasesCheck = pkgs.writeShellApplication {
         name = "repo-newshell-cases";
         runtimeInputs = [
@@ -556,6 +569,7 @@
           flakeCheck
           rustCheck
           checkNewshellConfig
+          newshellPolicyCheck
           newshellCasesCheck
           newshellCasesRunCheck
           newshellRuntimeCheck
@@ -581,10 +595,13 @@
             flake-check       run nix flake check
             rust              run newxos-cli Rust tests
             newshell-static   lint/type-check QML source
+            newshell-policy     validate policy unit test cases (fast, deterministic, no backends)
             newshell-cases      validate canonical launcher case files and schema (no runtime needed)
             newshell-cases-run  run canonical launcher cases against headless newshell (requires display)
             newshell-session    run canonical cases against running service/session
-            launcher            alias for newshell-cases + newshell-cases-run
+            launcher            alias for newshell-policy + newshell-cases + newshell-cases-run
+            launcher-policy     alias for newshell-policy
+            launcher-cases      alias for newshell-cases
             newshell-runtime  boot + optional IPC tests (auto if launcher files changed, or set NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1)
             newshell-probe    derive/debug launcher probes from canonical cases (diagnostic)
             hyprland          verify Hyprland config
@@ -593,7 +610,10 @@
             hooks             reinstall managed git hooks
 
           Aliases:
-            launcher          newshell-cases + newshell-cases-run
+            launcher            newshell-policy + newshell-cases + newshell-cases-run
+            launcher-policy     newshell-policy
+            launcher-cases      newshell-cases
+            launcher-integration newshell-cases-run
             newshell          newshell-static + newshell-runtime + newshell-cases
             session           newshell-session
             runtime           newshell-runtime
@@ -635,14 +655,17 @@
             resolve_alias() {
               local name="$1"
               case "$name" in
-                launcher)  echo "newshell-cases newshell-cases-run" ;;
-                newshell)  echo "newshell-static newshell-runtime newshell-cases" ;;
-                runtime)   echo "newshell-runtime" ;;
-                nix)       echo "write-flake statix fmt flake-check" ;;
-                quick)     echo "write-flake fmt statix newshell-static" ;;
-                all)       echo "write-flake fmt statix flake-check rust newshell hyprland neovim" ;;
-                probe)     echo "newshell-probe" ;;
-                session)   echo "newshell-session" ;;
+              launcher)  echo "newshell-policy newshell-cases newshell-cases-run" ;;
+              launcher-policy)  echo "newshell-policy" ;;
+              launcher-cases)   echo "newshell-cases" ;;
+              launcher-integration) echo "newshell-cases-run" ;;
+              newshell)  echo "newshell-static newshell-runtime newshell-cases" ;;
+              runtime)   echo "newshell-runtime" ;;
+              nix)       echo "write-flake statix fmt flake-check" ;;
+              quick)     echo "write-flake fmt statix newshell-static" ;;
+              all)       echo "write-flake fmt statix flake-check rust newshell hyprland neovim" ;;
+              probe)     echo "newshell-probe" ;;
+              session)   echo "newshell-session" ;;
                 *)         echo "$name" ;;
               esac
             }
@@ -703,6 +726,9 @@
                   ;;
                 newshell-static)
                   check-newshell-config
+                  ;;
+                newshell-policy)
+                  repo-newshell-policy
                   ;;
                 newshell-cases)
                   repo-newshell-cases
@@ -870,6 +896,15 @@
         pass_filenames = false;
       };
 
+      pre-commit.settings.hooks.check-newshell-policy = {
+        enable = true;
+        name = "check launcher policy tests";
+        description = "Validate launcher policy unit test cases.";
+        entry = "${lib.getExe repoGate} --hook newshell-policy";
+        files = "^tests/launcher/policies/";
+        pass_filenames = false;
+      };
+
       pre-commit.settings.hooks.check-newshell-cases = {
         enable = true;
         name = "check launcher test cases";
@@ -891,6 +926,7 @@
       packages.repo-write-flake = writeFlake;
       packages.repo-flake-check = flakeCheck;
       packages.repo-newshell-runtime = newshellRuntimeCheck;
+      packages.repo-newshell-policy = newshellPolicyCheck;
       packages.repo-newshell-cases = newshellCasesCheck;
       packages.repo-newshell-cases-run = newshellCasesRunCheck;
       packages.repo-newshell-session = newshellSessionCheck;
@@ -907,6 +943,9 @@
 
       # Enhance newshell static check to lint all .qml files (uses same logic as hook)
       checks.check-newshell-static = checkNewshellConfig;
+
+      # Policy unit tests: validate policy test cases (fast, deterministic, no backends)
+      checks.check-newshell-policy = newshellPolicyCheck;
 
       # Launcher case validation: validate JSON test case schemas (no runtime needed)
       checks.check-newshell-cases = newshellCasesCheck;

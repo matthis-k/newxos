@@ -1,0 +1,16 @@
+{
+  "cases": [
+    {
+      "name": "file profile uses path-aware fields and evidence",
+      "kind": "profile",
+      "profile": "file",
+      "expect": {
+        "fields": ["label", "aliases", "path"],
+        "evidence": ["field-match", "usage", "recency"],
+        "tokenFlow": ["consume-path-segment"],
+        "expand": ["expand-when"],
+        "retainParent": ["retain-always"]
+      }
+    }
+  ]
+}

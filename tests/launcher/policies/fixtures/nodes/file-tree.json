@@ -1,0 +1,10 @@
+{
+  "id": "file:/home/me",
+  "label": "home",
+  "path": "/home/me",
+  "kind": "directory",
+  "children": [
+    { "id": "file:/home/me/Downloads", "label": "Downloads", "path": "/home/me/Downloads", "kind": "directory" },
+    { "id": "file:/home/me/Downloads/report.md", "label": "report.md", "path": "/home/me/Downloads/report.md", "kind": "file" }
+  ]
+}

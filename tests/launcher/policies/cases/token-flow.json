@@ -1,0 +1,118 @@
+{
+  "cases": [
+    {
+      "name": "consume-path-segment consumes one path segment and passes residual tokens",
+      "kind": "tokenFlow",
+      "policySpec": { "name": "consume-path-segment", "kind": "tokenFlow" },
+      "node": {
+        "id": "file:/home/me/Downloads",
+        "label": "Downloads",
+        "path": "/home/me/Downloads"
+      },
+      "query": { "raw": "~/Downloads report", "tokens": ["~/Downloads", "report"] },
+      "expect": {
+        "consumed": ["~/Downloads"],
+        "passed": ["report"]
+      }
+    },
+    {
+      "name": "consume-path-segment unmatched path leaves all tokens passed",
+      "kind": "tokenFlow",
+      "policySpec": { "name": "consume-path-segment", "kind": "tokenFlow" },
+      "node": {
+        "id": "file:/home/me/Documents",
+        "label": "Documents",
+        "path": "/home/me/Documents"
+      },
+      "query": { "raw": "report", "tokens": ["report"] },
+      "expect": {
+        "consumed": [],
+        "passed": ["report"]
+      }
+    },
+    {
+      "name": "consume-namespace-pass-rest consumes namespace token",
+      "kind": "tokenFlow",
+      "policySpec": { "name": "consume-namespace-pass-rest", "kind": "tokenFlow" },
+      "node": {
+        "id": "group:audio",
+        "label": "Audio"
+      },
+      "query": { "raw": "audio volume", "tokens": ["audio", "volume"] },
+      "expect": {
+        "consumed": ["audio"],
+        "passed": ["volume"]
+      }
+    },
+    {
+      "name": "consume-action-token consumes action token",
+      "kind": "tokenFlow",
+      "policySpec": { "name": "consume-action-token", "kind": "tokenFlow" },
+      "node": {
+        "id": "app:firefox:new-window",
+        "label": "New Window"
+      },
+      "query": { "raw": "firefox new-window", "tokens": ["firefox", "new-window"] },
+      "expect": {
+        "consumed": ["new-window"],
+        "passed": ["firefox"]
+      }
+    },
+    {
+      "name": "consume-own-pass-rest consumes label token",
+      "kind": "tokenFlow",
+      "policySpec": { "name": "consume-own-pass-rest", "kind": "tokenFlow" },
+      "node": {
+        "id": "app:firefox",
+        "label": "Firefox"
+      },
+      "query": { "raw": "firefox new-window", "tokens": ["firefox", "new-window"] },
+      "expect": {
+        "consumed": ["firefox"],
+        "passed": ["new-window"]
+      }
+    },
+    {
+      "name": "claim-context-pass-all claims context token",
+      "kind": "tokenFlow",
+      "policySpec": { "name": "claim-context-pass-all", "kind": "tokenFlow" },
+      "node": {
+        "id": "group:audio",
+        "label": "Audio"
+      },
+      "query": { "raw": "audio", "tokens": ["audio"] },
+      "expect": {
+        "consumed": ["audio"],
+        "passed": []
+      }
+    },
+    {
+      "name": "consume-switch-pass-rest consumes switch token",
+      "kind": "tokenFlow",
+      "policySpec": { "name": "consume-switch-pass-rest", "kind": "tokenFlow" },
+      "node": {
+        "id": "switch:output",
+        "label": "Output"
+      },
+      "query": { "raw": "output speakers", "tokens": ["output", "speakers"] },
+      "expect": {
+        "consumed": ["output"],
+        "passed": ["speakers"]
+      }
+    },
+    {
+      "name": "pass-all passes all tokens through",
+      "kind": "tokenFlow",
+      "policySpec": { "name": "pass-all", "kind": "tokenFlow" },
+      "node": {
+        "id": "root",
+        "label": "Root"
+      },
+      "query": { "raw": "any query", "tokens": ["any", "query"] },
+      "expect": {
+        "consumed": [],
+        "passed": ["any", "query"]
+      }
+    }
+  ]
+}

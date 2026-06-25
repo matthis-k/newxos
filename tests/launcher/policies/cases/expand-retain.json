@@ -1,0 +1,44 @@
+{
+  "cases": [
+    {
+      "name": "expand-on-trailing-space triggers expansion with trailing space",
+      "kind": "expandRetain",
+      "policySpec": { "name": "expand-on-trailing-space", "kind": "expand" },
+      "node": {
+        "id": "group:audio",
+        "label": "Audio"
+      },
+      "query": { "raw": "audio ", "tokens": ["audio", ""] },
+      "expect": {
+        "decision": { "expand": true }
+      }
+    },
+    {
+      "name": "expand-when expands directory node",
+      "kind": "expandRetain",
+      "policySpec": { "name": "expand-when", "kind": "expand" },
+      "node": {
+        "id": "file:/home/me/Downloads",
+        "label": "Downloads",
+        "path": "/home/me/Downloads"
+      },
+      "query": { "raw": "Downloads", "tokens": ["Downloads"] },
+      "expect": {
+        "decision": { "expand": true }
+      }
+    },
+    {
+      "name": "retain-always always retains parent",
+      "kind": "expandRetain",
+      "policySpec": { "name": "retain-always", "kind": "retainParent" },
+      "node": {
+        "id": "file:/home/me/Downloads",
+        "label": "Downloads"
+      },
+      "query": { "raw": "anything", "tokens": ["anything"] },
+      "expect": {
+        "decision": { "retain": true }
+      }
+    }
+  ]
+}

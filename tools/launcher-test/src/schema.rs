@@ -239,3 +239,52 @@ pub enum NormalizedStep {
     Do(StepAction),
     Expect(Expectation),
 }
+
+// Policy unit test types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyTestSuite {
+    pub cases: Vec<PolicyTestCase>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PolicyTestCase {
+    pub name: String,
+    pub kind: String,
+    pub node: Option<serde_json::Value>,
+    pub query: Option<serde_json::Value>,
+    pub children: Option<Vec<serde_json::Value>>,
+    pub votes: Option<Vec<PolicyVote>>,
+    pub policy_spec: Option<PolicySpec>,
+    pub mode: Option<String>,
+    #[serde(rename = "tieBreak")]
+    pub tie_break: Option<String>,
+    pub profile: Option<String>,
+    pub expect: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyVote {
+    pub decision: Option<serde_json::Value>,
+    pub priority: Option<f64>,
+    pub policy: Option<String>,
+    pub reasons: Option<Vec<Reason>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicySpec {
+    pub name: Option<String>,
+    pub kind: Option<String>,
+    pub priority: Option<f64>,
+    pub args: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Reason {
+    pub code: Option<String>,
+    pub text: Option<String>,
+}

@@ -1,0 +1,30 @@
+{
+  "cases": [
+    {
+      "name": "explicit-child-token requests takeover when child token present",
+      "kind": "takeover",
+      "policySpec": { "name": "explicit-child-token", "kind": "takeoverRequest" },
+      "node": {
+        "id": "group:audio",
+        "label": "Audio"
+      },
+      "query": { "raw": "audio volume", "tokens": ["audio", "volume"] },
+      "expect": {
+        "decision": { "takeover": true }
+      }
+    },
+    {
+      "name": "own-score-dominates-takeover requests takeover when own score dominates",
+      "kind": "takeover",
+      "policySpec": { "name": "own-score-dominates-takeover", "kind": "takeoverRequest" },
+      "node": {
+        "id": "app:firefox",
+        "label": "Firefox"
+      },
+      "query": { "raw": "firefox", "tokens": ["firefox"] },
+      "expect": {
+        "decision": { "takeover": true }
+      }
+    }
+  ]
+}

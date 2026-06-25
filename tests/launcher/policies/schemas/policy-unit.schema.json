@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PolicyUnitTestSuite",
+  "type": "object",
+  "required": ["cases"],
+  "additionalProperties": false,
+  "properties": {
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["policyChain", "decisionDecider", "tokenFlow", "evidence", "expandRetain", "takeover", "nesting", "profile"]
+          },
+          "node": { "$ref": "#/definitions/SyntheticNode" },
+          "query": { "$ref": "#/definitions/SyntheticQuery" },
+          "children": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/SyntheticNode" }
+          },
+          "votes": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/PolicyVote" }
+          },
+          "policySpec": { "$ref": "#/definitions/PolicySpec" },
+          "mode": { "type": "string" },
+          "tieBreak": { "type": "string" },
+          "profile": { "type": "string" },
+          "expect": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "decision": {},
+              "selectedPolicy": { "type": "string" },
+              "priority": { "type": "number" },
+              "consumed": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "passed": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "strength": { "type": "number" },
+              "voteCount": { "type": "integer" },
+              "fields": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "evidence": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "tokenFlow": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "expand": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "retainParent": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "SyntheticNode": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "path": { "type": "string" }
+      }
+    },
+    "SyntheticQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "raw": { "type": "string" },
+        "tokens": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "PolicyVote": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "decision": {},
+        "priority": { "type": "number" },
+        "policy": { "type": "string" },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": { "type": "string" },
+              "text": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "PolicySpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "kind": { "type": "string" },
+        "priority": { "type": "number" },
+        "args": {}
+      }
+    }
+  }
+}

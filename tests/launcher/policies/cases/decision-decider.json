@@ -1,0 +1,73 @@
+{
+  "cases": [
+    {
+      "name": "highest-priority chooses highest priority",
+      "kind": "decisionDecider",
+      "mode": "highest-priority",
+      "tieBreak": "first",
+      "votes": [
+        { "decision": { "value": 1 }, "priority": 10, "policy": "policy-a", "reasons": [] },
+        { "decision": { "value": 2 }, "priority": 80, "policy": "policy-b", "reasons": [] },
+        { "decision": { "value": 3 }, "priority": 50, "policy": "policy-c", "reasons": [] }
+      ],
+      "expect": {
+        "selectedPolicy": "policy-b",
+        "priority": 80
+      }
+    },
+    {
+      "name": "tieBreak first keeps first",
+      "kind": "decisionDecider",
+      "mode": "highest-priority",
+      "tieBreak": "first",
+      "votes": [
+        { "decision": { "value": "a" }, "priority": 50, "policy": "policy-a", "reasons": [] },
+        { "decision": { "value": "b" }, "priority": 50, "policy": "policy-b", "reasons": [] }
+      ],
+      "expect": {
+        "selectedPolicy": "policy-a",
+        "priority": 50
+      }
+    },
+    {
+      "name": "tieBreak last picks last",
+      "kind": "decisionDecider",
+      "mode": "highest-priority",
+      "tieBreak": "last",
+      "votes": [
+        { "decision": { "value": "a" }, "priority": 50, "policy": "policy-a", "reasons": [] },
+        { "decision": { "value": "b" }, "priority": 50, "policy": "policy-b", "reasons": [] }
+      ],
+      "expect": {
+        "selectedPolicy": "policy-b",
+        "priority": 50
+      }
+    },
+    {
+      "name": "best-wins numeric tie chooses larger numeric decision",
+      "kind": "decisionDecider",
+      "mode": "best-wins",
+      "tieBreak": "first",
+      "votes": [
+        { "decision": 0.5, "priority": 50, "policy": "policy-a", "reasons": [] },
+        { "decision": 0.8, "priority": 50, "policy": "policy-b", "reasons": [] }
+      ],
+      "expect": {
+        "selectedPolicy": "policy-b",
+        "priority": 50,
+        "decision": 0.8
+      }
+    },
+    {
+      "name": "empty vote list returns null decision",
+      "kind": "decisionDecider",
+      "mode": "highest-priority",
+      "tieBreak": "first",
+      "votes": [],
+      "expect": {
+        "decision": null,
+        "selectedPolicy": ""
+      }
+    }
+  ]
+}

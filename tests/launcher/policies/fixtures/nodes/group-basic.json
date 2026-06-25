@@ -1,0 +1,15 @@
+{
+  "id": "group:audio",
+  "label": "Audio",
+  "aliases": ["sound", "volume"],
+  "subtitle": "Audio settings",
+  "kind": "group",
+  "evaluationProfile": {
+    "mode": "generic+custom",
+    "fields": ["label", "aliases"],
+    "evidence": ["field-match", "switch-action", "semantic"],
+    "tokenFlow": ["consume-namespace-pass-rest"],
+    "expand": ["expand-on-own-match-or-trailing-space"],
+    "retainParent": [{ "name": "retain-parent-when", "args": { "condition": "own-match" } }]
+  }
+}

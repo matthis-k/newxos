@@ -1,0 +1,73 @@
+{
+  "cases": [
+    {
+      "name": "group profile uses namespace token flow",
+      "kind": "profile",
+      "profile": "group",
+      "expect": {
+        "fields": ["label", "aliases"],
+        "evidence": ["field-match", "switch-action", "semantic"],
+        "tokenFlow": ["consume-namespace-pass-rest"],
+        "expand": ["expand-on-own-match-or-trailing-space"],
+        "retainParent": ["retain-parent-when"]
+      }
+    },
+    {
+      "name": "app profile uses own-pass-rest token flow",
+      "kind": "profile",
+      "profile": "app",
+      "expect": {
+        "fields": ["label"],
+        "evidence": ["field-match", "semantic", "usage", "recency"],
+        "tokenFlow": ["consume-own-pass-rest"],
+        "expand": ["expand-on-trailing-space"],
+        "retainParent": ["retain-parent-when"]
+      }
+    },
+    {
+      "name": "visual root uses pass-all token flow",
+      "kind": "profile",
+      "profile": "visualRoot",
+      "expect": {
+        "fields": ["label"],
+        "evidence": ["field-match", "semantic"],
+        "tokenFlow": ["pass-all"],
+        "expand": ["expand-on-own-match-or-trailing-space"],
+        "retainParent": ["retain-parent-when"]
+      }
+    },
+    {
+      "name": "default node uses pass-all token flow",
+      "kind": "profile",
+      "profile": "defaultNode",
+      "expect": {
+        "fields": ["label", "aliases"],
+        "evidence": ["field-match", "switch-action", "semantic", "token-claim", "usage", "recency"],
+        "tokenFlow": ["pass-all"]
+      }
+    },
+    {
+      "name": "calculator profile uses pass-all token flow",
+      "kind": "profile",
+      "profile": "calculator",
+      "expect": {
+        "fields": ["label", "aliases"],
+        "evidence": ["field-match", "semantic"],
+        "tokenFlow": ["pass-all"],
+        "expand": ["expand-none"],
+        "retainParent": ["retain-always"]
+      }
+    },
+    {
+      "name": "switch profile uses namespace token flow",
+      "kind": "profile",
+      "profile": "switch",
+      "expect": {
+        "fields": ["label", "aliases"],
+        "evidence": ["field-match", "switch-action"],
+        "tokenFlow": ["consume-switch-pass-rest"],
+        "retainParent": ["retain-always"]
+      }
+    }
+  ]
+}

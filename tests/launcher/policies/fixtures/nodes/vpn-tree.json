@@ -1,0 +1,11 @@
+{
+  "id": "networking.vpn",
+  "label": "VPN",
+  "kind": "group",
+  "children": [
+    { "id": "networking.vpn.germany", "label": "Germany", "kind": "vpn-destination" },
+    { "id": "networking.vpn.netherlands", "label": "Netherlands", "kind": "vpn-destination" },
+    { "id": "networking.vpn.algeria", "label": "Algeria", "kind": "vpn-destination" },
+    { "id": "networking.vpn.norway", "label": "Norway", "kind": "vpn-destination" }
+  ]
+}

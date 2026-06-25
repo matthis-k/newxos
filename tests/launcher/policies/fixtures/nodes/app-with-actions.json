@@ -1,0 +1,9 @@
+{
+  "id": "app:firefox",
+  "label": "Firefox",
+  "kind": "app",
+  "children": [
+    { "id": "app:firefox:new-window", "label": "New Window", "kind": "action" },
+    { "id": "app:firefox:private-window", "label": "Private Window", "kind": "action" }
+  ]
+}

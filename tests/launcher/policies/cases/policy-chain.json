@@ -1,0 +1,97 @@
+{
+  "cases": [
+    {
+      "name": "normalize scalar result",
+      "kind": "policyChain",
+      "policySpec": { "name": "test-policy", "kind": "boost" },
+      "mode": "best-wins",
+      "votes": [
+        { "decision": 0.5, "priority": 10, "policy": "test-policy", "reasons": [] }
+      ],
+      "expect": {
+        "decision": 0.5,
+        "selectedPolicy": "test-policy",
+        "priority": 10
+      }
+    },
+    {
+      "name": "normalize { decision, reason, priority }",
+      "kind": "policyChain",
+      "policySpec": { "name": "test-policy", "kind": "boost" },
+      "mode": "best-wins",
+      "votes": [
+        { "decision": 0.8, "priority": 20, "policy": "test-policy", "reasons": [{ "code": "reason", "text": "strong match" }] }
+      ],
+      "expect": {
+        "decision": 0.8,
+        "selectedPolicy": "test-policy",
+        "priority": 20
+      }
+    },
+    {
+      "name": "best-wins chooses highest priority",
+      "kind": "policyChain",
+      "mode": "best-wins",
+      "votes": [
+        { "decision": 0.3, "priority": 10, "policy": "low-priority", "reasons": [] },
+        { "decision": 0.9, "priority": 80, "policy": "high-priority", "reasons": [] }
+      ],
+      "expect": {
+        "selectedPolicy": "high-priority",
+        "priority": 80,
+        "decision": 0.9
+      }
+    },
+    {
+      "name": "best-wins breaks numeric ties by larger decision",
+      "kind": "policyChain",
+      "mode": "best-wins",
+      "votes": [
+        { "decision": 0.5, "priority": 50, "policy": "policy-a", "reasons": [] },
+        { "decision": 0.8, "priority": 50, "policy": "policy-b", "reasons": [] }
+      ],
+      "expect": {
+        "selectedPolicy": "policy-b",
+        "priority": 50,
+        "decision": 0.8
+      }
+    },
+    {
+      "name": "accumulate-votes preserves normalized votes",
+      "kind": "policyChain",
+      "mode": "accumulate-votes",
+      "votes": [
+        { "decision": { "retain": true }, "priority": 80, "policy": "retain-parent-when", "reasons": [] },
+        { "decision": { "retain": true }, "priority": 50, "policy": "retain-always", "reasons": [] }
+      ],
+      "expect": {
+        "voteCount": 2
+      }
+    },
+    {
+      "name": "all-and returns false on first false vote",
+      "kind": "policyChain",
+      "mode": "all-and",
+      "votes": [
+        { "decision": true, "priority": 10, "policy": "policy-a", "reasons": [] },
+        { "decision": false, "priority": 10, "policy": "policy-b", "reasons": [] },
+        { "decision": true, "priority": 10, "policy": "policy-c", "reasons": [] }
+      ],
+      "expect": {
+        "decision": false
+      }
+    },
+    {
+      "name": "all-or returns true on first true vote",
+      "kind": "policyChain",
+      "mode": "all-or",
+      "votes": [
+        { "decision": false, "priority": 10, "policy": "policy-a", "reasons": [] },
+        { "decision": true, "priority": 10, "policy": "policy-b", "reasons": [] }
+      ],
+      "expect": {
+        "decision": true
+      }
+    }
+  ]
+}

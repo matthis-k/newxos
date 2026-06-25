@@ -63,6 +63,70 @@ pub enum Command {
         #[arg(long)]
         verbose: bool,
     },
+    /// Policy unit test commands
+    Policy {
+        #[command(subcommand)]
+        subcommand: PolicyCommand,
+    },
+    /// Integration test commands (validate only, use `run` for runtime)
+    Integration {
+        #[command(subcommand)]
+        subcommand: IntegrationCommand,
+    },
+    /// Run all tests: validate policy + integration cases, then run integration if mode specified
+    All {
+        /// Run mode for integration tests: headless or visible
+        #[arg(long, default_value = "headless")]
+        mode: RunMode,
+        /// Path to launcher IPC socket (auto-detected if not provided)
+        #[arg(long)]
+        socket: Option<PathBuf>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PolicyCommand {
+    /// Validate policy unit test JSON files against the policy schema
+    Validate {
+        /// Path to policy test case file or directory
+        path: PathBuf,
+    },
+    /// List policy unit test cases
+    List {
+        /// Path to policy test case file or directory
+        path: PathBuf,
+        /// Optional filter string
+        #[arg(long)]
+        filter: Option<String>,
+    },
+    /// Run policy unit tests against a newshell instance (requires QML execution)
+    Run {
+        /// Path to policy test case file or directory
+        path: PathBuf,
+        /// Path to launcher IPC socket (auto-detected if not provided)
+        #[arg(long)]
+        socket: Option<PathBuf>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum IntegrationCommand {
+    /// Validate integration test JSON files against the launcher schema
+    Validate {
+        /// Path to integration test case file or directory
+        path: PathBuf,
+        /// Path to JSON schema file for validation
+        #[arg(long)]
+        schema: Option<PathBuf>,
+    },
+    /// List integration test cases
+    List {
+        /// Path to integration test case file or directory
+        path: PathBuf,
+        /// Optional filter string
+        #[arg(long)]
+        filter: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, clap::ValueEnum)]

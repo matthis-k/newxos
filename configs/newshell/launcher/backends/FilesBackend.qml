@@ -103,15 +103,15 @@ ProcessBackendBase {
     }
 
     function shouldParticipate(rawQuery, directive, query) {
-        var result = null;
-            return true;
         const raw = String(rawQuery || "").trim();
+
+        if (directive && directive.active && directive.backendIds && directive.backendIds.indexOf(root.backendId) >= 0)
+            return true;
+
         if (raw[0] === "/" || raw[0] === "~" || raw.indexOf("file://") === 0 || /^@files?(\s|$)/.test(raw))
             return true;
-        if (raw.indexOf("~ ") === 0 && raw.length > 2)
-            result = true;
-        else
-            result = false;
+
+        var result = raw.indexOf("~ ") === 0 && raw.length > 2;
         tracer.trace("shouldParticipate", function() { return { rawQuery: rawQuery, result: result }; });
         return result;
     }

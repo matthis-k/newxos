@@ -87,12 +87,159 @@ pub fn validate_cases(path: &Path, schema_path: Option<&Path>) -> Result<Vec<Str
                 ));
             }
         }
+        // Semantic validation
+        if let Some(ref expect) = case.expect {
+            validate_expectation_semantics(expect, &case.name, &mut errors);
+        }
+        if let Some(ref steps) = case.steps {
+            for (si, step) in steps.iter().enumerate() {
+                if let Some(ref expect) = step.expect {
+                    validate_expectation_semantics(expect, &format!("{} step {}", case.name, si), &mut errors);
+                }
+            }
+        }
     }
 
     if errors.is_empty() {
         println!("✓ All {} cases valid", cases.len());
     }
     Ok(errors)
+}
+
+fn validate_expectation_semantics(expect: &Expectation, case_label: &str, errors: &mut Vec<String>) {
+    if let Some(ref rows) = expect.rows {
+        let contains = rows.contains_title.clone().unwrap_or_default();
+        let not_contains = rows.not_contains_title.clone().unwrap_or_default();
+
+        // Check title contradictions
+        for title in &contains {
+            if not_contains.contains(title) {
+                errors.push(format!(
+                    "Case '{}': rows.containsTitle and rows.notContainsTitle both include '{}'",
+                    case_label, title
+                ));
+            }
+        }
+
+        // Check row matcher contradictions
+        if let (Some(ref contains_rows), Some(ref not_contains_rows)) = (&rows.contains, &rows.not_contains) {
+            for c in contains_rows {
+                for nc in not_contains_rows {
+                    if matchers_are_contradictory(c, nc) {
+                        errors.push(format!(
+                            "Case '{}': rows.contains and rows.notContains have logically identical matcher matching title '{}'",
+                            case_label,
+                            c.title.as_deref().unwrap_or("<any>")
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Check selected title is not in absent
+        if let Some(ref selected) = expect.selected {
+            if let Some(ref absent_list) = expect.absent {
+                if let Some(ref sel_title) = selected.title {
+                    for a in absent_list {
+                        if a.title.as_deref() == Some(sel_title.as_str()) {
+                            errors.push(format!(
+                                "Case '{}': selected title '{}' also appears in absent",
+                                case_label, sel_title
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn matchers_are_contradictory(a: &RowMatcher, b: &RowMatcher) -> bool {
+    match (&a.title, &b.title) {
+        (Some(ta), Some(tb)) if ta == tb => {
+            // Same title means they contradict
+            true
+        }
+        _ => false,
+    }
+}
+
+fn policy_cases_dir(path: &Path) -> std::path::PathBuf {
+    let cases_dir = path.join("cases");
+    if cases_dir.exists() { cases_dir } else { path.to_path_buf() }
+}
+
+pub fn validate_policy_cases(path: &Path, schema_path: Option<&Path>) -> Result<Vec<String>> {
+    let mut errors = Vec::new();
+
+    if let Some(sp) = schema_path {
+        let schema_content = std::fs::read_to_string(sp)
+            .context("Failed to read policy schema file")?;
+        let schema_val: serde_json::Value = serde_json::from_str(&schema_content)
+            .context("Failed to parse policy schema JSON")?;
+        let compiled = jsonschema::JSONSchema::options()
+            .with_draft(jsonschema::Draft::Draft7)
+            .compile(&schema_val)
+            .map_err(|e| anyhow::anyhow!("Failed to compile policy JSON schema: {}", e))?;
+
+        let entries = collect_json_files(&policy_cases_dir(path))?;
+        for entry_path in &entries {
+            let content = std::fs::read_to_string(entry_path)?;
+            let instance: serde_json::Value = serde_json::from_str(&content)
+                .context(format!("Failed to parse {}", entry_path.display()))?;
+            let result = compiled.validate(&instance);
+            if let Err(err_iter) = result {
+                for e in err_iter {
+                    errors.push(format!("{}: {:?}", entry_path.display(), e));
+                }
+            }
+        }
+    }
+
+    let policy_cases = load_policy_cases(path)?;
+    for (i, case) in policy_cases.iter().enumerate() {
+        if case.name.is_empty() {
+            errors.push(format!("Policy case #{}: missing name", i));
+        }
+    }
+
+    if errors.is_empty() {
+        println!("✓ All {} policy cases valid", policy_cases.len());
+    }
+    Ok(errors)
+}
+
+pub fn list_policy_cases(path: &Path, filter: Option<&str>) -> Result<Vec<PolicyTestCase>> {
+    let cases = load_policy_cases(path)?;
+    let filtered: Vec<PolicyTestCase> = cases.into_iter()
+        .filter(|c| {
+            if let Some(f) = filter {
+                let f_lower = f.to_lowercase();
+                c.name.to_lowercase().contains(&f_lower)
+            } else {
+                true
+            }
+        })
+        .collect();
+
+    println!("Available policy cases ({}):", filtered.len());
+    for case in &filtered {
+        println!("  {} (kind: {})", case.name, case.kind);
+    }
+    Ok(filtered)
+}
+
+pub fn load_policy_cases(path: &Path) -> Result<Vec<PolicyTestCase>> {
+    let entries = collect_json_files(&policy_cases_dir(path))?;
+    let mut cases = Vec::new();
+    for entry_path in &entries {
+        let content = std::fs::read_to_string(entry_path)
+            .context(format!("Failed to read {}", entry_path.display()))?;
+        let suite: PolicyTestSuite = serde_json::from_str(&content)
+            .context(format!("Failed to parse {}", entry_path.display()))?;
+        cases.extend(suite.cases);
+    }
+    Ok(cases)
 }
 
 pub fn list_cases(path: &Path, filter: Option<&str>) -> Result<Vec<TestCase>> {

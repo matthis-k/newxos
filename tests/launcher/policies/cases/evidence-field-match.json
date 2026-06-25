@@ -1,0 +1,17 @@
+{
+  "cases": [
+    {
+      "name": "field match finds label match",
+      "kind": "evidence",
+      "policySpec": { "name": "field-match", "kind": "evidence", "args": { "fields": ["label"] } },
+      "node": {
+        "id": "app:firefox",
+        "label": "Firefox"
+      },
+      "query": { "raw": "firefox", "tokens": ["firefox"] },
+      "expect": {
+        "decision": { "matched": true }
+      }
+    }
+  ]
+}

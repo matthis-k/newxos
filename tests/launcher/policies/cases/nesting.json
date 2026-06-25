@@ -1,0 +1,17 @@
+{
+  "cases": [
+    {
+      "name": "nesting policy allows child expansion when parent matched",
+      "kind": "nesting",
+      "policySpec": { "name": "nesting", "kind": "nesting" },
+      "node": {
+        "id": "group:audio",
+        "label": "Audio"
+      },
+      "query": { "raw": "audio", "tokens": ["audio"] },
+      "expect": {
+        "decision": { "allow": true }
+      }
+    }
+  ]
+}
