@@ -97,4 +97,12 @@ Singleton {
         });
     }
 
+    function registerChildBypass(id, applyFn) {
+        JsRegistry.childBypass.register(id, {
+            name: id,
+            phase: "childBypass",
+            apply: applyFn
+        });
+    }
+
 }
