@@ -179,6 +179,18 @@ Source files in `configs/newshell/launcher/` own exact behavior. See the launche
 - IPC tests call `$namespace.launcher` and `$namespace.query` targets, never global `launcher`/`query`.
 - Weston+newshell are killed on exit; logs printed on failure.
 
+### Pre-commit hook coverage
+
+Changes under `configs/newshell/` trigger the `check-newshell-config` pre-commit hook, which invokes `repo-gate --hook newshell`. This expands to:
+
+- `newshell-static` — QML lint via `qmllint` (parse/type errors, import failures warned)
+- `newshell-runtime` — boot Newshell in a headless Weston compositor and wait for `"Configuration Loaded"`; fails on `"Failed to load configuration"`, `"Singleton is not a type"`, or missing load confirmation
+- `newshell-cases` — validate canonical launcher case schemas
+
+A Newshell launch failure therefore **aborts the commit**. IPC/canonical runtime test warnings do not block the commit — only the boot/load pass gates it.
+
+To run IPC runtime tests on commit, set `NEWXOS_RUN_NEWSHELL_RUNTIME_TESTS=1` before the commit hook runs.
+
 ## IpcTargets singleton
 
 `configs/newshell/utils/IpcTargets.qml` provides namespaced IPC target names. It reads `NEWSHELL_IPC_NAMESPACE` env var; test instances set a unique namespace. IPC targets are namespaced through `IpcTargets.qml`; source owns endpoint shapes.

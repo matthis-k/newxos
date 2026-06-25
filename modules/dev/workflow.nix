@@ -90,6 +90,13 @@
           errors=$((errors + 1))
         fi
 
+        # 10.10 check-newshell-config hook must boot newshell (not just static lint)
+        if ${rgBin} -n 'entry = "\$\{lib\.getExe repoGate\} --hook newshell-static";' \
+          modules/dev/workflow.nix 2>/dev/null; then
+          echo "error: check-newshell-config hook must run newshell runtime, not only newshell-static" >&2
+          errors=$((errors + 1))
+        fi
+
         # 10.9 No colon-encoded policy spec strings
         if ${rgBin} -n '"policy:\s*[a-z]+-[a-z]+:\d+|\\"[a-z]+-[a-z]+:\\d+|\\"[a-z]+:\\d+' \
           configs/newshell/launcher \
@@ -703,11 +710,6 @@
               esac
             done
 
-            # --hook pre-commit emulates the old behavior: temp index + all checks
-            if [ "$MODE" = "hook" ] && [ "''${ARGS[0]}" = "pre-commit" ]; then
-              ARGS=("all")
-            fi
-
             if [ "''${#ARGS[@]}" -eq 0 ]; then
               ARGS=("all")
             fi
@@ -749,7 +751,7 @@
             CHECKS=("''${unique[@]}")
 
             # Staged mode: create temp index with all files
-            if [ "$MODE" = "staged" ] || { [ "$MODE" = "hook" ] && [ "''${ARGS[0]}" = "pre-commit" ]; }; then
+            if [ "$MODE" = "staged" ]; then
               real_index="$(git rev-parse --git-path index 2>/dev/null || echo "")"
               temp_index="$(mktemp)"
               trap 'rm -f "$temp_index"' EXIT
@@ -948,8 +950,8 @@
       pre-commit.settings.hooks.check-newshell-config = {
         enable = true;
         name = "check newshell config";
-        description = "Verify newshell shell.qml passes qmllint; strict lint for other QML files (import failures are skipped as CI false positives).";
-        entry = "${lib.getExe repoGate} --hook newshell-static";
+        description = "Verify Newshell statically and boot it in a headless compositor.";
+        entry = "${lib.getExe repoGate} --hook newshell";
         files = "^configs/newshell/";
         pass_filenames = false;
       };

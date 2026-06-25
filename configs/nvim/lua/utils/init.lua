@@ -18,32 +18,11 @@ function M.lua_files(dir)
     return result
 end
 
-function M.dirs(dir)
-    local scanner = vim.uv.fs_scandir(dir)
-    local result = {}
-    if scanner then
-        while true do
-            local name, t = vim.uv.fs_scandir_next(scanner)
-            if not name then
-                break
-            end
-            if t == "directory" then
-                table.insert(result, { basename = name, path = dir .. "/" .. name })
-            end
-        end
-    end
-    return result
-end
-
 M.highlights = setmetatable({}, {
     __index = function(_, key)
         return setmetatable(vim.api.nvim_get_hl(0, { name = key, link = false }), nil)
     end,
 })
-
-function M.utf8len(str)
-    return #vim.str_utf_pos(str)
-end
 
 function M.utf8sub(str, start, stop)
     if stop < start then
@@ -55,26 +34,6 @@ function M.utf8sub(str, start, stop)
         return str
     end
     return str:sub(utf8_char_indices[start], utf8_char_indices[stop + 1] - 1)
-end
-
-function M.validate(subject, schema, opts)
-    local strict = opts == nil or opts.strict ~= false
-    if strict then
-        for key, _ in pairs(subject) do
-            if not schema[key] then
-                return false
-            end
-        end
-    end
-    local valid, _ = pcall(
-        vim.validate,
-        vim.iter(schema)
-            :map(function(key, val)
-                return { subject[key], val }
-            end)
-            :totable()
-    )
-    return valid
 end
 
 local ffi = require("ffi")

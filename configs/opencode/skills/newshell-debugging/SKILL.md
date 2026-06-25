@@ -9,6 +9,16 @@ description: Debug Newshell/Quickshell failures. Not a validity checker.
 
 One source of truth for launcher behavior: `tests/launcher/cases/`. This skill is procedural only — contains zero behavior cases.
 
+## Commit gating
+
+Changes under `configs/newshell/` trigger the `check-newshell-config` pre-commit hook, which runs `repo-gate --hook newshell`. This includes:
+
+- **newshell-static** — QML lint via `qmllint` (parse/type errors only; import failures are warned but tolerated as CI false positives)
+- **newshell-runtime** — boots Newshell in a headless Weston compositor and waits for `"Configuration Loaded"`
+- **newshell-cases** — validates canonical launcher case schemas
+
+**Static lint does not prove Newshell launches.** The runtime boot is the launch gate. If a launch failure gets through, inspect the hook entry in `modules/dev/workflow.nix` — the `check-newshell-config` hook must point to `--hook newshell` (or `--hook newshell-runtime`), not `--hook newshell-static`.
+
 ## Debug flow
 
 ### 1. Run the gate
